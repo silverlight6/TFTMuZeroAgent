@@ -1,0 +1,105 @@
+blue    ashe            has a new target: red     elise     [4, 4]                                                      0
+red     elise           has a new target: blue    ashe      [2, 4]                                                      0
+blue    ashe            attacks red      elise        1080 --> 1019       shield 0    --> 0                             1
+red     elise           mana 0 --> 3.7                                                                                  1
+blue    ashe            mana 0 --> 10                                                                                   1
+red     elise           attacks blue     ashe         600  --> 533        shield 0    --> 0                             1
+blue    ashe            mana 10 --> 14.1                                                                                1
+red     elise           mana 3.7 --> 13.7                                                                               1
+blue    ashe            cleared idle                                                                                    1335
+blue    ashe            attacks red      elise        1019 --> 957        shield 0    --> 0                             1336
+red     elise           mana 13.7 --> 17.4                                                                              1336
+blue    ashe            mana 14.1 --> 24.1                                                                              1336
+red     elise           cleared idle                                                                                    1540
+red     elise           attacks blue     ashe         533  --> 465        shield 0    --> 0                             1541
+blue    ashe            mana 24.1 --> 28.1                                                                              1541
+red     elise           mana 17.4 --> 27.4                                                                              1541
+blue    ashe            cleared idle                                                                                    2670
+blue    ashe            attacks red      elise        957  --> 896        shield 0    --> 0                             2671
+red     elise           mana 27.4 --> 31.1                                                                              2671
+blue    ashe            mana 28.1 --> 38.1                                                                              2671
+red     elise           cleared idle                                                                                    3080
+red     elise           attacks blue     ashe         465  --> 398        shield 0    --> 0                             3081
+blue    ashe            mana 38.1 --> 42.1                                                                              3081
+red     elise           mana 31.1 --> 41.1                                                                              3081
+blue    ashe            cleared idle                                                                                    4005
+blue    ashe            ability triggered                                                                               4006
+blue    ashe            AS 0.75 --> 1.087                                                                               4006
+blue    ashe            ability_active False --> True                                                                   4006
+blue    ashe            attacks red      elise        896  --> 868        shield 0    --> 0       ability               4007
+red     elise           mana 41.1 --> 42.7                                                                              4007
+blue    ashe            attacks red      elise        868  --> 840        shield 0    --> 0       ability               4007
+red     elise           mana 42.7 --> 44.4                                                                              4007
+blue    ashe            attacks red      elise        840  --> 813        shield 0    --> 0       ability               4007
+red     elise           mana 44.4 --> 46.1                                                                              4007
+blue    ashe            attacks red      elise        813  --> 785        shield 0    --> 0       ability               4007
+red     elise           mana 46.1 --> 47.7                                                                              4007
+blue    ashe            attacks red      elise        785  --> 757        shield 0    --> 0       ability               4007
+red     elise           mana 47.7 --> 49.4                                                                              4007
+red     elise           cleared idle                                                                                    4620
+red     elise           attacks blue     ashe         398  --> 297        shield 0    --> 0      crit                   4621
+red     elise           mana 49.4 --> 59.4                                                                              4621
+blue    ashe            cleared idle                                                                                    4927
+blue    ashe            attacks red      elise        757  --> 730        shield 0    --> 0       ability               4928
+red     elise           mana 59.4 --> 61.0                                                                              4928
+blue    ashe            attacks red      elise        730  --> 702        shield 0    --> 0       ability               4928
+red     elise           mana 61.0 --> 62.7                                                                              4928
+blue    ashe            attacks red      elise        702  --> 660        shield 0    --> 0      crit  ability          4928
+red     elise           mana 62.7 --> 65.2                                                                              4928
+blue    ashe            attacks red      elise        660  --> 633        shield 0    --> 0       ability               4928
+red     elise           mana 65.2 --> 66.9                                                                              4928
+blue    ashe            attacks red      elise        633  --> 591        shield 0    --> 0      crit  ability          4928
+red     elise           mana 66.9 --> 69.4                                                                              4928
+blue    ashe            cleared idle                                                                                    5848
+blue    ashe            attacks red      elise        591  --> 564        shield 0    --> 0       ability               5849
+red     elise           mana 69.4 --> 71.0                                                                              5849
+blue    ashe            attacks red      elise        564  --> 522        shield 0    --> 0      crit  ability          5849
+red     elise           mana 71.0 --> 73.5                                                                              5849
+blue    ashe            attacks red      elise        522  --> 494        shield 0    --> 0       ability               5849
+red     elise           mana 73.5 --> 75.2                                                                              5849
+blue    ashe            attacks red      elise        494  --> 467        shield 0    --> 0       ability               5849
+red     elise           mana 75.2 --> 76.8                                                                              5849
+blue    ashe            attacks red      elise        467  --> 425        shield 0    --> 0      crit  ability          5849
+red     elise           mana 76.8 --> 79.3                                                                              5849
+red     elise           ability triggered                                                                               5849
+red     elise           ability_active False --> True                                                                   5849
+red     elise           health 424.615 --> 856.615                                                                      5849
+red     elise           heal_per_attack 0 --> 80                                                                        5849
+red     elise           max_health 1080.0 --> 1512.0                                                                    5849
+red     elise           cleared idle                                                                                    6160
+red     elise           attacks blue     ashe         297  --> 195        shield 0    --> 0      crit                   6161
+red     elise           heals 857  --> 937                                                                              6161
+blue    ashe            cleared idle                                                                                    6769
+blue    ashe            attacks red      elise        937  --> 909        shield 0    --> 0       ability               6770
+blue    ashe            attacks red      elise        909  --> 882        shield 0    --> 0       ability               6770
+blue    ashe            attacks red      elise        882  --> 840        shield 0    --> 0      crit  ability          6770
+blue    ashe            attacks red      elise        840  --> 812        shield 0    --> 0       ability               6770
+blue    ashe            attacks red      elise        812  --> 785        shield 0    --> 0       ability               6770
+blue    ashe            cleared idle                                                                                    7690
+blue    ashe            attacks red      elise        785  --> 757        shield 0    --> 0       ability               7691
+blue    ashe            attacks red      elise        757  --> 729        shield 0    --> 0       ability               7691
+blue    ashe            attacks red      elise        729  --> 702        shield 0    --> 0       ability               7691
+blue    ashe            attacks red      elise        702  --> 674        shield 0    --> 0       ability               7691
+blue    ashe            attacks red      elise        674  --> 646        shield 0    --> 0       ability               7691
+red     elise           cleared idle                                                                                    7700
+red     elise           attacks blue     ashe         195  --> 128        shield 0    --> 0                             7701
+red     elise           heals 646  --> 726                                                                              7701
+blue    ashe            cleared idle                                                                                    8611
+blue    ashe            attacks red      elise        726  --> 699        shield 0    --> 0       ability               8612
+blue    ashe            attacks red      elise        699  --> 657        shield 0    --> 0      crit  ability          8612
+blue    ashe            attacks red      elise        657  --> 629        shield 0    --> 0       ability               8612
+blue    ashe            attacks red      elise        629  --> 602        shield 0    --> 0       ability               8612
+blue    ashe            attacks red      elise        602  --> 574        shield 0    --> 0       ability               8612
+blue    ashe            AS 1.087 --> 0.75                                                                               9007
+blue    ashe            ability_active True --> False                                                                   9007
+red     elise           cleared idle                                                                                    9240
+red     elise           attacks blue     ashe         128  --> 60         shield 0    --> 0                             9241
+red     elise           heals 574  --> 654                                                                              9241
+blue    ashe            cleared idle                                                                                    9532
+blue    ashe            attacks red      elise        654  --> 592        shield 0    --> 0                             9533
+red     elise           cleared idle                                                                                    10780
+red     elise           attacks blue     ashe         60   --> -7         shield 0    --> 0                             10781
+blue    ashe            mana 0 --> 4.0                                                                                  10781
+blue    ashe            dies                                                                                            10781
+red     elise           heals 592  --> 672                                                                              10781
+RED TEAM WON
