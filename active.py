@@ -3,9 +3,9 @@ import random
 import field
 import origin_class_stats
 
-#changing the stat manually since we have shenanigans in place for AD change in the section that makes stat changes
+# changing the stat manually since we have shenanigans in place for AD change in the section that makes stat changes
 def jhin_init(champion):
-    #champion.add_que('change_stat', -30, None, 'AS', stats.ATTACKS_PER_SECOND_FIXED[champion.name][champion.stars])
+    # champion.add_que('change_stat', -30, None, 'AS', stats.ATTACKS_PER_SECOND_FIXED[champion.name][champion.stars])
     champion.AS = stats.ATTACKS_PER_SECOND_FIXED[champion.name][champion.stars]
     champion.print(' {} {} --> {}'.format('AS', None, champion.AS))
 
@@ -46,7 +46,7 @@ def kalista(champion, target):
     if(target):
         found = False
         index = -1
-        #target = champion.target
+        # target = champion.target
         if(len(kalista_targets) > 0):
             for i, v in enumerate(kalista_targets):
                 if(v[0] == champion, v[1] == target):
@@ -81,8 +81,8 @@ def kalista(champion, target):
         return {'damage': 0, 'true_damage': False, 'crit_random': None, 'dodge_random': None}
 
 
-#get the change through before the first attacks come in.
-#the que system only wanted to execute this after the first attacks
+# get the change through before the first attacks come in.
+# the que system only wanted to execute this after the first attacks
 def tahmkench_init(champion):
     champion.damage_reduction = stats.ACTIVE_DAMAGE_REDUCTION[champion.name][champion.stars] * champion.SP
     champion.print(' {} {} --> {}'.format('damage_reduction', 0, champion.damage_reduction))
@@ -93,7 +93,7 @@ vayne_targets = []
 def vayne(champion, target):
     found = False
     index = -1
-    #target = champion.target
+    # target = champion.target
     if(len(vayne_targets) > 0):
         for i, v in enumerate(vayne_targets):
             if(v[0] == champion and v[1] == target):
@@ -144,7 +144,7 @@ def warwick(champion, target):
         shield = target.shield_amount()
         if(damage > shield + target.health):
 
-            #AS gain for allies who share traits with ww
+            # AS gain for allies who share traits with ww
             ww_traits = origin_class_stats.origin_class['warwick']
             for o in champion.own_team():
                 if(o != champion):

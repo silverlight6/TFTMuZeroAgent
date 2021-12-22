@@ -16,29 +16,29 @@ total_health_teams = {'blue': 0, 'red': 0}
 galio_spawn_time = {'blue': 0, 'red': 0}
 
 amounts = {
-    'cultist': {'blue': 0, 'red': 0},           #in champion.py: champion object, champion.champion_functions.py: add_damage_dealt(), attack(), ability.py: default_ability_calls, galio()
-    'divine': {'blue': 0, 'red': 0},            #in champion.py: spell(), champion_functions.py: attack()
-    'dusk': {'blue': 0, 'red': 0},              #in origin_class.py: total_origin_class()
-    'elderwood': {'blue': 0, 'red': 0},         #in champion.py: main()
-    'enlightened': {'blue': 0, 'red': 0},       #in origin_class.py: total_origin_class()
-    'exile': {'blue': 0, 'red': 0},             #in origin_class.py: total_origin_class()
-    'ninja': {'blue': 0, 'red': 0},             #in origin_class.py: total_origin_class()
-    'spirit': {'blue': 0, 'red': 0},            #in ability.py: default_ability_calls()
-    'the_boss': {'blue': 0, 'red': 0},          #in champion.py: spell(), champion_functions.py: attack()
-    'warlord': {'blue': 0, 'red': 0},           #in origin_class.py: total_origin_class()
-    'adept': {'blue': 0, 'red': 0},             #in origin_class.py: total_origin_class()
-    'assassin': {'blue': 0, 'red': 0},          #in origin_class.py: total_origin_class(), field.py: leap_to_back_line(), champion.py: spell()
-    'brawler': {'blue': 0, 'red': 0},           #in origin_class.py: total_origin_class()
-    'dazzler': {'blue': 0, 'red': 0},           #in champion.py: clear_que_dazzler(), spell()
-    'duelist': {'blue': 0, 'red': 0},           #in origin_class.py: total_origin_class(), champion.py: attack()
-    'emperor': {'blue': 0, 'red': 0},           #in origin_class.py: total_origin_class()
-    'hunter': {'blue': 0, 'red': 0},            #in champion.py: main()
-    'keeper': {'blue': 0, 'red': 0},            #in origin_class.py: total_origin_class()
-    'mage': {'blue': 0, 'red': 0},              #in origin_class.py: total_origin_class(), champion.py: ability()
-    'mystic': {'blue': 0, 'red': 0},            #in origin_class.py: total_origin_class()
-    'shade': {'blue': 0, 'red': 0},             #in origin_class.py: total_origin_class(), champion_functions.py: attack()
-    'sharpshooter': {'blue': 0, 'red': 0},      #in champion_functions.py: attack(), champion.py: spell()
-    'vanguard': {'blue': 0, 'red': 0},          #in origin_class.py: total_origin_class()
+    'cultist': {'blue': 0, 'red': 0},           # 0  in champion.py: champion object, champion.champion_functions.py: add_damage_dealt(), attack(), ability.py: default_ability_calls, galio()
+    'divine': {'blue': 0, 'red': 0},            # 1  in champion.py: spell(), champion_functions.py: attack()
+    'dusk': {'blue': 0, 'red': 0},              # 2  in origin_class.py: total_origin_class()
+    'elderwood': {'blue': 0, 'red': 0},         # 3  in champion.py: main()
+    'enlightened': {'blue': 0, 'red': 0},       # 4  in origin_class.py: total_origin_class()
+    'exile': {'blue': 0, 'red': 0},             # 5  in origin_class.py: total_origin_class()
+    'ninja': {'blue': 0, 'red': 0},             # 6  in origin_class.py: total_origin_class()
+    'spirit': {'blue': 0, 'red': 0},            # 7  in ability.py: default_ability_calls()
+    'the_boss': {'blue': 0, 'red': 0},          # 8  in champion.py: spell(), champion_functions.py: attack()
+    'warlord': {'blue': 0, 'red': 0},           # 9  in origin_class.py: total_origin_class()
+    'adept': {'blue': 0, 'red': 0},             # 10 in origin_class.py: total_origin_class()
+    'assassin': {'blue': 0, 'red': 0},          # 11 in origin_class.py: total_origin_class(), field.py: leap_to_back_line(), champion.py: spell()
+    'brawler': {'blue': 0, 'red': 0},           # 12 in origin_class.py: total_origin_class()
+    'dazzler': {'blue': 0, 'red': 0},           # 13 in champion.py: clear_que_dazzler(), spell()
+    'duelist': {'blue': 0, 'red': 0},           # 14 in origin_class.py: total_origin_class(), champion.py: attack()
+    'emperor': {'blue': 0, 'red': 0},           # 15 in origin_class.py: total_origin_class()
+    'hunter': {'blue': 0, 'red': 0},            # 16 in champion.py: main()
+    'keeper': {'blue': 0, 'red': 0},            # 17 in origin_class.py: total_origin_class()
+    'mage': {'blue': 0, 'red': 0},              # 18 in origin_class.py: total_origin_class(), champion.py: ability()
+    'mystic': {'blue': 0, 'red': 0},            # 19 in origin_class.py: total_origin_class()
+    'shade': {'blue': 0, 'red': 0},             # 20 in origin_class.py: total_origin_class(), champion_functions.py: attack()
+    'sharpshooter': {'blue': 0, 'red': 0},      # 21 in champion_functions.py: attack(), champion.py: spell()
+    'vanguard': {'blue': 0, 'red': 0},          # 22 in origin_class.py: total_origin_class()
 }
 
 def chosen(champion, value):
@@ -62,6 +62,7 @@ def get_origin_class_tier(team, trait):
 
 
     if(trait != 'ninja'):
+        # Not useless because oftentimes, the first is 0 and the second is the tier number.
         if(amount < amount_limits[0]): return 0
         if(amount >= amount_limits[-1]): return len(amount_limits)
 
@@ -268,7 +269,7 @@ def exile(blue_team, red_team):
             for c in teams[t]:
                 if(is_trait(c, 'exile')):
 
-                    #the surrounding hexes must be empty or hold an enemy unit
+                    # the surrounding hexes must be empty or hold an enemy unit
                     applicable = True
                     neighbor_hexes = field.hexes_distance_away(c.y, c.x, 1)
                     for n in neighbor_hexes:
@@ -301,7 +302,7 @@ def ninja(blue_team, red_team):
                     items.change_stat(c, 'SP', c.SP + origin_class_stats.SP['ninja'][tier], 'ninja')
 
 
-spirit_list = [] #champion, champion, champion (the ones who have casted)
+spirit_list = [] # champion, champion, champion (the ones who have casted)
 def spirit(champion):
     tier = get_origin_class_tier(champion.team, 'spirit')
     if(tier > 0 and champion not in spirit_list):
@@ -319,14 +320,14 @@ def the_boss(champion):
     own_team = champion.own_team()
     coords = field.coordinates
     if(len(own_team) > 1):
-        #set champion.champion = False
-        #free the hex he's at
-        #call helper function every x.y seconds
-        #at the start of the helper function check if the rest of the team has died
-        #   if has, return to the combat
-        #   if not, do the situp
-        #   if health == 100%
-        #       return and set pumped up = True
+        # set champion.champion = False
+        # free the hex he's at
+        # call helper function every x.y seconds
+        # at the start of the helper function check if the rest of the team has died
+        #    if has, return to the combat
+        #    if not, do the situp
+        #    if health == 100%
+        #        return and set pumped up = True
         items.change_stat(champion, 'champion', False)
         items.change_stat(champion, 'stunned', True)
         for c in champion.enemy_team():
@@ -336,20 +337,20 @@ def the_boss(champion):
         champion.add_que('execute_function', 0, [the_boss_helper, {}])
 
 
-#do sit-ups and return when needed
+# do sit-ups and return when needed
 def the_boss_helper(champion, data):
     coords = field.coordinates
 
     if(len(champion.own_team()) > 1):
         champion.print(' sit-up')
 
-        #healing
+        # healing
         heal_amount = champion.max_health * origin_class_stats.heal['the_boss']
         if(champion.health + heal_amount > champion.max_health):
             heal_amount = champion.max_health - champion.health
         items.change_stat(champion, 'health', champion.health + heal_amount)
 
-        #pumped up -status
+        # pumped up -status
         if(champion.health == champion.max_health): items.change_stat(champion, 'pumped_up', True)
 
         items.change_stat(champion, 'AS', champion.AS * origin_class_stats.AS['the_boss'])
@@ -360,7 +361,7 @@ def the_boss_helper(champion, data):
         items.change_stat(champion, 'champion', True)
         items.change_stat(champion, 'stunned', False)
 
-        #find the closest free hex to the correct corner (blue team = (0,6) and red team = (7, 0))
+        # find the closest free hex to the correct corner (blue team = (0,6) and red team = (7, 0))
         corner = {'blue': [0, 6], 'red': [7, 0]}
         hexes = field.hexes_in_distance(corner[champion.team][0], corner[champion.team][1], 3)
         for i, h in enumerate(hexes):
@@ -373,8 +374,8 @@ def the_boss_helper(champion, data):
         target_hex = [hexes[0][0], hexes[0][1]]
 
         champion.move(hexes[0][0], hexes[0][1], True, True)
-        #items.change_stat(champion, 'y', hexes[0][0])
-        #items.change_stat(champion, 'x', hexes[0][1])
+        # items.change_stat(champion, 'y', hexes[0][0])
+        # items.change_stat(champion, 'x', hexes[0][1])
 
     else:
         champion.add_que('execute_function', origin_class_stats.length['the_boss'], [the_boss_helper, {}])
@@ -430,7 +431,7 @@ def assassin(blue_team, red_team):
 
                 items.change_stat(c, 'champion', False, '  assassin')
                 items.change_stat(c, 'stunned', True, '  assassin')
-                field.coordinates[c.y][c.x] = None #allows the units to "swap" places instead of treating the hex as taken
+                field.coordinates[c.y][c.x] = None # allows the units to "swap" places instead of treating the hex as taken
 
                 c.add_que('execute_function', config.LEAP_DELAY, [field.leap_to_back_line, {'trait': '  assassin'}])
 
@@ -454,15 +455,15 @@ def dazzler(champion, target):
     tier = get_origin_class_tier(champion.team, 'dazzler')
 
     if(tier > 0):
-        #self.AD_reduction_cc = False #ludens counts dazzler ad reduction as crowd control so adding a flag for dat
+        # self.AD_reduction_cc = False #ludens counts dazzler ad reduction as crowd control so adding a flag for dat
         length = origin_class_stats.length['dazzler']
         AD_reduction = origin_class_stats.AD['dazzler'][tier]
 
-        #if not targeted, target
+        # if not targeted, target
         if(not target.AD_reduction_cc):
             items.change_stat(target, 'AD', target.AD * AD_reduction, 'dazzler')
             items.change_stat(target, 'AD_reduction_cc', True, '  dazzler')
-        #otherwise just clear the 8 second timer
+        # otherwise just clear the 8 second timer
         else:
             target.clear_que_dazzler()
         
@@ -470,7 +471,7 @@ def dazzler(champion, target):
         target.add_que('change_stat', length, None, 'AD_reduction_cc', False, {'dazzler': True})
 
 
-#change the movement speed of the units
+# change the movement speed of the units
 def duelist(blue_team, red_team):
     teams = {'blue': blue_team, 'red': red_team}
 
@@ -483,8 +484,8 @@ def duelist(blue_team, red_team):
                     items.change_stat(c, 'movement_delay', c.movement_delay * origin_class_stats.movement_delay['duelist'], 'duelist')
 
 
-#AS changes
-duelist_helper_list = [] #[champion, stacks]
+# AS changes
+duelist_helper_list = [] # [champion, stacks]
 def duelist_helper(champion):
 
     tier = get_origin_class_tier(champion.team, 'duelist')
@@ -598,7 +599,7 @@ def shade(blue_team, red_team):
                 
                 items.change_stat(c, 'champion', False, '  shade')
                 items.change_stat(c, 'stunned', True, '  shade')
-                field.coordinates[c.y][c.x] = None #allows the units to "swap" places instead of treating the hex as taken
+                field.coordinates[c.y][c.x] = None # allows the units to "swap" places instead of treating the hex as taken
 
                 c.add_que('execute_function', config.LEAP_DELAY, [field.leap_to_back_line, {'trait': '  shade'}])
 
@@ -627,7 +628,6 @@ def shade_helper(champion):
                 champion.spell(champion.target, origin_class_stats.damage['shade'][tier] / champion.SP)
 
 
-
 def sharpshooter(champion, target, damage, true_damage, spell):
     tier = get_origin_class_tier(champion.team, 'sharpshooter')
     if(tier > 0 and is_trait(champion, 'sharpshooter')):
@@ -638,13 +638,13 @@ def sharpshooter(champion, target, damage, true_damage, spell):
         if(not spell):
             damage = champion.AD
         
-        #start ricochet loop
+        # start ricochet loop
         for i in range(0, bounces):
             enemy_team = champion.enemy_team()
             possible_targets = list(filter(lambda x: x != last_target, enemy_team))
             random.shuffle(possible_targets)
 
-            #continue if total more than one enemy left
+            # continue if total more than one enemy left
             if(len(possible_targets) > 0):
                 next_target = possible_targets[0]
                 last_target = next_target
@@ -666,11 +666,3 @@ def vanguard(blue_team, red_team):
             for c in teams[t]:
                 if(is_trait(c, 'vanguard')):
                     items.change_stat(c, 'armor', c.armor + origin_class_stats.armor['vanguard'][tier], 'vanguard')
-
-
-
-
-
-
-
-

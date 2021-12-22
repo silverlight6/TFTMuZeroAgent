@@ -55,11 +55,11 @@ def add_damage_dealt(champion, damage, target):
         damage_dealt.append({'champion': champion, 'damage': damage})
 
 
-
 def reset_stat(champion, stat):
     if(stat in ['movement_delay']):
         return config.MOVEMENTDELAY
     else: return eval(stat)[champion.name]
+
 
 def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = '', set_ad = None):
 
@@ -67,41 +67,36 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
     if(not target and len(attackable_enemies) > 0): 
         field.find_target(champion)
         target = champion.target
-                                                #allow forced attacks (xinzhao spin etc.)
+                                                # allow forced attacks (xinzhao spin etc.)
     if((champion.idle == True or bonus_dmg or item_attack or trait_attack) and target):
         
-        
-        
-        #enforcing the max AS rule. remembered that one too late
-        #the best way for not creating a shit load of bugs
+        # enforcing the max AS rule. remembered that one too late
+        # the best way for not creating a shit load of bugs
         if(champion.AS > 5):
             champion.add_que('change_stat', -1, None, 'AS', 5.00)
 
         dodge_random = random.randint(1,100)/100
         crit_random  = random.randint(1,100)/100
         
-        items.deathblade(champion, target)                             #deathblade (needs to take effect before AD is used)
-        items.gargoyle_stoneplate(target)                              #gargoyle_stoneplate (needs to take effect before armor or MR is used)
+        items.deathblade(champion, target)                             # deathblade (needs to take effect before AD is used)
+        items.gargoyle_stoneplate(target)                              # gargoyle_stoneplate (needs to take effect before armor or MR is used)
 
         if((not item_attack and not trait_attack) or trait_attack == 'hunter'): 
-            items.runaans_hurricane(champion, target) #runaans_hurricane
-            items.guinsoos_rageblade(champion)        #guinsoos_rageblade
-            items.statikk_shiv(champion, target)      #statikk_shiv
+            items.runaans_hurricane(champion, target) # runaans_hurricane
+            items.guinsoos_rageblade(champion)        # guinsoos_rageblade
+            items.statikk_shiv(champion, target)      # statikk_shiv
 
 
-        #testing whether or not the hit is going to be a crit. the crit dmg add is done later.
+        # testing whether or not the hit is going to be a crit. the crit dmg add is done later.
         if(crit_random < champion.crit_chance and not 'bramble_vest' in target.items):
-            items.last_whisper(champion, target)    #last_whisper (needs to change the armor value before calculations)
-
-
-        
+            items.last_whisper(champion, target)    # last_whisper (needs to change the armor value before calculations)
 
         enemy_team = 'red' if champion.team == 'blue' else 'blue'
 
-
         true_damage = 0
         damage = 0
-        #passives
+
+        # passives
         if(champion.name in config.ATTACK_PASSIVES):
             if(not item_attack):
                 active_data = getattr(active, champion.name)(champion, target)
@@ -109,15 +104,15 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
                 else: damage += active_data['damage'] * items.giant_slayer(champion, target) #gians_slayer -item
 
 
-                #because warwick needs to simulate whether or not he's going to kill the target, let's keep the same parameters here as well
+                # because warwick needs to simulate whether or not he's going to kill the target, let's keep the same parameters here as well
                 if(active_data['dodge_random']): dodge_random = active_data['dodge_random']
                 if(active_data['crit_random']): crit_random = active_data['crit_random']
                     
-        #calculating damage after armor reductions
-        if(not set_ad): damage += champion.AD * items.giant_slayer(champion, target) #gians_slayer -item
-        else: damage += set_ad * items.giant_slayer(champion, target) #gians_slayer -item
+        # calculating damage after armor reductions
+        if(not set_ad): damage += champion.AD * items.giant_slayer(champion, target) #  -item
+        else: damage += set_ad * items.giant_slayer(champion, target) # gians_slayer -item
         damage += bonus_dmg
-        if(not champion.pumped_up): #the_boss -trait
+        if(not champion.pumped_up): # the_boss -trait
             if(target.armor >= 0): damage = damage * (100/(100+target.armor))
             else: damage = damage * (2- 100/(100 - target.armor))
 
@@ -163,9 +158,6 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
 
                 #bramble_vest -item
                 items.bramble_vest(target)
-                
-
-
 
                 #shield
                 shield_old = target.shield_amount()
@@ -179,8 +171,6 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
                             target.shields = target.shields[1:]
                         else: damage = 0
                 
-
-                    
                 #kalista is programmed to add a new spear --> and pull the spears IF spears_in_target * spear_dmg_after_MR + auto_dmg_after_armor > target.hp + target.shield_amount()
                 #sometimes the spears deal enough dmg to kill the target and since the spear_pull happens just the same time as the auto, 
                 #   but is registed before, the target may already be dead (also happens with zed)
@@ -284,13 +274,6 @@ def die(champion):
                 champion.own_team().remove(u)
                 champion.print(' {:<15}'.format(u.name) + ' dies ')
 
-            
-
-    
-
-
-
-
     #if the champion has zilean orb or guardian angel equipped
     else:
         #set the unit in a state where it's not targetable or attackable but still resides in that hex
@@ -323,9 +306,6 @@ def die(champion):
             revive_hp = item_stats.heal['guardian_angel']
             #clear the second slot but keep zilean still in the first. tho this never happens since zilean is set to activate first.
             champion.add_que('change_stat', revive_delay, None, 'will_revive', [[champion.will_revive[0][0]], [None]])
-
-
-
 
         #reviving
         if(revive_hp > champion.max_health):

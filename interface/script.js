@@ -68,57 +68,57 @@ champions = [
 
 
 items = [
-    'bf_sword'                ,
-    'chain_vest'               ,
-    'giants_belt'            ,
-    'needlessly_large_rod'    ,
-    'negatron_cloak'         ,
-    'recurve_bow'            ,
-    'sparring_gloves'         , 
-    'spatula'                  , 
-    'tear_of_the_goddess'      ,
-    'bloodthirster'            ,
-    'blue_buff'             ,
-    'bramble_vest'           ,
-    'chalice_of_power'      ,
-    'deathblade'             ,
-    'dragons_claw'          ,
-    'duelists_zeal'          ,
-    'elderwood_heirloom'    ,
-    'force_of_nature'       ,
-    'frozen_heart'       ,
-    'gargoyle_stoneplate' ,    
-    'giant_slayer'        ,
-    'guardian_angel'       ,  
-    'guinsoos_rageblade'    ,
-    'hand_of_justice'        ,  
-    'hextech_gunblade'        ,
-    'infinity_edge'            ,
-    'ionic_spark'              ,
-    'jeweled_gauntlet'          ,
-    'last_whisper'          ,
+    'bf_sword',
+    'chain_vest',
+    'giants_belt',
+    'needlessly_large_rod',
+    'negatron_cloak',
+    'recurve_bow',
+    'sparring_gloves', 
+    'spatula', 
+    'tear_of_the_goddess',
+    'bloodthirster',
+    'blue_buff',
+    'bramble_vest',
+    'chalice_of_power',
+    'deathblade',
+    'dragons_claw',
+    'duelists_zeal',
+    'elderwood_heirloom',
+    'force_of_nature',
+    'frozen_heart',
+    'gargoyle_stoneplate',    
+    'giant_slayer',
+    'guardian_angel',  
+    'guinsoos_rageblade',
+    'hand_of_justice',  
+    'hextech_gunblade',
+    'infinity_edge',
+    'ionic_spark',
+    'jeweled_gauntlet',
+    'last_whisper',
     'locket_of_the_iron_solari',
-    'ludens_echo' ,
-    'mages_cap'    ,            
+    'ludens_echo',
+    'mages_cap',            
     'mantle_of_dusk',           
-    'morellonomicon'           ,
-    'quicksilver'               ,
-    'rabadons_deathcap'         ,
-    'rapid_firecannon'          ,
-    'redemption'                ,
-    'runaans_hurricane'         ,
-    'shroud_of_stillness'       ,
-    'spear_of_shojin'           ,
-    'statikk_shiv'              ,
-    'sunfire_cape'              ,
-    'sword_of_the_divine'        ,
-    'thiefs_gloves'             ,
-    'titans_resolve'            ,
-    'trap_claw'                 ,
-    'vanguards_cuirass'         ,
-    'warlords_banner'            ,
-    'warmogs_armor'       ,
-    'youmuus_ghostblade' ,
+    'morellonomicon',
+    'quicksilver',
+    'rabadons_deathcap',
+    'rapid_firecannon',
+    'redemption',
+    'runaans_hurricane',
+    'shroud_of_stillness',
+    'spear_of_shojin',
+    'statikk_shiv',
+    'sunfire_cape',
+    'sword_of_the_divine',
+    'thiefs_gloves',
+    'titans_resolve',
+    'trap_claw',
+    'vanguards_cuirass',
+    'warlords_banner',
+    'warmogs_armor',
+    'youmuus_ghostblade',
     'zekes_herald',
     'zephyr',
     'zzrot_portal'
@@ -147,7 +147,6 @@ let body = document.getElementsByTagName('body')[0]
 
                 hex.style.border = "1px solid black"
 
-
                 //champions
                 select = document.createElement('select')
                 select.classList.add('champion')
@@ -166,10 +165,6 @@ let body = document.getElementsByTagName('body')[0]
                 }
                 hex.append(select)
 
-
-
-
-
                 //stars
                 select = document.createElement('select')
                 select.classList.add('stars')
@@ -183,8 +178,6 @@ let body = document.getElementsByTagName('body')[0]
                 }
                 hex.append(select)
                 
-
-
                 //item0
                 select = document.createElement('select')
                 select.classList.add("item0")
@@ -242,7 +235,6 @@ let body = document.getElementsByTagName('body')[0]
                 }
                 hex.append(select)
                 
-
                 daddy = document.createElement('input')
                 daddy.placeholder = 'azir'
                 daddy.classList.add('daddy_coordinates')
@@ -255,14 +247,7 @@ let body = document.getElementsByTagName('body')[0]
                 chosen.style.width = "43px"
                 hex.append(chosen)
 
-
                 line.append(hex)
-
-                
-
-
-
-
 
                 if(i % 2 == 1 && j == 0){
                     hex.style.marginLeft = "50px"
@@ -270,11 +255,8 @@ let body = document.getElementsByTagName('body')[0]
             }
                 line.style.float ="left"
 
-
-
             body.append(line)
         }
-        
         
         body.style.width = "820px"
 
@@ -315,8 +297,6 @@ let body = document.getElementsByTagName('body')[0]
         red.style.backgroundColor = 'rgb(255, 107, 129)'
         body.append(red)
 
-        
-
         button.addEventListener('click', () => {
             json = {}
             json['blue'] = []
@@ -353,12 +333,3 @@ let body = document.getElementsByTagName('body')[0]
             }
             box.value = JSON.stringify(json)
         })
-
-
-
-
-
-
-
-
-

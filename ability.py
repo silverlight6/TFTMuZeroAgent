@@ -9,18 +9,18 @@ import origin_class_stats
 import items
 from math import ceil, floor
 
-#ALL ULT FUNCTIONS BASE HERE. NAMED:
-#THE FIRST IS JUST 'champion.name'
-#IF A SECOND FUNCTION IS NEEDED IT'S ALWAYS 'champion.name_ability'
+# ALL ULT FUNCTIONS BASE HERE. NAMED:
+# THE FIRST IS JUST 'champion.name'
+# IF A SECOND FUNCTION IS NEEDED IT'S ALWAYS 'champion.name_ability'
 
-#There's some repetition in the ults. Lots of logic stuff written again in the next one.
-#The reason is that if something small gets changed in the ult's logic, it's easy to make the changes.
-#Or maybe I was lazy and didn't exactly know how many times I needed to do the same in the future so never replaced them with functions.
-#Of course some (quite many) helper functions are used, but not as many as I could have.
-#The ones with cones and overall every ult with loads of shenanigans with the coordinates are rather ugly since the coordinates are hexagonal.
+# There's some repetition in the ults. Lots of logic stuff written again in the next one.
+# The reason is that if something small gets changed in the ult's logic, it's easy to make the changes.
+# Or maybe I was lazy and didn't exactly know how many times I needed to do the same in the future so never replaced them with functions.
+# Of course some (quite many) helper functions are used, but not as many as I could have.
+# The ones with cones and overall every ult with loads of shenanigans with the coordinates are rather ugly since the coordinates are hexagonal.
 
-#For some ults there's an image named 'champion.name_ult.png' which gives some idea about what's going on
-#The pics are pretty shit and were made just for my own good but decided to include them anyway
+# For some ults there's an image named 'champion.name_ult.png' which gives some idea about what's going on
+# The pics are pretty shit and were made just for my own good but decided to include them anyway
 
 def default_ability_calls(champion):
     if(not champion.target): field.find_target(champion)
@@ -52,8 +52,6 @@ def apply_attack_cooldown(champion, halved = True):
     champion.idle = False
     champion.clear_que_idle()
     champion.add_que('clear_idle', (1/champion.AS * 1000) / halver)
-
-
 
 
 #Aatrox pulls some of the farthest enemies toward himself, then slams the ground in front of himself, dealing magic damage to all enemies hit.
@@ -93,8 +91,6 @@ def aatrox(champion):
     champion.add_que('execute_function', stats.ABILITY_LENGTH[champion.name], [aatrox_ability, {'y': champion.target.y, 'x': champion.target.x}])
 
 
-
-
 def aatrox_ability(champion, data):
 
     neighbors = field.find_neighbors(data['y'], data['x'])
@@ -107,8 +103,6 @@ def aatrox_ability(champion, data):
 
     apply_attack_cooldown(champion)
     
-
-
 
 def ahri(champion):
     champion.idle = False
@@ -132,14 +126,11 @@ def ahri_ability(champion, data):
     apply_attack_cooldown(champion)
 
 
-
-
 def akali(champion):
     default_ability_calls(champion)
     champion.spell(champion.target, stats.ABILITY_DMG[champion.name][champion.stars])
 
     apply_attack_cooldown(champion)
-
 
 
 #making a cone is not that fun
@@ -225,8 +216,6 @@ def aphelios(champion):
     champion.add_que('kill', stats.ABILITY_LENGTH[champion.name][champion.stars] * champion.SP, None, None, turret)
 
 
-
-
 #also in champion_functions.py: attack()
 def ashe(champion):
     default_ability_calls(champion)
@@ -306,7 +295,6 @@ def azir(champion):
                     champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
                     c.add_que('change_stat', 0, None, 'movement_delay', c.movement_delay * stats.ABILITY_SLOW_AMOUNT[champion.name])
                     c.add_que('change_stat', stats.ABILITY_SLOW_DURATION[champion.name], None, 'movement_delay', champion_functions.reset_stat(c, 'movement_delay'))
-
 
 
 #forming cones with hexagonal coordinates is absolute aids
@@ -435,8 +423,6 @@ def cassiopeia(champion):
                 already_targeted.append(h)
 
     apply_attack_cooldown(champion)
-    
-
 
 
 def diana(champion):
@@ -500,8 +486,6 @@ def diana_ability(champion, data):
                 data['orbs'][i] = data
 
         champion.add_que('execute_function', turn_speed_per_hex, [diana_ability, data])
-
-
 
 
 def elise(champion):
@@ -571,8 +555,6 @@ def evelynn(champion):
         champion.move(teleport_target[0], teleport_target[1], True)
 
 
-
-
 def ezreal(champion):
     default_ability_calls(champion)
     champion.idle = False
@@ -621,8 +603,6 @@ def ezreal_ability(champion, data):
     apply_attack_cooldown(champion)
     
 
-
-
 def fiora(champion):
     default_ability_calls(champion)
     champion.idle = False
@@ -633,7 +613,6 @@ def fiora(champion):
     champion.add_que('change_stat', stats.ABILITY_LENGTH[champion.name], None, 'immune', False)
 
     champion.add_que('execute_function', stats.ABILITY_LENGTH[champion.name], [fiora_ability, {}])
-
 
 
 def fiora_ability(champion, data):
@@ -680,7 +659,6 @@ def garen_ability(champion, data):
         champion.spell(e, stats.ABILITY_DMG[champion.name][champion.stars] / stats.ABILITY_SLICES[champion.name])
 
 
-
 def hecarim(champion):
     champion.add_que('change_stat', -1, None, 'ability_active', True)
     default_ability_calls(champion)
@@ -688,7 +666,6 @@ def hecarim(champion):
 
     for i in range(0, stats.ABILITY_SLICES[champion.name]):
         champion.add_que('execute_function', i * (stats.ABILITY_LENGTH[champion.name] / stats.ABILITY_SLICES[champion.name]), [hecarim_ability, {}])
-
 
 
 def hecarim_ability(champion, data):
@@ -702,10 +679,6 @@ def hecarim_ability(champion, data):
             champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars] / stats.ABILITY_SLICES[champion.name])
             #champion.add_que('change_stat', -1, None, 'health', champion.health + stats.ABILITY_HEAL[champion.name][champion.stars] / stats.ABILITY_SLICES[champion.name])
             champion.add_que('heal', -1, None, None, (stats.ABILITY_HEAL[champion.name][champion.stars] / stats.ABILITY_SLICES[champion.name]) * champion.SP)
-
-
-
-
 
 def irelia(champion):
     default_ability_calls(champion)
@@ -2180,15 +2153,15 @@ def twistedfate(champion):
     default_ability_calls(champion)
 
 
-    #middleline 
-    #using the rectangle function which kinda sucks for something like this.
-    #sometimes it misses the target be cause of rng (check 'twistedfate_ult'), so fixing it by changing the orange path to the blue one
+    # middleline 
+    # using the rectangle function which kinda sucks for something like this.
+    # sometimes it misses the target be cause of rng (check 'twistedfate_ult'), so fixing it by changing the orange path to the blue one
     line = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y, champion.target.x)[0]
     distance = field.distance(champion, champion.target, True)
     line[int(distance)] = [champion.target.y, champion.target.x]
 
 
-    #find the first hex of the side paths
+    # find the first hex of the side paths
     neighbors = field.find_neighbors(champion.y, champion.x)
     for i, n in enumerate(neighbors):
         d = field.distance({'y': n[0], 'x': n[1]}, {'y': champion.target.y, 'x': champion.target.x}, False)
@@ -2217,13 +2190,13 @@ def twistedfate(champion):
                 already_targeted.append(c)
                 champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
 
-#get a straight line for the cards to fly
+# get a straight line for the cards to fly
 def twistedfate_ability(champion, data):
     c = data['c']
 
     y_diff = c[0] - champion.y
     x_diff = 0
-    #find the change in x (always +1 or -1)
+    # find the change in x (always +1 or -1)
     if(champion.y % 2 == 0):
         if(y_diff != 0):
             if(c[1] > champion.x): x_diff = 1
@@ -2239,8 +2212,8 @@ def twistedfate_ability(champion, data):
 
     line = []
     
-    #flight path
-    #the x coordinate behaves differently depending on if the y coordinate is odd or even
+    # flight path
+    # the x coordinate behaves differently depending on if the y coordinate is odd or even
     x = champion.x
     if(y_diff > 0):
         for i in range(champion.y, 8):
@@ -2260,7 +2233,7 @@ def twistedfate_ability(champion, data):
         for i in range(champion.x, end_x, x_diff):
             line.append([champion.y, i])
     
-    #drop off possible coordinates outside the map
+    # drop off possible coordinates outside the map
     for i in range(0, 5):
         for l in line:
             if(l[0] < 0 or l[0] > 7 or l[1] < 0 or l[1] > 6):
@@ -2683,7 +2656,6 @@ def yuumi(champion):
             champion.move(dash_target[0], dash_target[1], True)
 
 
-
 def zilean(champion):
     default_ability_calls(champion)
 
@@ -2711,8 +2683,6 @@ def zilean(champion):
         a[0].print(' {} {} --> {}'.format('will_revive', old_value, new_value))    
 
 
-
-
 def galio(champion):
     default_ability_calls(champion)
 
@@ -2732,7 +2702,6 @@ def galio(champion):
         champion.add_que('execute_function', stats.ABILITY_LENGTH[champion.name], [galio_ability, {}])
         
 
-
 def galio_ability(champion, data):
     end_damage_receiving = champion.receive_decreased_damage / stats.ABILITY_TARGET_DECREASE_DAMAGE_RECEIVING[champion.name]
     champion.add_que('change_stat', 0, None, 'receive_decreased_damage', end_damage_receiving)
@@ -2742,7 +2711,3 @@ def galio_ability(champion, data):
     for t in targets:
         champion.spell(t, stats.ABILITY_DMG[champion.name][champion.stars])
     
-
-
-
-

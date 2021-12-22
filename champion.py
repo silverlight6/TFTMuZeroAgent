@@ -1,4 +1,5 @@
-from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, MANALOCK, ABILITY_REQUIRES_TARGET, DODGE, SHIELD_LENGTH, INITIATIVE_ACTIVE, ABILITY_LENGTH
+from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, 
+    DODGE, SHIELD_LENGTH, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
 from champion_functions import reset_stat, attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
 import active
 import ability
@@ -16,26 +17,31 @@ import champion_functions
 
 que = []
 log = []
+
 def printt(msg):
     if(config.PRINTMESSAGES): log.append(msg)
-    #if(config.PRINTMESSAGES): print(msg)
+    # if(config.PRINTMESSAGES): print(msg)
 
 test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 
+# I am going to have to add cost information but that should be about it. 
+# When updating to the new patch, there are going to be different edge cases but the core of the game should remain the same.
 
 class champion:
-    def __init__(self, name, stars, team, y, x, itemlist = [], overlord = None, sandguard_overlord_coordinates = None, chosen = False):
+    def __init__(self, name, team=None, y=-1, x=-1, stars = 1, itemlist = [], overlord = None, sandguard_overlord_coordinates = None, chosen = False):
         
+        # Not sure what this is doing but it is used in action
         self.champion = True
 
         self.name = name
         self.stars = stars
 
-        #in case we're spawning a construct, galio or a turret, the rest are handled at the bottom of the object
+        # in case we're spawning a construct, galio or a turret, the rest are handled at the bottom of the object
         if(name != 'construct' and name != 'galio' and name != 'aphelios_turret'): 
             self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
             self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
             self.AD = round(AD[name] * config.STARMULTIPLIER ** (stars - 1),1)
+            
         self.SP = 1
 
         self.AS = AS[name]
@@ -47,16 +53,17 @@ class champion:
 
         self.mana = MANA[name]
         self.maxmana = MAXMANA[name]
-
+        self.cost = COST[name]
+        
         self.manalock = MANALOCK[name]
-        #not going to start changing the whole structure of the manalock code since that could create some bugs
-        #shen is the only unit whose manalock scales by stars so just forcing the change here.
+        # not going to start changing the whole structure of the manalock code since that could create some bugs
+        # shen is the only unit whose manalock scales by stars so just forcing the change here.
         if(self.name == 'shen'):
             self.manalock = 1000 + ABILITY_LENGTH['shen'][self.stars]
 
         self.mana_cost_increased = False
-        self.mana_generation = 1 #enlightened -trait
-        self.castMS = -50000 #the timestamp of the last cast
+        self.mana_generation = 1 # enlightened - trait
+        self.castMS = -50000 # the timestamp of the last cast
         self.ability_requires_target = ABILITY_REQUIRES_TARGET[name]
 
         self.target = None
@@ -71,11 +78,11 @@ class champion:
         self.disarmed = False
         self.blinded = False
         self.shields = []
-        self.receive_increased_damage = 1 #received damage = 100% by default
-        self.receive_decreased_damage = 1 #stupid to have two variables for this, but gets messy if using only one
+        self.receive_increased_damage = 1 # received damage = 100% by default
+        self.receive_decreased_damage = 1 # stupid to have two variables for this, but gets messy if using only one
         self.damage_reduction = 0
-        self.deal_increased_damage = 1 #attacks and spells
-        self.deal_bonus_true_damage = 0 #divine -trait
+        self.deal_increased_damage = 1 # attacks and spells
+        self.deal_bonus_true_damage = 0 # divine - trait
         self.spell_damage_reduction_percentage = 1 #inverse, 60% reduction (dragons_claw) would set this to 0.4. with garen it'd be 1 * 0.4 * 0.2 = 0.08
         self.heal_per_attack = 0
         self.lifesteal = 0
@@ -87,28 +94,33 @@ class champion:
         self.team = team
         self.x = x
         self.y = y
+        self.bench_loc = -1
         self.underlords = []
         self.overlord = overlord
         self.overlord_coordinates = sandguard_overlord_coordinates
 
-        self.will_revive = [[None],[None]] #consists of [[zilean_champion], [GA]]
-
+        self.will_revive = [[None],[None]] # consists of [[zilean_champion], [GA]]
 
         field.coordinates[y][x] = self
 
         self.idle = True
         self.ability_active = False
 
-        #self.items = ['shadow_assassin', 'rhaast']
+        # self.items = ['shadow_assassin', 'rhaast']
         self.items = itemlist
-        self.ionic_sparked = 0 #just a helper to know who to zap
+        self.num_items = 0
+        self.ionic_sparked = 0 # just a helper to know who to zap
         self.spell_has_used_ludens = False # helps with ludens_echo
-        self.AD_reduction_cc = False #ludens counts dazzler ad reduction as crowd control so adding a flag for dat
-        self.pumped_up = False #the_boss -trait
-        self.done_situps = False #the_boss -trait
+        self.AD_reduction_cc = False # ludens counts dazzler ad reduction as crowd control so adding a flag for dat
+        self.pumped_up = False # the_boss - trait
+        self.done_situps = False # the_boss - trait
 
         self.chosen = origin_class.chosen(self, chosen)
-
+        if chosen: 
+            self.stars = 2 
+            self.cost = 3 * COST[name] 
+            self.health += 200 
+            self.max_health += 200
 
         if(name != 'aphelios_turret'): items.initiate(self)
 
@@ -141,10 +153,10 @@ class champion:
                 target = self.target
 
 
-            #aphelios turrents dont attack if aphelios is cc'd, but still do attack if he is recovering from a zilean or GA revive
+            # aphelios turrents dont attack if aphelios is cc'd, but still do attack if he is recovering from a zilean or GA revive
             if(not (self.overlord and (self.overlord.stunned or self.overlord.disarmed or self.overlord.blinded)) or (self.overlord and self.overlord.stunned and not self.overlord.champion)):
 
-                #enforcing ashe ult here
+                # enforcing ashe ult here
                 if(self.name == 'ashe' and self.ability_active and not trait_attack and len(self.enemy_team()) > 0 and not item_attack):
                     ability.ashe_helper(self, {'target': target, 'bonus_dmg': bonus_dmg})
 
@@ -277,7 +289,6 @@ class champion:
         
         else:  items.trap_claw(self, target) #trap_claw
             
-
     
     def move(self, y, x, forced = False, sett = False):
         if(self.idle or forced):
@@ -293,15 +304,17 @@ class champion:
             self.add_que('clear_idle', self.movement_delay)
 
             
-            items.frozen_heart(self) #frozen_heart -item
-            items.ionic_spark(self) #ionic_spark -item
+            items.frozen_heart(self) #frozen_heart - item
+            items.ionic_spark(self) #ionic_spark - item
+
 
     def die(self):
         die(self)
         
-        items.redemption(self)   #redemption -item
-        items.frozen_heart(self) #frozen_heart -item
-        items.ionic_spark(self)  #ionic_spark -item
+        items.redemption(self)   #redemption - item
+        items.frozen_heart(self) #frozen_heart - item
+        items.ionic_spark(self)  #ionic_spark - item
+
 
     def shield_amount(self):
         shield = 0
@@ -309,12 +322,15 @@ class champion:
             shield += s['amount']
         return shield
 
+
     def enemy_team(self):
         enemy_team = 'red' if self.team == 'blue' else 'blue'
         return eval(enemy_team)
     
+
     def own_team(self):
         return eval(self.team)
+
 
     def ability(self):
         attackable_enemies = list(filter(lambda x: (x.champion and x.health > 0), self.enemy_team()))
@@ -329,6 +345,7 @@ class champion:
     def active(self):
         pass
 
+
     def burn(self, target):
         target.clear_que_burn_removal()
 
@@ -340,6 +357,7 @@ class champion:
             self.add_que('burn', i * 1000, None, None, target)
 
         pass
+
 
     def add_que(self, action, length, function = None, stat = None, value = None, data = {}):
         if('underlord' in data.keys()):
@@ -353,38 +371,45 @@ class champion:
                 
         que.sort(key=lambda x: x[2])
 
+
     def clear_que_idle(self):
-        #not very beautiful is it? not trying to impress anyone tho
+        # not very beautiful is it? not trying to impress anyone tho
         for i in range(0, 15):
             for q in que:
                 if(q[1] is self and q[0] == 'clear_idle'): 
                     que.remove(q)
+
 
     def clear_que_healing_reduction(self):
         for q in que:
             if(q[1] is self and q[0] == 'change_stat' and q[4] == 'healing_strength' and q[5] == 1):
                 que.remove(q)
 
+
     def clear_que_stunned_removal(self):
         for q in que:
             if(q[1] is self and q[0] == 'change_stat' and q[4] == 'stunned' and q[5] == False):
                 que.remove(q)
     
+
     def clear_que_blinded_removal(self):
         for q in que:
             if(q[1] is self and q[0] == 'change_stat' and q[4] == 'blinded' and q[5] == False):
                 que.remove(q)
+
 
     def clear_que_armor_removal(self):
         for q in que:
             if(q[1] is self and q[0] == 'change_stat' and q[4] == 'armor'):
                 que.remove(q)
     
+
     def clear_que_burn_removal(self):
         for i in range(0, 15):
             for q in que:
                 if(q[0] == 'burn' and q[5] == self):
                     que.remove(q)
+
 
     def clear_que_dazzler(self):
         for i in range(0, 15):
@@ -396,17 +421,22 @@ class champion:
     def red_append(self, champion):
         red.append(champion)
     
+
     def blue_append(self, champion):
         blue.append(champion)
+
 
     def red_return(self):
         return red
 
+
     def blue_return(self):
         return blue
     
+
     def que_return(self):
         return que
+
 
     def spawn(self, name, stars, y, x, team = None, is_champion = True):
         if(not team): team = self.team
@@ -422,15 +452,37 @@ class champion:
         eval(team).append(unit)
         return unit
 
+
     def que_replace(self, q):
         global que
         que = q
 
+
     def millis(self):
         return MILLIS()
 
+
     def print(self, msg):
-        printt('{:<120}'.format('{:<8}'.format(self.team) + '{:<15}'.format(self.name) + msg) + str(MILLIS()))
+        if self.team:
+            printt('{:<120}'.format('{:<8}'.format(self.team) + '{:<15}'.format(self.name) + msg) + str(MILLIS()))
+        else:
+            printt('{:<120}'.format('team_unassigned' + '{:<15}'.format(self.name) + msg) + str(MILLIS()))
+
+    def golden(self):
+        self.stars += 1
+        self.health = round(self.max_health * config.STARMULTIPLIER ** (stars - 1),1)
+        self.max_health = round(self.max_health * config.STARMULTIPLIER ** (stars - 1),1)
+        self.AD = round(self.AD * config.STARMULTIPLIER ** (stars - 1),1)
+
+    
+    def new_chosen(self):
+        self.health += 200
+        self.max_health += 200
+
+    
+    # Only use when creating a champion from round. Use player commands otherwise.
+    def add_item(self, item):
+        self.items.append(item)
 
     
 global blue
@@ -440,52 +492,57 @@ blue = []
 red = []
 
 
-
-
-
-
-
-
-
-
-
-
-
-    
-def run(champion, team_data):
+# I think I am going to redo parts of this function. 
+# Essentially, I am just going to change the first 10 lines so it reads in the data from the two teams.
+# This will be an area I will look to optimize on later if need be but for now, I want to keep things as simple as possible.
+def run(champion, player_1, player_2, round_damage=0):
     reset_global_variables()
-
-
         
-    #with open('team.json', 'r') as infile:
-    data = (json.loads(team_data))
+    # I'm going to have to look up how azir in this set worked because there are likely going to be some additional problems to figure out.
     daddy_coordinates = []
-
-
-    for c in data['blue']:
-        daddy_coordinates = False
-        if(c['name'] == 'sandguard'): daddy_coordinates = [int(c["overlord_coordinates"][0]), int(c["overlord_coordinates"][1])]
-        blue.append(champion(c['name'], int(c['stars']), 'blue', int(c['y']), int(c['x']), c['items'], False, daddy_coordinates, c['chosen']))
-    for c in data['red']:
-        daddy_coordinates = False
-        if(c['name'] == 'sandguard'): daddy_coordinates = [int(c["overlord_coordinates"][0]), int(c["overlord_coordinates"][1])]
-        red.append(champion(c['name'], int(c['stars']), 'red', int(c['y']), int(c['x']), c['items'], False, daddy_coordinates, c['chosen']))
+    
+    # for c in data['blue']:
+    #     daddy_coordinates = False
+    #     if(c['name'] == 'sandguard'): daddy_coordinates = [int(c["overlord_coordinates"][0]), int(c["overlord_coordinates"][1])]
+    #     blue.append(champion(c['name'], 'blue', int(c['y']), int(c['x']), int(c['stars']), c['items'], False, daddy_coordinates, c['chosen']))
+    # for c in data['red']:
+    #     daddy_coordinates = False
+    #     if(c['name'] == 'sandguard'): daddy_coordinates = [int(c["overlord_coordinates"][0]), int(c["overlord_coordinates"][1])]
+    #     red.append(champion(c['name'], 'red', int(c['y']), int(c['x']), c['items'], int(c['stars']), False, daddy_coordinates, c['chosen']))
+    for x in range(0, 7):
+        for y in range(0, 4):
+            if player_1.board[x][y]:
+                daddy_coordinates = False
+                if(player_1.board[x][y].name == 'sandguard'): daddy_coordinates = 
+                    [int(player_1.board[x][y].overlord_coordinates[0]), int(player_1.board[x][y].overlord_coordinates[1])]
+                blue.append(champion(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars, player_1.board[x][y].items, 
+                    False, daddy_coordinates, player_1.board[x][y].chosen))
+            if player_2.board[x][y]:
+                daddy_coordinates = False
+                if(player_2.board[x][y].name == 'sandguard'): daddy_coordinates = 
+                    [int(player_2.board[x][y].overlord_coordinates[0]), int(player_2.board[x][y].overlord_coordinates[1])]
+                # I may need to invert the y and x by doing 4 - y and 7 - x but for now, I'm leaving it as is
+                blue.append(champion(player_2.board[x][y].name, 'blue', y, x, player_2.board[x][y].stars, player_2.board[x][y].items, 
+                    False, daddy_coordinates, player_2.board[x][y].chosen))
 
     
-    items.chalice_of_power(blue[0]) #chalice_of_power
-    items.zekes_herald(blue[0]) #chalice_of_power
-    items.frozen_heart(blue[0]) #frozen_heart
-    items.ionic_spark(blue[0]) #ionic_spark
-    items.hand_of_justice(blue[0]) #hand_of_justice 
-    items.locket_of_the_iron_solari(blue[0]) #locket_of_the_iron_solari
-    items.shroud_of_stillness(blue[0]) #shroud_of_stillness
-    items.zzrot_portal(blue[0]) #zzrot_portal
-    items.zephyr(blue[0]) #zephyr
+    # Not quite sure what is happening in these lines. 
+    # They are effects that happen at the start of the fight.
+    # But blue[0] feels odd
+    items.chalice_of_power(blue[0]) # chalice_of_power
+    items.zekes_herald(blue[0]) # zekes_herald
+    items.frozen_heart(blue[0]) # frozen_heart
+    items.ionic_spark(blue[0]) # ionic_spark
+    items.hand_of_justice(blue[0]) # hand_of_justice 
+    items.locket_of_the_iron_solari(blue[0]) # locket_of_the_iron_solari
+    items.shroud_of_stillness(blue[0]) # shroud_of_stillness
+    items.zzrot_portal(blue[0]) # zzrot_portal
+    items.zephyr(blue[0]) # zephyr
 
 
     origin_class.total_health(blue, red)
-    origin_class.total_origin_class(blue[0], red[0]) #count and execute some traits
-    items.infinity_edge(blue[0]) #infinity_edge      made sure that the crit damage bonus gets regisred after everything else has gone through
+    origin_class.total_origin_class(blue[0], red[0]) # count and execute some traits
+    items.infinity_edge(blue[0]) # infinity_edge made sure that the crit damage bonus gets registred after everything else has gone through
     while True:
 
         if(MILLIS() > 200000):
@@ -504,8 +561,8 @@ def run(champion, team_data):
 
             champion = que[0][1] 
             data = que[0][6]  
-                                                            #make sure that teemo's poison darts deal damage even after teemo himself has died                      #morgana deals if the ult is running and she dies                                                       #if ahri dies, she will still ult. range reduced in the executed function
-            if((champion in blue or champion in red)        or (champion.name == 'teemo' and champion.health <= 0 and que[0][3] and 'target' in que[0][3][1]) or (champion.name == 'morgana' and champion.health <= 0 and que[0][3] and 'coordinates' in que[0][3][1]) or (champion.name == 'ahri' and champion.health <= 0 and que[0][3] and 'y' in que[0][3][1])):
+                                                        #make sure that teemo's poison darts deal damage even after teemo himself has died                 #morgana deals if the ult is running and she dies                                                       #if ahri dies, she will still ult. range reduced in the executed function
+            if((champion in blue or champion in red) or (champion.name == 'teemo' and champion.health <= 0 and que[0][3] and 'target' in que[0][3][1]) or (champion.name == 'morgana' and champion.health <= 0 and que[0][3] and 'coordinates' in que[0][3][1]) or (champion.name == 'ahri' and champion.health <= 0 and que[0][3] and 'y' in que[0][3][1])):
 
                 if(que[0][0] == 'clear_idle'):
                         champion.idle = True
@@ -556,13 +613,14 @@ def run(champion, team_data):
 
         MILLISECONDS_INCREASE()
         if(len(blue) == 0 or len(red) == 0):
-            if(len(blue) == 0): printt('RED TEAM WON')
-            else: printt('BLUE TEAM WON')
-
+            if(len(red) == 0):
+                printt('BLUE TEAM WON') 
+                return 1, round_damage + DAMAGE_PER_UNIT[len(blue)]
+            else: 
+                printt('RED TEAM WON') 
+                return 2, round_damage + DAMAGE_PER_UNIT[len(red)]
             break
-
-    
-
+    return False, round_damage
 
 
 def shield(champion, action, length, function, stat, value, data):
@@ -606,7 +664,6 @@ def change_stat(champion, action, length, function, stat, value, data):
         champion.AD += AD_change
         champion.print(' {} {} --> {}'.format('AD', round(start_value,2), round(champion.AD,2)))
 
-
     else:
         if(not ('quicksilver' in champion.items and MILLIS() <= item_stats.item_change_length['quicksilver'] and value == True and (stat == 'stunned' or stat == 'disarmed' or stat == 'blinded'))):
             if(not ('rapid_firecannon' in champion.items and value == True and stat == 'blinded')):
@@ -636,15 +693,6 @@ def change_stat(champion, action, length, function, stat, value, data):
                     setattr(champion, stat, end_value)
             else: champion.print(' not blinded because wears rapid firecannon')
         else: champion.print(' not {} because wears quicksilver'.format(stat))
-
-
-
-
-
-
-
-
-
 
 
 def reset_global_variables():
@@ -705,10 +753,3 @@ def reset_global_variables():
     origin_class.spirit_list = []
     origin_class.duelist_helper_list = [] 
     origin_class.shade_helper_list = [] 
-
-
-
-
-
-
-

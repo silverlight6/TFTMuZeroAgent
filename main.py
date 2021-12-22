@@ -1,3 +1,9 @@
+import game_round
+
+error = game_round.game_logic()
+if not error: print("An error occurred within the game")
+
+"""
 import champion
 from champion_functions import MILLIS
 
@@ -96,3 +102,4 @@ quit_simulations = tk.Button(master, text='Quit', command= lambda:  master.quit(
 quit_simulations.grid(row=4, column=3, sticky=tk.W, pady=4)
 
 tk.mainloop()
+"""

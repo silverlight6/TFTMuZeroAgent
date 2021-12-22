@@ -127,11 +127,7 @@ AS = {
     'galio': 0.65,
     'aphelios_turret': 0,
     'sandguard': 1,
-
-
 }
-
-
 
 HEALTH = {
     'aatrox': 800,
@@ -196,8 +192,6 @@ HEALTH = {
     'construct': [0, 1500, 2500, 3000, 5000],
     'galio': [0, 800, 1400, 2000],
     'sandguard': 950,
-
-
 }
 
 ARMOR = {
@@ -264,7 +258,6 @@ ARMOR = {
     'galio': 40,
     'aphelios_turret': 0,
     'sandguard': 50,
-
 }
 
 MR = {
@@ -331,8 +324,6 @@ MR = {
     'galio': 40,
     'aphelios_turret': 0,
     'sandguard': 50,
-
-
 }
 
 MANA = {
@@ -399,8 +390,6 @@ MANA = {
     'galio': 75,
     'aphelios_turret': 0,
     'sandguard': 0,
-
-
 }
 
 MAXMANA = {
@@ -467,15 +456,77 @@ MAXMANA = {
     'galio': 150,
     'aphelios_turret': 0,
     'sandguard': 0,
+}
 
+COST = {
+    'aatrox': 4,
+    'ahri': 4,
+    'akali': 3,
+    'annie': 2,
+    'aphelios': 2,
+    'ashe': 4,
+    'azir': 5,
+    'cassiopeia': 4,
+    'diana': 1,
+    'elise': 1,
+    'evelynn': 3,
+    'ezreal': 5,
+    'fiora': 1,
+    'garen': 1, 
+    'hecarim': 2,
+    'irelia': 3,
+    'janna': 2,
+    'jarvaniv': 2,
+    'jax': 2,
+    'jhin': 4,
+    'jinx': 3,
+    'kalista': 3,
+    'katarina': 3,
+    'kayn': 5,
+    'kennen': 3,
+    'kindred': 3,
+    'leesin': 5,
+    'lillia': 5,
+    'lissandra': 1,
+    'lulu': 2,
+    'lux': 3,
+    'maokai': 1,
+    'morgana': 4,
+    'nami': 1,
+    'nidalee': 1,
+    'nunu': 3,
+    'pyke': 2,
+    'riven': 4,
+    'sejuani': 4,
+    'sett': 5,
+    'shen': 4,
+    'sylas': 2,
+    'tahmkench': 1,
+    'talon': 4,
+    'teemo': 2,
+    'thresh': 2,
+    'twistedfate': 1,
+    'vayne': 1, 
+    'veigar': 3,
+    'vi': 2,
+    'warwick': 4,
+    'wukong': 1,
+    'xinzhao': 3,
+    'yasuo': 1,
+    'yone': 5,
+    'yuumi': 3,
+    'zed': 2,
+    'zilean': 5,
 
+    'construct': 0,
+    'galio': 0,
+    'aphelios_turret': 0,
+    'sandguard': 0,
 }
 
 SECONDARY_MAXMANA = {
     'yone': 20,
 }
-
-
 
 ABILITY_REQUIRES_TARGET = {
     'aatrox': True,
@@ -541,9 +592,6 @@ ABILITY_REQUIRES_TARGET = {
     'galio': False,
     'aphelios_turret': False,
     'sandguard': False,
-
-
-    
 }
 
 ABILITY_WHILE_DISARMED = {
@@ -610,9 +658,6 @@ ABILITY_WHILE_DISARMED = {
     'galio': True,
     'aphelios_turret': False,
     'sandguard': False,
-
-
-
 }
 
 RANGE = {
@@ -679,23 +724,14 @@ RANGE = {
     'galio': 1,
     'aphelios_turret': 99,
     'sandguard': 0,
-
-
-
-
 }
-
-
 
 SHIELD_LENGTH = {
     'annie': 8000,
     'diana': 4000,
     'janna': 4000,
     'thresh': 4000,
-
 }
-
-
 
 ABILITY_LENGTH = {
     'aatrox': 500,
@@ -723,8 +759,6 @@ ABILITY_LENGTH = {
     'zilean': [0, 3500, 3000, 1000],
 
     'galio': 3000,
-
-
 }
 
 MANALOCK = {
@@ -768,7 +802,7 @@ MANALOCK = {
     'riven': 1000,
     'sejuani': 1000 + ABILITY_LENGTH['sejuani'],
     'sett': 1000 + ABILITY_LENGTH['sett'],
-    'shen': 1000, #a bit tricky since this scales by stars. handled in the champion class object creation
+    'shen': 1000, # a bit tricky since this scales by stars. handled in the champion class object creation
     'sylas': 1000,
     'tahmkench': 0,
     'talon': 1000 + ABILITY_LENGTH['talon'],
@@ -791,11 +825,7 @@ MANALOCK = {
     'galio': 1000 + ABILITY_LENGTH['galio'],
     'aphelios_turret': 0,
     'sandguard': 0,
-
-
-
-
-} #in milliseconds
+} # in milliseconds
 
 
 ATTACK_WHILE_ABILITY_ACTIVE = {
@@ -815,12 +845,7 @@ ATTACK_WHILE_ABILITY_ACTIVE = {
     'talon': False,
     'warwick': True,
     'yuumi': False,
-
-
 }
-
-
-
 
 
 ABILITY_DMG = {
@@ -856,7 +881,7 @@ ABILITY_DMG = {
     'pyke': [0, 125, 200, 375],
     'riven': [0, 175, 250, 750],
     'sejuani': [0, 100, 200, 800],
-    'sett': [0, 0.40, 0.60, 4.00], #% of max health
+    'sett': [0, 0.40, 0.60, 4.00], # % of max health
     'sylas': [0, 250, 400, 600, 1000],
     'talon': [0, 85, 135, 400],
     'teemo': [0, 300, 450, 900],
@@ -866,19 +891,15 @@ ABILITY_DMG = {
     'yone': [0, 800, 1300, 9999],
 
     'galio': [0, 0, 300, 600]
-
-
 }
 
 ABILITY_SECONDARY_DMG = {
     'lissandra': [0, 175, 225, 300, 450],
     'riven': [0, 300, 450, 1350],
-    'sett': [0, 0.20, 0.30, 2.00], #% of max health
+    'sett': [0, 0.20, 0.30, 2.00], # % of max health
     'yone': [0, 250, 400, 1000],
 
     'galio': [0, 150, 300, 500],
-
-    
 }
 
 
@@ -889,15 +910,11 @@ ABILITY_DAMAGE_MULTIPLIER = {
     'wukong': [0, 2.25, 2.50, 2.75],
     'xinzhao': [0, 3.00, 3.25, 3.50],
     'yasuo': [0, 1.80, 2.00, 2.25],
-
-
-
 }
 
 ABILITY_DAMAGE_ADDITION_PERCENTAGE = {
     'nidalee': 0.2,
     'nunu': 0.5,
-
 }
 
 ABILITY_MISSING_HEALTH_DAMAGE_PERCENTAGE = {
@@ -910,8 +927,6 @@ ABILITY_AS_GAIN = {
     'warwick': [0, 1.35, 1.50, 5.00],
     'yuumi': [0, 1.30, 1.40, 1.60],
     'zilean': [0, 1.50, 1.50, 5.00],
-
-
 }
 
 ABILITY_AS_SECONDARY_GAIN = {'warwick': [0, 1.60, 1.75, 3.00]}
@@ -919,20 +934,19 @@ ABILITY_AS_SECONDARY_GAIN = {'warwick': [0, 1.60, 1.75, 3.00]}
 ABILITY_AS_DECREASE = {
     'ezreal': [0, 0.5, 0.5, 0.5],
     'maokai': [0, 0.5, 0.5, 0.5],
-
 }
 
 ABILITY_MR_DECREASE = {
     'morgana': 0.60,
-} #shredding 40% of their magic resistance
+} # shredding 40% of their magic resistance
 
 ABILITY_ARMOR_DECREASE = {
     'vi': [0, 0.50, 0.25, 0.0001] 
-} #same as with morgana: values are (1 - reduction). 3 star would bring some troubles if the value was 0.00
+} # same as with morgana: values are (1 - reduction). 3 star would bring some troubles if the value was 0.00
 
 ABILITY_ARMOR_MR_DECREASE = {
     'yone': 0.40
-}#1-reduction
+}# 1-reduction
 
 ABILITY_SPELL_DAMAGE_REDUCTION_PERCENTAGE = {
     'garen': 0.2
@@ -951,7 +965,7 @@ ABILITY_AS_CHANGE_LENGTH = {
 ABILITY_DMG_GAIN = {
     'janna': [0, 20, 30, 60],
 
-} #percentages and absolutes in the same dict
+} # percentages and absolutes in the same dict
 
 ABILITY_EXTRA_DAMAGE = {
     'kayn': [0, 1.50, 1.50, 1.50]
@@ -961,9 +975,7 @@ ABILITY_EXTRA_DAMAGE_LENGTH = {'kayn': 10000}
 
 ABILITY_DISARM_DURATION = {
     'irelia': [0, 2500, 3000, 3500],
-
 }
-
 
 ABILITY_TARGETS = {
     'aatrox': [0,2,2,5],
@@ -972,13 +984,10 @@ ABILITY_TARGETS = {
     'katarina': [0, 4, 6, 8],
     'lillia': [0, 2, 3, 10],
     'zilean': [0, 2, 3, 10],
-    
-
-
 }
 
 ABILITY_TARGET_PROBABILITIES = {
-    'evelynn': [0, 0, 0.75, 0.9] #1 = 75%, 2= 15%, 3 = 10%
+    'evelynn': [0, 0, 0.75, 0.9] # 1 = 75%, 2= 15%, 3 = 10%
 }
 
 ABILITY_RADIUS = {
@@ -1118,8 +1127,6 @@ ABILITY_SLICES = {
     'kennen': 6,
     'morgana': 10,
     'teemo': 6,
-
-
 }
 
 SECONDARY_ABILITY_COUNTER = {
@@ -1140,13 +1147,16 @@ ACTIVATE_EVERY_X_ATTACKS = {
     'jhin': 4,
     'zed': 3,
 }
+
 ACTIVE_STOLEN_AD = {
     'zed': [0, 0.25, 0.30, 0.35]
 }
+
 ACTIVE_DMG = {
     'vayne': [0,50,90,140],
     'zed': [0, 40, 50, 75]
 }
+
 ACTIVE_DMG_PERCENT = {'jhin': [0, 4.44, 5.00, 12.34]}
 ATTACKS_PER_SECOND_FIXED = {'jhin': [0, 0.85, 0.90, 1.2]}
 INITIATIVE_ACTIVE = ['jhin', 'tahmkench'] #these champions will execute a function when __init__ing
@@ -1154,5 +1164,6 @@ INITIATIVE_ACTIVE = ['jhin', 'tahmkench'] #these champions will execute a functi
 ACTIVE_TARGET_HEALT_THRESHOLD = {'kalista': [0, 0.04, 0.06, 0.09]}
 ACTIVE_DAMAGE_REDUCTION = { 'tahmkench': [0, 15, 25, 75] }
 
-
 DODGE = 0.0
+
+DAMAGE_PER_UNIT = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15]

@@ -6,21 +6,23 @@ import stats
 import origin_class_stats
 import origin_class
 
-#ALL FUNCTIONS REGARDING ITEMS ARE HERE
-#functions are named as just 'item_name'
-#yea, kinda hard coded the item names inside the functions
-#no biggie tho.
+# ALL FUNCTIONS REGARDING ITEMS ARE HERE
+# functions are named as just 'item_name'
+# yea, kinda hard coded the item names inside the functions
+# no biggie tho.
+
+# This item list would need to be updated when I switch over to the current version but not by much.
+# I could simply add the new items instead of creating a whole new file.
+
+# I think I need to implement the logic for item components as well. 
 
 def change_stat(champion, stat, value, message = ''):
     start_value = getattr(champion, stat)
     end_value = value
 
-    
-
     if(message == 'initiate_item_stat_change'):
         message = ''
         if(stat == 'health'): change_stat(champion, 'max_health', value)
-
 
     if(value != start_value and champion.health > 0):
         if(isinstance(start_value, float)): start_value = round(start_value,2)
@@ -29,11 +31,8 @@ def change_stat(champion, stat, value, message = ''):
     setattr(champion, stat, value)
 
 
-
-
 def initiate(champion):
     items = item_stats.items
-    #print(champion.items)
     for i in champion.items:
         data = items[i]
         for stat in data:
@@ -46,11 +45,10 @@ def initiate(champion):
             
             else: change_stat(champion, stat, original_value + value, 'initiate_item_stat_change')
             
-
         if(i in item_stats.initiative_items):
             eval(i)(champion)
 
-#where item functions are based at
+# where item functions are based at
 
 
 def blue_buff(champion):
@@ -76,7 +74,6 @@ def bramble_vest(champion):
                     champion.spell(n, item_stats.damage['bramble_vest'][champion.stars], 0, True)
 
 
-
 def chalice_of_power(champion):
     units = champion.own_team() + champion.enemy_team()
     holders = list(filter(lambda x: 'chalice_of_power' in x.items, units))
@@ -93,7 +90,6 @@ def chalice_of_power(champion):
         for h in hexes:
             if(h and h.team == champion.team and h.champion):
                 change_stat(h, 'SP', h.SP + item_stats.SP['chalice_of_power'] * item_amount)
-
 
 
 #adding stack whenever dealing damage to a target
@@ -168,6 +164,7 @@ def frozen_heart(champion):
                     u[1] = new_c_list
                     break
 
+
 gargoyle_stoneplate_list = []
 def gargoyle_stoneplate(target):
     if('gargoyle_stoneplate' in target.items):
@@ -195,7 +192,6 @@ def gargoyle_stoneplate(target):
         change_stat(target, 'armor', target.armor + difference * item_stats.armor['gargoyle_stoneplate'] * item_amount)
 
 
-
 def giant_slayer(champion, target):
     if('giant_slayer' in champion.items):
         item_amount = len(list(filter(lambda x: x == 'giant_slayer', champion.items)))
@@ -207,14 +203,12 @@ def giant_slayer(champion, target):
         return 1.00
 
 
-
 def guinsoos_rageblade(champion):
     if('guinsoos_rageblade' in champion.items and champion.AS < 5.00):
         item_amount = len(list(filter(lambda x: x == 'guinsoos_rageblade', champion.items)))
 
         for i in range(0, item_amount):
             change_stat(champion, 'AS', champion.AS * item_stats.item_as_increase['guinsoos_rageblade'])
-
 
 
 def hand_of_justice(champion):
@@ -232,7 +226,6 @@ def hand_of_justice(champion):
             if(r == 2):
                 change_stat(h, 'lifesteal', h.lifesteal + item_stats.lifesteal['hand_of_justice'])
                 change_stat(h, 'lifesteal_spells', h.lifesteal_spells + item_stats.lifesteal_spells['hand_of_justice'])
-
 
 
 hextech_gunblade_list = []
@@ -296,7 +289,6 @@ def hextech_gunblade(champion, damage):
                 for i, h in enumerate(hextech_gunblade_list):
                     if(h[0] == champion):
                         hextech_gunblade_list[i][1] = shield_identifier
-        
 
 
 def infinity_edge(champion):
@@ -312,7 +304,6 @@ def infinity_edge(champion):
 
         if(bonus_damage >= 0.01):
             change_stat(h, 'crit_damage', h.crit_damage + bonus_damage)
-
 
 
 #how many ionic spark holding enemies are in the range
@@ -333,8 +324,6 @@ def ionic_spark(champion):
             change_stat(u, 'MR', u.MR * item_stats.item_mr_decrease['ionic_spark'])
         elif(old_counter > 0 and counter == 0):
             change_stat(u, 'MR', u.MR / item_stats.item_mr_decrease['ionic_spark'])
-
-
 
 
 last_whisper_list = [] #[target, ms]
@@ -740,15 +729,3 @@ def sword_of_the_divine(champion)   : origin_class.amounts['divine'][champion.te
 def vanguards_cuirass(champion)     : origin_class.amounts['vanguard'][champion.team]   += len(list(filter(lambda x: x == 'vanguards_cuirass', champion.items)))
 def warlords_banner(champion)       : origin_class.amounts['warlord'][champion.team]    += len(list(filter(lambda x: x == 'warlords_banner', champion.items)))
 def youmuus_ghostblade(champion)    : origin_class.amounts['assassin'][champion.team]   += len(list(filter(lambda x: x == 'youmuus_ghostblade', champion.items)))
-
-
-
-
-
-
-
-
-
-
-
-

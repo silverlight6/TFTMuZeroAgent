@@ -240,7 +240,7 @@ threshold = {
     'the_boss': 0.4,
     'warlord': 5,
     'duelist': 8,
-    'hunter': [9999999, 3500, 3000, 2500, 2000], #executed from main() so setting the 0 hunters to be something that never gets executed
+    'hunter': [9999999, 3500, 3000, 2500, 2000], # executed from main() so setting the 0 hunters to be something that never gets executed
     'shade': 3,
 }
 
@@ -257,8 +257,6 @@ increasement = {
 }
 
 cc_immune = {'cultist': 8000}
-
-
 
 initiate_traits = [
     'dusk', 
@@ -277,3 +275,12 @@ initiate_traits = [
     'shade', 
     'vanguard'
 ] #execute the function automatically in origin_class.py: total_origin_class()
+
+chosen_exclude = [
+    'exile',
+    'ninja',
+    'the_boss',
+    'emperor',
+    'daredevil',
+    'blacksmith',
+]
