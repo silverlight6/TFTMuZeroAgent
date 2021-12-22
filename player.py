@@ -6,6 +6,7 @@ from item_stats import items as item_list, basic_items, item_builds
 from stats import COST
 from math import floor
 from champion_functions import MILLIS
+from pool_stats import cost_star_values
 
 # Let me create a bit of a TODO list at the top here
 # 
@@ -52,6 +53,9 @@ class player:
 
 		# This time we only need 6 bits per slot with 10 slots
 		self.item_array = np.zeros(60)
+
+		# Using this to track the reward gained by each player for the AI to train.
+		self.reward = 0
 	
 
 	# Return value for use of pool. 
@@ -92,7 +96,11 @@ class player:
 	def buy_champion(self, a_champion):
 		if a_champion.cost > self.gold:
 			return False
-		self.gold -= a_champion.cost
+		self.gold -= cost_star_values[a_champion.cost][a_champion.stars]
+		self.reward += 0.01 * cost_star_values[a_champion.cost][a_champion.stars]
+		# Feel free to uncomment these if you need to see what is happening with every reward.
+		# These are going to proc so often that I am leaving them commented for now.
+		# self.print("+{} reward for spending gold".format(0.01 * cost_star_values[a_champion.cost][a_champion.stars]))
 		self.add_to_bench(a_champion)
 
 
@@ -100,6 +108,10 @@ class player:
 		if self.gold < self.exp_cost:
 			return False
 		self.gold -= 4
+		self.reward += 0.04
+		# Feel free to uncomment these if you need to see what is happening with every reward.
+		# These are going to proc so often that I am leaving them commented for now.
+		# self.print("+{} reward for spending gold".format(0.04))
 		self.exp += 4
 		level_up()
 
@@ -197,19 +209,26 @@ class player:
 					sell_champion(self.board[i][k], True)
 		champion.chosen = chosen
 		if chosen: champion.new_chosen()
+		if champion.stars == 1:
+			self.reward += 1
+			self.print("+1 reward for making a level 2 champion")
+		if champion.stars == 2:
+			self.reward += 5
+			self.print("+5 reward for making a level 3 champion")
 		champion.golden
 		add_to_bench(champion)
 		if y != -1:
 			move_bench_to_board(champion.bench_loc, x, y)
 		self.printt("champion {} was made golden".format(champion.name))
 
-
+	# TO DO: FORTUNE TRAIT - HUGE EDGE CASE - GOOGLE FOR MORE INFO - FORTUNE - TFT SET 4
 	# Including base_exp income here
+	starting_round_gold = [2, 2, 3, 4]
 	def gold_income(self, t_round): # time of round since round is a keyword
 		self.exp += 2
 		self.level_up()
-		if (t_round <= 3):
-			self.gold += 3
+		if (t_round <= 4):
+			self.gold += starting_round_gold[t_round]
 			self.gold += floor(self.gold / 10)
 			return
 		self.gold += 5
@@ -244,6 +263,10 @@ class player:
 		if self.exp > self.level_costs[self.level - 1]:
 			self.exp -= self.level_costs[self.level - 1]
 			self.level += 1
+			if self.level > 4:
+				self.reward += 2
+				self.print("+2 reward for leveling to level {}".format(self.level))
+
 
 
 	# location to pick which unit from bench goes to board.
@@ -301,6 +324,8 @@ class player:
 								self.bench[x].num_of_items += 2
 						self.item_bench.pop[xBench]
 						self.bench[x].append(item_builds.keys()[item_index])
+						self.reward += .5
+						self.print(".5 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
 					else:
 						self.bench[x].items.append(self.item_bench.pop[xBench])
 						self.bench[x].num_of_items += 1
@@ -335,6 +360,8 @@ class player:
 								self.board[x][y].num_of_items += 2
 						self.item_bench.pop[xBench]
 						self.board[x][y].append(item_builds.keys()[item_index])
+						self.reward += .5
+						self.print(".5 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
 					else:
 						self.board[x][y].items.append(self.item_bench.pop[xBench])
 						self.board[x][y]].num_of_items += 1
@@ -428,29 +455,28 @@ class player:
 	# This should only be called when trying to sell a champion from the field and the bench is full
 	# This can occur after a carosell round where you get a free champion and it can enter the field
 	# Even if you already have too many units in play. The default behavior will be sell that champion.
-	def sell_champion(self, s_champion, golden=False):	# sell champion to reduce confusion over champion from import
+	def sell_champion(self, s_champion):	# sell champion to reduce confusion over champion from import
 		# Need to add the behavior that on carosell when bench is full, add to board.
 		if (not remove_triple_catelog(s_champion) or not return_item_from_board(s_champion.x, s_champion.y)):
 			return False
-		if (not golden):
-			self.gold += s_champion.cost
-			if s_champion.chosen: self.chosen = False
+		self.gold += cost_star_values[s_champion.cost][s_champion.level]
+		if s_champion.chosen: self.chosen = False
+		pool.update(s_champion, 3 ** (s_champion.level - 1))
 		self.board[s_champion.x][s_champion.y] = None
 		self.num_units_in_play -= 1
-		pool.update(s_champion, 1)
 		return True
 
 
+	# TO DO - sell 2 or 3 star unit needs to be able to get money.
 	def sell_from_bench(self, location, golden=False):
 		# Check if champion has items
 		# Are there any champions with special abilities on sell.
 		if self.bench[location]:
 			if (not remove_triple_catelog(bench[location]) or not return_item_from_bench(location)):
 				return False
-			if (not golden):
-				self.gold += self.bench[location].cost
-				if self.bench[location].chosen: self.chosen = False
-			# Update the pool if necessary
+			self.gold += cost_star_values[self.bench[location].cost][self.bench[location].level]
+			if self.bench[location].chosen: self.chosen = False
+			pool.update(self.bench[location], 3 ** (self.bench[location].level - 1))
 			pool.update(self.bench[location], 1)
 			return self.bench.pop(location)
 		return False
@@ -468,3 +494,14 @@ class player:
 		self.triple_catelog.append({"name": champion.name, "level": champion.stars, "num": 1})
 		print("adding " + champion.name + " to triple_catelog")
 			
+
+	def won_game(self):
+		self.reward += 5
+		self.print("+5 reward for winning game")
+
+
+	def won_round(self):
+		self.reward += 1
+		self.print("+1 reward for winning round")
+	
+	

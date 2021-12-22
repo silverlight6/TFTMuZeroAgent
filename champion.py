@@ -1,6 +1,7 @@
 from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, 
     DODGE, SHIELD_LENGTH, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
 from champion_functions import reset_stat, attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
+from pool_stats import cost_star_values
 import active
 import ability
 import field
@@ -116,9 +117,14 @@ class champion:
         self.done_situps = False # the_boss - trait
 
         self.chosen = origin_class.chosen(self, chosen)
+
+        # TO DO: Check that the 
         if chosen: 
+            self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
+            self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
+            self.AD = round(AD[name] * config.STARMULTIPLIER ** (stars - 1),1)
             self.stars = 2 
-            self.cost = 3 * COST[name] 
+            self.cost = cost_star_values[COST[name]][self.stars] 
             self.health += 200 
             self.max_health += 200
 
@@ -615,9 +621,11 @@ def run(champion, player_1, player_2, round_damage=0):
         if(len(blue) == 0 or len(red) == 0):
             if(len(red) == 0):
                 printt('BLUE TEAM WON') 
+                player_1.won_round()
                 return 1, round_damage + DAMAGE_PER_UNIT[len(blue)]
             else: 
                 printt('RED TEAM WON') 
+                player_2.won_round()
                 return 2, round_damage + DAMAGE_PER_UNIT[len(red)]
             break
     return False, round_damage

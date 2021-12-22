@@ -101,6 +101,7 @@ def check_dead():
 	if(num_alive == 1):
 		for player in PLAYERS:
 			if player:
+				player.won_game()
 				print("PLAYER {} WON".format(player.name))
 				return True
 	return False
