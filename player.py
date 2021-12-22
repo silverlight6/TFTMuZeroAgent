@@ -370,6 +370,7 @@ class player:
 					self.board[x][y].items.append(self.item_bench.pop[xBench])
 					self.board[x][y].num_of_items += 3
 					return True
+				self.print("moving {} to unit {} failed".format(self.item_bench[xBench], self.board[x][y].name))
 		return False
 
 
@@ -467,7 +468,6 @@ class player:
 		return True
 
 
-	# TO DO - sell 2 or 3 star unit needs to be able to get money.
 	def sell_from_bench(self, location, golden=False):
 		# Check if champion has items
 		# Are there any champions with special abilities on sell.

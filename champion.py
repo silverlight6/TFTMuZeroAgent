@@ -1,4 +1,4 @@
-from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, 
+from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, \
     DODGE, SHIELD_LENGTH, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
 from champion_functions import reset_stat, attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
 from pool_stats import cost_star_values
@@ -29,7 +29,7 @@ test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 # When updating to the new patch, there are going to be different edge cases but the core of the game should remain the same.
 
 class champion:
-    def __init__(self, name, team=None, y=-1, x=-1, stars = 1, itemlist = [], overlord = None, sandguard_overlord_coordinates = None, chosen = False):
+    def __init__(self, name, team = None, y = -1, x = -1, stars = 1, itemlist = [], overlord = None, sandguard_overlord_coordinates = None, chosen = False):
         
         # Not sure what this is doing but it is used in action
         self.champion = True
@@ -118,7 +118,6 @@ class champion:
 
         self.chosen = origin_class.chosen(self, chosen)
 
-        # TO DO: Check that the 
         if chosen: 
             self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
             self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
@@ -519,13 +518,13 @@ def run(champion, player_1, player_2, round_damage=0):
         for y in range(0, 4):
             if player_1.board[x][y]:
                 daddy_coordinates = False
-                if(player_1.board[x][y].name == 'sandguard'): daddy_coordinates = 
+                if(player_1.board[x][y].name == 'sandguard'): daddy_coordinates = \
                     [int(player_1.board[x][y].overlord_coordinates[0]), int(player_1.board[x][y].overlord_coordinates[1])]
                 blue.append(champion(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars, player_1.board[x][y].items, 
                     False, daddy_coordinates, player_1.board[x][y].chosen))
             if player_2.board[x][y]:
                 daddy_coordinates = False
-                if(player_2.board[x][y].name == 'sandguard'): daddy_coordinates = 
+                if(player_2.board[x][y].name == 'sandguard'): daddy_coordinates = \
                     [int(player_2.board[x][y].overlord_coordinates[0]), int(player_2.board[x][y].overlord_coordinates[1])]
                 # I may need to invert the y and x by doing 4 - y and 7 - x but for now, I'm leaving it as is
                 blue.append(champion(player_2.board[x][y].name, 'blue', y, x, player_2.board[x][y].stars, player_2.board[x][y].items, 

@@ -117,7 +117,7 @@ chosen_stats = {
     [0, 0, 0, .6, .4]
 }
 
-cost_star_values {
+cost_star_values = {
     [1, 3, 9],
     [2, 5, 17],
     [3, 8, 26],

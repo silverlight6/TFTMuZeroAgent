@@ -13,20 +13,21 @@ ROUND_DAMAGE = [
 	[15, 3], 
 	[21, 5],
 	[27, 8], 
-	[10000, 7]
+	[10000, 15]
 ]
 
 
 num_players = 2
 PLAYERS = [ player_class() for x in range( num_players ) ]
 
+
 # Log the info from the players to a log file.
 def log_to_file(player):
 	with open('log.txt', "w") as out:
-        for line in player.log:
-            out.write(str(line))
-            out.write('\n')
-        player.log = []
+		for line in player.log:
+			out.write(str(line))
+			out.write('\n')
+		player.log = []
 
 
 # This one is for the champion and logging the battles.
@@ -147,40 +148,39 @@ def game_logic():
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Round 6 - random 3 drop with item + Combat phase
 	# (Carosell round)
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
 		ran_cost_3 = champion(ran_cost_3)
 		ran_cost_3.add_item(basic_items[random.randint(0, len(basic_items) - 1)])
 		player.add_to_bench(ran_cost_3)
 
 	for r in range(6, 9):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Golum Round - 3 gold plus 3 item components
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		player.gold += 3
 		for _ in range(0, 3):
 			player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
 	for r in range(9, 12):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Another carosell
 	for player in PLAYERS:
@@ -190,29 +190,27 @@ def game_logic():
 		player.add_to_bench(ran_cost_3)
 
 	for r in range(9, 12):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
-	# raptors Round - 3 gold plus 3 item components
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		player.gold += 3
 		for _ in range(0, 3):
 			player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
 	for r in range(12, 15):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Another carosell
 	for player in PLAYERS:
@@ -222,17 +220,16 @@ def game_logic():
 		player.add_to_bench(ran_cost_4)
 
 	for r in range(15, 18):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Wolves Round - 3 gold plus 3 item components
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		player.gold += 6
 		for _ in range(0, 4):
 			player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
@@ -245,6 +242,7 @@ def game_logic():
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Another carosell
 	for player in PLAYERS:
@@ -262,10 +260,10 @@ def game_logic():
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Dragon Round - 3 gold plus 3 item components
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		player.gold += 6
 		item_list = list(full_items.keys())
 		player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
@@ -278,6 +276,7 @@ def game_logic():
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Another carosell
 	for player in PLAYERS:
@@ -288,17 +287,16 @@ def game_logic():
 		player.add_to_bench(ran_cost_5)
 
 	for r in range(27, 30):
-	# Round 3 to 5 - Buy phase + Combat phase
 		for player in PLAYERS:
 			interface_obj.outer_loop(player, 1)
 			log_to_file(player)
 
 		combat_phase(PLAYERS, r)
 		if check_dead(): return True
+		log_to_file()
 
 	# Rift Herald - 3 gold plus 3 item components
 	for player in PLAYERS:
-		# print(random.randint(0, len(pool_stats.COST_1)))
 		player.gold += 6
 		item_list = list(full_items.keys())
 		player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
