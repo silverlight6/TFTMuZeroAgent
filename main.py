@@ -1,7 +1,9 @@
 import game_round
+import AI_interface
 
-error = game_round.game_logic()
-if not error: print("An error occurred within the game")
+AI_interface.train_model()
+# error = game_round.human_game_logic()
+# if not error: print("An error occurred within the game")
 
 """
 import champion

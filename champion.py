@@ -19,17 +19,20 @@ import champion_functions
 que = []
 log = []
 
+
 def printt(msg):
     if(config.PRINTMESSAGES): log.append(msg)
     # if(config.PRINTMESSAGES): print(msg)
+
 
 test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 
 # I am going to have to add cost information but that should be about it. 
 # When updating to the new patch, there are going to be different edge cases but the core of the game should remain the same.
 
+
 class champion:
-    def __init__(self, name, team = None, y = -1, x = -1, stars = 1, itemlist = [], overlord = None, sandguard_overlord_coordinates = None, chosen = False):
+    def __init__(self, name, team=None, y=-1, x=-1, stars=1, itemlist=[], overlord=None, sandguard_overlord_coordinates=None, chosen=False):
         
         # Not sure what this is doing but it is used in action
         self.champion = True
@@ -351,17 +354,11 @@ class champion:
         pass
 
 
-    def burn(self, target):
-        target.clear_que_burn_removal()
-
-        target.add_que('change_stat', -1, None, 'healing_strength', config.BURN_HEALING_REDUCE)
-        target.clear_que_healing_reduction()
-        target.add_que('change_stat', config.BURN_SECONDS * 1000, None, 'healing_strength', 1)
-
-        for i in range(1, 11):
-            self.add_que('burn', i * 1000, None, None, target)
-
-        pass
+    # Only use when creating a champion from round. Use player commands otherwise.
+    def add_item(self, item):
+        # Not sure why I need to initialize the array each time but it doesn't work if I don't.
+        self.items = []
+        self.items.append(item)
 
 
     def add_que(self, action, length, function = None, stat = None, value = None, data = {}):
@@ -375,6 +372,19 @@ class champion:
             else:que.append([action, self, MILLIS() + length, function, stat, value, data])
                 
         que.sort(key=lambda x: x[2])
+
+
+    def burn(self, target):
+        target.clear_que_burn_removal()
+
+        target.add_que('change_stat', -1, None, 'healing_strength', config.BURN_HEALING_REDUCE)
+        target.clear_que_healing_reduction()
+        target.add_que('change_stat', config.BURN_SECONDS * 1000, None, 'healing_strength', 1)
+
+        for i in range(1, 11):
+            self.add_que('burn', i * 1000, None, None, target)
+
+        pass
 
 
     def clear_que_idle(self):
@@ -452,7 +462,7 @@ class champion:
             overlord = self
             for i in self.items:
                 if(i == 'spear_of_shojin'): items.append(i)
-        unit = champion(name, stars, team, y, x, items, overlord)
+        unit = champion(name, stars=stars, team=team, y=y, x=x, itemlist=items, overlord=overlord)
         unit.champion = is_champion
         eval(team).append(unit)
         return unit
@@ -475,19 +485,14 @@ class champion:
 
     def golden(self):
         self.stars += 1
-        self.health = round(self.max_health * config.STARMULTIPLIER ** (stars - 1),1)
-        self.max_health = round(self.max_health * config.STARMULTIPLIER ** (stars - 1),1)
-        self.AD = round(self.AD * config.STARMULTIPLIER ** (stars - 1),1)
+        self.health = round(self.max_health * config.STARMULTIPLIER ** (self.stars - 1),1)
+        self.max_health = round(self.max_health * config.STARMULTIPLIER ** (self.stars - 1),1)
+        self.AD = round(self.AD * config.STARMULTIPLIER ** (self.stars - 1),1)
 
     
     def new_chosen(self):
         self.health += 200
         self.max_health += 200
-
-    
-    # Only use when creating a champion from round. Use player commands otherwise.
-    def add_item(self, item):
-        self.items.append(item)
 
     
 global blue
@@ -525,12 +530,27 @@ def run(champion, player_1, player_2, round_damage=0):
             if player_2.board[x][y]:
                 daddy_coordinates = False
                 if(player_2.board[x][y].name == 'sandguard'): daddy_coordinates = \
-                    [int(player_2.board[x][y].overlord_coordinates[0]), int(player_2.board[x][y].overlord_coordinates[1])]
-                # I may need to invert the y and x by doing 4 - y and 7 - x but for now, I'm leaving it as is
-                blue.append(champion(player_2.board[x][y].name, 'blue', y, x, player_2.board[x][y].stars, player_2.board[x][y].items, 
+                    [6 - int(player_2.board[x][y].overlord_coordinates[0]), int(7 - player_2.board[x][y].overlord_coordinates[1])]
+                # Inverting because the combat system uses the whole board and does not mirror at start.
+                red.append(champion(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars, player_2.board[x][y].items, 
                     False, daddy_coordinates, player_2.board[x][y].chosen))
 
     
+    if(len(blue) == 0 or len(red) == 0):
+        if (len(red) == 0 and len(blue) == 0):
+            printt('DRAW')
+            return 0, round_damage
+        elif(len(red) == 0):
+            printt('BLUE TEAM WON') 
+            player_1.won_round()
+            # print("len(blue) = " + str(len(blue)))
+            return 1, round_damage + DAMAGE_PER_UNIT[len(blue)]
+        elif(len(blue) == 0): 
+            printt('RED TEAM WON') 
+            player_2.won_round()
+            # print("len(red) = " + str(len(red)))
+            return 2, round_damage + DAMAGE_PER_UNIT[len(red)]
+
     # Not quite sure what is happening in these lines. 
     # They are effects that happen at the start of the fight.
     # But blue[0] feels odd
@@ -622,7 +642,7 @@ def run(champion, player_1, player_2, round_damage=0):
                 printt('BLUE TEAM WON') 
                 player_1.won_round()
                 return 1, round_damage + DAMAGE_PER_UNIT[len(blue)]
-            else: 
+            elif(len(blue) == 0): 
                 printt('RED TEAM WON') 
                 player_2.won_round()
                 return 2, round_damage + DAMAGE_PER_UNIT[len(red)]

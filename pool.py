@@ -107,24 +107,24 @@ class pool:
 		# This line is actually a little faster than combining this line and cost = stats.COST[u_champion.name]
 		# because it does not require loading the array for champion costs to search for the value.
 		cost = u_champion.cost
-		quantity = 3 ** (u_champion.star - 1) * direction
-		if u_champion.star != 1:
+		quantity = 3 ** (u_champion.stars - 1) * direction
+		if u_champion.stars != 1:
 			cost = stats.COST[u_champion.name]
 		if cost == 1:
-			pool_stats.COST_1[u_champion.name] += quantity
-			update_stats(one=True)
+			COST_1[u_champion.name] += quantity
+			self.update_stats(one=True)
 		elif cost == 2:
-			pool_stats.COST_2[u_champion.name] += quantity
-			update_stats(two=True)
+			COST_2[u_champion.name] += quantity
+			self.update_stats(two=True)
 		elif cost == 3:
-			pool_stats.COST_3[u_champion.name] += quantity
-			update_stats(three=True)
+			COST_3[u_champion.name] += quantity
+			self.update_stats(three=True)
 		elif cost == 4:
-			pool_stats.COST_4[u_champion.name] += quantity
-			update_stats(four=True)
+			COST_4[u_champion.name] += quantity
+			self.update_stats(four=True)
 		elif cost == 5:
-			pool_stats.COST_5[u_champion.name] += quantity
-			update_stats(five=True)
+			COST_5[u_champion.name] += quantity
+			self.update_stats(five=True)
 
 
 	def update_stats(self, allV=False, one=False, two=False, three=False, four=False, five=False):

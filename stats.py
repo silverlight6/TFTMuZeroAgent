@@ -459,6 +459,8 @@ MAXMANA = {
 }
 
 COST = {
+    # including this to get around some bugs.
+    ' ': 0,
     'aatrox': 4,
     'ahri': 4,
     'akali': 3,
@@ -1166,4 +1168,4 @@ ACTIVE_DAMAGE_REDUCTION = { 'tahmkench': [0, 15, 25, 75] }
 
 DODGE = 0.0
 
-DAMAGE_PER_UNIT = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
+DAMAGE_PER_UNIT = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]

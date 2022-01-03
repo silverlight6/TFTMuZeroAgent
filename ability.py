@@ -23,20 +23,20 @@ from math import ceil, floor
 # The pics are pretty shit and were made just for my own good but decided to include them anyway
 
 def default_ability_calls(champion):
-    if(not champion.target): field.find_target(champion)
-    if(not (champion.name == 'galio' and champion.stars == 1)):
+    if not champion.target:
+        field.find_target(champion)
+    if not (champion.name == 'galio' and champion.stars == 1):
         champion.print(' ability triggered ')
 
-    if(champion.mana_cost_increased):
+    if champion.mana_cost_increased:
         champion.print(' {} {} --> {}'.format('mana_cost_increased', True, False))
     
     for i in range(0, champion.ionic_sparked):
         champion.spell(champion, champion.maxmana * item_stats.damage['ionic_spark'], 0, True)
 
-    #spirit -trait
-    if(origin_class.is_trait(champion, 'spirit')):
+    # spirit -trait
+    if origin_class.is_trait(champion, 'spirit'):
         origin_class.spirit(champion)
-
 
     champion.spell_has_used_ludens = False #ludens_echo helper
     
@@ -495,7 +495,7 @@ def elise(champion):
     # to ensure both, the health change and health per attack -changes to happen BEFORE the auto attack goes through, 
     # we have to mark these changes as high priority
     champion.add_que('change_stat', -2, None, 'health', 
-        champion.health + (stats.HEALTH[champion.name] * config.STARMULTIPLIER ** (champion.stars - 1)) 
+        champion.health + (stats.HEALTH[champion.name] * config.STARMULTIPLIER ** (champion.stars - 1))
         * (stats.ABILITY_HEALTH_GAIN_PERCENTAGES[champion.name][champion.stars] - 1))
     
     
@@ -1030,38 +1030,44 @@ def kindred(champion):
     apply_attack_cooldown(champion, halved = False)
 
 
-
-#this is not fun
-#not for anyone involved
-#killme
+# this is not fun
+# not for anyone involved
+# killme
 def leesin(champion):
     default_ability_calls(champion)
-    #draw a line from lee to target and continue it until it hits an edge
-    if(not champion.target): field.find_target(champion)
-    if(len(champion.enemy_team()) > 0):
+    # draw a line from lee to target and continue it until it hits an edge
+    if not champion.target:
+        field.find_target(champion)
+    if len(champion.enemy_team()) > 0:
         line_to_wall_behind_target = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y, champion.target.x)
         end_point = line_to_wall_behind_target[0][-1]
 
-        #find the closest corner to the line's end point
-        #not perfect
+        # find the closest corner to the line's end point
+        # not perfect
         e_y = end_point[0]
         e_x = end_point[1]
         end_point_original = [e_y, e_x]
-        if(e_x == 6 or e_x == 0):
-            if(e_y > champion.y): end_point[0] = 7
-            if(e_y < champion.y): end_point[0] = 0
-            if(e_y == champion.y):
-                if(champion.y <= 3): end_point[0] = 0
-                else: end_point[0] = 7
+        if e_x == 6 or e_x == 0:
+            if e_y > champion.y:
+                end_point[0] = 7
+            if e_y < champion.y:
+                end_point[0] = 0
+            if e_y == champion.y:
+                if champion.y <= 3:
+                    end_point[0] = 0
+                else:
+                    end_point[0] = 7
 
-        elif(e_y == 7 or e_y == 0):
-            if(e_x > champion.x): end_point[1] = 6
-            if(e_x < champion.x): end_point[1] = 0
-            if(e_x == champion.x):
-                if(champion.y % 2 == 0): end_point[1] = 0
-                else: end_point[1] = 6
-
-
+        elif e_y == 7 or e_y == 0:
+            if e_x > champion.x:
+                end_point[1] = 6
+            if e_x < champion.x:
+                end_point[1] = 0
+            if e_x == champion.x:
+                if champion.y % 2 == 0:
+                    end_point[1] = 0
+                else:
+                    end_point[1] = 6
 
         coords = field.coordinates
         kick_coords = None
@@ -1070,70 +1076,71 @@ def leesin(champion):
 
         t = champion.target
 
-        #if 3 star, just kill the target and other enemies strictly around it
-        if(champion.stars == 3): 
+        # if 3 star, just kill the target and other enemies strictly around it
+        # Its a fun way of doing things but sure.
+        if champion.stars == 3:
             ttt = field.enemies_in_distance(champion, t.y, t.x, 1)
             for tt in ttt:
                 tt.die()
         else:
 
-            #if target is on a side 
-            if((t.y == 7 or t.y == 0 or t.x == 6 or t.x == 0)):
+            # if target is on a side
+            if t.y == 7 or t.y == 0 or t.x == 6 or t.x == 0:
 
-                corners = [[0,0], [0,6], [7,6], [7,0]]
+                corners = [[0, 0], [0, 6], [7, 0], [7, 0]]
 
-                #if they both are on a side lines, remove some corners from the list
-                if(champion.y == 7 or champion.y == 0 or champion.x == 6 or champion.x == 0):
-                    if(champion.x > t.x): 
-                        corners.remove([0,6])
-                        corners.remove([7,6])
-                    if(champion.x < t.x):
-                        corners.remove([0,0])
-                        corners.remove([7,0])
-                    if(champion.y > t.y):
-                        corners.remove([7,6])
-                        corners.remove([7,0])
-                    if(champion.y < t.y):
-                        corners.remove([0,0])
-                        corners.remove([0,6])
+                # if they both are on a side lines, remove some corners from the list
+                if champion.y == 7 or champion.y == 0 or champion.x == 6 or champion.x == 0:
+                    if champion.x > t.x:
+                        corners.remove([0, 6])
+                        corners.remove([7, 6])
+                    if champion.x < t.x:
+                        corners.remove([0, 0])
+                        corners.remove([7, 0])
+                    if champion.y > t.y:
+                        corners.remove([7, 6])
+                        corners.remove([7, 0])
+                    if champion.y < t.y:
+                        corners.remove([0, 0])
+                        corners.remove([0, 6])
 
-
-                #find the closest corner
+                # find the closest corner
                 for i, c in enumerate(corners): 
                     d = field.distance({'y': t.y, 'x': t.x}, {'y': c[0], 'x': c[1]}, False)
                     corners[i].append(d)
                 corners = sorted(corners, key=lambda x: x[2])
                 closest_corner = corners[0]
 
-                #if we're at the corner (distance == 0)
-                if(closest_corner[2] == 0):
+                # if we're at the corner (distance == 0)
+                if closest_corner[2] == 0:
                     kick_out = True
                 
-                #otherwise draw a line from target to the closest corner
-                #if all hexes on the line are occupied, kick the target out
+                # otherwise draw a line from target to the closest corner
+                # if all hexes on the line are occupied, kick the target out
                 else:
                     line = field.line({'y': t.y, 'x': t.x}, {'y': closest_corner[0], 'x': closest_corner[1]})
                     all_occupied = True
                     for l in line:
-                        if(not coords[l[0]][l[1]]):
-                            all_occupied = False
-                            break
-                    if(all_occupied):
+                        if coords:
+                            if not coords[l[0]][l[1]]:
+                                all_occupied = False
+                                break
+                    if all_occupied:
                         kick_out = True
 
-
-
-            if(not kick_out):
-                #draw a line from the corner to the (lee to target) -line end point and find the first free spot
+            if not kick_out:
+                # draw a line from the corner to the (lee to target) -line end point and find the first free spot
                 
-                if(end_point[:2] != end_point_original):
+                if end_point[:2] != end_point_original:
                     line = (field.line({'y': end_point[0], 'x': end_point[1]}, {'y': end_point_original[0], 'x': end_point_original[1]}))
-                    while(not kick_coords):
-                        if(len(line) == 0):
+                    while not kick_coords:
+                        if len(line) == 0:
 
-                            #very much just a 'tape on a tap head' -type solution for a rare bug 
-                            #if the corner is very full, the unit would get kicked out rather than added to the queue of units on the side lane
-                            if(not (champion.target.y == 0 or champion.target.y == 7 or champion.target.x == 0 or champion.target.x == 6)):
+                            # very much just a 'tape on a tap head' -type solution for a rare bug
+                            # if the corner is very full,
+                            # the unit would get kicked out rather than added to the queue of units on the side lane
+                            if not (champion.target.y == 0 or champion.target.y == 7
+                                    or champion.target.x == 0 or champion.target.x == 6):
                                 deal = True
                                 kick_coords = [champion.target.y, champion.target.x]
 
@@ -1148,10 +1155,8 @@ def leesin(champion):
 
                             break
 
-
-
-                #if the target is kicked straight to the corner, but it's occupied
-                #find the closest hex to the corner that's free
+                # if the target is kicked straight to the corner, but it's occupied
+                # find the closest hex to the corner that's free
                 else:
                     #some close hexes
                     hexes_in_distance = field.hexes_in_distance(end_point[0], end_point[1], 3)
@@ -1214,9 +1219,7 @@ def leesin(champion):
                 
             else:
                 champion.target.die()
-#this was aids
-
-
+# this was aids
 
 
 def lillia(champion):
@@ -1422,32 +1425,35 @@ def maokai(champion):
     target_neighbors = sorted(target_neighbors, key=lambda x: x[1])
     target_neighbors = list(filter(lambda x: (x[1] == 1), target_neighbors))
 
-    targeted_hexes.append(target_neighbors[0][0])
-    targeted_hexes.append(target_neighbors[1][0])
+    # print(target_neighbors)
+    # Bug happens if there are no neighbors or if it is outside the range of the map. Have yet to test.
+    if target_neighbors:
+        targeted_hexes.append(target_neighbors[0][0])
+        targeted_hexes.append(target_neighbors[1][0])
 
     #also target two hexes behind the unit (red dashes in 'maokai_ult.png')
     #the last dashed hex is 3 away from the side neighbors and 3 away from the champion
     #NOT THE MOST ELEGANT WAY TO DO THIS:
 
-    three_from_champion = field.hexes_distance_away(champion.y, champion.x, 3)
-    three_from_n0 = field.hexes_distance_away(target_neighbors[0][0][0], target_neighbors[0][0][1], 3)
-    three_from_n1 = field.hexes_distance_away(target_neighbors[1][0][0], target_neighbors[1][0][1], 3)
-    three_away = list(set(map(tuple, three_from_champion)).intersection(set(map(tuple, three_from_n0))))
-    three_away = list(set(map(tuple, three_away)).intersection(set(map(tuple, three_from_n1))))
+        three_from_champion = field.hexes_distance_away(champion.y, champion.x, 3)
+        three_from_n0 = field.hexes_distance_away(target_neighbors[0][0][0], target_neighbors[0][0][1], 3)
+        three_from_n1 = field.hexes_distance_away(target_neighbors[1][0][0], target_neighbors[1][0][1], 3)
+        three_away = list(set(map(tuple, three_from_champion)).intersection(set(map(tuple, three_from_n0))))
+        three_away = list(set(map(tuple, three_away)).intersection(set(map(tuple, three_from_n1))))
 
 
-    #in case the dash hexes are outside the map, let's just find them independently without drawing a line
-    two_from_champion = field.hexes_distance_away(champion.y, champion.x, 2)
-    two_from_n0 = field.hexes_distance_away(target_neighbors[0][0][0], target_neighbors[0][0][1], 2)
-    two_from_n1 = field.hexes_distance_away(target_neighbors[1][0][0], target_neighbors[1][0][1], 2)
-    two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_from_n0))))
-    two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))
+        #in case the dash hexes are outside the map, let's just find them independently without drawing a line
+        two_from_champion = field.hexes_distance_away(champion.y, champion.x, 2)
+        two_from_n0 = field.hexes_distance_away(target_neighbors[0][0][0], target_neighbors[0][0][1], 2)
+        two_from_n1 = field.hexes_distance_away(target_neighbors[1][0][0], target_neighbors[1][0][1], 2)
+        two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_from_n0))))
+        two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))
 
 
-    if(len(three_away) > 0):
-        targeted_hexes.append([three_away[0][0], three_away[0][1]])
-    if(len(two_away) > 0):
-        targeted_hexes.append([two_away[0][0], two_away[0][1]])
+        if len(three_away) > 0:
+            targeted_hexes.append([three_away[0][0], three_away[0][1]])
+        if len(two_away) > 0:
+            targeted_hexes.append([two_away[0][0], two_away[0][1]])
 
     coords = field.coordinates
     for t in targeted_hexes:
@@ -1958,20 +1964,25 @@ def sylas(champion):
     smash_line.append(sylas_ability(champion, {'hexes': primary_neighbors, 'distance': 2}))
     smash_line.append(sylas_ability(champion, {'hexes': primary_neighbors, 'distance': 3}))
 
+    # print("SYLAS ABILITY SMASH LINE")
+    # print(smash_line)
     coords = field.coordinates
     for s in smash_line:
-        c = coords[s[0]][s[1]]
-        if(c and c.team != champion.team and c.champion):
+        print("IN SYLAS ABILITY")
+        print(coords)
+        if coords:
+            c = coords[s[0]][s[1]]
+            if c and c.team != champion.team and c.champion:
 
-            #increase next spell mana cost of every enemy in the line by 33% = reduce mana by 33% of maxmana
-            if(not c.mana_cost_increased and c.maxmana > 0):
-                mana_reduce_amount = c.maxmana * stats.ABILITY_MANA_REQUIREMENT_INCREASEMENT[champion.name]
-                start_value = c.mana
-                c.mana -= mana_reduce_amount
-                c.print(' {} {} --> {}'.format('mana', round(start_value,1), round(c.mana,1)))
-                c.add_que('change_stat', -1, None, 'mana_cost_increased', True)
+                #increase next spell mana cost of every enemy in the line by 33% = reduce mana by 33% of maxmana
+                if(not c.mana_cost_increased and c.maxmana > 0):
+                    mana_reduce_amount = c.maxmana * stats.ABILITY_MANA_REQUIREMENT_INCREASEMENT[champion.name]
+                    start_value = c.mana
+                    c.mana -= mana_reduce_amount
+                    c.print(' {} {} --> {}'.format('mana', round(start_value, 1), round(c.mana, 1)))
+                    c.add_que('change_stat', -1, None, 'mana_cost_increased', True)
 
-            champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
+                champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
 
 
 
@@ -2136,7 +2147,7 @@ def thresh(champion):
     for a in shielded_allies:
         for i in range(0, 3):
             for s in a.shields:
-                if(s['applier'] == champion):
+                if s['applier'] == champion:
                     shield_before = a.shield_amount()
                     a.shields.remove(s)
                     a.print(' {} {} --> {}'.format('shield', ceil(shield_before), ceil(a.shield_amount())))
@@ -2147,11 +2158,9 @@ def thresh(champion):
         a.add_que('shield', -1, None, None, {'amount': shield_amount, 'identifier': identifier, 'applier': champion, 'original_amount': shield_amount}, {'increase': True, 'expires': stats.SHIELD_LENGTH[champion.name]})
 
 
-
-
+# Time to add a few comments because I need to understand what is happening here.
 def twistedfate(champion):
     default_ability_calls(champion)
-
 
     # middleline 
     # using the rectangle function which kinda sucks for something like this.
@@ -2171,15 +2180,22 @@ def twistedfate(champion):
     neighbors = list(filter(lambda x: x[0] != [champion.target.y, champion.target.x], neighbors))
 
 
-    if(neighbors[0][1] != neighbors[1][1]):
+    if neighbors[0][1] != neighbors[1][1]:
         neighbors = neighbors[1:]
 
-    side_line0 = twistedfate_ability(champion, {'c': [neighbors[0][0][0], neighbors[0][0][1]]})
-    side_line1 = twistedfate_ability(champion, {'c': [neighbors[1][0][0], neighbors[1][0][1]]})
+    # print("IN TWISTED FATE ABILITY - Neighbors")
+    # print(neighbors)
+    if neighbors:
+        side_line0 = twistedfate_ability(champion, {'c': [neighbors[0][0][0], neighbors[0][0][1]]}) 
+    # Experiencing a bug if tf is on the side of the board and one of the lines of cards starts off of the board.
+        if len(neighbors) > 1:
+            side_line1 = twistedfate_ability(champion, {'c': [neighbors[1][0][0], neighbors[1][0][1]]})
 
     all_hit_hexes = [line]
-    all_hit_hexes.append(side_line0)
-    all_hit_hexes.append(side_line1)
+    if neighbors:
+        all_hit_hexes.append(side_line0)
+        if len(neighbors) > 1:
+            all_hit_hexes.append(side_line1)
 
     already_targeted = []
     coords = field.coordinates
@@ -2304,10 +2320,10 @@ def vi(champion):
                     if(diff > stats.ABILITY_LENGTH[champion.name]):
                         can_be_changed = True
 
-            if(len(armor_history) == 0): 
+            if len(armor_history) == 0:
                 can_be_changed = True
 
-            if(can_be_changed):
+            if can_be_changed:
                 c.print(' {} {} --> {}'.format('armor', c.armor, c.armor * stats.ABILITY_ARMOR_DECREASE[champion.name][champion.stars]))
                 c.armor *= stats.ABILITY_ARMOR_DECREASE[champion.name][champion.stars]
                 c.clear_que_armor_removal()

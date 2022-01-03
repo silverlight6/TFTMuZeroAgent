@@ -1,11 +1,12 @@
 import math
 import stats
 import items
-coordinates = [ [None]*7 for _ in range(8)]
+coordinates = [[None]*7 for _ in range(8)]
 
 # There are about a 1000 places where it says champion.enemy_team
 # I think this means I am going to have to set up the enemy_team at the end of every buy phase
 # As it should change at the end of every phase if more than 2 players. 
+
 
 def action(champion):
     if(len(champion.enemy_team()) > 0 and not champion.stunned):
@@ -330,21 +331,27 @@ def line(starting_point, end_point):
 # the rectangle that's used in azir's, ezreal's and TF's ults
 def rectangle_from_champion_to_wall_behind_target(champion, width, target_y, target_x, allow_outside_map = False):
     direction = 'vertical'
+    # Is the champion I am looking at above me or to my side?
     if(abs(target_x - champion.x) >= abs(target_y - champion.y)):
         direction = 'diagonal'
 
+    # Distance in manhattan units between y and x. I'm assuming this can be negative
     change_y = target_y - champion.y
     change_x = target_x - champion.x
 
+    # Not sure why this is included.. This just moves the distance between the two by a multiple of 10.
     target_y = 10 * change_y + champion.y
     target_x = 10 * change_x + champion.x
 
     hexes = []
     affected_hexes = []
 
+    # With twisted fate, width is 1, I imagine with azir and ezreal, this is not 1.
+    # So it goes from 1 to 1 for tf. 0 ^ 0 equals 1
     loop_start = math.floor(width / 2) * -1
     loop_end = math.floor(width / 2) + 1
 
+    # Loop over the number of hexes required.
     for i in range(loop_start, loop_end): 
             if(direction == 'vertical'):
                 hexes.append(line({'y': champion.y, 'x': champion.x + i}, {'y':target_y, 'x':target_x + i}))

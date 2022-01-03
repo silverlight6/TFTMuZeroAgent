@@ -245,19 +245,20 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
 
 def die(champion):
     enemy_team = champion.enemy_team()
-    #mark everyone's target to be 'None' who targeted this champion
+    # mark everyone's target to be 'None' who targeted this champion
     for c in enemy_team:
         if(c.target == champion): c.target = None
 
     if(not champion.will_revive[0][0] and not champion.will_revive[1][0]):
 
-        #free the coordinates
+        # free the coordinates
         field.coordinates[champion.y][champion.x] = None
-        #if(champion in champion.own_team()):
-        champion.own_team().remove(champion)
+        # Ran into a bug with this being removed. I'll look into where own_team is defined later
+        if(champion in champion.own_team()):
+            champion.own_team().remove(champion)
         champion.print(' dies ')
 
-        #zzrot_portal
+        # zzrot_portal
         if('zzrot_portal' in champion.items): 
             items.zzrot_portal_helper(champion)
 
@@ -265,7 +266,7 @@ def die(champion):
             if(champion in champion.overlord.underlords):
                 champion.overlord.underlords.remove(champion)
 
-        #kill the dependants
+        # kill the dependants
         for u in champion.underlords:
             for c in enemy_team:
                     if(c.target == u): c.target = None
@@ -274,10 +275,10 @@ def die(champion):
                 champion.own_team().remove(u)
                 champion.print(' {:<15}'.format(u.name) + ' dies ')
 
-    #if the champion has zilean orb or guardian angel equipped
+    # if the champion has zilean orb or guardian angel equipped
     else:
-        #set the unit in a state where it's not targetable or attackable but still resides in that hex
-        #also stun the unit so it's not able to move etc.
+        # set the unit in a state where it's not targetable or attackable but still resides in that hex
+        # also stun the unit so it's not able to move etc.
         champion.add_que('change_stat', -1, None, 'stunned', True)
         champion.add_que('change_stat', -1, None, 'champion', False)
         champion.clear_que_stunned_removal()
@@ -286,7 +287,7 @@ def die(champion):
         revive_delay = None
         revive_hp = None
 
-        #zilean revive
+        # zilean revive
         if(champion.will_revive[0][0]):
             zilean = champion.will_revive[0][0]
             revive_delay = ABILITY_LENGTH[zilean.name][zilean.stars]
@@ -297,17 +298,17 @@ def die(champion):
             
             as_gain = (stats.ABILITY_AS_GAIN[zilean.name][zilean.stars] - 1) * zilean.SP + 1
             champion.add_que('change_stat', revive_delay, None, 'AS', champion.AS * as_gain)
-            #the first slot is for zilean. clear it and keep the second (GA) if equipped
+            # the first slot is for zilean. clear it and keep the second (GA) if equipped
             champion.add_que('change_stat', revive_delay, None, 'will_revive', [[None], [champion.will_revive[1][0]]])
     
-        #GA revive
+        # GA revive
         else:
             revive_delay = item_stats.cooldown['guardian_angel']
             revive_hp = item_stats.heal['guardian_angel']
-            #clear the second slot but keep zilean still in the first. tho this never happens since zilean is set to activate first.
+            # clear the second slot but keep zilean still in the first. tho this never happens since zilean is set to activate first.
             champion.add_que('change_stat', revive_delay, None, 'will_revive', [[champion.will_revive[0][0]], [None]])
 
-        #reviving
+        # reviving
         if(revive_hp > champion.max_health):
             revive_hp = champion.max_health
 
