@@ -215,28 +215,32 @@ def attack(champion, target, bonus_dmg = 0, item_attack = False, trait_attack = 
                         champion.mana += (items.spear_of_shojin(champion) * champion.mana_generation) #spear of shojin -item
                         champion.print(' mana {} --> {}'.format(round(old_mana,1), round(champion.mana,1)))
 
-                #aphelios turret triggering aphelios's shojins
-                if(champion.name == 'aphelios_turret' and MILLIS() > champion.overlord.castMS + champion.overlord.manalock  and not trait_attack):
+                # aphelios turret triggering aphelios's shojins
+                if champion.name == 'aphelios_turret' and \
+                        MILLIS() > champion.overlord.castMS + champion.overlord.manalock and not trait_attack:
                     old_mana = champion.overlord.mana
-                    champion.overlord.mana += (items.spear_of_shojin(champion) * champion.overlord.mana_generation) #spear of shojin -item
-                    champion.overlord.print(' mana {} --> {}'.format(round(old_mana,1), round(champion.overlord.mana,1)))
+                    champion.overlord.mana += (items.spear_of_shojin(champion) * champion.overlord.mana_generation)
+                    # spear of shojin -item
+                    champion.overlord.print(' mana {} --> {}'.format(round(old_mana, 1),
+                                                                     round(champion.overlord.mana, 1)))
 
-                if(champion.heal_per_attack > 0):
+                if champion.heal_per_attack > 0:
                     health_old = champion.health
                     champion.health += (champion.heal_per_attack * champion.healing_strength)
 
-                    if(champion.health > champion.max_health):
+                    if champion.health > champion.max_health:
                         champion.health = champion.max_health
                     champion.print(' heals ' + '{:<5}--> {:<8}'.format(ceil(health_old), ceil(champion.health)))
 
-
-                #applying attack speed pause
+                # applying attack speed pause
                 champion.idle = False
-                if(champion.name == 'aphelios_turret'):
-                    champion.overlord.add_que('clear_idle', 1/champion.overlord.AS * 1000, None, None, None, {'underlord': champion})
+                if champion.name == 'aphelios_turret':
+                    champion.overlord.add_que('clear_idle', 1/champion.overlord.AS * 1000, None, None, None,
+                                              {'underlord': champion})
 
-        else: origin_class.cultist_helper(champion, damage, target)            
-        if((not item_attack and not trait_attack) or champion.name == 'ashe'):
+        else:
+            origin_class.cultist_helper(champion, damage, target)
+        if (not item_attack and not trait_attack) or champion.name == 'ashe':
             champion.idle = False
             champion.clear_que_idle()
             champion.add_que('clear_idle', 1/champion.AS * 1000)
@@ -247,31 +251,32 @@ def die(champion):
     enemy_team = champion.enemy_team()
     # mark everyone's target to be 'None' who targeted this champion
     for c in enemy_team:
-        if(c.target == champion): c.target = None
+        if c.target == champion: c.target = None
 
-    if(not champion.will_revive[0][0] and not champion.will_revive[1][0]):
+    if not champion.will_revive[0][0] and not champion.will_revive[1][0]:
 
         # free the coordinates
         field.coordinates[champion.y][champion.x] = None
         # Ran into a bug with this being removed. I'll look into where own_team is defined later
-        if(champion in champion.own_team()):
+        if champion in champion.own_team():
             champion.own_team().remove(champion)
         champion.print(' dies ')
 
         # zzrot_portal
-        if('zzrot_portal' in champion.items): 
+        if 'zzrot_portal' in champion.items:
             items.zzrot_portal_helper(champion)
 
-        if(not champion.champion and hasattr(champion, 'overlord') and not champion.name == 'sett'):
-            if(champion in champion.overlord.underlords):
+        if not champion.champion and hasattr(champion, 'overlord') and not champion.name == 'sett':
+            if champion.overlord and champion in champion.overlord.underlords:
                 champion.overlord.underlords.remove(champion)
 
         # kill the dependants
         for u in champion.underlords:
             for c in enemy_team:
-                    if(c.target == u): c.target = None
+                if c.target == u:
+                    c.target = None
             field.coordinates[u.y][u.x] = None
-            if(u.name == 'aphelios_turret' or (u.name == 'sandguard' and u.health >= 0)):
+            if u.name == 'aphelios_turret' or (u.name == 'sandguard' and u.health >= 0):
                 champion.own_team().remove(u)
                 champion.print(' {:<15}'.format(u.name) + ' dies ')
 

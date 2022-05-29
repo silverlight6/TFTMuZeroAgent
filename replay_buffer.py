@@ -1,38 +1,118 @@
-from collections import deque
-import random
 import numpy as np
 
 
 class ReplayBuffer:
-    def __init__(self):
-        self.gameplay_experiences = deque(['state', 'action', 'reward', 'next_state', 'done'], maxlen=100000)
+    def __init__(self, g_buffer):
+        self.gameplay_experiences = []
+        self.zero_rewards = []
+        self.non_zero_rewards = []
+        self.g_buffer = g_buffer
+        self.prev_action = np.zeros(5, dtype=np.int32)
+        self.prev_reward = 0.0
 
-    def store_replay_buffer(self, state, action, reward, next_state, done):
-        # Records a single step of gameplay experience
-        # First few are self-explainatory
-        # done is boolean if game is done after taking said action
-        self.gameplay_experiences.append((state, action, reward, next_state, done))
+    def sample_sequence(self, sequence_size):
+        # -1 for the case if start pos is the terminated frame.
+        # (Then +1 not to start from terminated frame.)
+        start_pos = np.random.randint(0, len(self.gameplay_experiences) - sequence_size - 1)
+        state_batch, logit_batch, action_batch, reward_batch = [], [], [], []
+
+        for i in range(sequence_size):
+            frame = self.gameplay_experiences[start_pos + i]
+            if len(frame) == 4:
+                state_batch.append(frame[0])
+                logit_batch.append(frame[1])
+                action_batch.append(frame[2])
+                reward_batch.append(frame[3])
+            else:
+                print("I have an issue, len != 3")
+            if start_pos + i >= len(self.gameplay_experiences):
+                break
+
+        return [state_batch, logit_batch, np.swapaxes(np.array(action_batch), 1, 0), np.array(reward_batch)]
 
     def sample_gameplay_batch(self):
         # samples a batch of gameplay experience for training. 
         # Returns: a list of gameplay experiences.
-        batch_size = 256
-        sampled_gameplay_batch = random.sample(self.gameplay_experiences, k=batch_size) \
-            if len(self.gameplay_experiences) > batch_size else self.gameplay_experiences
-        state_batch, action_batch, reward_batch, next_state_batch, done_batch = [], [], [], [], [],
+        # print("Length of my gameplay_experiences = " + str(len(self.gameplay_experiences)))
+        state_batch, logit_batch, action_batch, reward_batch = [], [], [], []
         # print(sampled_gameplay_batch[-1])
-        for i in range(len(sampled_gameplay_batch) - 1, -1, -1):
-            if len(sampled_gameplay_batch[i]) != 5:
-                print("Found an error at i = " + str(i))
-                sampled_gameplay_batch.remove(sampled_gameplay_batch[i])
-                print("New length of gameplay_experiences is " + str(len(sampled_gameplay_batch)))
-        for gameplay_experience in list(sampled_gameplay_batch):
+        for i in range(len(self.gameplay_experiences) - 1, -1, -1):
+            if len(self.gameplay_experiences[i]) != 4:
+                # print("Found an error at i = " + str(i))
+                self.gameplay_experiences.remove(self.gameplay_experiences[i])
+                # print("New length of gameplay_experiences is " + str(len(self.gameplay_experiences)))
+        for gameplay_experience in list(self.gameplay_experiences):
             state_batch.append(gameplay_experience[0])
-            action_batch.append(gameplay_experience[1])
-            reward_batch.append(gameplay_experience[2])
-            next_state_batch.append(gameplay_experience[3])
-            done_batch.append(gameplay_experience[4])
-        # print(len(state_batch))
-        # print(len(state_batch[0][0]))
-        return np.array(state_batch), np.array(action_batch), np.array(reward_batch), \
-            np.array(next_state_batch), np.array(done_batch)
+            logit_batch.append(gameplay_experience[1])
+            action_batch.append(gameplay_experience[2])
+            reward_batch.append(gameplay_experience[3])
+        return [state_batch, logit_batch, np.swapaxes(np.array(action_batch), 1, 0), np.array(reward_batch)]
+
+    def store_replay_buffer(self, state, logits, action, reward, done):
+        # Records a single step of gameplay experience
+        # First few are self-explanatory
+        # done is boolean if game is done after taking said action
+        reward = np.clip(reward, -1.0, 1.0)
+        self.gameplay_experiences.append([state, logits, action, reward])
+        frame_index = len(self.gameplay_experiences)
+        # if frame_index >= 3:
+        #     if reward == 0:
+        #         self.zero_rewards.append(frame_index)
+        #     else:
+        #         self.non_zero_rewards.append(frame_index)
+
+        # Add experience to the global buffer
+        if (frame_index % 16 == 0 and frame_index > 0) or (done and frame_index > 16):
+            # first create the batch
+            state_batch, logit_batch, action_batch, reward_batch, p_action_batch, p_reward_batch = [], [], [], [], [], []
+            # print(self.gameplay_experiences)
+            for gameplay_experience in list(self.gameplay_experiences)[-16:]:
+                state_batch.append(gameplay_experience[0])
+                logit_batch.append(gameplay_experience[1])
+                action_batch.append(gameplay_experience[2])
+                reward_batch.append(gameplay_experience[3])
+                p_action_batch.append(self.prev_action)
+                p_reward_batch.append(self.prev_reward)
+                self.prev_action = gameplay_experience[2]
+                self.prev_reward = gameplay_experience[3]
+            self.g_buffer.store_replay_sequence(state_batch, logit_batch, action_batch,
+                                                reward_batch, p_action_batch, p_reward_batch)
+
+    # Currently not using reward prediction due to the rich nature of my environment.
+    def sample_rp_sequence(self):
+        """
+        Sample 4 successive frames for reward prediction.
+        """
+        if np.random.randint(2) == 0:
+            from_zero = True
+        else:
+            from_zero = False
+
+        if len(self.zero_rewards) == 0:
+            # zero rewards container was empty
+            from_zero = False
+        elif len(self.non_zero_rewards) == 0:
+            # non zero rewards container was empty
+            from_zero = True
+
+        if from_zero:
+            index = np.random.randint(len(self.zero_rewards))
+            end_frame_index = self.non_zero_rewards[index]
+        else:
+            index = np.random.randint(len(self.non_zero_rewards))
+            end_frame_index = self.non_zero_rewards[index]
+
+        start_frame_index = end_frame_index - 3
+        # This does not feel required
+        raw_start_frame_index = start_frame_index - len(self.gameplay_experiences)
+
+        sample_state, sample_logit, sample_action, sample_reward = [], [], [], []
+
+        for i in range(4):
+            frame = self.gameplay_experiences[raw_start_frame_index + i]
+            sample_state.append(frame[0])
+            sample_logit.append(frame[1])
+            sample_action.append(frame[2])
+            sample_reward.append(frame[3])
+
+        return [sample_state, sample_logit, np.swapaxes(np.array(sample_action), 0, 1), np.array(sample_reward)]

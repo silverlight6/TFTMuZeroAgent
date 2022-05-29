@@ -1142,7 +1142,7 @@ LIFESTEAL = {
 
 MOVEMENTDELAY = {
     'warwick': 350
-} #absoltuely no clue what this should be
+}  # absolutely no clue what this should be
 
 ACTIVATE_EVERY_X_ATTACKS = {
     'vayne': 3,
@@ -1155,16 +1155,16 @@ ACTIVE_STOLEN_AD = {
 }
 
 ACTIVE_DMG = {
-    'vayne': [0,50,90,140],
+    'vayne': [0, 50, 90, 140],
     'zed': [0, 40, 50, 75]
 }
 
 ACTIVE_DMG_PERCENT = {'jhin': [0, 4.44, 5.00, 12.34]}
 ATTACKS_PER_SECOND_FIXED = {'jhin': [0, 0.85, 0.90, 1.2]}
-INITIATIVE_ACTIVE = ['jhin', 'tahmkench'] #these champions will execute a function when __init__ing
+INITIATIVE_ACTIVE = ['jhin', 'tahmkench']  # these champions will execute a function when __init__ing
 
 ACTIVE_TARGET_HEALT_THRESHOLD = {'kalista': [0, 0.04, 0.06, 0.09]}
-ACTIVE_DAMAGE_REDUCTION = { 'tahmkench': [0, 15, 25, 75] }
+ACTIVE_DAMAGE_REDUCTION = {'tahmkench': [0, 15, 25, 75]}
 
 DODGE = 0.0
 

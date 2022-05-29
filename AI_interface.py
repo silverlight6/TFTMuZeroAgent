@@ -3,202 +3,269 @@ import game_round
 import player as player_class
 import numpy as np
 import pool
+from tensorflow import summary
+from origin_class import team_traits, game_comp_tiers
 from stats import COST
-from dqn_agent import DQN_Agent
+from A3C_agent import A3C_Agent
 from replay_buffer import ReplayBuffer
+from multiprocessing import Process, cpu_count
+from global_buffer import GlobalBuffer
+from datetime import datetime
 
-import tensorflow as tf
-import numpy as np
-from tf_agents.agents.dqn import dqn_agent
+
+CURRENT_EPISODE = 0
+
+# gpus = tf.config.list_physical_devices('GPU')
+# if gpus:
+#     try:
+#         # Currently, memory growth needs to be the same across GPUs
+#         for gpu in gpus:
+#             tf.config.experimental.set_memory_growth(gpu, True)
+#         logical_gpus = tf.config.list_logical_devices('GPU')
+#         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+#     except RuntimeError as e:
+#         # Memory growth must be set before GPUs have been initialized
+#         print(e)
 
 
-def reset():
+def reset(sim):
     pool_obj = pool.pool()
-    game_round.PLAYERS = [ player_class.player(pool_obj, i) for i in range( game_round.num_players ) ]
-    game_round.NUM_DEAD = 0
+    sim.PLAYERS = [player_class.player(pool_obj, i) for i in range(sim.num_players)]
+    sim.NUM_DEAD = 0
+    sim.player_rewards = [0 for i in range(sim.num_players)]
     # # This starts the game over from the beginning with a fresh set of players.
     # game_round.game_logic
 
 
-def start_game():
-    game_round.game_logic
-
-
-def check_dead():
-    return game_round.check_dead()
-
-
-# I'm having difficulty determining if 1 step is a game or one action.
-# One step I'm 99% sure is one action or set of actions. 
-# A set of actions would be a move command.
-# I'm pretty sure this just means one action.
+# The return is the shop, boolean for end of turn, boolean for successful action
 def step(action, player, shop, pool_obj):
-    if (action[0] == 0):
+    if action[0] == 0:
         if shop[0] == " ": 
-            player.reward -= 0.01
-            return shop, False
+            player.reward += player.mistake_reward
+            return shop, False, False
         # print("shop at position 0 is " + shop[0] + " with gold amount " + str(player.gold))
         if shop[0].endswith("_c"):
             c_shop = shop[0].split('_')
-            a_champion = champion.champion(c_shop[0], chosen = c_shop[1])
-            print("buying chosen unit -> " + shop[0])
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[0])
         success = player.buy_champion(a_champion)
-        if (success): 
+        if success:
             shop[0] = " "
-        player.print("buy option 0")
-        
+        else:
+            return shop, False, False
+        # player.print("buy option 0")
 
-    elif (action[0] == 1): 
+    elif action[0] == 1:
         if shop[1] == " ": 
-            player.reward -= 0.01
-            return shop, False
+            player.reward += player.mistake_reward
+            return shop, False, False
         if shop[1].endswith("_c"):
             c_shop = shop[1].split('_')
-            a_champion = champion.champion(c_shop[0], chosen = c_shop[1])
-            print("buying chosen unit -> " + shop[1])
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[1])
         success = player.buy_champion(a_champion)
-        if (success): 
+        if success:
             shop[1] = " "
-        player.print("buy option 1")
+        else:
+            return shop, False, False
+        # player.print("buy option 1")
 
-    elif (action[0] == 2): 
+    elif action[0] == 2:
         if shop[2] == " ": 
-            player.reward -= 0.01
-            return shop, False
+            player.reward += player.mistake_reward
+            return shop, False, False
         if shop[2].endswith("_c"):
             c_shop = shop[2].split('_')
-            a_champion = champion.champion(c_shop[0], chosen = c_shop[1])
-            print("buying chosen unit -> " + shop[2])
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[2]) 
         success = player.buy_champion(a_champion)
-        if (success): 
+        if success:
             shop[2] = " "
-        player.print("buy option 2")
+        else:
+            return shop, False, False
+        # player.print("buy option 2")
 
-    elif (action[0] == 3): 
+    elif action[0] == 3:
         if shop[3] == " ": 
-            player.reward -= 0.01
-            return shop, False
+            player.reward += player.mistake_reward
+            return shop, False, False
         if shop[3].endswith("_c"):
             c_shop = shop[3].split('_')
-            a_champion = champion.champion(c_shop[0], chosen = c_shop[1])
-            print("buying chosen unit -> " + shop[3])
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[3])
         
         success = player.buy_champion(a_champion)
-        if (success): 
+        if success:
             shop[3] = " "
-        player.print("buy option 3")
+        else:
+            return shop, False, False
+        # player.print("buy option 3")
 
-    elif (action[0] == 4): 
+    elif action[0] == 4:
         if shop[4] == " ": 
-            player.reward -= 0.01
-            return shop, False
+            player.reward += player.mistake_reward
+            return shop, False, False
         if shop[4].endswith("_c"):
             c_shop = shop[4].split('_')
-            a_champion = champion.champion(c_shop[0], chosen = c_shop[1])
-            print("buying chosen unit -> " + shop[4])
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[4])
         
         success = player.buy_champion(a_champion)
-        if (success): 
+        if success:
             shop[4] = " "
+        else:
+            return shop, False, False
 
-        player.print("buy option 4")
+        # player.print("buy option 4")
 
     # Refresh
-    elif (action[0] == 5):
-        if (player.refresh()): 
+    elif action[0] == 5:
+        if player.refresh():
             shop = pool_obj.sample(player, 5)
-            player.print("Refresh")
+            # player.print("Refresh")
         else:       
-            player.print('no gold, failed to refresh')
+            # player.print('no gold, failed to refresh')
+            return shop, False, False
 
     # buy Exp
-    elif (action[0] == 6):                
+    elif action[0] == 6:
         if player.buy_exp(): 
-            player.print("exp")
+            # player.print("exp")
+            pass
         else: 
-            player.print('no enough gold, buy exp failed')
+            # player.print('no enough gold, buy exp failed')
+            return shop, False, False
 
     # end turn 
-    elif (action[0] == 7): 
-        return shop, True
+    elif action[0] == 7:
+        return shop, True, True
 
     # move Item
-    elif (action[0] == 8): 
+    elif action[0] == 8:
         # Call network to activate the move_item_agent
-        player.printt("move item method")
+        # player.printt("move item method")
         if not player.move_item_to_board(action[1], action[3], action[4]):
-            player.print("Could not put item on {}, {}".format(action[3], action[4]))
+            # player.print("Could not put item on {}, {}".format(action[3], action[4]))
+            return shop, False, False
 
     # sell Unit
-    elif (action[0] == 9): 
+    elif action[0] == 9:
         # Call network to activate the bench_agent
-        player.printt("sell unit method")
-        if(not player.sell_from_bench(action[2])):
-            player.print("Unit sale failed")
+        # player.printt("sell unit method")
+        if not player.sell_from_bench(action[2]):
+            # player.print("Unit sale failed")
+            return shop, False, False
 
     # move bench to Board
-    elif (action[0] == 10): 
+    elif action[0] == 10:
         # Call network to activate the bench and board agents
-        player.print("move bench to board")
-        if(not player.move_bench_to_board(action[2], action[3], action[4])):
-            player.print("Move command failed")
+        # player.print("move bench to board")
+        if not player.move_bench_to_board(action[2], action[3], action[4]):
+            # player.print("Move command failed")
+            return shop, False, False
 
     # move board to bench
-    elif (action[0] == 11): 
+    elif action[0] == 11:
         # Call network to activate the bench and board agents
-        player.print("move board to bench")
-        if(not player.move_board_to_bench(action[3], action[4])):
-            player.print("Move command failed")
+        # player.print("move board to bench")
+        if not player.move_board_to_bench(action[3], action[4]):
+            # player.print("Move command failed")
+            return shop, False, False
     
     else:
-        player.print("wrong call")
-    return shop, False
+        # player.print("wrong call")
+        return shop, False, False
+    return shop, False, True
 
 
 # Includes the vector of the shop, bench, board, and itemlist.
 # Add a vector for each player composition makeup at the start of the round.
 def observation(shop, player):
-    input_vector = np.concatenate([np.expand_dims(player.board_vector, axis=0), \
-                                np.expand_dims(player.bench_vector, axis=0), \
-                                np.expand_dims(player.item_vector, axis=0)], axis=-1)
     shop_vector = generate_shop_vector(shop)
-    input_vector = np.concatenate([np.expand_dims(shop_vector, axis=0), input_vector], axis=-1)
+    game_state_vector = generate_game_comps_vector()
+    input_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
+                                   np.expand_dims(player.board_vector, axis=0),
+                                   np.expand_dims(player.bench_vector, axis=0),
+                                   np.expand_dims(player.chosen_vector, axis=0),
+                                   np.expand_dims(player.item_vector, axis=0),
+                                   np.expand_dims(player.player_vector, axis=0),
+                                   np.expand_dims(game_state_vector, axis=0), ], axis=-1)
+    # std = np.std(input_vector)
+    # if std == 0:
+    # input_vector = input_vector - np.mean(input_vector)
+    # else:
+    #     input_vector = (input_vector - np.mean(input_vector)) / std
     return input_vector
 
 
 # Includes the vector of the bench, board, and itemlist.
 def board_observation(player):
-    input_vector = np.concatenate([np.expand_dims(player.board_vector, axis=0), \
-                                np.expand_dims(player.bench_vector, axis=0), \
-                                np.expand_dims(player.item_vector, axis=0)], axis=-1)
+    input_vector = np.concatenate([np.expand_dims(player.board_vector, axis=0),
+                                   np.expand_dims(player.bench_vector, axis=0),
+                                   np.expand_dims(player.chosen_vector, axis=0),
+                                   np.expand_dims(player.item_vector, axis=0),
+                                   np.expand_dims(player.player_vector, axis=0)], axis=-1)
     return input_vector
+
+
+def generate_game_comps_vector():
+    output = np.zeros(208)
+    for i in range(len(game_comp_tiers)):
+        tiers = np.array(list(game_comp_tiers[i].values()))
+        tierMax = np.max(tiers)
+        if tierMax != 0:
+            tiers = tiers / tierMax
+        output[i * 26: i * 26 + 26] = tiers
+    return output
 
 
 def generate_shop_vector(shop):
     # each champion has 6 bit for the name, 1 bit for the chosen.
     # 5 of them makes it 35.
-    output_array = np.zeros(35)
+    output_array = np.zeros(45)
+    shop_chosen = False
+    chosen_shop_index = -1
+    chosen_shop = ''
     for x in range(0, len(shop)):
-        input_array = np.zeros(7)
+        input_array = np.zeros(8)
         if shop[x]:
+            chosen = 0
+            if shop[x].endswith("_c"):
+                chosen_shop_index = x
+                chosen_shop = shop[x]
+                c_shop = shop[x].split('_')
+                shop[x] = c_shop[0]
+                chosen = 1
+                shop_chosen = c_shop[1]
             i_index = list(COST.keys()).index(shop[x])
             # This should update the item name section of the vector
             for z in range(0, 6, -1):
                 if i_index > 2 * z:
                     input_array[6 - z] = 1
-                    i_index -= 2 * z 
+                    i_index -= 2 * z
+            input_array[7] = chosen
         # Input chosen mechanics once I go back and update the chosen mechanics. 
-        output_array[7 * x: 7 * (x + 1)] = input_array
+        output_array[8 * x: 8 * (x + 1)] = input_array
+    if shop_chosen:
+        if shop_chosen == 'the':
+            shop_chosen = 'the_boss'
+        i_index = list(team_traits.keys()).index(shop_chosen)
+        # This should update the item name section of the vector
+        for z in range(5, 0, -1):
+            if i_index > 2 * z:
+                output_array[45 - z] = 1
+                i_index -= 2 * z
+        shop[chosen_shop_index] = chosen_shop
     return output_array
 
 
@@ -208,43 +275,98 @@ def reward(player):
 
 # This is the main overarching gameplay method.
 # This is going to be implemented mostly in the game_round file under the AI side of things. 
-def collect_gameplay_experience(agent, buffers):
-    reset()
-    game_round.episode(agent, buffers)
+def collect_gameplay_experience(sim, agent, buffers, episode_cnt):
+    reset(sim)
+    sim.episode(agent, buffers, episode_cnt)
 
 
-# TO DO: Implement decaying random policy
+class TFT_AI:
+    def __init__(self):
+        shape = np.array([1, 1382])
+        self.global_agent = A3C_Agent(shape)
+        self.num_workers = 8
+        # self.num_workers = cpu_count()
+
+    def train(self, max_episodes=10000):
+        workers = []
+        for i in range(self.num_workers):
+            workers.append(WorkerAgent(self.global_agent, max_episodes))
+
+        for worker in workers:
+            worker.start()
+
+        for worker in workers:
+            worker.join()
+
+
+class WorkerAgent(Process):
+    def __init__(self, global_agent, max_episodes):
+        Process.__init__(self)
+        self.env = game_round.TFT_Simulation()
+
+        shape = np.array([1, 1382])
+        self.max_episodes = max_episodes
+        self.global_agent = global_agent
+        self.agents = [A3C_Agent(shape) for _ in range(8)]
+
+        for agent in self.agents:
+            agent.a3c_net.set_weights(self.global_agent.a3c_net.get_weights())
+
+    def train(self):
+        global CURRENT_EPISODE
+
+        while self.max_episodes >= CURRENT_EPISODE:
+            print(CURRENT_EPISODE)
+            buffers = [ReplayBuffer() for _ in range(self.env.num_players)]
+            collect_gameplay_experience(self.env, self.agents, buffers, CURRENT_EPISODE)
+            for i in range(self.env.num_players):
+                # if rewards[i] > 0:
+                gameplay_experience_batch = buffers[i].sample_gameplay_batch()
+                # lock.acquire()
+                self.global_agent.train_step(gameplay_experience_batch, CURRENT_EPISODE)
+                self.agents[i].a3c_net.set_weights(self.global_agent.a3c_net.get_weights())
+                # lock.release()
+            CURRENT_EPISODE += 1
+
+    def run(self):
+        self.train()
+
+
 # TO DO: Implement evaluator
-# TO DO: Implement an update on the target network
-def train_model(max_episodes = 10000):
+def train_model(max_episodes=10000):
     # # Uncomment if you change the size of the input array
     # pool_obj = pool.pool()
     # test_player = player_class.player(pool_obj, 0)
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
-    shape = np.array([1, 1094])
+    batch_size = 10
+    shape = np.array([1, 1382])
     # print(shape)
-    agent = DQN_Agent(shape)
-    buffers = [ ReplayBuffer() for _ in range(game_round.num_players) ]
+    global_agent = A3C_Agent(shape, batch_size=batch_size)
+    global_buffer = GlobalBuffer(batch_size=batch_size)
+    # global_agent.a3c_net.save('~/A3C_net')
+    game_sim = game_round.TFT_Simulation()
+    agents = [A3C_Agent(shape) for _ in range(game_sim.num_players)]
     for episode_cnt in range(1, max_episodes):
-        collect_gameplay_experience(agent, buffers)
+        buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
+        collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
 
-        # start here but change this up later. 
-        # Idea is to only train on the winning network then copy the other agents
-        # to the winner network and continue training on that.
-        # Or to do the same thing with the top 2. 
+        # Keeping this here in case I want to only update positive rewards
+        # rewards = game_round.player_rewards
+        gameplay_experience_batch = []
+        while global_buffer.available_batch():
+            gameplay_experience_batch = global_buffer.sample_batch()
+            _ = global_agent.train_step(gameplay_experience_batch, episode_cnt)
+        if episode_cnt % 5 == 0:
+            game_round.log_to_file_start()
+            for i in range(game_sim.num_players):
+                agents[i] = global_agent
+        if len(gameplay_experience_batch) > 0:
+            with global_agent.file_writer.as_default():
+                summary.scalar("buffer len", len(gameplay_experience_batch[0]), episode_cnt)
+        print("Episode " + str(episode_cnt) + " Completed")
 
-        # Another idea is to train all of them until 1 network wins say 3 or 5 in a row. 
-        # Then copy them all to that one network.
-        print("Another episode COMPLETE")
-        for i in range(game_round.num_players):
-            gameplay_experience_batch = buffers[i].sample_gameplay_batch()
-            loss = agent.train(gameplay_experience_batch)
-
-        if episode_cnt % 50 == 0:
-            # This is going to be changed later.
-            agent.update_target_network()
 
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
 def evaluate(agent):
-    return
+    return 0

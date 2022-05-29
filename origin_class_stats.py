@@ -11,7 +11,7 @@ origin_class = {
     'elise': ['cultist', 'keeper'],
     'evelynn': ['cultist', 'shade'],
     'ezreal': ['elderwood', 'dazzler'],
-    'fiora': ['enlightened', 'duelist'],
+    "fiora": ['enlightened', 'duelist'],
     'garen': ['warlord', 'vanguard'], 
     'hecarim': ['elderwood', 'vanguard'],
     'irelia': ['enlightened', 'divine', 'adept'],
@@ -32,7 +32,7 @@ origin_class = {
     'lux': ['divine', 'dazzler'],
     'maokai': ['elderwood', 'brawler'],
     'morgana': ['enlightened', 'dazzler'],
-    'nami': ['enlightened', 'mage'],
+    "nami": ['enlightened', 'mage'],
     'nidalee': ['warlord', 'sharpshooter'],
     'nunu': ['elderwood', 'brawler'],
     'pyke': ['cultist', 'assassin'],
@@ -151,19 +151,22 @@ tiers = {
     'dazzler': [2, 4],
     'duelist': [2, 4, 6, 8],
     'emperor': [1],
+    'fortune': [3, 6],
     'hunter': [2, 3, 4, 5],
     'keeper': [2, 4, 6],
     'mage': [3, 6, 9],
+    'moonlight': [3, 5],
     'mystic': [2, 4, 6],
     'shade': [2, 3, 4],
     'sharpshooter': [2, 4, 6],
-    'vanguard': [2, 4, 6, 8]
+    'tormented': [1],
+    'vanguard': [2, 4, 6, 8],
 }
 
 AD = {
     'elderwood': [0, 5, 10, 20],
     'ninja': [0, 50, 140],
-    'dazzler': [0, 0.6, 0.2], #inverse
+    'dazzler': [0, 0.6, 0.2],  # inverse
     'hunter': [0, 1.25, 1.50, 1.75, 2.00],
 }
 
@@ -175,7 +178,8 @@ SP = {
     'mage': [0, 0.80, 1.10, 1.80]
 
 }
-SP_secondary = {'dusk': [0, 0.20, 0.20, 0.40],}
+
+SP_secondary = {'dusk': [0, 0.20, 0.20, 0.40]}
 
 AS = {
     'spirit': [0, 0.35, 0.70],
@@ -184,10 +188,9 @@ AS = {
     'duelist': [0, 1.12, 1.20, 1.35, 1.60]
 }
 
-MR= {
+MR = {
     'elderwood': [0, 15, 25, 40],
     'mystic': [0, 40, 100, 200],
-
 }
 
 armor = {
@@ -206,7 +209,7 @@ heal = {'the_boss': 0.15}
 
 damage = {
     'shade': [0, 125, 400, 750],
-    'sharpshooter': [0, 0.45, 0.50, 0.55] #inversed
+    'sharpshooter': [0, 0.45, 0.50, 0.55]  # inversed
 }
 
 shield = {
@@ -220,14 +223,14 @@ crit_chance = {'assassin': [0, 0.10, 0.25, 0.40]}
 crit_damage = {'assassin': [0, 0.30, 0.60, 0.90]}
 
 movement_delay = {
-    'the_boss': 0.85,  #inversed. assumed 15% increase in movement speed per situp
-    'duelist': 0.8, #inversed
+    'the_boss': 0.85,  # inverse. assumed 15% increase in movement speed per sit up
+    'duelist': 0.8,  # inverse
 }
 
 length = {
     'divine': [0, 3000, 6000, 9000, 15000],
     'elderwood': 2000,
-    'the_boss': 1300, #sit-up length
+    'the_boss': 1300,  # sit-up length
     'adept': [0, 2000, 3500, 6000],
     'dazzler': 8000,
     'keeper': [0, 8000, 10000, 12000]
@@ -240,7 +243,8 @@ threshold = {
     'the_boss': 0.4,
     'warlord': 5,
     'duelist': 8,
-    'hunter': [9999999, 3500, 3000, 2500, 2000], # executed from main() so setting the 0 hunters to be something that never gets executed
+    'hunter': [9999999, 3500, 3000, 2500, 2000],
+    # executed from main() so setting the 0 hunters to be something that never gets executed
     'shade': 3,
 }
 
@@ -249,7 +253,7 @@ receive_decreased_damage = {
     'divine': 0.5,
 }
 
-deal_bonus_true_damage = { 'divine': 0.5 }
+deal_bonus_true_damage = {'divine': 0.5}
 
 increasement = {
     'warlord': 0.10,
@@ -273,8 +277,9 @@ initiate_traits = [
     'mage', 
     'mystic', 
     'shade', 
-    'vanguard'
-] #execute the function automatically in origin_class.py: total_origin_class()
+    'vanguard',
+    'moonlight'
+]  # execute the function automatically in origin_class.py: total_origin_class()
 
 chosen_exclude = [
     'exile',
@@ -283,4 +288,7 @@ chosen_exclude = [
     'emperor',
     'daredevil',
     'blacksmith',
+    'tormented',
 ]
+
+fortune_returns = [2.5, 6, 10.5, 17, 24, 31, 38, 45, 55, 70, 90, 115, 145]
