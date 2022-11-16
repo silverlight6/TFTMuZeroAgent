@@ -1,7 +1,6 @@
 from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, \
     DODGE, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
 from champion_functions import attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
-from pool_stats import cost_star_values
 import active
 import ability
 import field
@@ -13,6 +12,7 @@ import origin_class
 import origin_class_stats
 from math import ceil
 import champion_functions
+import time
 
 que = []
 log = []
@@ -21,7 +21,6 @@ log = []
 def printt(msg):
     if config.PRINTMESSAGES:
         log.append(msg)
-    # if(config.PRINTMESSAGES): print(msg)
 
 
 test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
@@ -132,6 +131,8 @@ class champion:
         self.AD_reduction_cc = False  # ludens counts dazzler ad reduction as crowd control so adding a flag for dat
         self.pumped_up = False  # the_boss - trait
         self.done_situps = False  # the_boss - trait
+
+        self.start_time = time.time_ns()
 
         self.chosen = origin_class.chosen(self, chosen)
 
@@ -386,7 +387,9 @@ class champion:
         self.items = []
         self.items.append(item)
 
-    def add_que(self, action, length, function=None, stat=None, value=None, data={}):
+    def add_que(self, action, length, function=None, stat=None, value=None, data=None):
+        if data is None:
+            data = {}
         if 'underlord' in data.keys():
             que.append([action, data['underlord'], MILLIS() + length, function, stat, value, data])
         else:
@@ -490,7 +493,8 @@ class champion:
 
     def print(self, msg):
         if self.team:
-            printt('{:<120}'.format('{:<8}'.format(self.team) + '{:<15}'.format(self.name) + msg) + str(MILLIS()))
+            printt('{:<120}'.format('{:<8}'.format(self.team) + '{:<15}'.format(self.name) + msg)
+                   + '{:<12}'.format(str(MILLIS())) + str(time.time_ns() - self.start_time))
         else:
             printt('{:<120}'.format('team_unassigned' + '{:<15}'.format(self.name) + msg) + str(MILLIS()))
 
@@ -516,7 +520,7 @@ red = []
 # Essentially, I am just going to change the first 10 lines so it reads in the data from the two teams.
 # This will be an area I will look to optimize on later if need be but for now,
 # I want to keep things as simple as possible.
-def run(champion, player_1, player_2, round_damage=0):
+def run(champion_q, player_1, player_2, round_damage=0):
     reset_global_variables()
 
     for x in range(0, 7):
@@ -526,16 +530,16 @@ def run(champion, player_1, player_2, round_damage=0):
                 if player_1.board[x][y].name == 'sandguard':
                     daddy_coordinates = [int(player_1.board[x][y].overlord_coordinates[0]),
                                          int(player_1.board[x][y].overlord_coordinates[1])]
-                blue.append(champion(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars,
-                                     player_1.board[x][y].items, False, daddy_coordinates, player_1.board[x][y].chosen))
+                blue.append(champion_q(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars,
+                                       player_1.board[x][y].items, False, daddy_coordinates, player_1.board[x][y].chosen))
             if player_2.board[x][y]:
                 daddy_coordinates = False
                 if player_2.board[x][y].name == 'sandguard':
                     daddy_coordinates = [6 - int(player_2.board[x][y].overlord_coordinates[0]),
                                          int(7 - player_2.board[x][y].overlord_coordinates[1])]
                 # Inverting because the combat system uses the whole board and does not mirror at start.
-                red.append(champion(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars,
-                                    player_2.board[x][y].items, False, daddy_coordinates, player_2.board[x][y].chosen))
+                red.append(champion_q(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars,
+                                      player_2.board[x][y].items, False, daddy_coordinates, player_2.board[x][y].chosen))
 
     if len(blue) == 0 or len(red) == 0:
         if len(red) == 0 and len(blue) == 0:
@@ -543,12 +547,10 @@ def run(champion, player_1, player_2, round_damage=0):
             return 0, round_damage
         elif len(red) == 0:
             printt('BLUE TEAM WON')
-            # print("len(blue) = " + str(len(blue)))
             survive_combat(player_1, blue)
             return 1, round_damage + DAMAGE_PER_UNIT[len(blue)]
         elif len(blue) == 0:
             printt('RED TEAM WON')
-            # print("len(red) = " + str(len(red)))
             survive_combat(player_2, red)
             return 2, round_damage + DAMAGE_PER_UNIT[len(red)]
 
@@ -575,7 +577,6 @@ def run(champion, player_1, player_2, round_damage=0):
     # infinity_edge made sure that the crit damage bonus gets registered after everything else has gone through
 
     while True:
-
         if MILLIS() > 150000:
             test_multiple['bugged out'] += 1
             break
@@ -594,55 +595,52 @@ def run(champion, player_1, player_2, round_damage=0):
             field.action(o)
         
         while len(que) > 0 and MILLIS() > que[0][2]:
-
-            champion = que[0][1] 
+            champion_q = que[0][1]
             data = que[0][6]  
             # make sure that teemo's poison darts deal damage even after teemo himself has died
             # morgana deals if the ult is running and she dies
             # if ahri dies, she will still ult. range reduced in the executed function
-            if(champion in blue or champion in red) or \
-                    (champion.name == 'teemo' and champion.health <= 0 and que[0][3] and 'target' in que[0][3][1]) or \
-                    (champion.name == 'morgana' and champion.health <= 0 and que[0][3] and
+            if(champion_q in blue or champion_q in red) or \
+                    (champion_q.name == 'teemo' and champion_q.health <= 0 and que[0][3] and 'target' in que[0][3][1]) \
+                    or (champion_q.name == 'morgana' and champion_q.health <= 0 and que[0][3] and
                         'coordinates' in que[0][3][1]) or \
-                    (champion.name == 'ahri' and champion.health <= 0 and que[0][3] and 'y' in que[0][3][1]):
+                    (champion_q.name == 'ahri' and champion_q.health <= 0 and que[0][3] and 'y' in que[0][3][1]):
 
                 if que[0][0] == 'clear_idle':
-                    champion.idle = True
-                    champion.print(' cleared idle     ')
+                    champion_q.idle = True
+                    champion_q.print(' cleared idle     ')
                 
                 if que[0][0] == 'change_stat':
-                    change_stat(champion, que[0][0], 0, que[0][3], que[0][4], que[0][5], data)
+                    change_stat(champion_q, que[0][0], 0, que[0][3], que[0][4], que[0][5], data)
 
                 if que[0][0] == 'heal':
-                    start_value = round(champion.health,2)
-                    champion.health += (que[0][5] * champion.healing_strength)
-                    if champion.health > champion.max_health:
-                        champion.health = champion.max_health
-                    champion.print(' {} {} --> {}'.format('health', start_value, round(champion.health,2)))
+                    start_value = round(champion_q.health, 2)
+                    champion_q.health += (que[0][5] * champion_q.healing_strength)
+                    if champion_q.health > champion_q.max_health:
+                        champion_q.health = champion_q.max_health
+                    champion_q.print(' {} {} --> {}'.format('health', start_value, round(champion_q.health, 2)))
 
                 if que[0][0] == 'shield':
-                    shield(champion, que[0][0], 0, que[0][3], que[0][4], que[0][5], data)
+                    shield(champion_q, que[0][0], 0, que[0][3], que[0][4], que[0][5], data)
 
                 if que[0][0] == 'change_target':
-                    old_target = champion.target
+                    old_target = champion_q.target
                     new_target = que[0][5]
                     if new_target and new_target.health > 0:
-                        champion.target = new_target
-                        champion.target_y = new_target.y
-                        champion.target_x = new_target.x
-                        if champion.target != old_target:
-                            champion.print(' has a new target: ' + '{:<8}'.format(champion.target.team) + '{:<8}'.format(champion.target.name) + '  [{}, {}]'.format(champion.target.y, champion.target.x))
+                        champion_q.target = new_target
+                        champion_q.target_y = new_target.y
+                        champion_q.target_x = new_target.x
+                        if champion_q.target != old_target:
+                            champion_q.print(' has a new target: ' + '{:<8}'.format(champion_q.target.team) + '{:<8}'.format(champion_q.target.name) + '  [{}, {}]'.format(champion_q.target.y, champion_q.target.x))
                     else:
-                        field.find_target(champion)
+                        field.find_target(champion_q)
 
                 if que[0][0] == 'execute_function':
-                    # print("IN EXECUTE FUNCTION")
-                    # print(que)
                     if len(que[0][3]) > 1:
-                        (que[0][3][0])(champion, que[0][3][1])
+                        (que[0][3][0])(champion_q, que[0][3][1])
 
                 if que[0][0] == 'burn':
-                    champion.spell(que[0][5], 0, que[0][5].max_health * config.BURN_DMG_PER_SLICE, True, True)
+                    champion_q.spell(que[0][5], 0, que[0][5].max_health * config.BURN_DMG_PER_SLICE, True, True)
 
                 if que[0][0] == 'kill':
                     que[0][5].die()
@@ -812,6 +810,5 @@ def reset_global_variables():
 
 def survive_combat(player, champ_list):
     for champ in champ_list:
-        # print("({}, {})".format(champ.starting_x, champ.starting_y))
         if player.board[champ.starting_x][champ.starting_y]:
             player.board[champ.starting_x][champ.starting_y].survive_combat = True

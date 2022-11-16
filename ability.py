@@ -5,7 +5,6 @@ import champion_functions
 import random
 import item_stats
 import origin_class
-import origin_class_stats
 import items
 from math import ceil, floor
 

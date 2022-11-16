@@ -3,7 +3,6 @@ import field
 import champion_functions
 import random
 import stats
-import origin_class_stats
 import origin_class
 
 # ALL FUNCTIONS REGARDING ITEMS ARE HERE
@@ -11,22 +10,21 @@ import origin_class
 # yea, kinda hard coded the item names inside the functions
 # no biggie tho.
 
-# This item list would need to be updated when I switch over to the current version but not by much.
-# I could simply add the new items instead of creating a whole new file.
 
-# I think I need to implement the logic for item components as well. 
-
-def change_stat(champion, stat, value, message = ''):
+def change_stat(champion, stat, value, message=''):
     start_value = getattr(champion, stat)
     end_value = value
 
-    if(message == 'initiate_item_stat_change'):
+    if message == 'initiate_item_stat_change':
         message = ''
-        if(stat == 'health'): change_stat(champion, 'max_health', value)
+        if stat == 'health':
+            change_stat(champion, 'max_health', value)
 
-    if(value != start_value and champion.health > 0):
-        if(isinstance(start_value, float)): start_value = round(start_value,2)
-        if(isinstance(end_value, float)): end_value = round(value,2)
+    if value != start_value and champion.health > 0:
+        if isinstance(start_value, float):
+            start_value = round(start_value, 2)
+        if isinstance(end_value, float):
+            end_value = round(value, 2)
         champion.print(' {} {} --> {} {}'.format(stat, start_value, end_value, message))
     setattr(champion, stat, value)
 

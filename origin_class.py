@@ -6,10 +6,12 @@ import item_stats
 import random
 import config
 import champion_functions
+import time
 
 # ORIGINS AND CLASSES
 # loads of similar functions
 
+starting_time = time.time_ns()
 
 cultist_stars = {'blue': 0, 'red': 0}  # chosen's stars counts as double
 total_health_teams = {'blue': 0, 'red': 0}
@@ -266,7 +268,7 @@ def divine(champion, target, attack):
             divine_helper(target, divine_tier)
 
 
-#ascend champion
+# ascend champion
 def divine_helper(champion, divine_tier):
     divine_list.append(champion)
     champion.print(' ascends for {} seconds [divine]'.format(origin_class_stats.length['divine'][divine_tier] / 1000))
@@ -293,31 +295,29 @@ def dusk(blue_team, red_team):
 
     for t in ['blue', 'red']:
         tier = get_origin_class_tier(t, 'dusk')
-        if(tier > 0):
+        if tier > 0:
             for c in teams[t]:
                 items.change_stat(c, 'SP', c.SP + origin_class_stats.SP_secondary['dusk'][tier], 'dusk')
-                if(is_trait(c, 'dusk')):
+                if is_trait(c, 'dusk'):
                     items.change_stat(c, 'SP', c.SP + origin_class_stats.SP['dusk'][tier], 'dusk')
 
 
+elderwood_list = {'blue': 0, 'red': 0}
 
 
-elderwood_list = 0
 def elderwood(blue_team, red_team):
 
     teams = {'blue': blue_team, 'red': red_team}
     for t in ['blue', 'red']:
         tier = get_origin_class_tier(t, 'elderwood')
-        if(tier > 0 and elderwood_list[t] < 5):
+        if tier > 0 and elderwood_list[t] < 5:
             for c in teams[t]:
-                if(is_trait(c, 'elderwood')):
-
+                if is_trait(c, 'elderwood'):
                     items.change_stat(c, 'AD', c.AD + origin_class_stats.AD['elderwood'][tier], 'elderwood')
                     items.change_stat(c, 'SP', c.SP + origin_class_stats.SP['elderwood'][tier], 'elderwood')
                     items.change_stat(c, 'MR', c.MR + origin_class_stats.MR['elderwood'][tier], 'elderwood')
                     items.change_stat(c, 'armor', c.armor + origin_class_stats.armor['elderwood'][tier], 'elderwood')
             elderwood_list[t] += 1
-
 
 
 def enlightened(blue_team, red_team):
@@ -603,18 +603,19 @@ def fortune():
 
 # is called from main() every x milliseconds
 def hunter(team):
-    ally_unit = team[0]
-    tier = get_origin_class_tier(ally_unit.team, 'hunter')
-    if tier > 0:
-        for c in team:
-            enemy_team = ally_unit.enemy_team()
-            enemy_team = sorted(enemy_team, key=lambda x: x.health)
+    if team:
+        ally_unit = team[0]
+        tier = get_origin_class_tier(ally_unit.team, 'hunter')
+        if tier > 0:
+            for c in team:
+                enemy_team = ally_unit.enemy_team()
+                enemy_team = sorted(enemy_team, key=lambda x: x.health)
 
-            if len(enemy_team) > 0 and not c.stunned and not c.blinded and not c.disarmed:
-                target = enemy_team[0]
+                if len(enemy_team) > 0 and not c.stunned and not c.blinded and not c.disarmed:
+                    target = enemy_team[0]
 
-                bonus_damage = (origin_class_stats.AD['hunter'][tier] - 1) * c.AD
-                c.attack(bonus_damage, target, False, 'hunter')
+                    bonus_damage = (origin_class_stats.AD['hunter'][tier] - 1) * c.AD
+                    c.attack(bonus_damage, target, False, 'hunter')
 
 
 def keeper(blue_team, red_team):

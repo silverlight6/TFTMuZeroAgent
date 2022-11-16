@@ -4,7 +4,6 @@ import pool_stats
 import AI_interface
 import random
 import champion
-import numpy as np
 from item_stats import item_builds as full_items, basic_items, starting_items
 from player import player as player_class
 from interface import interface
@@ -28,7 +27,9 @@ class TFT_Simulation:
         self.NUM_DEAD = 0
         self.player_rewards = [0 for _ in range(self.num_players)]
         self.last_observation = [[] for _ in range(self.num_players)]
-        self.last_logits = [[] for _ in range(self.num_players)]
+        self.last_action = [[] for _ in range(self.num_players)]
+        self.last_value = [[] for _ in range(self.num_players)]
+        self.last_policy = [[] for _ in range(self.num_players)]
         self.previous_reward = [0 for _ in range(self.num_players)]
         log_to_file_start()
 
@@ -43,14 +44,10 @@ class TFT_Simulation:
         return player.reward - previous_reward - average
 
     def combat_phase(self, players, player_round):
-        # TO DO LATER: implement a fix for when 6 players are matched
-        # and the 7th needs to go against their last opponent.
         random.shuffle(players)
         player_nums = list(range(0, len(players)))
         players_matched = 0
         round_index = 0
-        # Putting this here for debugging purposes.
-        # self.pool_obj.log_to_file_pool()
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
         for player in players:
@@ -72,13 +69,14 @@ class TFT_Simulation:
                         player_index = random.randint(0, len(players) - 1)
                         if (players[player_index] and (players_matched == self.num_players - 2 - self.NUM_DEAD)
                                 and players[num].opponent == players[player_index]):
-                            # print("broke out")
                             break
                     players[num].opponent = players[player_index]
                     players[player_index].opponent = players[num]
                     players_matched += 2
                     config.WARLORD_WINS['blue'] = players[num].win_streak
                     config.WARLORD_WINS['red'] = players[player_index].win_streak
+                    players[player_index].start_round()
+                    players[num].start_round()
                     index_won, damage = champion.run(champion.champion, players[num], players[player_index],
                                                      self.ROUND_DAMAGE[round_index][1])
                     if index_won == 0:
@@ -94,14 +92,10 @@ class TFT_Simulation:
                         players[num].loss_round(player_round)
                         players[num].health -= damage
                         players[player_index].won_round(player_round)
-                    players[player_index].start_round()
-                    players[num].start_round()
                     players[player_index].combat = True
                     players[num].combat = True
-                    # print("players " + str(player_index) + ", and " + str(num) + " matched")
 
                 elif len(player_nums) == 1 or players_matched == self.num_players - 1 - self.NUM_DEAD:
-                    # print("Playing the random dude")
                     player_index = random.randint(0, len(players) - 1)
                     while ((not players[player_index]) or players[num].opponent == players[player_index]
                             or num == player_index):
@@ -130,9 +124,7 @@ class TFT_Simulation:
         num_alive = 0
         for i, player in enumerate(self.PLAYERS):
             if player:
-                # print("player " + str(i) + " has health = " + str(player.health))
                 if player.health <= 0:
-                    # Check that the pool is working as intended
 
                     # This won't take into account how much health the most recent
                     # dead had if multiple players die at once
@@ -140,17 +132,14 @@ class TFT_Simulation:
                     # Get action from the policy network
                     shop = self.pool_obj.sample(player, 5)
                     # Take an observation
-                    observation = AI_interface.observation(shop, player)
-                    action = [7, 0, 0, 0, 0]
-                    logits, _, value = agents[player.player_num].policy(
-                        observation, action, player.reward - self.previous_reward[player.player_num], game_episode, )
+                    observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
+                    action, logits, value, history = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward of -0.5 for losing the game
                     reward = -0.5
                     # Store experience to buffer
-                    buffers[player.player_num].store_replay_buffer(observation, logits, action, reward, True)
+                    buffers[player.player_num].store_replay_buffer(observation, history, value, reward, logits, True)
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
-                    # print("Player " + str(player.player_num) + " achieved final round reward = " + str(reward))
                     self.NUM_DEAD += 1
                     self.pool_obj.return_hero(player)
 
@@ -164,17 +153,14 @@ class TFT_Simulation:
                     self.pool_obj.return_hero(player)
                     shop = self.pool_obj.sample(player, 5)
                     # Take an observation
-                    observation = AI_interface.observation(shop, player)
-                    action = [7, 0, 0, 0, 0]
-                    logits, _, value = agents[player.player_num].policy(
-                        observation, action, player.reward - self.previous_reward[player.player_num], game_episode)
+                    observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
+                    action, logits, value, history = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward 1 for winning the game
                     reward = 1
                     # Store experience to buffer
-                    buffers[player.player_num].store_replay_buffer(observation, logits, action, reward, True)
+                    buffers[player.player_num].store_replay_buffer(observation, history, value, reward, logits, True)
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
-                    # print("Player " + str(player.player_num) + " achieved final round reward = " + str(reward))
                     print("PLAYER {} WON".format(player.player_num))
                     # with agents[player.player_num].file_writer.as_default():
                     #     summary.scalar('player {} reward'.format(player.player_num), player.reward, game_episode)
@@ -185,35 +171,43 @@ class TFT_Simulation:
         # First store the end turn and reward for the previous battle together into the buffer
         # If statement is to make sure I don't put a record in for the first round.
         # Player reward starts at 0 but has to change when units go to the board at the end of the first turn
-        action = [0, 0, 0, 0, 0]
-        reward = 0
         if player.reward != 0:
-            buffer.store_replay_buffer(self.last_observation[player.player_num], self.last_logits[player.player_num],
-                                       [7, 0, 0, 0, 0], player.reward - self.previous_reward[player.player_num], False)
+            buffer.store_replay_buffer(self.last_observation[player.player_num], self.last_action[player.player_num],
+                                       self.last_value[player.player_num],
+                                       player.reward - self.previous_reward[player.player_num],
+                                       self.last_policy[player.player_num], False)
         # Generate a shop for the observation to use
         shop = self.pool_obj.sample(player, 5)
         step_done = False
+        actions_taken = 0
         # step_counter = 0
         while not step_done:
             # Take an observation
-            observation = AI_interface.observation(shop, player)
+            observation, game_state_vector = AI_interface.observation(shop, player, buffer)
             # Get action from the policy network
-            logits, action, value = agent.policy(observation, action, reward, game_episode)
+            action, policy, value, history = agent.policy(observation, player.player_num)
             # Take a step
-            shop, step_done, _ = AI_interface.step(action, player, shop, self.pool_obj)
+            shop, step_done, success = AI_interface.step(action, player, shop, self.pool_obj)
+
             # Get reward
             # reward = self.calculate_reward(player, previous_reward)
             reward = player.reward - self.previous_reward[player.player_num]
-            # print("reward is equal to " + str(AI_interface.reward(player)))
 
             # Store experience to buffer
             if step_done:
                 self.last_observation[player.player_num] = observation
-                self.last_logits[player.player_num] = logits
+                self.last_action[player.player_num] = history
+                self.last_value[player.player_num] = value
+                self.last_policy[player.player_num] = reward
             else:
-                buffer.store_replay_buffer(observation, logits, action, reward, False)
+                buffer.store_replay_buffer(observation, history, value, reward, policy, False)
+            if success and ~step_done:
+                buffer.store_observation(game_state_vector)
+
             self.previous_reward[player.player_num] = player.reward
-            # step_counter += 1
+            actions_taken += 1
+        player.print(str(actions_taken) + " actions taken this turn")
+        # step_counter += 1
 
     def human_game_logic(self):
         interface_obj = interface()
@@ -223,7 +217,6 @@ class TFT_Simulation:
         # TO DO MUCH LATER - Add randomness to the drops,
         # 3 gold one round vs 3 1 star units vs 3 2 star units and so on.
         for player in self.PLAYERS:
-            # print(random.randint(0, len(pool_stats.COST_1)))
             ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
             ran_cost_1 = champion.champion(ran_cost_1)
             ran_cost_1.add_item(starting_items[random.randint(0, len(starting_items) - 1)])
@@ -439,7 +432,6 @@ class TFT_Simulation:
 
         for player in self.PLAYERS:
             if player:
-                # print(random.randint(0, len(pool_stats.COST_1)))
                 ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
                 ran_cost_1 = champion.champion(ran_cost_1,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
@@ -449,29 +441,13 @@ class TFT_Simulation:
                 player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
         # ROUND 1 - Buy phase + Give 1 item component and 1 random 3 cost champion
-        # thread_number = 0
-        # thread_array = [threading.Thread() for _ in range(num_players)]
-        # thread_done = [False for _ in range(num_players)]
-        # print("length of thread_array is: ", len(thread_array))
         for player in self.PLAYERS:
             if player:
-                # Thread.start_new_thread(round_01_thread, (player, agent, buffer, threads_waiting, thread_number))
-                # print("starting round 01 thread number: ", thread_number)
-                # print("player = ", player)
-                # print("agent = ", agent)
-                # print("buffer = ", buffer)
                 player.gold_income(1)
                 self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                 log_to_file(player)
-                # thread_array[player.player_num] = threading.Thread(target=round_processing_thread,
-                #                                                    args=(player, agent, buffer, thread_done))
-                # thread_array[player.player_num].start()
 
         log_end_turn(1)
-        # for i in range(num_players):
-        #     while not thread_done[i] and PLAYERS[i]:
-        #         time.sleep(0.001)
-        #     thread_done[i] = False
 
         for player in self.PLAYERS:
             if player:
@@ -503,11 +479,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -530,11 +501,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agents[player.player_num], buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -554,11 +520,6 @@ class TFT_Simulation:
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
-
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
 
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
@@ -582,11 +543,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agents[player.player_num], buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -605,11 +561,6 @@ class TFT_Simulation:
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
-
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
 
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
@@ -633,11 +584,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -657,11 +603,6 @@ class TFT_Simulation:
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
-
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
 
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
@@ -686,11 +627,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -710,11 +646,6 @@ class TFT_Simulation:
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
-
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
 
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
@@ -738,11 +669,6 @@ class TFT_Simulation:
                     log_to_file(player)
             log_end_turn(r)
 
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
-
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
@@ -762,11 +688,6 @@ class TFT_Simulation:
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
-
-            # for player in PLAYERS:
-            #     if player:
-            #         ai_buy_phase(player, agent, buffer[player.player_num])
-            #         log_to_file(player)
 
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):

@@ -1,9 +1,17 @@
-# Teamfight Tactics battle simulator
+# Teamfight Tactics RL Agent
 
 Teamfight Tactics is an auto chess game made by Riot.
 
-To my knowledge this was the first battle simulator for TFT which fully mimics the game's internal battle logic. Every action is repeated just like in the game. When I got this done, I believe it to have been the only actual simulator out there. The game version is tied to 10.24b and thus the creation serves no purpose anymore.
+To my knowledge, this is the first attempt at purely artificial intelligence algorithm to play Team Fight Tactics.
 
-Upkeeping the simulator would require constant work and patches. A few times a year when Riot releases major updates, I would have to create every new champion, ability and item from scratch. This is the reason why I didn't release the simulator to public.
+This implementation uses a simulation of TFT Set 4 based on Avadaa's project. I fixed a few bugs and added a few additional functionalities.
 
-Haven't done any testing since Riot's match data policies had some terms which might've been broken if used for this purpose, but in my personal use the simulator's results didn't deviate much. Meaning that the simulator is solid. The 'interface' -folder's readme has some running instructions.
+The player rounds as well as the player, pool, and game round classes were designed for this AI project.
+
+The reinforcement learning algorithm currently in use is MuZero based on google's implementation but adjusted for use here.
+Many features in google's implementation were removed and I adjusted the input space to allow for multiple action dimensions.
+
+A formal paper on this project is to follow in the days or weeks to come and a link will be provided.
+Any and all questions related to this project are welcome at slucoris@gmail.com
+
+Any and all further improvements to this project will be looked at, discussed, and highly likely accepted.

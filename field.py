@@ -1,26 +1,23 @@
 import math
 import stats
 import items
-coordinates = [[None]*7 for _ in range(8)]
 
-# There are about a 1000 places where it says champion.enemy_team
-# I think this means I am going to have to set up the enemy_team at the end of every buy phase
-# As it should change at the end of every phase if more than 2 players. 
+coordinates = [[None] * 7 for _ in range(8)]
 
 
 def action(champion):
     if len(champion.enemy_team()) > 0 and not champion.stunned:
 
-        attackable_enemies = list(filter(lambda x: (x.champion and x.health > 0), champion.enemy_team()))
-
         # if ability cast is 'global', cast it right away
         if champion.millis() > 0 and champion.champion and not champion.ability_requires_target \
-                and champion.maxmana > 0 and champion.mana >= champion.maxmana \
+                and 0 < champion.maxmana <= champion.mana \
                 and not (champion.disarmed and not stats.ABILITY_WHILE_DISARMED[champion.name]) \
                 and champion.millis() > champion.castMS + stats.MANALOCK[champion.name]:
             champion.ability()
 
-        elif(champion.idle) and len(attackable_enemies) > 0:
+        attackable_enemies = list(filter(lambda x: (x.champion and x.health > 0), champion.enemy_team()))
+
+        if champion.idle and len(attackable_enemies) > 0:
             # if not target --> find one
             if champion.target is None:
                 find_target(champion)
@@ -51,7 +48,7 @@ def action(champion):
 
                 elif champion.millis() > 0 \
                         and not (champion.ability_active and not stats.ATTACK_WHILE_ABILITY_ACTIVE[champion.name]):
-                    if champion.champion and champion.maxmana > 0 and champion.mana >= champion.maxmana \
+                    if champion.champion and 0 < champion.maxmana <= champion.mana \
                             and not (champion.disarmed and not stats.ABILITY_WHILE_DISARMED[champion.name]) \
                             and champion.millis() > champion.castMS + stats.MANALOCK[champion.name]:
                         champion.ability()
@@ -89,9 +86,9 @@ def find_next_ranged_move(champion):
 # sort them by distance to the target and follow the closest tile until at target.
 # not allowing visits at tiles that are already visited.
 # runs twice: 
-    # 1. execute using the rules three lines above
-    # 2. if there are two neighbor tiles with same distance to the target, use the second one instaed of the first one.
-        # this sometimes brings a different, better result. a big clumsy way of doing it, but more or less does the job.
+# 1. execute using the rules three lines above
+# 2. if there are two neighbor tiles with same distance to the target, use the second one instaed of the first one.
+# this sometimes brings a different, better result. a big clumsy way of doing it, but more or less does the job.
 def find_path(champion, target_y, target_x, use_second=False, secondary_result=[]):
     path = []
     visited = []
@@ -102,7 +99,7 @@ def find_path(champion, target_y, target_x, use_second=False, secondary_result=[
     visited.append([start_y, stary_x])
 
     count = 0
-    while path[len(path)-1] != [target_y, target_x]:
+    while path[len(path) - 1] != [target_y, target_x]:
         count += 1
         if count > 50:
             break
@@ -135,7 +132,7 @@ def find_path(champion, target_y, target_x, use_second=False, secondary_result=[
 
     if not use_second:
         return find_path(champion, target_y, target_x, True, path)
-    
+
     else:
         if secondary_result and path:
             # if there was no answer found
@@ -151,12 +148,12 @@ def find_path(champion, target_y, target_x, use_second=False, secondary_result=[
                 return secondary_result[1:]
 
 
-def find_neighbors(y, x, allow_outside_map = False):
+def find_neighbors(y, x, allow_outside_map=False):
     directions = [
-        [[+1,  0], [+1, +1], [0, -1],
+        [[+1, 0], [+1, +1], [0, -1],
          [0, +1], [-1, 0], [-1, +1]],
-        [[+1,  -1], [+1, 0], [0, -1],
-         [0,  +1], [-1, -1], [-1, 0]],
+        [[+1, -1], [+1, 0], [0, -1],
+         [0, +1], [-1, -1], [-1, 0]],
     ]
 
     parity = y & 1
@@ -164,7 +161,7 @@ def find_neighbors(y, x, allow_outside_map = False):
     for c in directions[parity]:
         nY = c[0] + y
         nX = c[1] + x
-        if allow_outside_map or (nY >= 0 and nY <= 7 and nX >= 0 and nX <= 6):
+        if allow_outside_map or (0 <= nY <= 7 and 0 <= nX <= 6):
             neighbors.append([nY, nX])
     return neighbors
 
@@ -172,7 +169,7 @@ def find_neighbors(y, x, allow_outside_map = False):
 def find_target(c):
     c_coords = to_cube_coords(c)
     old_target = c.target
-    
+
     current_target = {'champion': None, 'distance': None}
 
     # roll through everyone
@@ -215,17 +212,17 @@ def enemies_in_distance(champion, target_y, target_x, radius):
     c = coordinates
     for i, line in enumerate(c):
         for j, col in enumerate(line):
-            if(c[i][j] and
-               c[i][j].team != champion.team and
-               c[i][j].champion and
-               distance({'y': j, 'x': i}, {'y': target_y, 'x': target_x}, False) <= radius):
+            if (c[i][j] and
+                    c[i][j].team != champion.team and
+                    c[i][j].champion and
+                    distance({'y': j, 'x': i}, {'y': target_y, 'x': target_x}, False) <= radius):
                 enemies_within.append(c[i][j])
 
     return enemies_within
 
 
 # find hexes that are within a certain distance
-def hexes_in_distance(target_y, target_x, radius, allow_outside_map = False):
+def hexes_in_distance(target_y, target_x, radius, allow_outside_map=False):
     hexes_within = []
     c = coordinates
     for i in range(-100, 100):
@@ -248,46 +245,39 @@ def hexes_distance_away(target_y, target_x, radius, allow_outside_map=False):
 
     return hexes_within
 
-    
-def distance(champion1, champion2, objects):
-    c1_coords = {}
-    c2_coords = {}
 
-    if(objects):
+def distance(champion1, champion2, objects):
+    if objects:
         c1_coords = to_cube_coords(champion1)
         c2_coords = to_cube_coords(champion2)
     else:
         c1_coords = to_cube_coords_nonobj(champion1)
         c2_coords = to_cube_coords_nonobj(champion2)
 
-
-    dist = (abs(c1_coords['x'] - c2_coords['x']) + abs(c1_coords['y'] - c2_coords['y']) + abs(c1_coords['z'] - c2_coords['z'])) / 2
+    dist = (abs(c1_coords['x'] - c2_coords['x']) +
+            abs(c1_coords['y'] - c2_coords['y']) +
+            abs(c1_coords['z'] - c2_coords['z'])) / 2
     return dist
 
 
-# I still don't understand how the coordinates work in this work.
-# There are three coordinates for a 2d board. I don't see how you can dodge on the z axis in TFT.
-# the x might be the half square offset in either direction.
-# plus the c.y + c.y&1 means it always even and divide by 2 means it is same without the &1 with ceil.
-# I can print these out later to get a better understanding.
 def to_cube_coords(c):
     x = c.x - (c.y + (c.y & 1)) / 2
     z = c.y
-    y = -x-z
+    y = -x - z
     return {'x': x, 'y': y, 'z': z}
 
 
 def to_cube_coords_nonobj(c):
     x = c['x'] - (c['y'] + (c['y'] & 1)) / 2
     z = c['y']
-    y = -x-z
+    y = -x - z
     return {'x': x, 'y': y, 'z': z}
 
 
 def to_normal_coords(c):
     x = c[0] + (c[2] + (c[2] & 1)) / 2
     y = c[2]
-    return [int(y),int(x)]
+    return [int(y), int(x)]
 
 
 # def get_line_straight(starting_point, direction_point, length):
@@ -304,9 +294,9 @@ def cube_lerp(a, b, t):  # for hexes
     aa = to_cube_coords_nonobj(a)
     bb = to_cube_coords_nonobj(b)
 
-    return      {'x': lerp(aa['x'], bb['x'], t), 
-                 'y': lerp(aa['y'], bb['y'], t),
-                 'z': lerp(aa['z'], bb['z'], t)}
+    return {'x': lerp(aa['x'], bb['x'], t),
+            'y': lerp(aa['y'], bb['y'], t),
+            'z': lerp(aa['z'], bb['z'], t)}
 
 
 def cube_round(cube):
@@ -319,11 +309,11 @@ def cube_round(cube):
     z_diff = abs(rz - cube['z'])
 
     if x_diff > y_diff and x_diff > z_diff:
-        rx = -ry-rz
+        rx = -ry - rz
     elif y_diff > z_diff:
-        ry = -rx-rz
+        ry = -rx - rz
     else:
-        rz = -rx-ry
+        rz = -rx - ry
 
     return [rx, ry, rz]
 
@@ -333,13 +323,13 @@ def line(starting_point, end_point):
                  {'y': end_point['y'], 'x': end_point['x']}, False)
     results = []
     if N != 0:
-        for i in range(0, int(N)+1):
+        for i in range(0, int(N) + 1):
             results.append(to_normal_coords(cube_round(cube_lerp(starting_point, end_point, 1.0 / N * i))))
     return results
 
 
 # the rectangle that's used in azir's, ezreal's and TF's ults
-def rectangle_from_champion_to_wall_behind_target(champion, width, target_y, target_x, allow_outside_map = False):
+def rectangle_from_champion_to_wall_behind_target(champion, width, target_y, target_x, allow_outside_map=False):
     direction = 'vertical'
     # Is the champion I am looking at above me or to my side?
     if abs(target_x - champion.x) >= abs(target_y - champion.y):
@@ -362,9 +352,9 @@ def rectangle_from_champion_to_wall_behind_target(champion, width, target_y, tar
     loop_end = math.floor(width / 2) + 1
 
     # Loop over the number of hexes required.
-    for i in range(loop_start, loop_end): 
+    for i in range(loop_start, loop_end):
         if direction == 'vertical':
-            hexes.append(line({'y': champion.y, 'x': champion.x + i}, {'y':target_y, 'x':target_x + i}))
+            hexes.append(line({'y': champion.y, 'x': champion.x + i}, {'y': target_y, 'x': target_x + i}))
         if direction == 'diagonal':
             j = 0
             # hexagonal coordinates are absolute aids
@@ -402,44 +392,27 @@ def leap_to_back_line(champion, data):
     trait = data['trait']
 
     # set the preferred coordinate which matches the other side of the baord (y-wise) at still somewhat same x-line
-    preferred_y = -1
-    if(champion.y <= 3): preferred_y = 7
-    else: preferred_y = 0
-    
+    if champion.y <= 3:
+        preferred_y = 7
+    else:
+        preferred_y = 0
 
-    # find the closest free hex to the preferred coords
-    pool = []
-    i = preferred_y
-    for j in range(0, 7):
-        pool.append([i, j])
-    
-    if(i == 0): i += 1
-    else: i -= 1
-    for j in range(0, 7):
-        pool.append([i, j])
-
-    possible_hexes = []
-    for i, p in enumerate(pool):
-        if(not coordinates[p[0]][p[1]]):
-            d = distance({'y': p[0], 'x': p[1]}, {'y': preferred_y, 'x': champion.x}, False)
-            possible_hexes.append([p[0], p[1], d])
-
-    if(preferred_y == 0): possible_hexes = sorted(possible_hexes, key=lambda x: (x[0], x[2]))
-    if(preferred_y == 7): 
-        possible_hexes = sorted(possible_hexes, key=lambda x: x[0], reverse=True)
-        possible_hexes = sorted(possible_hexes, key=lambda x: x[2])
-        
-    target_hex = None
-    if(len(possible_hexes) > 0):
-        target_hex = [possible_hexes[0][0], possible_hexes[0][1]]
-
-    # do the actual leaping
-    if(target_hex):
-        champion.print(' leaps')
-        champion.move(target_hex[0], target_hex[1], True)
-        champion.clear_que_idle()
-        items.change_stat(champion, 'idle', True, trait)
-    else: coordinates[champion.y][champion.x] = champion
+    target_hex = [[preferred_y, champion.x]]
+    target_hex_index = 0
+    while target_hex_index < len(target_hex):
+        # do the actual leaping
+        if target_hex and not coordinates[target_hex[target_hex_index][0]][target_hex[target_hex_index][1]]:
+            champion.print(' leaps')
+            champion.move(target_hex[target_hex_index][0], target_hex[target_hex_index][1], True)
+            champion.clear_que_idle()
+            items.change_stat(champion, 'idle', True, trait)
+            break
+        else:
+            neighbors = find_neighbors(target_hex[target_hex_index][0], target_hex[target_hex_index][1], False)
+            for neighbor in neighbors:
+                if neighbor not in target_hex:
+                    target_hex.append(neighbor)
+            target_hex_index += 1
 
     items.change_stat(champion, 'champion', True, trait)
     items.change_stat(champion, 'stunned', False, trait)

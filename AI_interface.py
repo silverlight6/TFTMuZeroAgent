@@ -3,30 +3,17 @@ import game_round
 import player as player_class
 import numpy as np
 import pool
+import config
 from tensorflow import summary
 from origin_class import team_traits, game_comp_tiers
 from stats import COST
 from A3C_agent import A3C_Agent
-from replay_buffer import ReplayBuffer
-from multiprocessing import Process, cpu_count
+from MuZero_agent import MuZero_agent
+from replay_muzero_buffer import ReplayBuffer
+from multiprocessing import Process
 from global_buffer import GlobalBuffer
-from datetime import datetime
-
 
 CURRENT_EPISODE = 0
-
-# gpus = tf.config.list_physical_devices('GPU')
-# if gpus:
-#     try:
-#         # Currently, memory growth needs to be the same across GPUs
-#         for gpu in gpus:
-#             tf.config.experimental.set_memory_growth(gpu, True)
-#         logical_gpus = tf.config.list_logical_devices('GPU')
-#         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-#     except RuntimeError as e:
-#         # Memory growth must be set before GPUs have been initialized
-#         print(e)
-
 
 def reset(sim):
     pool_obj = pool.pool()
@@ -40,14 +27,12 @@ def reset(sim):
 # The return is the shop, boolean for end of turn, boolean for successful action
 def step(action, player, shop, pool_obj):
     if action[0] == 0:
-        if shop[0] == " ": 
+        if shop[0] == " ":
             player.reward += player.mistake_reward
             return shop, False, False
-        # print("shop at position 0 is " + shop[0] + " with gold amount " + str(player.gold))
         if shop[0].endswith("_c"):
             c_shop = shop[0].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[0])
         success = player.buy_champion(a_champion)
@@ -55,16 +40,14 @@ def step(action, player, shop, pool_obj):
             shop[0] = " "
         else:
             return shop, False, False
-        # player.print("buy option 0")
 
     elif action[0] == 1:
-        if shop[1] == " ": 
+        if shop[1] == " ":
             player.reward += player.mistake_reward
             return shop, False, False
         if shop[1].endswith("_c"):
             c_shop = shop[1].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[1])
         success = player.buy_champion(a_champion)
@@ -72,78 +55,66 @@ def step(action, player, shop, pool_obj):
             shop[1] = " "
         else:
             return shop, False, False
-        # player.print("buy option 1")
 
     elif action[0] == 2:
-        if shop[2] == " ": 
+        if shop[2] == " ":
             player.reward += player.mistake_reward
             return shop, False, False
         if shop[2].endswith("_c"):
             c_shop = shop[2].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
-            a_champion = champion.champion(shop[2]) 
+            a_champion = champion.champion(shop[2])
         success = player.buy_champion(a_champion)
         if success:
             shop[2] = " "
         else:
             return shop, False, False
-        # player.print("buy option 2")
 
     elif action[0] == 3:
-        if shop[3] == " ": 
+        if shop[3] == " ":
             player.reward += player.mistake_reward
             return shop, False, False
         if shop[3].endswith("_c"):
             c_shop = shop[3].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[3])
-        
+
         success = player.buy_champion(a_champion)
         if success:
             shop[3] = " "
         else:
             return shop, False, False
-        # player.print("buy option 3")
 
     elif action[0] == 4:
-        if shop[4] == " ": 
+        if shop[4] == " ":
             player.reward += player.mistake_reward
             return shop, False, False
         if shop[4].endswith("_c"):
             c_shop = shop[4].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            # player.print("buying chosen unit -> {} type {}".format(c_shop[0], c_shop[1]))
         else:
             a_champion = champion.champion(shop[4])
-        
+
         success = player.buy_champion(a_champion)
         if success:
             shop[4] = " "
         else:
             return shop, False, False
 
-        # player.print("buy option 4")
-
     # Refresh
     elif action[0] == 5:
         if player.refresh():
             shop = pool_obj.sample(player, 5)
-            # player.print("Refresh")
-        else:       
-            # player.print('no gold, failed to refresh')
+        else:
             return shop, False, False
 
     # buy Exp
     elif action[0] == 6:
-        if player.buy_exp(): 
-            # player.print("exp")
+        if player.buy_exp():
             pass
-        else: 
-            # player.print('no enough gold, buy exp failed')
+        else:
             return shop, False, False
 
     # end turn 
@@ -153,59 +124,59 @@ def step(action, player, shop, pool_obj):
     # move Item
     elif action[0] == 8:
         # Call network to activate the move_item_agent
-        # player.printt("move item method")
         if not player.move_item_to_board(action[1], action[3], action[4]):
-            # player.print("Could not put item on {}, {}".format(action[3], action[4]))
             return shop, False, False
 
     # sell Unit
     elif action[0] == 9:
         # Call network to activate the bench_agent
-        # player.printt("sell unit method")
         if not player.sell_from_bench(action[2]):
-            # player.print("Unit sale failed")
             return shop, False, False
 
     # move bench to Board
     elif action[0] == 10:
         # Call network to activate the bench and board agents
-        # player.print("move bench to board")
         if not player.move_bench_to_board(action[2], action[3], action[4]):
-            # player.print("Move command failed")
             return shop, False, False
 
     # move board to bench
     elif action[0] == 11:
         # Call network to activate the bench and board agents
-        # player.print("move board to bench")
         if not player.move_board_to_bench(action[3], action[4]):
-            # player.print("Move command failed")
             return shop, False, False
-    
+
     else:
-        # player.print("wrong call")
         return shop, False, False
     return shop, False, True
 
 
 # Includes the vector of the shop, bench, board, and itemlist.
 # Add a vector for each player composition makeup at the start of the round.
-def observation(shop, player):
+def observation(shop, player, buffer):
     shop_vector = generate_shop_vector(shop)
     game_state_vector = generate_game_comps_vector()
-    input_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
-                                   np.expand_dims(player.board_vector, axis=0),
-                                   np.expand_dims(player.bench_vector, axis=0),
-                                   np.expand_dims(player.chosen_vector, axis=0),
-                                   np.expand_dims(player.item_vector, axis=0),
-                                   np.expand_dims(player.player_vector, axis=0),
-                                   np.expand_dims(game_state_vector, axis=0), ], axis=-1)
+    complete_game_state_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
+                                                 np.expand_dims(player.board_vector, axis=0),
+                                                 np.expand_dims(player.bench_vector, axis=0),
+                                                 np.expand_dims(player.chosen_vector, axis=0),
+                                                 np.expand_dims(player.item_vector, axis=0),
+                                                 np.expand_dims(player.player_vector, axis=0),
+                                                 np.expand_dims(game_state_vector, axis=0), ], axis=-1)
+    i = 0
+    input_vector = complete_game_state_vector
+    while i < buffer.len_observation_buffer() and i < 8:
+        i += 1
+        input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
+
+    while i < 8:
+        i += 1
+        input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
     # std = np.std(input_vector)
     # if std == 0:
     # input_vector = input_vector - np.mean(input_vector)
     # else:
     #     input_vector = (input_vector - np.mean(input_vector)) / std
-    return input_vector
+    return input_vector, complete_game_state_vector
 
 
 # Includes the vector of the bench, board, and itemlist.
@@ -339,14 +310,13 @@ def train_model(max_episodes=10000):
     # test_player = player_class.player(pool_obj, 0)
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
-    batch_size = 10
+
     shape = np.array([1, 1382])
-    # print(shape)
-    global_agent = A3C_Agent(shape, batch_size=batch_size)
-    global_buffer = GlobalBuffer(batch_size=batch_size)
+    global_agent = MuZero_agent()
+    global_buffer = GlobalBuffer()
     # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
-    agents = [A3C_Agent(shape) for _ in range(game_sim.num_players)]
+    agents = [MuZero_agent(shape) for _ in range(game_sim.num_players)]
     for episode_cnt in range(1, max_episodes):
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
@@ -361,10 +331,17 @@ def train_model(max_episodes=10000):
             game_round.log_to_file_start()
             for i in range(game_sim.num_players):
                 agents[i] = global_agent
+        # if episode_cnt % 50 == 0:
+        #     saveModel(agents[0].a3c_net, episode_cnt)
         if len(gameplay_experience_batch) > 0:
             with global_agent.file_writer.as_default():
                 summary.scalar("buffer len", len(gameplay_experience_batch[0]), episode_cnt)
         print("Episode " + str(episode_cnt) + " Completed")
+
+
+def saveModel(agent, epoch):
+    checkpoint_path = "savedWeights/cp-{epoch:04d}.ckpt"
+    agent.save_weights(checkpoint_path.format(epoch=epoch))
 
 
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  

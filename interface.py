@@ -254,6 +254,3 @@ class interface:
             for y in range(4):
                 if player.board[x][y]:
                     print("x: " + str(x) + " y: " + str(y) + ": " + player.board[x][y].name)
-
-            
-    

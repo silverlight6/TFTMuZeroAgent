@@ -1,8 +1,8 @@
 import math
-
 import champion
 import config
 import origin_class
+import time
 import numpy as np
 from item_stats import items as item_list, basic_items, item_builds
 from stats import COST
@@ -75,10 +75,11 @@ class player:
         self.refresh_cost = 2
 
         # reward for refreshing
-        self.refresh_reward = .000
-        self.minion_count_reward = 0.001
+        self.refresh_reward = 0
+        self.minion_count_reward = 0
         self.mistake_reward = 0.0
-        # self.mistake_reward = 0
+        self.level_reward = 0
+        self.item_reward = 0
         self.prev_rewards = 0
 
         self.pool_obj = pool_pointer
@@ -90,6 +91,8 @@ class player:
 
         # An array to record match history
         self.match_history = []
+
+        self.start_time = time.time_ns()
 
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
@@ -401,7 +404,9 @@ class player:
     # TO DO: FORTUNE TRAIT - HUGE EDGE CASE - GOOGLE FOR MORE INFO - FORTUNE - TFT SET 4
     # Including base_exp income here
 
+    # This gets called before any of the neural nets happen. This is the start of the round
     def gold_income(self, t_round):  # time of round since round is a keyword
+        self.start_time = time.time_ns()
         self.exp += 2
         self.level_up()
         if t_round <= 4:
@@ -444,7 +449,7 @@ class player:
             self.level += 1
             self.max_units += 1
             if self.level >= 5:
-                self.reward += 0.5
+                self.reward += 0.5 * self.level_reward
                 self.print("+0.5 reward for leveling to level {}".format(self.level))
             self.level_up()
 
@@ -563,7 +568,7 @@ class player:
                         self.item_bench[xBench] = None
                         self.bench[x].items.pop()
                         self.bench[x].items.append(item_builds.keys()[item_index])
-                        self.reward += .2
+                        self.reward += .2 * self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
                     elif self.bench[x].items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
@@ -627,7 +632,7 @@ class player:
                         self.item_bench[xBench] = None
                         self.board[x][y].items.pop()
                         self.board[x][y].items.append(list(item_builds.keys())[item_index])
-                        self.reward += .2
+                        self.reward += .2 * self.item_reward
                         self.print(".2 reward for combining two basic items into a {}".format(
                             list(item_builds.keys())[item_index]))
                     else:
@@ -658,7 +663,8 @@ class player:
         return num
 
     def print(self, msg):
-        self.printt('{:<120}'.format('{:<8}'.format(self.player_num) + msg))
+        self.printt('{:<120}'.format('{:<8}'.format(self.player_num)
+                                     + '{:<20}'.format(str(time.time_ns() - self.start_time)) + msg))
 
     def printBench(self, log=True):
         for i in range(len(self.bench)):
@@ -877,8 +883,8 @@ class player:
             self.printComp()
 
     def won_game(self):
-        self.reward += 1.0
-        self.print("+1 reward for winning game")
+        self.reward += 0.0
+        self.print("+0 reward for winning game")
 
     def won_round(self, game_round):
         if not self.combat:
