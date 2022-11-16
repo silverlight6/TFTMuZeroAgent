@@ -7,7 +7,6 @@ import config
 from tensorflow import summary
 from origin_class import team_traits, game_comp_tiers
 from stats import COST
-from A3C_agent import A3C_Agent
 from MuZero_agent import MuZero_agent
 from replay_muzero_buffer import ReplayBuffer
 from multiprocessing import Process
