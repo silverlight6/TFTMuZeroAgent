@@ -46,7 +46,7 @@ class Node(object):
 
     def __init__(self, prior: float):
         self.visit_count = 0
-        self.to_play = -1
+        self.to_play = 1
         self.prior = prior
         self.value_sum = 0
         # 5 because there are 5 separate actions.
@@ -94,13 +94,13 @@ class MuZero_agent(tf.Module):
 
         # I can play around with the num_steps (0) later.
         # Not a 100% sure what difference it will make at this time.
-        self.value_encoder = ValueEncoder(-300., 300., 0)
+        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self.reward_encoder = ValueEncoder(-300., 300., 0)
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self._to_hidden = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
-        self._value_head = tf.keras.layers.Dense(1, name='output')
-        self._reward_head = tf.keras.layers.Dense(1, name='output')
+        self._value_head = tf.keras.layers.Dense(self.value_encoder.num_steps, name='output', dtype=tf.float32)
+        self._reward_head = tf.keras.layers.Dense(self.reward_encoder.num_steps, name='output', dtype=tf.float32)
 
         self._shop_output = tf.keras.layers.Dense(self.action_dim[0], activation='softmax', name='shop_layer')
         self._item_output = tf.keras.layers.Dense(self.action_dim[1], activation='softmax', name='item_layer')
@@ -111,6 +111,7 @@ class MuZero_agent(tf.Module):
     def policy(self, observation, player_num):
         self.ckpt_time = time.time_ns()
         root = Node(0)
+        # observation = np.expand_dims(observation, axis=0)
         network_output = self.initial_inference(observation)
 
         self.expand_node(root, player_num, network_output)
@@ -125,7 +126,7 @@ class MuZero_agent(tf.Module):
             np.argmax(network_output["policy_logits"][3].numpy()),
             np.argmax(network_output["policy_logits"][4].numpy())
         ]
-        global_history = self.run_mcts(root, initial_action, player_num)
+        self.run_mcts(root, initial_action, player_num)
         action = self.select_action(root)
 
         # Masking only if training is based on the actions taken in the environment.
@@ -135,7 +136,8 @@ class MuZero_agent(tf.Module):
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
 
-        return action, network_output["policy_logits"], root.value(), global_history
+
+        return action, network_output["policy_logits"]
 
     def expand_node(self, node: Node, to_play: int, network_output: dict):
         node.to_play = to_play
@@ -183,9 +185,10 @@ class MuZero_agent(tf.Module):
     def recurrent_inference(self, hidden_state, action) -> Dict:
         # dynamics + prediction function
         # only looking at the first dimension for now.
-        one_hot_action = tf.Variable(tf.one_hot(action[0], self.action_dim[0], 1., -1.))
+        # I am setting off values to 0 out of preference, Google sets it to 1. Not sure if there is a real difference.
+        one_hot_action = tf.Variable(tf.one_hot(action[:, 0], self.action_dim[0], 1., 0.))
         for i in range(1, len(self.action_dim)):
-            one_hot_action = tf.concat([one_hot_action, tf.one_hot(action[i], self.action_dim[i], 1., -1.)], axis=0)
+            one_hot_action = tf.concat([one_hot_action, tf.one_hot(action[:, i], self.action_dim[i], 1., 0.)], axis=-1)
 
         embedded_action = self.action_embeddings(one_hot_action)
         rnn_state = self.flat_to_lstm_input(hidden_state)
@@ -291,7 +294,6 @@ class MuZero_agent(tf.Module):
     # reach a leaf node.
     def run_mcts(self, root: Node, action: List, player_num: int):
         min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
-        globalHistory = ActionHistory(action)
 
         for _ in range(config.NUM_SIMULATIONS):
             history = ActionHistory(action)
@@ -304,16 +306,16 @@ class MuZero_agent(tf.Module):
             while node.expanded():
                 action, node = self.select_child(node, min_max_stats)
                 history.add_action(action)
-                globalHistory.add_action(action)
                 search_path.append(node)
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = search_path[-2]
-            network_output = self.recurrent_inference(parent.hidden_state, history.last_action())
+            network_output = self.recurrent_inference(parent.hidden_state,
+                                                      np.expand_dims(np.asarray(history.last_action()), axis=0))
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
+            # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
-        return globalHistory
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
@@ -325,6 +327,8 @@ class MuZero_agent(tf.Module):
             actions.append(action)
             if act_dim == 0:
                 return_child = child
+        if actions[0] == 7:
+            node.to_play *= -1
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
@@ -403,8 +407,7 @@ class MuZero_agent(tf.Module):
         return tf.concat(states, -1)
 
     def action_embeddings(self, action):
-        x = tf.expand_dims(action, 0)
-        x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE)(x)
+        x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE)(action)
         return x
 
     #### This code is not used anywhere. Leaving here in case people want to play around with masking the input ###
@@ -439,6 +442,9 @@ class MuZero_agent(tf.Module):
     def action_history(self):
         return ActionHistory(self.history)
 
+    def get_rl_training_variables(self):
+        return self.trainable_variables
+
 
 class Mlp(tf.Module):
     def __init__(self, hidden_size=256, mlp_dim=512):
@@ -469,7 +475,7 @@ class ActionHistory(object):
   """
 
     def __init__(self, history: List):
-        self.history = list([history])
+        self.history = [history]
 
     def clone(self):
         return ActionHistory(self.history)
@@ -531,8 +537,8 @@ class ValueEncoder:
                  use_contractive_mapping=True):
         if not max_value > min_value:
             raise ValueError('max_value must be > min_value')
-        min_value = float(min_value)
-        max_value = float(max_value)
+        # min_value = float(min_value)
+        # max_value = float(max_value)
         if use_contractive_mapping:
             max_value = contractive_mapping(max_value)
             min_value = contractive_mapping(min_value)
@@ -566,9 +572,9 @@ class ValueEncoder:
         lower_encoding, upper_encoding = (
             tf.cast(tf.math.equal(step, self.step_range_int), tf.float32) * mod
             for step, mod in (
-            (lower_step, lower_mod),
-            (upper_step, upper_mod),
-        ))
+                (lower_step, lower_mod),
+                (upper_step, upper_mod),
+            ))
         return lower_encoding + upper_encoding
 
     def decode(self, logits):

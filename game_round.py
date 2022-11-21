@@ -133,12 +133,12 @@ class TFT_Simulation:
                     shop = self.pool_obj.sample(player, 5)
                     # Take an observation
                     observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
-                    action, logits, value, history = agents[player.player_num].policy(observation, player.player_num)
+                    action, logits = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward of -0.5 for losing the game
                     reward = -0.5
                     # Store experience to buffer
-                    buffers[player.player_num].store_replay_buffer(observation, history, value, reward, logits, True)
+                    buffers[player.player_num].store_replay_buffer(observation, action, reward, logits)
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
                     self.NUM_DEAD += 1
                     self.pool_obj.return_hero(player)
@@ -154,12 +154,12 @@ class TFT_Simulation:
                     shop = self.pool_obj.sample(player, 5)
                     # Take an observation
                     observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
-                    action, logits, value, history = agents[player.player_num].policy(observation, player.player_num)
+                    action, logits = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward 1 for winning the game
                     reward = 1
                     # Store experience to buffer
-                    buffers[player.player_num].store_replay_buffer(observation, history, value, reward, logits, True)
+                    buffers[player.player_num].store_replay_buffer(observation, action, reward, logits)
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
                     print("PLAYER {} WON".format(player.player_num))
                     # with agents[player.player_num].file_writer.as_default():
@@ -173,9 +173,8 @@ class TFT_Simulation:
         # Player reward starts at 0 but has to change when units go to the board at the end of the first turn
         if player.reward != 0:
             buffer.store_replay_buffer(self.last_observation[player.player_num], self.last_action[player.player_num],
-                                       self.last_value[player.player_num],
                                        player.reward - self.previous_reward[player.player_num],
-                                       self.last_policy[player.player_num], False)
+                                       self.last_policy[player.player_num])
         # Generate a shop for the observation to use
         shop = self.pool_obj.sample(player, 5)
         step_done = False
@@ -185,7 +184,7 @@ class TFT_Simulation:
             # Take an observation
             observation, game_state_vector = AI_interface.observation(shop, player, buffer)
             # Get action from the policy network
-            action, policy, value, history = agent.policy(observation, player.player_num)
+            action, policy = agent.policy(observation, player.player_num)
             # Take a step
             shop, step_done, success = AI_interface.step(action, player, shop, self.pool_obj)
 
@@ -196,11 +195,10 @@ class TFT_Simulation:
             # Store experience to buffer
             if step_done:
                 self.last_observation[player.player_num] = observation
-                self.last_action[player.player_num] = history
-                self.last_value[player.player_num] = value
-                self.last_policy[player.player_num] = reward
+                self.last_action[player.player_num] = action
+                self.last_policy[player.player_num] = policy
             else:
-                buffer.store_replay_buffer(observation, history, value, reward, policy, False)
+                buffer.store_replay_buffer(observation, action, reward, policy)
             if success and ~step_done:
                 buffer.store_observation(game_state_vector)
 

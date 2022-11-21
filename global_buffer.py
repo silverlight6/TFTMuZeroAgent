@@ -11,25 +11,58 @@ class GlobalBuffer:
 
     def sample_batch(self):
         # Returns: a batch of gameplay experiences without regard to which agent.
-        observation_batch, history_batch, value_batch, reward_batch, policy_batch = [], [], [], [], []
+        observation_batch, action_history_batch, target_value_batch, target_reward_batch = [], [], [], []
+        target_policy_a_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
+        target_policy_b_batch, target_policy_c_batch, target_policy_d_batch, target_policy_e_batch = [], [], [], []
 
         for gameplay_experience in range(self.batch_size):
-            observation, history, value, reward, policy = self.gameplay_experiences.popleft()
+            observation, action_history, value_mask, reward_mask, policy_mask,\
+                value, reward, policy = self.gameplay_experiences.popleft()
             observation_batch.append(observation)
-            history_batch.append(history)
-            value_batch.append(value)
-            reward_batch.append(reward)
-            policy_batch.append(policy)
+            action_history_batch.append(action_history[1:])
+            value_mask_batch.append(value_mask)
+            reward_mask_batch.append(reward_mask)
+            policy_mask_batch.append(policy_mask)
+            target_value_batch.append(value)
+            target_reward_batch.append(reward)
+            # print(policy)
+            pol_a, pol_b, pol_c, pol_d, pol_e = [], [], [], [], []
+            for i in range(len(policy)):
+                pol_a.append(policy[i][0][0].numpy())
+                pol_b.append(policy[i][1][0].numpy())
+                pol_c.append(policy[i][2][0].numpy())
+                pol_d.append(policy[i][3][0].numpy())
+                pol_e.append(policy[i][4][0].numpy())
+            target_policy_a_batch.append(pol_a)
+            target_policy_b_batch.append(pol_b)
+            target_policy_c_batch.append(pol_c)
+            target_policy_d_batch.append(pol_d)
+            target_policy_e_batch.append(pol_e)
 
-        return [observation_batch, history_batch, value_batch, reward_batch, policy_batch]
+        observation_batch = np.squeeze(np.asarray(observation_batch))
+        # print(action_history_batch)
+        action_history_batch = np.swapaxes(np.asarray(action_history_batch), 1, 2)
+        target_value_batch = np.asarray(target_value_batch).astype('float32')
+        target_reward_batch = np.asarray(target_reward_batch).astype('float32')
+        value_mask_batch = np.asarray(value_mask_batch).astype('float32')
+        reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
+        policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
+        target_policy_a_batch = np.asarray(target_policy_a_batch).astype('float32')
+        target_policy_b_batch = np.asarray(target_policy_b_batch).astype('float32')
+        target_policy_c_batch = np.asarray(target_policy_c_batch).astype('float32')
+        target_policy_d_batch = np.asarray(target_policy_d_batch).astype('float32')
+        target_policy_e_batch = np.asarray(target_policy_e_batch).astype('float32')
+        target_policy_batch = [target_policy_a_batch, target_policy_b_batch, target_policy_c_batch,
+                               target_policy_d_batch, target_policy_e_batch]
 
-    def store_replay_sequence(self, observation, history, value, reward, policy):
+        return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
+                target_value_batch, target_reward_batch, target_policy_batch]
+
+    def store_replay_sequence(self, sample):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        reward = np.clip(reward, -1.0, 1.0)
-        observation = self.transpose(observation)
-        self.gameplay_experiences.append([observation, history, value, reward, policy])
+        self.gameplay_experiences.append(sample)
 
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)

@@ -30,7 +30,6 @@ LEAP_DELAY = 395  # assassins and shades
 
 #### MODEL SET UP ####
 BATCH_SIZE = 64
-SEQUENCE_LENGTH = 5
 LSTM_SIZE = 256
 HIDDEN_TENSOR_SIZE = 128
 HIDDEN_STATE_SIZE = 256
@@ -48,6 +47,8 @@ DISCOUNT = 0.997
 TRAINING_STEPS = 1e10
 OBSERVATION_SHAPE = np.array([1, 1382])
 CORE_LSTM_LAYERS = 2
+UNROLL_STEPS = 16
+SAMPLES_PER_PLAYER = 32
 
 #### TRAINING ####
 INIT_LEARNING_RATE = 0.001
@@ -56,3 +57,8 @@ LR_DECAY_FUNCTION = 0.01
 WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
+# Putting this here so that we don't scale the policy by a multiple of 5
+# Because we calculate the loss for each of the 5 dimensions.
+# I'll add a mathematical way of generating these numbers later.
+POLICY_SUB_FACTOR = [.8, .05, .05, .05, .05]
+DEBUG = True

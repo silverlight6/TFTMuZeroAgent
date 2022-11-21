@@ -1,9 +1,11 @@
+import MuZero_trainer
 import champion
 import game_round
 import player as player_class
 import numpy as np
 import pool
 import config
+import tensorflow as tf
 from tensorflow import summary
 from origin_class import team_traits, game_comp_tiers
 from stats import COST
@@ -163,11 +165,11 @@ def observation(shop, player, buffer):
                                                  np.expand_dims(game_state_vector, axis=0), ], axis=-1)
     i = 0
     input_vector = complete_game_state_vector
-    while i < buffer.len_observation_buffer() and i < 8:
+    while i < buffer.len_observation_buffer() and i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
 
-    while i < 8:
+    while i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
     # std = np.std(input_vector)
@@ -310,9 +312,11 @@ def train_model(max_episodes=10000):
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
 
+    # tf.debugging.set_log_device_placement(True)
     shape = np.array([1, 1382])
     global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
+    trainer = MuZero_trainer.Trainer()
     # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
     agents = [MuZero_agent(shape) for _ in range(game_sim.num_players)]
@@ -320,12 +324,15 @@ def train_model(max_episodes=10000):
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
 
+        for i in range(game_sim.num_players):
+            buffers[i].store_global_buffer()
         # Keeping this here in case I want to only update positive rewards
         # rewards = game_round.player_rewards
         gameplay_experience_batch = []
         while global_buffer.available_batch():
             gameplay_experience_batch = global_buffer.sample_batch()
-            _ = global_agent.train_step(gameplay_experience_batch, episode_cnt)
+            trainer.train_network(gameplay_experience_batch, global_agent)
+
         if episode_cnt % 5 == 0:
             game_round.log_to_file_start()
             for i in range(game_sim.num_players):
