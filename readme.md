@@ -11,7 +11,6 @@ The player rounds as well as the player, pool, and game round classes were desig
 The reinforcement learning algorithm currently in use is MuZero based on google's implementation but adjusted for use here.
 Many features in google's implementation were removed and I adjusted the input space to allow for multiple action dimensions.
 
-A formal paper on this project is to follow in the days or weeks to come and a link will be provided.
 Any and all questions related to this project are welcome at slucoris@gmail.com
 
 Any and all further improvements to this project will be looked at, discussed, and highly likely accepted.
