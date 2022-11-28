@@ -1,10 +1,4 @@
-import champion
-import player as player_class
-import AI_interface
-from pool import pool
-from champion_functions import MILLIS
-from stats import COST
-
+from Simulator import champion
 
 
 class interface:

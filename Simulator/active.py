@@ -1,7 +1,7 @@
-import stats
+import Simulator.stats as stats
+import Simulator.field as field
+import Simulator.origin_class_stats as origin_class_stats
 import random
-import field
-import origin_class_stats
 
 
 # changing the stat manually since we have shenanigans in place for AD change in the section that makes stat changes

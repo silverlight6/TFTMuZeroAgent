@@ -1,13 +1,11 @@
 import config
-import pool
-import pool_stats
 import AI_interface
 import random
-import champion
-from item_stats import item_builds as full_items, basic_items, starting_items
-from player import player as player_class
+from Simulator import champion, pool, pool_stats
+from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
+from Simulator.player import player as player_class
 from interface import interface
-from champion_functions import MILLIS
+from Simulator.champion_functions import MILLIS
 
 
 class TFT_Simulation:

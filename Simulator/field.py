@@ -1,6 +1,6 @@
 import math
-import stats
-import items
+import Simulator.stats as stats
+import Simulator.items as items
 
 coordinates = [[None] * 7 for _ in range(8)]
 

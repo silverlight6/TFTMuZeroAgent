@@ -1,9 +1,8 @@
-import item_stats
-import field
-import champion_functions
+from Simulator import field, item_stats
+import Simulator.champion_functions as champion_functions
+import Simulator.stats as stats
+import Simulator.origin_class as origin_class
 import random
-import stats
-import origin_class
 
 # ALL FUNCTIONS REGARDING ITEMS ARE HERE
 # functions are named as just 'item_name'

@@ -62,3 +62,7 @@ POLICY_LOSS_SCALING = 1
 # I'll add a mathematical way of generating these numbers later.
 POLICY_SUB_FACTOR = [.8, .05, .05, .05, .05]
 DEBUG = True
+
+#### TESTING ####
+RUN_UNIT_TEST = True
+RUN_PLAYER_TESTS = True
