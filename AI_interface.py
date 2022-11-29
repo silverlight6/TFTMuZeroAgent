@@ -313,13 +313,13 @@ def train_model(max_episodes=10000):
     # shape = np.array(observation(shop, test_player)).shape
 
     # tf.debugging.set_log_device_placement(True)
-    shape = np.array([1, 1382])
+    # shape = np.array([1, 1382])
     global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
     # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
-    agents = [MuZero_agent(shape) for _ in range(game_sim.num_players)]
+    agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     for episode_cnt in range(1, max_episodes):
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
@@ -328,20 +328,15 @@ def train_model(max_episodes=10000):
             buffers[i].store_global_buffer()
         # Keeping this here in case I want to only update positive rewards
         # rewards = game_round.player_rewards
-        gameplay_experience_batch = []
         while global_buffer.available_batch():
             gameplay_experience_batch = global_buffer.sample_batch()
             trainer.train_network(gameplay_experience_batch, global_agent)
 
-        if episode_cnt % 5 == 0:
-            game_round.log_to_file_start()
-            for i in range(game_sim.num_players):
-                agents[i] = global_agent
+        game_round.log_to_file_start()
+        for i in range(game_sim.num_players):
+            agents[i] = global_agent
         # if episode_cnt % 50 == 0:
         #     saveModel(agents[0].a3c_net, episode_cnt)
-        if len(gameplay_experience_batch) > 0:
-            with global_agent.file_writer.as_default():
-                summary.scalar("buffer len", len(gameplay_experience_batch[0]), episode_cnt)
         print("Episode " + str(episode_cnt) + " Completed")
 
 
