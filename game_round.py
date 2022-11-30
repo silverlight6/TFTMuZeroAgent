@@ -22,7 +22,7 @@ class TFT_Simulation:
             [10000, 15]
         ]
         self.pool_obj = pool.pool()
-        self.num_players = 2
+        self.num_players = config.NUM_PLAYERS
         self.PLAYERS = [player_class(self.pool_obj, i) for i in range(self.num_players)]
         self.NUM_DEAD = 0
         self.player_rewards = [0 for _ in range(self.num_players)]

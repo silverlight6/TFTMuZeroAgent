@@ -70,6 +70,8 @@ class GlobalBuffer:
             return True
         return False
 
+    # Leaving this transpose method here in case some model other than
+    # MuZero requires this in the future.
     def transpose(self, matrix):
         rows = len(matrix)
         columns = len(matrix[0])

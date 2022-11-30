@@ -277,16 +277,13 @@ def divine_helper(champion, divine_tier):
     items.change_stat(champion, 'disarmed', False, 'divine')
     items.change_stat(champion, 'blinded', False, 'divine')
 
-
     new_damage_receiving = champion.receive_decreased_damage * origin_class_stats.receive_decreased_damage['divine']
-    old_damage_receiving = champion.receive_decreased_damage #can be safely done since the only other functhion which uses this is galio's ult
+    old_damage_receiving = champion.receive_decreased_damage # can be safely done since the only other functhion which uses this is galio's ult
     items.change_stat(champion, 'receive_decreased_damage', new_damage_receiving, 'divine')
     champion.add_que('change_stat', origin_class_stats.length['divine'][divine_tier], None, 'receive_decreased_damage', old_damage_receiving)
 
     items.change_stat(champion, 'deal_bonus_true_damage', origin_class_stats.deal_bonus_true_damage['divine'], 'divine')
     champion.add_que('change_stat', origin_class_stats.length['divine'][divine_tier], None, 'deal_bonus_true_damage', 0)
-
-
 
 
 def dusk(blue_team, red_team):

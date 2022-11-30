@@ -41,9 +41,13 @@ class ReplayBuffer:
         return config.OBSERVATION_SHAPE
 
     def store_global_buffer(self):
-        if len(self.gameplay_experiences) > config.SAMPLES_PER_PLAYER:
+        # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
+        # In general, we are having episodes of 200 or so but the minimum possible is close to 20
+        samples_per_player = config.SAMPLES_PER_PLAYER \
+            if (len(self.gameplay_experiences) - 8) > config.SAMPLES_PER_PLAYER else len(self.gameplay_experiences) - 8
+        if samples_per_player > 0:
             # 8 because I don't want to sample the very end of the range
-            samples = random.sample(range(0, len(self.gameplay_experiences) - 8), config.SAMPLES_PER_PLAYER)
+            samples = random.sample(range(0, len(self.gameplay_experiences) - 8), samples_per_player)
             td_steps = config.UNROLL_STEPS
             num_steps = len(self.gameplay_experiences)
             for sample in samples:

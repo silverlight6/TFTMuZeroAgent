@@ -1,15 +1,11 @@
 import config
 import collections
 import tensorflow as tf
-import numpy as np
-from absl import logging
-
 
 Prediction = collections.namedtuple(
     'Prediction',
     'value value_logits reward reward_logits policy_logits')
 
-log_keys = []
 
 class Trainer(object):
     def __init__(self):
@@ -98,15 +94,6 @@ class Trainer(object):
             (-1, num_target_steps,
              enc.num_steps)) for enc, v in ((agent.reward_encoder, target_reward),
                                             (agent.value_encoder, target_value)))
-
-        # target_value_encoded, target_reward_encoded = None, None
-        # for i, enc, v in enumerate(((agent.reward_encoder, target_reward), (agent.value_encoder, target_value))):
-        #     encoded = enc.encode(tf.reshape(v, (-1,)))
-        #     if i == 0:
-        #         target_reward_encoded = tf.reshape(encoded, (-1, num_target_steps,))
-        #     else:
-        #         target_value_encoded = tf.reshape(encoded, (-1, num_target_steps, enc.num_steps))
-
         accs = collections.defaultdict(list)
         for tstep, prediction in enumerate(predictions):
             accs['value_loss'].append(
@@ -153,18 +140,6 @@ class Trainer(object):
 
         accs = {k: tf.stack(v, -1) * masks[name_to_mask(k)] for k, v in accs.items()}
 
-        if config.DEBUG and np.random.rand() < 1 / 50:
-            logging.info('-------------------')
-            logging.info(observation)
-            for k, v in accs.items():
-                logging.info('{}:\n{}'.format(k, v))
-            for k, v in masks.items():
-                logging.info('mask {}:\n{}'.format(k, v))
-            logging.info('history:\n{}'.format(history))
-            # logging.info('target_policy:\n{}'.format(target_policy))
-            # logging.info('importance_weights:\n{}'.format(importance_weights))
-            logging.info('-------------------')
-
         loss = accs['value_loss'] + config.REWARD_LOSS_SCALING * accs[
             'reward_loss'] + config.POLICY_LOSS_SCALING * accs['policy_loss']
         mean_loss = tf.reduce_sum(loss, -1)  # aggregating over time
@@ -184,44 +159,6 @@ class Trainer(object):
             l2_loss = mean_loss * 0.
 
         mean_loss += l2_loss
-
-        del log_keys[:]
-        log_values = []
-
-        # logging
-
-        def log(key, value):
-            # this is a python op so it happens only when this tf.function is compiled
-            log_keys.append(key)
-            # this is a TF op
-            log_values.append(value)
-
-        log('losses/total', mean_loss)
-        log('losses/weight_decay', l2_loss)
-
-        sum_accs = {k: tf.reduce_sum(a, -1) for k, a in accs.items()}
-        sum_masks = {
-            k: tf.maximum(tf.reduce_sum(m, -1), 1.) for k, m in masks.items()
-        }
-
-        def get_mean(k):
-            return tf.reduce_mean(sum_accs[k] / sum_masks[name_to_mask(k)])
-
-        log('prediction/value', get_mean('value'))
-        log('prediction/reward', get_mean('reward'))
-        # log('prediction/policy', get_mean('action'))
-
-        log('target/value', get_mean('target_value'))
-        log('target/reward', get_mean('target_reward'))
-        # log('target/policy', get_mean('target_action'))
-
-        log('losses/value', tf.reduce_mean(sum_accs['value_loss']))
-        log('losses/reward', tf.reduce_mean(sum_accs['reward_loss']))
-        log('losses/policy', tf.reduce_mean(sum_accs['policy_loss']))
-
-        log('accuracy/value', -get_mean('value_diff'))
-        log('accuracy/reward', -get_mean('reward_diff'))
-        # log('accuracy/policy', get_mean('policy_acc'))
 
         return mean_loss
 
