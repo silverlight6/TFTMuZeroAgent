@@ -1,18 +1,15 @@
-from stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, \
-    DODGE, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
-from champion_functions import attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
-import active
-import ability
-import field
-import config
-import items
-import random
-import item_stats
-import origin_class
-import origin_class_stats
-from math import ceil
-import champion_functions
+import Simulator.origin_class as origin_class
+import Simulator.origin_class_stats as origin_class_stats
+import Simulator.champion_functions as champion_functions
 import time
+import config
+import random
+
+from math import ceil
+from Simulator.stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, \
+    DODGE, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
+from Simulator.champion_functions import attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
+from Simulator import ability, active, field, item_stats, items
 
 que = []
 log = []
@@ -781,7 +778,7 @@ def reset_global_variables():
     active.vayne_targets = []
     active.zed_counter = []
 
-    field.coordinates = [[None]*7 for _ in range(8)]
+    field.coordinates = [[None] * 7 for _ in range(8)]
 
     items.bramble_vest_list = []
     items.deathblade_list = []

@@ -1,20 +1,17 @@
-import MuZero_trainer
-import champion
+from Models import MuZero_trainer
+from Simulator import champion, player as player_class, pool
 import game_round
-import player as player_class
 import numpy as np
-import pool
-import config
-import tensorflow as tf
 from tensorflow import summary
-from origin_class import team_traits, game_comp_tiers
-from stats import COST
-from MuZero_agent import MuZero_agent
-from replay_muzero_buffer import ReplayBuffer
+from Simulator.origin_class import team_traits, game_comp_tiers
+from Simulator.stats import COST
+from Models.MuZero_agent import MuZero_agent
+from Models.replay_muzero_buffer import ReplayBuffer
 from multiprocessing import Process
 from global_buffer import GlobalBuffer
 
 CURRENT_EPISODE = 0
+
 
 def reset(sim):
     pool_obj = pool.pool()

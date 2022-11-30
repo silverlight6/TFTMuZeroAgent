@@ -1,16 +1,10 @@
-import config
+import Simulator.origin_class as origin_class
+import Simulator.origin_class_stats as origin_class_stats
 import random
-from math import ceil
-import active
-import field
-import ability
 import config
-import items
-import item_stats
-import stats
-import origin_class
-import origin_class_stats
-from stats import *
+from math import ceil
+from Simulator import ability, active, field, item_stats, items
+from Simulator.stats import *
 
 MILLISECONDS = 0
 

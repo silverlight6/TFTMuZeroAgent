@@ -1,18 +1,17 @@
 import math
-import champion
 import config
-import origin_class
 import time
 import numpy as np
-from item_stats import items as item_list, basic_items, item_builds
-from stats import COST
+from Simulator import champion, origin_class
+from Simulator.item_stats import items as item_list, basic_items, item_builds
+from Simulator.stats import COST
+from Simulator.pool_stats import cost_star_values
+from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
-from pool_stats import cost_star_values
-from origin_class_stats import tiers, fortune_returns
 
 
-# Let me create a bit of a TODO list at the top here
-# 
+# This is the base player class
+# Stores all values relevant to an individual player in the game
 class player:
     def __init__(self, pool_pointer, player_num):
 
@@ -34,6 +33,8 @@ class player:
         # List of items, there is no object for this so this is a string array
         self.item_bench = [None for _ in range(10)]
 
+        # opponent and opponent_board not currently used
+        # Leaving here in case we want to add values to the observation that include previous opponent
         self.opponent = None  # Other player, player object
         self.opponent_board = None  # Other player's board for combat, not sure if I will use this.
         self.chosen = False  # Does this player have a chosen unit already
@@ -46,6 +47,8 @@ class player:
         self.exp_cost = 4
         self.round = 0
 
+        # This could be in a config file, but we could implement something that alters the
+        # Amount of gold required to level that differs player to player
         self.level_costs = [0, 2, 2, 6, 10, 20, 36, 56, 80, 100]
         self.max_level = 9
 
@@ -82,11 +85,15 @@ class player:
         self.item_reward = 0
         self.prev_rewards = 0
 
+        # Everyone shares the pool object.
+        # Required for buying champions to and from the pool
         self.pool_obj = pool_pointer
 
         # Boolean for fought this round or not
         self.combat = False
+        # List of team compositions
         self.team_composition = origin_class.game_compositions[self.player_num]
+        # List of tiers of each trait.
         self.team_tiers = origin_class.game_comp_tiers[self.player_num]
 
         # An array to record match history
