@@ -3,7 +3,7 @@ from Simulator.pool import pool
 from Simulator.champion import champion
 
 #Creates Zilean 11 times, there are 3 1* Zileans and a 3* Zilean, correlated to update_triple_catalogue ...
-def add_to_bench_empty_bench(p1: player):
+def levelingChampions(p1: player):
     #create a champ
     p1.gold = 100000
     p1.max_units = 1000
@@ -23,4 +23,4 @@ def setup():
 
 def list_of_tests():
     p1 = setup()
-    add_to_bench_empty_bench(p1)
+    levelingChampions(p1)
