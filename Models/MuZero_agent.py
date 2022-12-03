@@ -98,7 +98,7 @@ class MuZero_agent(tf.Module):
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self._to_hidden = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
+        self._to_hidden = tf.keras.layers.Dense(2*config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
         self._value_head = tf.keras.layers.Dense(self.value_encoder.num_steps, name='output', dtype=tf.float32)
         self._reward_head = tf.keras.layers.Dense(self.reward_encoder.num_steps, name='output', dtype=tf.float32)
 
@@ -135,8 +135,6 @@ class MuZero_agent(tf.Module):
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-
-
         return action, network_output["policy_logits"]
 
     def expand_node(self, node: Node, to_play: int, network_output: dict):
@@ -196,6 +194,7 @@ class MuZero_agent(tf.Module):
         rnn_output, next_rnn_state = self.core(embedded_action, rnn_state)
 
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
+        # print("hidden_state_recurrent_shape_end {}".format(next_hidden_state.shape))
 
         # could add encoding but more research has to be done to why that is a good idea
         value_logits = self.value_head(next_hidden_state)
@@ -327,8 +326,6 @@ class MuZero_agent(tf.Module):
             actions.append(action)
             if act_dim == 0:
                 return_child = child
-        if actions[0] == 7:
-            node.to_play *= -1
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
