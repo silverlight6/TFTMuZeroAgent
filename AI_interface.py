@@ -1,11 +1,13 @@
 from Models import MuZero_trainer
 from Simulator import champion, player as player_class, pool
+import datetime
 import game_round
 import numpy as np
-from tensorflow import summary
+import tensorflow as tf
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.stats import COST
 from Models.MuZero_agent import MuZero_agent
+from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
 from multiprocessing import Process
 from global_buffer import GlobalBuffer
@@ -174,6 +176,7 @@ def observation(shop, player, buffer):
     # input_vector = input_vector - np.mean(input_vector)
     # else:
     #     input_vector = (input_vector - np.mean(input_vector)) / std
+    # print(input_vector.shape)
     return input_vector, complete_game_state_vector
 
 
@@ -309,6 +312,10 @@ def train_model(max_episodes=10000):
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
 
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+
     # tf.debugging.set_log_device_placement(True)
     # shape = np.array([1, 1382])
     global_agent = MuZero_agent()
@@ -316,7 +323,10 @@ def train_model(max_episodes=10000):
     trainer = MuZero_trainer.Trainer()
     # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
-    agents = [MuZero_agent() for _ in range(game_sim.num_players)]
+    # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
+    TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players)]
+    agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
+    train_step = 0
     for episode_cnt in range(1, max_episodes):
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
@@ -327,7 +337,8 @@ def train_model(max_episodes=10000):
         # rewards = game_round.player_rewards
         while global_buffer.available_batch():
             gameplay_experience_batch = global_buffer.sample_batch()
-            trainer.train_network(gameplay_experience_batch, global_agent)
+            trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+            train_step += 1
 
         game_round.log_to_file_start()
         for i in range(game_sim.num_players):

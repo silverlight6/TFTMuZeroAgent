@@ -7,6 +7,7 @@ Prediction = collections.namedtuple(
     'value value_logits reward reward_logits policy_logits')
 
 
+
 class Trainer(object):
     def __init__(self):
         self.optimizer, self.learning_rate_fn = self.create_optimizer()
@@ -19,20 +20,20 @@ class Trainer(object):
         optimizer = tf.keras.optimizers.Adam(learning_rate_fn)
         return optimizer, learning_rate_fn
 
-    def train_network(self, batch, agent):
+    def train_network(self, batch, agent, train_step, summary_writer):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy = batch
         # if i % config.checkpoint_interval == 0:
         #     storage.save_network(i, network)
         with tf.GradientTape() as tape:
             loss = self.compute_loss(agent, observation, history, value_mask,
-                                     reward_mask, policy_mask, value, reward, policy)
+                                     reward_mask, policy_mask, value, reward, policy, train_step, summary_writer)
 
         grads = tape.gradient(loss, agent.get_rl_training_variables())
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
         # storage.save_network(config.training_steps, network)\
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
-                     target_value, target_reward, target_policy):
+                     target_value, target_reward, target_policy, train_step, summary_writer):
 
         # initial step
         output = agent.initial_inference(observation)
@@ -159,6 +160,30 @@ class Trainer(object):
             l2_loss = mean_loss * 0.
 
         mean_loss += l2_loss
+
+        sum_accs = {k: tf.reduce_sum(a, -1) for k, a in accs.items()}
+        sum_masks = {
+            k: tf.maximum(tf.reduce_sum(m, -1), 1.) for k, m in masks.items()
+        }
+
+        def get_mean(k):
+            return tf.reduce_mean(sum_accs[k] / sum_masks[name_to_mask(k)])
+
+        with summary_writer.as_default():
+            tf.summary.scalar('prediction/value', get_mean('value'), step=train_step)
+            tf.summary.scalar('prediction/reward', get_mean('reward'), step=train_step)
+
+            tf.summary.scalar('target/value', get_mean('target_value'), step=train_step)
+            tf.summary.scalar('target/reward', get_mean('target_reward'), step=train_step)
+
+            tf.summary.scalar('losses/value', tf.reduce_mean(sum_accs['value_loss']), step=train_step)
+            tf.summary.scalar('losses/reward', tf.reduce_mean(sum_accs['reward_loss']), step=train_step)
+            tf.summary.scalar('losses/policy', tf.reduce_mean(sum_accs['policy_loss']), step=train_step)
+            tf.summary.scalar('losses/total', tf.reduce_mean(mean_loss), step=train_step)
+            tf.summary.scalar('losses/l2', l2_loss, step=train_step)
+
+            tf.summary.scalar('accuracy/value', -get_mean('value_diff'), step=train_step)
+            tf.summary.scalar('accuracy/value', -get_mean('reward_diff'), step=train_step)
 
         return mean_loss
 
