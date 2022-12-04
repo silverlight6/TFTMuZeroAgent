@@ -1,0 +1,6 @@
+*.pyc
+/__pycache__
+/Simulator/__pycache__
+/Models/__pycache__
+/interface/__pycache__
+/UnitTests/__pycache__
