@@ -2,3 +2,4 @@ Requirements:
 tensorflow 
 numba 
 numpy 
+cudatoolkit
