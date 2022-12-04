@@ -2,10 +2,10 @@ from Models import MuZero_trainer
 from Simulator import champion, player as player_class, pool
 import game_round
 import numpy as np
+from tensorflow import summary
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.stats import COST
 from Models.MuZero_agent import MuZero_agent
-from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
 from multiprocessing import Process
 from global_buffer import GlobalBuffer
@@ -162,11 +162,11 @@ def observation(shop, player, buffer):
                                                  np.expand_dims(game_state_vector, axis=0), ], axis=-1)
     i = 0
     input_vector = complete_game_state_vector
-    while i < buffer.len_observation_buffer() and i < 8:
+    while i < buffer.len_observation_buffer() and i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
 
-    while i < 8:
+    while i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
     # std = np.std(input_vector)
@@ -174,7 +174,6 @@ def observation(shop, player, buffer):
     # input_vector = input_vector - np.mean(input_vector)
     # else:
     #     input_vector = (input_vector - np.mean(input_vector)) / std
-    # print(input_vector.shape)
     return input_vector, complete_game_state_vector
 
 
@@ -317,9 +316,7 @@ def train_model(max_episodes=10000):
     trainer = MuZero_trainer.Trainer()
     # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
-    # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
-    TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players)]
-    agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
+    agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     for episode_cnt in range(1, max_episodes):
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
