@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 from typing import Dict, List
+from numba import jit, cuda, typed
 
 import collections
 import math
@@ -368,7 +369,13 @@ def inverse_contractive_mapping(x, eps=0.001):
                 (tf.sqrt(4 * eps *
                          (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
-
+##### JITTED FUNCTIONS #######
+@jit(target_backend='cuda', nopython=True)
+def expand_node2(network_output, action_dim):
+    policy = []
+    for i, action_dim in enumerate(action_dim):
+        policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
+    return policy
 class MCTSAgent:
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -390,14 +397,17 @@ class MCTSAgent:
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
-        policy = []
-        for i, action_dim in enumerate(self.action_dim):
-            policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
+
+        input_to_jitfunc = [] 
+        for i in network_output["policy_logits"]:
+            input_to_jitfunc.append(i.numpy())
+        # print(input_to_jitfunc)
+        policy = expand_node2(input_to_jitfunc, self.action_dim)
         for i, action_dim in enumerate(policy):
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
-
+    
     def add_exploration_noise(self, node: Node):
         for act_dim in range(len(self.action_dim)):
             actions = list(node.children[act_dim].keys())
