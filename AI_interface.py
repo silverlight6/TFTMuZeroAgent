@@ -311,20 +311,17 @@ def train_model(max_episodes=10000):
     # test_player = player_class.player(pool_obj, 0)
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
-    print("start ")
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
     # tf.debugging.set_log_device_placement(True)
-    # shape = np.array([1, 1382])
-    global_agent = MuZero_agent()
+    global_agent = TFTNetwork()
+    # global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
 
-    # global_agent.a3c_net.save('~/A3C_net')
     game_sim = game_round.TFT_Simulation()
-    print("Set")
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players)]
     agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
