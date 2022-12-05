@@ -4,7 +4,7 @@ from __future__ import print_function
 
 from typing import Dict, List
 from datetime import datetime
-from numba import jit, cuda, typed
+from numba import jit
 import collections
 import math
 import config
@@ -62,6 +62,7 @@ class Node(object):
             return 0
         return self.value_sum / self.visit_count
 
+
 ##### JITTED FUNCTIONS #######
 @jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
@@ -69,6 +70,8 @@ def expand_node2(network_output, action_dim):
     for i, action_dim in enumerate(action_dim):
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
     return policy
+
+
 class MuZero_agent(tf.Module):
 
     def __init__(self, t_board=None):
@@ -142,7 +145,6 @@ class MuZero_agent(tf.Module):
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
 
-
         return action, network_output["policy_logits"]
 
     def expand_node(self, node: Node, to_play: int, network_output):
@@ -150,7 +152,6 @@ class MuZero_agent(tf.Module):
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
-
         input_to_jitfunc = [] 
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
@@ -160,7 +161,6 @@ class MuZero_agent(tf.Module):
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
-        print("expand1 took {} time".format(time.time_ns() - self.ckpt))
 
     # So let me make a few quick notes here first
     # I want to build blocks in other functions and then tie them together at the end.
