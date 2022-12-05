@@ -14,17 +14,15 @@ def level2Champion():
     """Creates 3 Zileans, there should be 1 2* Zilean on bench"""
     p1 = setup()
     p1.gold = 100000
-    p1.max_units = 1000
-    print(p1.bench)
+    p1.max_units = 10
     for x in range(3):
         p1.buy_champion(champion("zilean"))
-    print("Bench: ", p1.bench)
     assert p1.bench[0].stars == 2, "champion should be 2*"
     for x in range(1, 9):
-        assert p1.bench[x] is None, "this slot should be empty"
+        assert p1.bench[x] is None, "these slot should be empty"
     for x in p1.board:
         for y in x:
-            assert y == None, "the board should be empty"
+            assert y is None, "the board should be empty"
 
 
 def level3Champion():
@@ -32,16 +30,20 @@ def level3Champion():
     p1 = setup()
     p1.gold = 100000
     p1.max_units = 1000
-    print(p1.bench)
-    for x in range(9):
+    for x in range(3):
         p1.buy_champion(champion("zilean"))
-    print("Bench: ", p1.bench)
+    assert p1.bench[0].stars == 2
+    for x in range(3):
+        p1.buy_champion(champion("zilean"))
+    assert p1.bench[1].stars == 2
+    for x in range(3):
+        p1.buy_champion(champion("zilean"))
     assert p1.bench[0].stars == 3, "champion should be 3*"
     for x in range(1, 9):
-        assert p1.bench[x] == None, "this slot should be empty"
+        assert p1.bench[x] is None, "this slot should be empty"
     for x in p1.board:
         for y in x:
-            assert y == None, "the board should be empty"
+            assert y is None, "the board should be empty"
 
 
 def levelChampFromField():
@@ -53,14 +55,14 @@ def levelChampFromField():
     p1.buy_champion(champion("zilean"))
     p1.move_bench_to_board(1, 0, 0)
     p1.buy_champion(champion("zilean"))
-    # print("Bench: ", p1.bench)
-    # print("Field: ", p1.board)
-    # print(p1.bench    [0].stars)
     for x in p1.bench:
         assert x is None, "bench should be empty"
-    assert p1.bench[0][0].stars == 2, "the unit placed on the field should be 2*"
+    assert p1.board[0][0].stars == 2, "the unit placed on the field should be 2*"
 
 
+# Please expand on this test or add additional tests here.
+# I am sure there are some bugs with the level cutoffs for example
+# Like I do not think I am hitting level 3 on the correct round without buying any exp
 def buyExp():
     p1 = setup()
     p1.level_up()
