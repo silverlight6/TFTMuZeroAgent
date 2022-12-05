@@ -24,8 +24,8 @@ NetworkOutput = collections.namedtuple(
     'value reward policy_logits hidden_state')
 ##### JITTED FUNCTIONS ######
 @jit(target_backend='cuda', nopython = True)
-def normalize2(value, min, max):
-    ans = (value - min)/(max-min)
+def normalize2(value, minimum, maximum): #faster implementation of normalization
+    ans = (value - minimum)/(maximum-minimum)
     return ans
 
 class MinMaxStats(object):
@@ -43,26 +43,21 @@ class MinMaxStats(object):
 
     def normalize(self, value: float) -> float:
 
-        #if self.maximum > self.minimum:
         if self.set == True:
-            #print("Time = ", time.time_ns() - ckpt)
             
-            # We normalize only when we have set the maximum and minimum values.
-            
+            # We normalize only when we have set the maximum and minimum values (signified by self.set = True).
             if value == 0:
                 value = 0.0
-            max =self.maximum
-            min = self.minimum
-            #print("val, max, min = ", value, max, min)
-            #print("types:", type(value), type(max), type(min))
-            if type(max) != int and type(max) != float:
-                max = float(max.numpy())
-            if type(min) != int and type(min) != float:
-                min = float(min.numpy())
+            maximum =self.maximum
+            minimum = self.minimum
+            #Convert from 1d tensor to float if needed (JIT function requires float)
+            if type(maximum) != int and type(maximum) != float:
+                maximum = float(maximum.numpy())
+            if type(minimum) != int and type(minimum) != float:
+                minimum = float(minimum.numpy())
             if type(value) != int and type(value) != float:
                 value = float(value.numpy())
-
-            ans = normalize2(value, max, min)
+            ans = normalize2(value, maximum, minimum)
             #print("val, max, min = ", value, max, min)
 
             return ans
@@ -399,13 +394,13 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 ##### JITTED FUNCTIONS #######
 @jit(target_backend='cuda', nopython=True)
-def expand_node2(network_output, action_dim):
+def expand_node2(network_output, action_dim): #This function uses the GPU or converts the python to C making it 33-10 times faster 
     policy = []
     for i, action_dim in enumerate(action_dim):
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
     return policy
 
-@jit(target_backend='cuda', nopython = True)
+@jit(target_backend='cuda', nopython = True) #I think this improves the UCB score calculation
 def ucb_score_2(parent_visit_count,child_visit_count, PB_C_BASE, PB_C_INIT,prior):
     pb_c = math.log((parent_visit_count + PB_C_BASE + 1) /
                         PB_C_BASE) + PB_C_INIT
@@ -413,10 +408,7 @@ def ucb_score_2(parent_visit_count,child_visit_count, PB_C_BASE, PB_C_INIT,prior
 
     prior_score = pb_c * prior
     return prior_score
-# @jit(target_backend='cuda', nopython = True)
-# def select_child2(items, ucb):
-#     _, action, child = max((ucb, action,child) for action, child in items)
-#     return(_,action,child)
+
 class MCTSAgent:
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -438,18 +430,13 @@ class MCTSAgent:
         ckpt = time.time_ns() 
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
-        node.reward = network_output["reward"]
+        node.reward = network_output["reward"].numpy()
 
         input_to_jitfunc = [] 
+        #convert dictionary to single list for JIT function by looping through dictionary and converting items to numpy then adding to list 
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
-        # print(input_to_jitfunc)
-        # print("^ input")
-        # print(network_output["policy_logits"])
-        # print("^ logits")
-        # print(self.action_dim)
-        # print("^ act dim")
-        try:
+        try: #if we get an error, just fall back to previous implementation
             policy = expand_node2(input_to_jitfunc, [12,10,9,7,4]) #hardcoding in self.action_dim because it changes type randomly. 
             for i, action_dim in enumerate(policy):
                 policy_sum = sum(action_dim.values())
@@ -461,7 +448,8 @@ class MCTSAgent:
         
         if np.random.randint(0,1000) == 500:
             print("expand_node took {} time".format(time.time_ns() - ckpt))
-    def expand_node_old(self, node: Node, network_output):
+
+    def expand_node_old(self, node: Node, network_output): #old version of expand_node for a failsafe
         policy = []
         for i, action_dim in enumerate(self.action_dim):
             policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
@@ -469,6 +457,7 @@ class MCTSAgent:
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
+
     def add_exploration_noise(self, node: Node):
         for act_dim in range(len(self.action_dim)):
             actions = list(node.children[act_dim].keys())
@@ -483,9 +472,6 @@ class MCTSAgent:
         actions = []
         return_child = None
         for act_dim in range(len(self.action_dim)):
-            # items = node.children[act_dim].items()
-            # ucb = self.ucb_score(node, child, min_max_stats)
-
             _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
                                     child) for action, child in node.children[act_dim].items())
             actions.append(action)
@@ -507,11 +493,7 @@ class MCTSAgent:
                          config.PB_C_BASE) + config.PB_C_INIT
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
         prior_score = pb_c*child.prior
-        #prior_score = ucb_score_2(parent_visit_count, child_visit_count, PB_C_BASE, PB_C_INIT, prior)
-        #print("ucb took {} time".format(time.time_ns() - ckpt))
         value_score = min_max_stats.normalize(child.value())
-        #print("normalize took {} time".format(time.time_ns() - ckpt))
-
         return prior_score + value_score
 
     # At the end of a simulation, we propagate the evaluation all the way up the
