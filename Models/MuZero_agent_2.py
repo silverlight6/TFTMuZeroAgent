@@ -469,7 +469,7 @@ class MCTSAgent:
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
-            self.ckpt_time = time.time_ns()
+            # self.ckpt_time = time.time_ns()
             while node.expanded():
                 action, node = self.select_child(node, min_max_stats)
                 history.add_action(action)
@@ -478,15 +478,15 @@ class MCTSAgent:
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = search_path[-2]
-            print("mcts child select takes {} time".format(time.time_ns() - self.ckpt_time))
+            # print("mcts child select takes {} time".format(time.time_ns() - self.ckpt_time))
 
             network_output = self.network.\
                 recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
-            self.ckpt_time = time.time_ns()
+            # self.ckpt_time = time.time_ns()
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
             # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
-            print("mcts expand/backprop takes {} time".format(time.time_ns() - self.ckpt_time))
+            # print("mcts expand/backprop takes {} time".format(time.time_ns() - self.ckpt_time))
 
     def select_action(self, node: Node):
         action = []
@@ -517,7 +517,7 @@ class MCTSAgent:
 
         self.ckpt_time = time.time_ns()
         action = self.select_action(root)
-        print("selecting actions takes {} time".format(time.time_ns() - self.ckpt_time))
+        # print("selecting actions takes {} time".format(time.time_ns() - self.ckpt_time))
 
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.

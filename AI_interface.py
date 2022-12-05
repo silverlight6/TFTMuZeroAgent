@@ -164,11 +164,11 @@ def observation(shop, player, buffer):
                                                  np.expand_dims(game_state_vector, axis=0), ], axis=-1)
     i = 0
     input_vector = complete_game_state_vector
-    while i < buffer.len_observation_buffer() and i < 8:
+    while i < buffer.len_observation_buffer() and i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
 
-    while i < 8:
+    while i < 4:
         i += 1
         input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
     # std = np.std(input_vector)
