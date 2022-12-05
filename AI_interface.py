@@ -341,7 +341,7 @@ def train_model(max_episodes=10000):
 
         game_round.log_to_file_start()
         for i in range(game_sim.num_players):
-            agents[i] = global_agent
+            agents[i] = TFTNetwork(global_agent, agent_id=i)
         # if episode_cnt % 50 == 0:
         #     saveModel(agents[0].a3c_net, episode_cnt)
         print("Episode " + str(episode_cnt) + " Completed")

@@ -42,7 +42,7 @@ class MinMaxStats(object):
         self.set = True 
 
     def normalize(self, value: float) -> float:
-
+        
         if self.set == True:
             
             # We normalize only when we have set the maximum and minimum values (signified by self.set = True).
@@ -138,7 +138,7 @@ class Network(tf.Module):
         outputs = {
             "value": value,
             "value_logits": value_logits,
-            "reward": reward,
+            "reward": reward, #changing this to .numpy() didnt help, just made training take much longer. 
             "reward_logits": reward_logits,
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
@@ -275,6 +275,9 @@ class TFTNetwork(Network):
                          dynamics=dynamics_model,
                          prediction=prediction_model)
 
+    def get_rl_training_variables(self):
+        return self.trainable_variables
+    
 
 class Mlp(tf.Module):
     def __init__(self, hidden_size=256, mlp_dim=512):
@@ -430,7 +433,7 @@ class MCTSAgent:
         ckpt = time.time_ns() 
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
-        node.reward = network_output["reward"].numpy()
+        node.reward = network_output["reward"]
 
         input_to_jitfunc = [] 
         #convert dictionary to single list for JIT function by looping through dictionary and converting items to numpy then adding to list 
@@ -613,6 +616,7 @@ class MCTSAgent:
     def visit_softmax_temperature():
         return .1
 
+    
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:
