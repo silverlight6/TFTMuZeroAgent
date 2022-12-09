@@ -164,7 +164,6 @@ class player:
                        str(cost_star_values[a_champion.cost - 1][a_champion.stars - 1])
                        + ", remaining gold " + str(self.gold) + " and chosen = " + str(a_champion.chosen))
             self.generate_player_vector()
-
         return success
 
     def buy_exp(self):
@@ -405,7 +404,6 @@ class player:
         #     self.print("+1.0 reward for making a level 3 champion")
 
         self.add_to_bench(b_champion)
-        print("({}, {})".format(x, y))
         if y != -1:
             self.move_bench_to_board(b_champion.bench_loc, x, y)
         self.print("champion {} was made golden".format(b_champion.name))
@@ -869,7 +867,6 @@ class player:
     # Parameters -> champion to be added to the catalog
     # Returns -> boolean if the unit was goldened, boolean for successful operation.
     def update_triple_catalog(self, a_champion):
-        # print("champion name: " + a_champion.name + " and their level is : " + str(a_champion.stars))
         for entry in self.triple_catalog:
             if entry["name"] == a_champion.name and entry["level"] == a_champion.stars:
                 entry["num"] += 1

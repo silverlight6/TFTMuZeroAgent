@@ -62,12 +62,11 @@ class ReplayBuffer:
                 policy_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    bootstrap_index = current_index + td_steps
                     #### POSSIBLE EXTENSION -- set up value_approximation storing
                     # value = value_approximations[bootstrap_index] * discount**td_steps
                     value = 0.0
 
-                    for i, reward in enumerate(self.rewards[current_index:bootstrap_index]):
+                    for i, reward in enumerate(self.rewards[current_index:]):
                         value += reward * config.DISCOUNT ** i
 
                     reward_mask = 1.0 if current_index > sample else 0.0

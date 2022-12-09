@@ -59,7 +59,7 @@ INIT_LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.01
 WEIGHT_DECAY = 1e-5
-REWARD_LOSS_SCALING = 1
+REWARD_LOSS_SCALING = 0
 POLICY_LOSS_SCALING = 1
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
@@ -68,5 +68,7 @@ POLICY_SUB_FACTOR = [.8, .05, .05, .05, .05]
 DEBUG = True
 
 #### TESTING ####
-RUN_UNIT_TEST = True
-RUN_PLAYER_TESTS = True
+RUN_UNIT_TEST = False
+RUN_PLAYER_TESTS = False
+PRINT_COMBAT_LOGS = False
+LOG_COMBAT = False

@@ -24,21 +24,47 @@ NetworkOutput = collections.namedtuple(
     'value reward policy_logits hidden_state')
 
 
+##### JITTED FUNCTIONS ######
+@jit(target_backend='cuda', nopython=True)
+def normalize2(value, minimum, maximum):  # faster implementation of normalization
+    ans = (value - minimum) / (maximum - minimum)
+    return ans
+
+
 class MinMaxStats(object):
     """A class that holds the min-max values of the tree."""
 
     def __init__(self, minimum: int, maximum: int):
         self.maximum = minimum
         self.minimum = maximum
+        self.set = False
 
     def update(self, value: float):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
+        self.set = True
 
     def normalize(self, value: float) -> float:
-        if self.maximum > self.minimum:
-            # We normalize only when we have set the maximum and minimum values.
-            return (value - self.minimum) / (self.maximum - self.minimum)
+
+        if self.set is True:
+
+            # We normalize only when we have set the maximum and minimum values (signified by self.set = True).
+            if value == 0:
+                value = 0.0
+            maximum = self.maximum
+            minimum = self.minimum
+            # Convert from 1d tensor to float if needed (JIT function requires float)
+            if type(maximum) != int and type(maximum) != float:
+                maximum = float(maximum.numpy())
+            if type(minimum) != int and type(minimum) != float:
+                minimum = float(minimum.numpy())
+            if type(value) != int and type(value) != float:
+                value = float(value.numpy())
+            ans = normalize2(value, maximum, minimum)
+            # print("val, max, min = ", value, max, min)
+
+            return ans
+
         return value
 
 
@@ -115,7 +141,7 @@ class Network(tf.Module):
         outputs = {
             "value": value,
             "value_logits": value_logits,
-            "reward": reward,
+            "reward": reward,  # changing this to .numpy() didnt help, just made training take much longer.
             "reward_logits": reward_logits,
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
@@ -252,6 +278,9 @@ class TFTNetwork(Network):
                          dynamics=dynamics_model,
                          prediction=prediction_model)
 
+    def get_rl_training_variables(self):
+        return self.trainable_variables
+
 
 class Mlp(tf.Module):
     def __init__(self, hidden_size=256, mlp_dim=512):
@@ -339,9 +368,9 @@ class ValueEncoder:
         lower_encoding, upper_encoding = (
             tf.cast(tf.math.equal(step, self.step_range_int), tf.float32) * mod
             for step, mod in (
-            (lower_step, lower_mod),
-            (upper_step, upper_mod),
-        ))
+                (lower_step, lower_mod),
+                (upper_step, upper_mod),)
+        )
         return lower_encoding + upper_encoding
 
     def decode(self, logits):
@@ -369,13 +398,27 @@ def inverse_contractive_mapping(x, eps=0.001):
                 (tf.sqrt(4 * eps *
                          (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
+
 ##### JITTED FUNCTIONS #######
 @jit(target_backend='cuda', nopython=True)
-def expand_node2(network_output, action_dim):
+def expand_node2(network_output,
+                 action_dim):  # This function uses the GPU or converts the python to C making it 33-10 times faster
     policy = []
     for i, action_dim in enumerate(action_dim):
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
     return policy
+
+
+@jit(target_backend='cuda', nopython=True)  # I think this improves the UCB score calculation
+def ucb_score_2(parent_visit_count, child_visit_count, PB_C_BASE, PB_C_INIT, prior):
+    pb_c = math.log((parent_visit_count + PB_C_BASE + 1) /
+                    PB_C_BASE) + PB_C_INIT
+    pb_c *= math.sqrt(parent_visit_count) / (child_visit_count + 1)
+
+    prior_score = pb_c * prior
+    return prior_score
+
+
 class MCTSAgent:
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -394,20 +437,40 @@ class MCTSAgent:
         self.ckpt_time = time.time_ns()
 
     def expand_node(self, node: Node, to_play: int, network_output):
+        ckpt = time.time_ns()
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
 
-        input_to_jitfunc = [] 
+        input_to_jitfunc = []
+
+        # convert dictionary to single list for JIT function by looping through dictionary and
+        # converting items to numpy then adding to list
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
-        # print(input_to_jitfunc)
-        policy = expand_node2(input_to_jitfunc, self.action_dim)
+        try:  # if we get an error, just fall back to previous implementation
+            policy = expand_node2(input_to_jitfunc,
+                                  [12, 10, 9, 7, 4])  # hardcoding in self.action_dim because it changes type randomly.
+            for i, action_dim in enumerate(policy):
+                policy_sum = sum(action_dim.values())
+                for action, p in action_dim.items():
+                    node.children[i][action] = Node(p / policy_sum)
+        except:
+            print("error - reverting to old function")
+            self.expand_node_old(node, network_output)
+
+        # if np.random.randint(0,1000) == 500:
+        # print("expand_node took {} time".format(time.time_ns() - ckpt))
+
+    def expand_node_old(self, node: Node, network_output):  # old version of expand_node for a failsafe
+        policy = []
+        for i, action_dim in enumerate(self.action_dim):
+            policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
         for i, action_dim in enumerate(policy):
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
-    
+
     def add_exploration_noise(self, node: Node):
         for act_dim in range(len(self.action_dim)):
             actions = list(node.children[act_dim].keys())
@@ -418,6 +481,7 @@ class MCTSAgent:
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
+        ckpt = time.time_ns()
         actions = []
         return_child = None
         for act_dim in range(len(self.action_dim)):
@@ -428,6 +492,9 @@ class MCTSAgent:
                 return_child = child
         if actions[0] == 7:
             node.to_play *= -1
+
+        # if np.random.randint(0, 1000) == 500:
+        #     print("select child took {} time".format(time.time_ns() - ckpt))
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
@@ -437,7 +504,6 @@ class MCTSAgent:
         pb_c = math.log((parent.visit_count + config.PB_C_BASE + 1) /
                         config.PB_C_BASE) + config.PB_C_INIT
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-
         prior_score = pb_c * child.prior
         value_score = min_max_stats.normalize(child.value())
         return prior_score + value_score
@@ -469,7 +535,7 @@ class MCTSAgent:
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
-            # self.ckpt_time = time.time_ns()
+            self.ckpt_time = time.time_ns()
             while node.expanded():
                 action, node = self.select_child(node, min_max_stats)
                 history.add_action(action)
@@ -480,9 +546,9 @@ class MCTSAgent:
             parent = search_path[-2]
             # print("mcts child select takes {} time".format(time.time_ns() - self.ckpt_time))
 
-            network_output = self.network.\
+            network_output = self.network. \
                 recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
-            # self.ckpt_time = time.time_ns()
+            self.ckpt_time = time.time_ns()
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
             # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
