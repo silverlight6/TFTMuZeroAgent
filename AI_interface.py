@@ -252,58 +252,6 @@ def collect_gameplay_experience(sim, agent, buffers, episode_cnt):
     sim.episode(agent, buffers, episode_cnt)
 
 
-class TFT_AI:
-    def __init__(self):
-        shape = np.array([1, 1382])
-        self.global_agent = A3C_Agent(shape)
-        self.num_workers = 8
-        # self.num_workers = cpu_count()
-
-    def train(self, max_episodes=10000):
-        workers = []
-        for i in range(self.num_workers):
-            workers.append(WorkerAgent(self.global_agent, max_episodes))
-
-        for worker in workers:
-            worker.start()
-
-        for worker in workers:
-            worker.join()
-
-
-class WorkerAgent(Process):
-    def __init__(self, global_agent, max_episodes):
-        Process.__init__(self)
-        self.env = game_round.TFT_Simulation()
-
-        shape = np.array([1, 1382])
-        self.max_episodes = max_episodes
-        self.global_agent = global_agent
-        self.agents = [A3C_Agent(shape) for _ in range(8)]
-
-        for agent in self.agents:
-            agent.a3c_net.set_weights(self.global_agent.a3c_net.get_weights())
-
-    def train(self):
-        global CURRENT_EPISODE
-
-        while self.max_episodes >= CURRENT_EPISODE:
-            print(CURRENT_EPISODE)
-            buffers = [ReplayBuffer() for _ in range(self.env.num_players)]
-            collect_gameplay_experience(self.env, self.agents, buffers, CURRENT_EPISODE)
-            for i in range(self.env.num_players):
-                # if rewards[i] > 0:
-                gameplay_experience_batch = buffers[i].sample_gameplay_batch()
-                # lock.acquire()
-                self.global_agent.train_step(gameplay_experience_batch, CURRENT_EPISODE)
-                self.agents[i].a3c_net.set_weights(self.global_agent.a3c_net.get_weights())
-                # lock.release()
-            CURRENT_EPISODE += 1
-
-    def run(self):
-        self.train()
-
-
 # TO DO: Implement evaluator
 def train_model(max_episodes=10000):
     # # Uncomment if you change the size of the input array
@@ -339,9 +287,10 @@ def train_model(max_episodes=10000):
             trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
             train_step += 1
 
-        game_round.log_to_file_start()
+        if episode_cnt % 5 == 0:
+            game_round.log_to_file_start()
         for i in range(game_sim.num_players):
-            agents[i] = TFTNetwork(global_agent, agent_id=i)
+            agents[i] = MCTSAgent(global_agent, agent_id=i)
         # if episode_cnt % 50 == 0:
         #     saveModel(agents[0].a3c_net, episode_cnt)
         print("Episode " + str(episode_cnt) + " Completed")

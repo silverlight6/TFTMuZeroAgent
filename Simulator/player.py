@@ -457,7 +457,7 @@ class player:
             self.max_units += 1
             if self.level >= 5:
                 self.reward += 0.5 * self.level_reward
-                self.print("+0.5 reward for leveling to level {}".format(self.level))
+                self.print("{} reward for leveling to level {}".format(0.5 * self.level_reward, self.level))
             self.level_up()
 
     def loss_round(self, game_round):
@@ -777,7 +777,7 @@ class player:
         gold = False
         if golden:
             for idx, i in enumerate(self.triple_catalog):
-                if i["name"] == a_champion.name and i["level"] == a_champion.stars:
+                if i["name"] == a_champion.name and (i["level"] == a_champion.stars or a_champion.stars == 2):
                     self.triple_catalog.pop(idx)
             return True
         for idx, i in enumerate(self.triple_catalog):
