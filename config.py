@@ -30,6 +30,7 @@ LEAP_DELAY = 395  # assassins and shades
 
 #### MODEL SET UP ####
 BATCH_SIZE = 64
+LSTM_SIZE = 256
 HIDDEN_TENSOR_SIZE = 128
 HIDDEN_STATE_SIZE = 256
 HEAD_HIDDEN_SIZE = 512
@@ -48,13 +49,17 @@ OBSERVATION_SHAPE = np.array([1, 1382])
 CORE_LSTM_LAYERS = 2
 UNROLL_STEPS = 16
 SAMPLES_PER_PLAYER = 32
+INPUT_SHAPE = np.array([6910])
+ACTION_CONCAT_SIZE = 42
+ACTION_DIM = [12, 10, 9, 7, 4]
+
 
 #### TRAINING ####
 INIT_LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.01
 WEIGHT_DECAY = 1e-5
-REWARD_LOSS_SCALING = 1
+REWARD_LOSS_SCALING = 0
 POLICY_LOSS_SCALING = 1
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
@@ -64,10 +69,6 @@ DEBUG = True
 
 #### TESTING ####
 RUN_UNIT_TEST = False
-RUN_PLAYER_TESTS = True
-INPUT_SHAPE = np.array([12438])
-ACTION_CONCAT_SIZE = 42
-# LSTM_INPUT_DIMS = [[np.array([1, HIDDEN_STATE_SIZE]), np.array([1, HIDDEN_STATE_SIZE])]]
-LSTM_INPUT_DIMS = [[(1, 256), (1, 256)]]
-ACTION_DIM = [12, 10, 9, 7, 4]
-
+RUN_PLAYER_TESTS = False
+PRINT_COMBAT_LOGS = False
+LOG_COMBAT = False

@@ -202,6 +202,8 @@ class TFT_Simulation:
 
             self.previous_reward[player.player_num] = player.reward
             actions_taken += 1
+            if actions_taken >= 40:
+                step_done = True
         player.print(str(actions_taken) + " actions taken this turn")
         # step_counter += 1
 
@@ -721,7 +723,7 @@ def log_end_turn(game_round):
 
 # This one is for the champion and logging the battles.
 def log_to_file_combat():
-    if config.LOGMESSAGES:
+    if config.LOGMESSAGES and config.LOG_COMBAT:
         with open('log.txt', "a") as out:
             if len(champion.log) > 0:
                 if MILLIS() < 75000:

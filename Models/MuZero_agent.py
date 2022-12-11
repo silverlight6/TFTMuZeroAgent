@@ -4,7 +4,7 @@ from __future__ import print_function
 
 from typing import Dict, List
 from datetime import datetime
-from numba import jit, cuda, typed
+from numba import jit, cuda
 import collections
 import math
 import config
@@ -22,7 +22,11 @@ KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
     'value reward policy_logits hidden_state')
-
+##### JITTED FUNCTIONS ######
+@jit(target_backend='cuda', nopython = True)
+def normalize2(value, min, max):
+    ans = (value - min)/(max-min)
+    return ans
 
 class MinMaxStats(object):
     """A class that holds the min-max values of the tree."""
@@ -30,17 +34,35 @@ class MinMaxStats(object):
     def __init__(self, minimum: int, maximum: int):
         self.maximum = minimum
         self.minimum = maximum
-
+        self.set = False
     def update(self, value: float):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
+        self.set = True
 
     def normalize(self, value: float) -> float:
-        if self.maximum > self.minimum:
+        
+        #if self.maximum > self.minimum:
+        if self.set == True:   
             # We normalize only when we have set the maximum and minimum values.
-            return (value - self.minimum) / (self.maximum - self.minimum)
-        return value
+            
+            if value == 0:
+                value = 0.0
+            max =self.maximum
+            min = self.minimum
+            #print("val, max, min = ", value, max, min)
+            #print("types:", type(value), type(max), type(min))
+            if type(max) != int and type(max) != float:
+                max = float(max.numpy())
+            if type(min) != int and type(min) != float:
+                min = float(min.numpy())
+            if type(value) != int and type(value) != float:
+                value = float(value.numpy())
+            #print("val, max, min = ", value, max, min)
 
+            return (normalize2(value, max, min))
+
+        return value
 
 class Node(object):
 
@@ -62,6 +84,7 @@ class Node(object):
             return 0
         return self.value_sum / self.visit_count
 
+
 ##### JITTED FUNCTIONS #######
 @jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
@@ -69,6 +92,8 @@ def expand_node2(network_output, action_dim):
     for i, action_dim in enumerate(action_dim):
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
     return policy
+
+
 class MuZero_agent(tf.Module):
 
     def __init__(self, t_board=None):
@@ -104,7 +129,7 @@ class MuZero_agent(tf.Module):
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self._to_hidden = tf.keras.layers.Dense(2*config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
+        self._to_hidden = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
         self._value_head = tf.keras.layers.Dense(self.value_encoder.num_steps, name='output', dtype=tf.float32)
         self._reward_head = tf.keras.layers.Dense(self.reward_encoder.num_steps, name='output', dtype=tf.float32)
 
@@ -141,25 +166,43 @@ class MuZero_agent(tf.Module):
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
+
         return action, network_output["policy_logits"]
 
     def expand_node(self, node: Node, to_play: int, network_output):
-        self.ckpt = time.time_ns()
+        ckpt = time.time_ns()
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
-
         input_to_jitfunc = [] 
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
+        # print(network_output["policy_logits"])
+        # print("^ pol logits")
         # print(input_to_jitfunc)
-        policy = expand_node2(input_to_jitfunc, self.action_dim)
+        # print("^inputs")
+        # print(self.action_dim)
+        # print("^act dim ")
+        try:
+            policy = expand_node2(input_to_jitfunc, [12,10,9,7,4]) #hardcoding in action_dim for now, for some reason type becomes ListWrapper
+            for i, action_dim in enumerate(policy):
+                policy_sum = sum(action_dim.values())
+                for action, p in action_dim.items():
+                    node.children[i][action] = Node(p / policy_sum)
+        except:
+            print("error - revert to old")
+            self.expand_node_old(node, network_output)
+        
+        if np.random.randint(0,1000) == 500:
+            print("expand_node took {} time".format(time.time_ns() - ckpt))
+    def expand_node_old(self, node: Node, network_output):
+        policy = []
+        for i, action_dim in enumerate(self.action_dim):
+            policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
         for i, action_dim in enumerate(policy):
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
-        print("expand1 took {} time".format(time.time_ns() - self.ckpt))
-
     # So let me make a few quick notes here first
     # I want to build blocks in other functions and then tie them together at the end.
     # I also want to start to put more stuff in the configuration as I go
@@ -205,7 +248,6 @@ class MuZero_agent(tf.Module):
         rnn_output, next_rnn_state = self.core(embedded_action, rnn_state)
 
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
-        # print("hidden_state_recurrent_shape_end {}".format(next_hidden_state.shape))
 
         # could add encoding but more research has to be done to why that is a good idea
         value_logits = self.value_head(next_hidden_state)
@@ -329,6 +371,7 @@ class MuZero_agent(tf.Module):
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
+        ckpt = time.time_ns()
         actions = []
         return_child = None
         for act_dim in range(len(self.action_dim)):
@@ -337,6 +380,11 @@ class MuZero_agent(tf.Module):
             actions.append(action)
             if act_dim == 0:
                 return_child = child
+        if actions[0] == 7:
+            node.to_play *= -1
+            
+        if np.random.randint(0,1000) == 500:
+            print("select child took {} time".format(time.time_ns() - ckpt))
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on

@@ -1,5 +1,6 @@
 import Simulator.origin_class as origin_class
 import Simulator.origin_class_stats as origin_class_stats
+import Simulator.stats as stats
 import random
 import config
 from math import ceil
@@ -35,29 +36,31 @@ def add_damage_dealt(champion, damage, target):
     global galio_spawned
     added = False
 
-    if (champion.team == 'blue'): damage_dealt_teams['blue'] += damage
-    if (champion.team == 'red'): damage_dealt_teams['red'] += damage
+    if champion.team == 'blue':
+        damage_dealt_teams['blue'] += damage
+    if champion.team == 'red':
+        damage_dealt_teams['red'] += damage
 
     # cultists galio spawning
     teams = [['blue', 'red'], ['red', 'blue']]
     for t in teams:
-        if (not galio_spawned[t[0]] and origin_class.amounts['cultist'][t[0]] >= origin_class_stats.tiers['cultist'][
-            0]):
-            if (damage_dealt_teams[t[1]] > origin_class.total_health_teams[t[0]] * config.GALIO_TEAM_HEALTH_PERCENTAGE):
+        if (not galio_spawned[t[0]] and origin_class.amounts['cultist'][t[0]]
+                >= origin_class_stats.tiers['cultist'][0]):
+            if damage_dealt_teams[t[1]] > origin_class.total_health_teams[t[0]] * config.GALIO_TEAM_HEALTH_PERCENTAGE:
                 galio_spawned[t[0]] = True
                 origin_class.cultist(target, t[0])
 
     for d in damage_dealt:
-        if (d['champion'] == champion):
+        if d['champion'] == champion:
             d['damage'] += damage
             added = True
             break
-    if (not added):
+    if not added:
         damage_dealt.append({'champion': champion, 'damage': damage})
 
 
 def reset_stat(champion, stat):
-    if (stat in ['movement_delay']):
+    if stat in ['movement_delay']:
         return config.MOVEMENTDELAY
     else:
         return eval(stat)[champion.name]
@@ -72,7 +75,7 @@ def attack(champion, target, bonus_dmg=0, item_attack=False, trait_attack='', se
     if (champion.idle or bonus_dmg or item_attack or trait_attack) and target:
 
         # enforcing the max AS rule. remembered that one too late
-        # the best way for not creating a shit load of bugs
+        # the best way for not creating a shitload of bugs
         if champion.AS > 5:
             champion.add_que('change_stat', -1, None, 'AS', 5.00)
 
@@ -87,8 +90,8 @@ def attack(champion, target, bonus_dmg=0, item_attack=False, trait_attack='', se
             items.guinsoos_rageblade(champion)  # guinsoos_rageblade
             items.statikk_shiv(champion, target)  # statikk_shiv
 
-        # testing whether or not the hit is going to be a crit. the crit dmg add is done later.
-        if crit_random < champion.crit_chance and not 'bramble_vest' in target.items:
+        # testing whether the hit is going to be a crit. the crit dmg add is done later.
+        if crit_random < champion.crit_chance and 'bramble_vest' not in target.items:
             items.last_whisper(champion, target)  # last_whisper (needs to change the armor value before calculations)
 
         enemy_team = 'red' if champion.team == 'blue' else 'blue'
@@ -105,7 +108,7 @@ def attack(champion, target, bonus_dmg=0, item_attack=False, trait_attack='', se
                 else:
                     damage += active_data['damage'] * items.giant_slayer(champion, target)  # gians_slayer -item
 
-                # because warwick needs to simulate whether or not he's going to kill the target,
+                # because warwick needs to simulate whether he's going to kill the target,
                 # let's keep the same parameters here as well
                 if active_data['dodge_random']:
                     dodge_random = active_data['dodge_random']
@@ -145,7 +148,7 @@ def attack(champion, target, bonus_dmg=0, item_attack=False, trait_attack='', se
             damage = 0
 
         crit_string = ''  # bramble vest -item
-        if crit_random < champion.crit_chance and not 'bramble_vest' in target.items:
+        if crit_random < champion.crit_chance and 'bramble_vest' not in target.items:
             damage *= champion.crit_damage
             crit_string = ' crit'
 
@@ -162,7 +165,7 @@ def attack(champion, target, bonus_dmg=0, item_attack=False, trait_attack='', se
                 champion.add_que('heal', -1, None, None, damage * champion.lifesteal)
 
             # if runaans_hurricane has killed the target before the actual attack finishes.
-            # there's another check below but not gonna touch that
+            # there's another check below but not going to touch that
             if target.health >= 0:
 
                 add_damage_dealt(champion, damage, target)
