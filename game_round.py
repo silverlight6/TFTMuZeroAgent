@@ -48,51 +48,69 @@ class TFT_Simulation:
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
+        combat_all = [] #list for attributes about combats for each player - this is if the player has fought all in "fake" or real matches 
+        combat_count = [] #this is how many matches the player has fought
         for player in players:
             if player:
                 player.end_turn_actions()
                 player.combat = False
-        for num in player_nums:
+                combat_all.append(False)
+                combat_count.append(0)
+            combat_all.append("EMPTY")
+            combat_count.append["EMPTY"] 
+        for num in player_nums: 
             # make sure I am dealing with one of the players who has yet to fight.
-            if players[num] and not players[num].combat:
-                # If there is more than one player left ot be matched.
+            while players[num] and not combat_all[num].combat:
+                if combat_count[num] == self.num_players - 1 - self.NUM_DEAD: #if player has fought all alive players - move to next player 
+                    combat_all[num] == True
+                    break
+                # If there is more than one player left to be matched.
                 if players_matched < self.num_players - 1 - self.NUM_DEAD:
                     # The player to match is always going to be a higher number than the first player.
                     player_index = random.randint(0, len(players) - 1)
                     # if the index is not in the player_nums, then it shouldn't check the second part.
                     # Although the index is always going to be the index of some.
                     # Make sure the player is alive as well.
-                    while ((not players[player_index]) or players[num].opponent == players[player_index] or players[
-                            player_index].combat or num == player_index):
+                    #checks: Enemy exists, Not sure, enemy has not fought all, enemy is not self
+                    while ((not players[player_index]) or players[num].opponent == players[player_index] or combat_all[player_index] or num == player_index):
                         player_index = random.randint(0, len(players) - 1)
+                        #checks: enemy exists, number of fights = num players - this fight - dead players (?), players opponent is registered to the opponent
                         if (players[player_index] and (players_matched == self.num_players - 2 - self.NUM_DEAD)
                                 and players[num].opponent == players[player_index]):
                             break
+                    
                     players[num].opponent = players[player_index]
                     players[player_index].opponent = players[num]
-                    players_matched += 2
+                    
                     config.WARLORD_WINS['blue'] = players[num].win_streak
                     config.WARLORD_WINS['red'] = players[player_index].win_streak
-                    players[player_index].start_round()
+                    players[player_index].start_round() #start battle sim?
                     players[num].start_round()
-                    index_won, damage = champion.run(champion.champion, players[num], players[player_index],
+                    index_won, damage = champion.run(champion.champion, players[num], players[player_index], #Get stats frome end of battle? If one player still has champions they won, damage is proportioanl to number of champs left 
                                                      self.ROUND_DAMAGE[round_index][1])
-                    if index_won == 0:
+                    if index_won == 0 and players[num].combat == False and players[player_index].combat == False: #Only lose health/ lose round etc if neither player has had a "real" fight
                         players[num].loss_round(player_round)
                         players[num].health -= damage
                         players[player_index].loss_round(player_round)
                         players[player_index].health -= damage
-                    if index_won == 1:
+                    if index_won == 1 and players[num].combat == False and players[player_index].combat == False:
                         players[num].won_round(player_round)
                         players[player_index].loss_round(player_round)
                         players[player_index].health -= damage
-                    if index_won == 2:
+                    if index_won == 2 and players[num].combat == False and players[player_index].combat == False:
                         players[num].loss_round(player_round)
                         players[num].health -= damage
                         players[player_index].won_round(player_round)
-                    players[player_index].combat = True
-                    players[num].combat = True
-
+                    
+                    if players[num].combat == False and players[player_index].combat == False: #only say that each player has fought a real match if they did 
+                        players[player_index].combat = True
+                        players[num].combat = True
+                        players_matched += 2
+                    
+                    combat_count[num] += 1 #player and opponent fought so increase counts by one 
+                    combat_count[player_index] += 1 
+            
+                #I think this is logic for odd numbers of players (cloned fights)
                 elif len(player_nums) == 1 or players_matched == self.num_players - 1 - self.NUM_DEAD:
                     player_index = random.randint(0, len(players) - 1)
                     while ((not players[player_index]) or players[num].opponent == players[player_index]
