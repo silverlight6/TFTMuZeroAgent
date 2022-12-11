@@ -46,12 +46,12 @@ def minion_round(player, round):
             player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
     # 1 Nexus Minion - give 6 gold and a full item
-    elif round == 24:
+    elif round == 27:
         player.gold += 6
         player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
 
     # Rift Herald - give 6 gold and a full item
-    elif round >= 30:
+    elif round >= 33:
         player.gold += 6
         player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
 
