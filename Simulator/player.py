@@ -105,9 +105,12 @@ class player:
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
         # try to triple second
-        if not self.update_triple_catalog(a_champion):
+        golden, triple_success = self.update_triple_catalog(a_champion)
+        if not triple_success:
             self.print("Could not update triple catalog for champion " + a_champion.name)
             return False
+        if golden:
+            return True
         if self.bench_full():
             self.sell_champion(a_champion, field=False)
             self.reward += self.mistake_reward
@@ -161,13 +164,10 @@ class player:
                        str(cost_star_values[a_champion.cost - 1][a_champion.stars - 1])
                        + ", remaining gold " + str(self.gold) + " and chosen = " + str(a_champion.chosen))
             self.generate_player_vector()
-            # self.printBench()
-            # print("Buying " + a_champion.name + " to the bench")
-
         return success
 
     def buy_exp(self):
-        if self.gold < self.exp_cost:
+        if self.gold < self.exp_cost or self.level == self.max_level:
             self.reward += self.mistake_reward
             return False
         self.gold -= 4
@@ -380,7 +380,7 @@ class player:
                     x = i
                     if self.bench[i].chosen:
                         chosen = self.bench[i].chosen
-                    self.sell_from_bench(i, True)
+                    self.sell_from_bench(i, golden=True)
         for i in range(0, 7):
             for j in range(0, 4):
                 if self.board[i][j]:
@@ -389,12 +389,13 @@ class player:
                         y = j
                         if self.board[i][j].chosen:
                             chosen = self.board[i][j].chosen
-                        self.sell_champion(self.board[i][j], True)
+                        self.sell_champion(self.board[i][j], golden=True, field=True)
         b_champion.chosen = chosen
         b_champion.golden()
         if chosen:
             b_champion.new_chosen()
-        # print(str(b_champion.stars))
+
+        # Leaving this code here in case I want to give rewards for triple
         # if b_champion.stars == 2:
         #     self.reward += 0.05
         #     self.print("+0.05 reward for making a level 2 champion")
@@ -421,13 +422,14 @@ class player:
             self.gold += starting_round_gold[t_round]
             self.gold += floor(self.gold / 10)
             return
+        interest = min(floor(self.gold / 10), 5)
+        self.gold += interest
         self.gold += 5
-        self.gold += floor(self.gold / 10)
         if self.win_streak == 2 or self.win_streak == 3 or self.loss_streak == 2 or self.loss_streak == 3:
             self.gold += 1
-        elif self.win_streak == 3 or self.loss_streak == 3:
+        elif self.win_streak == 4 or self.loss_streak == 4:
             self.gold += 2
-        elif self.win_streak >= 4 or self.loss_streak >= 4:
+        elif self.win_streak >= 5 or self.loss_streak >= 5:
             self.gold += 3
         self.generate_player_vector()
 
@@ -458,7 +460,11 @@ class player:
             if self.level >= 5:
                 self.reward += 0.5 * self.level_reward
                 self.print("+0.5 reward for leveling to level {}".format(self.level))
+            # Only needed if it's possible to level more than once in one transaction
             self.level_up()
+
+        if self.level == self.max_level:
+            self.exp = 0
 
     def loss_round(self, game_round):
         if not self.combat:
@@ -476,9 +482,7 @@ class player:
     # location to pick which unit from bench goes to board.
     def move_bench_to_board(self, bench_x, board_x, board_y):
         # print("bench_x = " + str(bench_x) + " with len(self.bench) = " + str(len(self.bench)))
-        if bench_x >= 0 and bench_x < 9 and self.bench[bench_x] \
-                and board_x < 7 and board_x >= 0 \
-                and board_y < 4 and board_y >= 0:
+        if 0 <= bench_x < 9 and self.bench[bench_x] and 7 > board_x >= 0 and 4 > board_y >= 0:
             if self.num_units_in_play < self.max_units:
                 # TO DO - IMPLEMENT AZIR TURRET SPAWNS
                 m_champion = self.bench[bench_x]
@@ -776,9 +780,10 @@ class player:
     def remove_triple_catalog(self, a_champion, golden=False):
         gold = False
         if golden:
-            for idx, i in enumerate(self.triple_catalog):
-                if i["name"] == a_champion.name and i["level"] == a_champion.stars:
-                    self.triple_catalog.pop(idx)
+            for unit in self.triple_catalog:
+                if unit["name"] == a_champion.name and unit["level"] == a_champion.stars:
+                    self.triple_catalog.remove(unit)
+                    return True
             return True
         for idx, i in enumerate(self.triple_catalog):
             if i["name"] == a_champion.name and i["level"] == a_champion.stars:
@@ -824,7 +829,6 @@ class player:
     def sell_from_bench(self, location, golden=False):
         # Check if champion has items
         # Are there any champions with special abilities on sell.
-        # print("location on bench = " + str(location))
         if self.bench[location]:
             if not (self.remove_triple_catalog(self.bench[location], golden=golden) and
                     self.return_item_from_bench(location)):
@@ -832,11 +836,6 @@ class player:
                                                                                     self.bench[location].stars))
                 self.reward += self.mistake_reward
                 return False
-            # if self.bench[location].stars > 1:
-            #     print(
-            #         "selling champion " + self.bench[location].name + " with cost = " + str(
-            #             self.bench[location].cost) + " and stars = " + str(
-            #             self.bench[location].stars) + " from bench")
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
                 self.pool_obj.update(self.bench[location], 1)
@@ -863,22 +862,22 @@ class player:
             self.team_tiers[trait] = counter
         origin_class.game_comp_tiers[self.player_num] = self.team_tiers
 
+    # Method for keeping track of which units are golden
+    # It calls golden which then calls add_to_bench which calls this again with the goldened unit
+    # Parameters -> champion to be added to the catalog
+    # Returns -> boolean if the unit was goldened, boolean for successful operation.
     def update_triple_catalog(self, a_champion):
         for entry in self.triple_catalog:
             if entry["name"] == a_champion.name and entry["level"] == a_champion.stars:
-                # print("champion name: " + a_champion.name + " and their level is : " + str(a_champion.stars))
                 entry["num"] += 1
                 if entry["num"] == 3:
-                    entry["num"] = 2
-                    b_champion = self.golden(a_champion)
-                    self.update_triple_catalog(b_champion)
-                return True
-        # if a_champion.stars > 2:
-        #     print("Adding " + str(a_champion.name) + " with level " + str(a_champion.stars))
+                    self.golden(a_champion)
+                    return True, True
+                return False, True
         if a_champion.stars > 3:
-            return False
+            return False, False
         self.triple_catalog.append({"name": a_champion.name, "level": a_champion.stars, "num": 1})
-        return True
+        return False, True
 
     # print("adding " + champion.name + " to triple_catalog")
 

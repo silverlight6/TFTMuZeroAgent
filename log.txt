@@ -1,0 +1,424 @@
+Start of a new run
+0       0                   Adding champion lissandra with items ['chain_vest'] to bench                                
+1       1064300             Adding champion twistedfate with items ['recurve_bow'] to bench                             
+0       5053754200          Adding champion lissandra with items [] to bench                                            
+0       5053754200          Spending gold on champion lissandra with cost = 1, remaining gold 1 and chosen = False      
+0       6653546300          Adding champion garen with items [] to bench                                                
+0       6653546300          Spending gold on champion garen with cost = 1, remaining gold 0 and chosen = False          
+0       11933901900         selling champion lissandra                                                                  
+0       4464215671600       12 actions taken this turn                                                                  
+1       4539876000          Adding champion maokai with items [] to bench                                               
+1       4539876000          Spending gold on champion maokai with cost = 1, remaining gold 1 and chosen = False         
+1       10506551200         Adding champion elise with items [] to bench                                                
+1       10506551200         Spending gold on champion elise with cost = 1, remaining gold 0 and chosen = False          
+1       16947004600         selling champion twistedfate                                                                
+1       31214720500         19 actions taken this turn                                                                  
+END OF ROUND 1
+0       4495838662100       Adding champion irelia with items [] to bench                                               
+0       1199242000          Adding champion fiora with items [] to bench                                                
+0       1199242000          Spending gold on champion fiora with cost = 1, remaining gold 2 and chosen = False          
+0       3598322300          moved garen from bench 2 to board [1, 2]                                                    
+0       7264382000          moved irelia from bench 0 to board [0, 2]                                                   
+0       8482585100          Adding champion twistedfate with items [] to bench                                          
+0       8482585100          Spending gold on champion twistedfate with cost = 1, remaining gold 1 and chosen = False    
+0       12242458700         10 actions taken this turn                                                                  
+1       31215665400         Adding champion xinzhao with items [] to bench                                              
+1       1312044000          Adding champion elise with items [] to bench                                                
+1       1312044000          Spending gold on champion elise with cost = 1, remaining gold 2 and chosen = False          
+1       11242799400         9 actions taken this turn                                                                   
+END OF ROUND 2
+0       1239622900          Reward for refreshing shop is 0                                                             
+0       2697996000          Adding champion aphelios with items [] to bench                                             
+0       2697996000          Spending gold on champion aphelios with cost = 2, remaining gold 3 and chosen = False       
+0       6750058200          selling champion twistedfate                                                                
+0       7961300100          6 actions taken this turn                                                                   
+1       2446406900          Reward for refreshing shop is 0                                                             
+1       3624005100          Reward for refreshing shop is 0                                                             
+1       4803374200          Adding champion zed with items [] to bench                                                  
+1       4803374200          Spending gold on champion zed with cost = 2, remaining gold 2 and chosen = False            
+1       7275845700          6 actions taken this turn                                                                   
+END OF ROUND 3
+blue    xinzhao         has a new target: red     garen     [5, 5]                                                      0           975200
+blue    maokai          has a new target: red     garen     [5, 5]                                                      0           975200
+blue    elise           has a new target: red     garen     [5, 5]                                                      0           975200
+red     lissandra       has a new target: blue    elise     [2, 0]                                                      0           975200
+red     irelia          has a new target: blue    elise     [2, 0]                                                      0           975200
+red     garen           has a new target: blue    elise     [2, 0]                                                      0           975200
+blue    xinzhao         moves from (0 , 0)   to   (1 , 1)                                                               100         975200
+blue    maokai          moves from (1 , 0)   to   (0 , 0)                                                               100         975200
+blue    elise           moves from (2 , 0)   to   (3 , 1)                                                               100         1954300
+red     lissandra       moves from (7 , 6)   to   (7 , 5)                                                               100         1954300
+red     irelia          moves from (5 , 6)   to   (4 , 5)                                                               100         1954300
+red     garen           moves from (5 , 5)   to   (5 , 4)                                                               100         2924400
+blue    xinzhao         cleared idle                                                                                    700         2924400
+blue    maokai          cleared idle                                                                                    700         2924400
+blue    elise           cleared idle                                                                                    700         2924400
+red     lissandra       cleared idle                                                                                    700         2924400
+red     irelia          cleared idle                                                                                    700         2924400
+red     garen           cleared idle                                                                                    700         2924400
+blue    xinzhao         moves from (1 , 1)   to   (2 , 1)                                                               800         2924400
+blue    maokai          moves from (0 , 0)   to   (1 , 1)                                                               800         3906000
+blue    elise           moves from (3 , 1)   to   (4 , 1)                                                               800         3906000
+red     lissandra       moves from (7 , 5)   to   (7 , 4)                                                               800         3906000
+red     irelia          moves from (4 , 5)   to   (4 , 4)                                                               800         4880200
+red     garen           moves from (5 , 4)   to   (5 , 3)                                                               800         4880200
+blue    xinzhao         cleared idle                                                                                    1400        4880200
+blue    maokai          cleared idle                                                                                    1400        4880200
+blue    elise           cleared idle                                                                                    1400        4880200
+red     lissandra       cleared idle                                                                                    1400        4880200
+red     irelia          cleared idle                                                                                    1400        4880200
+red     garen           cleared idle                                                                                    1400        4880200
+blue    xinzhao         moves from (2 , 1)   to   (3 , 2)                                                               1500        4880200
+blue    maokai          moves from (1 , 1)   to   (2 , 1)                                                               1500        5855600
+blue    elise           attacks red      garen        600  --> 555        shield 0    --> 0      crit                   1500        5855600
+red     garen           mana 0 --> 2.7                                                                                  1500        5855600
+blue    elise           mana 0 --> 10                                                                                   1500        5855600
+red     lissandra       moves from (7 , 4)   to   (7 , 3)                                                               1500        5855600
+red     irelia          has a new target: blue    xinzhao   [3, 2]                                                      1500        5855600
+red     irelia          moves from (4 , 4)   to   (4 , 3)                                                               1500        5855600
+red     garen           moves from (5 , 3)   to   (5 , 2)                                                               1500        5855600
+blue    xinzhao         cleared idle                                                                                    2100        6831300
+blue    maokai          cleared idle                                                                                    2100        6831300
+red     lissandra       cleared idle                                                                                    2100        6831300
+red     irelia          cleared idle                                                                                    2100        6831300
+red     garen           cleared idle                                                                                    2100        6831300
+blue    xinzhao         moves from (3 , 2)   to   (4 , 2)                                                               2200        6831300
+blue    maokai          has a new target: red     irelia    [4, 3]                                                      2200        6831300
+blue    maokai          moves from (2 , 1)   to   (3 , 2)                                                               2200        6831300
+red     lissandra       attacks blue     elise        600  --> 570        shield 0    --> 0                             2200        6831300
+blue    elise           mana 10 --> 11.8                                                                                2200        6831300
+red     lissandra       mana 0 --> 10                                                                                   2200        6831300
+red     irelia          attacks blue     xinzhao      700  --> 663        shield 0    --> 0                             2200        7808200
+blue    xinzhao         mana 30 --> 32.3                                                                                2200        7808200
+red     irelia          mana 50 --> 60                                                                                  2200        7808200
+red     garen           attacks blue     elise        570  --> 531        shield 0    --> 0                             2200        7808200
+blue    elise           mana 11.8 --> 14.2                                                                              2200        7808200
+red     garen           mana 2.7 --> 12.7                                                                               2200        7808200
+blue    xinzhao         cleared idle                                                                                    2800        7808200
+blue    maokai          cleared idle                                                                                    2800        7808200
+blue    xinzhao         attacks red      garen        555  --> 512        shield 0    --> 0                             2900        7808200
+red     garen           mana 12.7 --> 15.3                                                                              2900        7808200
+blue    xinzhao         mana 32.3 --> 42.3                                                                              2900        7808200
+blue    maokai          moves from (3 , 2)   to   (3 , 3)                                                               2900        7808200
+blue    elise           cleared idle                                                                                    3100        8783900
+blue    elise           attacks red      garen        512  --> 482        shield 0    --> 0                             3200        8783900
+red     garen           mana 15.3 --> 17.1                                                                              3200        8783900
+blue    elise           mana 14.2 --> 24.2                                                                              3200        8783900
+blue    maokai          cleared idle                                                                                    3500        8783900
+blue    maokai          attacks red      irelia       800  --> 761        shield 0    --> 0                             3600        8783900
+red     irelia          mana 60 --> 62.4                                                                                3600        8783900
+blue    maokai          mana 0 --> 10                                                                                   3600        8783900
+red     irelia          cleared idle                                                                                    3800        8783900
+red     irelia          attacks blue     xinzhao      663  --> 625        shield 0    --> 0                             3900        8783900
+blue    xinzhao         mana 42.3 --> 44.6                                                                              3900        8783900
+red     irelia          mana 62.4 --> 72.4                                                                              3900        8783900
+red     lissandra       cleared idle                                                                                    3900        8783900
+red     garen           cleared idle                                                                                    3900        8783900
+red     lissandra       attacks blue     elise        531  --> 501        shield 0    --> 0                             4000        8783900
+blue    elise           mana 24.2 --> 26.0                                                                              4000        8783900
+red     lissandra       mana 10 --> 20                                                                                  4000        8783900
+red     garen           attacks blue     elise        501  --> 443        shield 0    --> 0      crit                   4000        8783900
+blue    elise           mana 26.0 --> 29.5                                                                              4000        8783900
+red     garen           mana 17.1 --> 27.1                                                                              4000        8783900
+blue    xinzhao         cleared idle                                                                                    4200        9762600
+blue    xinzhao         attacks red      garen        482  --> 439        shield 0    --> 0                             4300        9762600
+red     garen           mana 27.1 --> 29.7                                                                              4300        9762600
+blue    xinzhao         mana 44.6 --> 54.6                                                                              4300        9762600
+blue    elise           cleared idle                                                                                    4800        9762600
+blue    elise           attacks red      garen        439  --> 409        shield 0    --> 0                             4900        9762600
+red     garen           mana 29.7 --> 31.5                                                                              4900        9762600
+blue    elise           mana 29.5 --> 39.5                                                                              4900        9762600
+red     irelia          cleared idle                                                                                    5500        10732700
+red     irelia          attacks blue     xinzhao      625  --> 587        shield 0    --> 0                             5600        10732700
+blue    xinzhao         mana 54.6 --> 56.8                                                                              5600        10732700
+red     irelia          mana 72.4 --> 82.4                                                                              5600        10732700
+blue    xinzhao         cleared idle                                                                                    5600        10732700
+blue    xinzhao         attacks red      garen        409  --> 366        shield 0    --> 0                             5700        10732700
+red     garen           mana 31.5 --> 34.1                                                                              5700        10732700
+blue    xinzhao         mana 56.8 --> 66.8                                                                              5700        10732700
+blue    maokai          cleared idle                                                                                    5700        10732700
+red     lissandra       cleared idle                                                                                    5700        10732700
+red     garen           cleared idle                                                                                    5700        10732700
+blue    maokai          attacks red      irelia       761  --> 722        shield 0    --> 0                             5800        10732700
+red     irelia          mana 82.4 --> 84.7                                                                              5800        10732700
+blue    maokai          mana 10 --> 20                                                                                  5800        10732700
+red     lissandra       attacks blue     elise        443  --> 397        shield 0    --> 0      crit                   5800        10732700
+blue    elise           mana 39.5 --> 42.2                                                                              5800        10732700
+red     lissandra       mana 20 --> 30                                                                                  5800        10732700
+red     garen           attacks blue     elise        397  --> 358        shield 0    --> 0                             5800        10732700
+blue    elise           mana 42.2 --> 44.5                                                                              5800        10732700
+red     garen           mana 34.1 --> 44.1                                                                              5800        10732700
+blue    elise           cleared idle                                                                                    6500        11713900
+blue    elise           attacks red      garen        366  --> 336        shield 0    --> 0                             6600        11713900
+red     garen           mana 44.1 --> 45.9                                                                              6600        11713900
+blue    elise           mana 44.5 --> 54.5                                                                              6600        11713900
+blue    xinzhao         cleared idle                                                                                    7000        11713900
+blue    xinzhao         ability triggered                                                                               7100        11713900
+blue    xinzhao         armor 45 --> 95                                                                                 7100        11713900
+blue    xinzhao         MR 30 --> 80                                                                                    7100        11713900
+blue    xinzhao         attacks red      garen        336  --> 292        shield 0    --> 0                             7200        11713900
+red     garen           mana 45.9 --> 48.5                                                                              7200        11713900
+red     irelia          cleared idle                                                                                    7200        12687000
+red     irelia          attacks blue     xinzhao      587  --> 544        shield 0    --> 0      crit                   7300        12687000
+red     irelia          mana 84.7 --> 94.7                                                                              7300        12687000
+red     lissandra       cleared idle                                                                                    7500        12687000
+red     garen           cleared idle                                                                                    7500        12687000
+red     lissandra       attacks blue     elise        358  --> 327        shield 0    --> 0                             7600        12687000
+blue    elise           mana 54.5 --> 56.4                                                                              7600        12687000
+red     lissandra       mana 30 --> 40                                                                                  7600        12687000
+red     garen           attacks blue     elise        327  --> 289        shield 0    --> 0                             7600        12687000
+blue    elise           mana 56.4 --> 58.7                                                                              7600        12687000
+red     garen           mana 48.5 --> 58.5                                                                              7600        12687000
+blue    maokai          cleared idle                                                                                    7900        12687000
+blue    maokai          attacks red      irelia       722  --> 683        shield 0    --> 0                             8000        12687000
+red     irelia          mana 94.7 --> 97.1                                                                              8000        12687000
+blue    maokai          mana 20 --> 30                                                                                  8000        12687000
+blue    elise           cleared idle                                                                                    8200        12687000
+blue    elise           attacks red      garen        292  --> 247        shield 0    --> 0      crit                   8300        13663500
+red     garen           mana 58.5 --> 61.2                                                                              8300        13663500
+blue    elise           mana 58.7 --> 68.7                                                                              8300        13663500
+blue    xinzhao         cleared idle                                                                                    8500        13663500
+blue    xinzhao         attacks red      garen        247  --> 204        shield 0    --> 0                             8600        13663500
+red     garen           mana 61.2 --> 63.8                                                                              8600        13663500
+blue    xinzhao         mana 0 --> 10                                                                                   8600        13663500
+red     irelia          cleared idle                                                                                    8900        13663500
+red     irelia          attacks blue     xinzhao      544  --> 516        shield 0    --> 0                             9000        13663500
+blue    xinzhao         mana 10 --> 11.7                                                                                9000        13663500
+red     irelia          mana 97.1 --> 107.1                                                                             9000        13663500
+red     lissandra       cleared idle                                                                                    9300        14607100
+red     garen           cleared idle                                                                                    9300        14607100
+red     lissandra       attacks blue     elise        289  --> 258        shield 0    --> 0                             9400        14607100
+blue    elise           mana 68.7 --> 70.5                                                                              9400        14607100
+red     lissandra       mana 40 --> 50                                                                                  9400        14607100
+red     garen           attacks blue     elise        258  --> 220        shield 0    --> 0                             9400        14607100
+blue    elise           mana 70.5 --> 72.8                                                                              9400        14607100
+red     garen           mana 63.8 --> 73.8                                                                              9400        14607100
+blue    elise           cleared idle                                                                                    9900        14607100
+blue    xinzhao         cleared idle                                                                                    9900        14607100
+blue    xinzhao         attacks red      garen        204  --> 161        shield 0    --> 0                             10000       14607100
+red     garen           mana 73.8 --> 76.4                                                                              10000       14607100
+blue    xinzhao         mana 11.7 --> 21.7                                                                              10000       14607100
+blue    elise           attacks red      garen        161  --> 131        shield 0    --> 0                             10000       14607100
+red     garen           mana 76.4 --> 78.2                                                                              10000       14607100
+blue    elise           mana 72.8 --> 82.8                                                                              10000       14607100
+blue    elise           ability triggered                                                                               10100       14607100
+blue    elise           ability_active False --> True                                                                   10100       14607100
+blue    elise           health 219.231 --> 429.231                                                                      10100       14607100
+blue    elise           heal_per_attack 0 --> 40                                                                        10100       14607100
+blue    elise           max_health 600.0 --> 810.0                                                                      10100       14607100
+blue    maokai          cleared idle                                                                                    10100       14607100
+blue    maokai          attacks red      irelia       683  --> 643        shield 0    --> 0                             10200       15615600
+red     irelia          mana 107.1 --> 109.4                                                                            10200       15615600
+blue    maokai          mana 30 --> 40                                                                                  10200       15615600
+red     irelia          cleared idle                                                                                    10600       15615600
+red     irelia          ability triggered                                                                               10700       15615600
+red     irelia          deals blue     maokai       700  --> 534        shield 0    --> 0                               10700       15615600
+blue    maokai          mana 40 --> 50.0                                                                                10700       15615600
+blue    maokai          disarmed False --> True                                                                         10700       15615600
+red     irelia          deals blue     xinzhao      516  --> 405        shield 0    --> 0                               10700       15615600
+blue    xinzhao         mana 21.7 --> 28.4                                                                              10700       15615600
+blue    xinzhao         disarmed False --> True                                                                         10700       15615600
+red     irelia          deals blue     elise        430  --> 263        shield 0    --> 0                               10700       15615600
+blue    elise           disarmed False --> True                                                                         10700       15615600
+red     lissandra       cleared idle                                                                                    11100       16591600
+red     garen           cleared idle                                                                                    11100       16591600
+red     lissandra       ability triggered                                                                               11200       16591600
+red     lissandra       deals blue     xinzhao      405  --> 211        shield 0    --> 0                               11200       20495400
+blue    xinzhao         mana 28.4 --> 40.0                                                                              11200       20495400
+red     lissandra       deals blue     maokai       534  --> 388        shield 0    --> 0                               11200       20495400
+blue    maokai          mana 50.0 --> 58.8                                                                              11200       20495400
+red     garen           attacks blue     elise        263  --> 205        shield 0    --> 0      crit                   11200       20495400
+red     garen           mana 78.2 --> 88.2                                                                              11200       20495400
+red     lissandra       attacks blue     elise        205  --> 175        shield 0    --> 0                             11300       20495400
+blue    xinzhao         cleared idle                                                                                    11300       20495400
+red     irelia          cleared idle                                                                                    11500       20495400
+red     irelia          attacks blue     xinzhao      211  --> 182        shield 0    --> 0                             11600       20495400
+blue    xinzhao         mana 40.0 --> 41.7                                                                              11600       20495400
+blue    elise           cleared idle                                                                                    11600       20495400
+blue    maokai          cleared idle                                                                                    12300       21471200
+red     garen           cleared idle                                                                                    12900       22447600
+red     garen           attacks blue     elise        175  --> 136        shield 0    --> 0                             13000       22447600
+red     garen           mana 88.2 --> 98.2                                                                              13000       22447600
+red     lissandra       cleared idle                                                                                    13000       22447600
+red     lissandra       attacks blue     elise        136  --> 105        shield 0    --> 0                             13100       22447600
+red     lissandra       mana 0 --> 10                                                                                   13100       22447600
+red     irelia          cleared idle                                                                                    13200       22447600
+red     irelia          attacks blue     xinzhao      182  --> 154        shield 0    --> 0                             13300       22447600
+blue    xinzhao         mana 41.7 --> 43.4                                                                              13300       22447600
+red     irelia          mana 0 --> 10                                                                                   13300       22447600
+blue    maokai          disarmed True --> False                                                                         13300       22447600
+blue    xinzhao         disarmed True --> False                                                                         13300       22447600
+blue    elise           disarmed True --> False                                                                         13300       22447600
+blue    xinzhao         attacks red      garen        131  --> 87         shield 0    --> 0                             13400       22447600
+red     garen           mana 98.2 --> 100.8                                                                             13400       22447600
+blue    xinzhao         mana 43.4 --> 53.4                                                                              13400       22447600
+blue    maokai          attacks red      irelia       643  --> 604        shield 0    --> 0                             13400       22447600
+red     irelia          mana 10 --> 12.4                                                                                13400       22447600
+blue    maokai          mana 58.8 --> 68.8                                                                              13400       22447600
+blue    elise           attacks red      garen        87   --> 42         shield 0    --> 0      crit                   13400       22447600
+red     garen           mana 100.8 --> 103.5                                                                            13400       22447600
+blue    elise           heals 105  --> 145                                                                              13400       22447600
+blue    xinzhao         cleared idle                                                                                    14700       23424000
+red     garen           cleared idle                                                                                    14700       23424000
+blue    xinzhao         attacks red      garen        42   --> -1         shield 0    --> 0                             14800       23424000
+red     garen           mana 103.5 --> 106.1                                                                            14800       23424000
+red     garen           dies                                                                                            14800       23424000
+blue    xinzhao         mana 53.4 --> 63.4                                                                              14800       23424000
+blue    xinzhao         has a new target: red     irelia    [4, 3]                                                      14800       23424000
+red     lissandra       cleared idle                                                                                    14800       24403700
+red     lissandra       attacks blue     elise        145  --> 99         shield 0    --> 0      crit                   14900       24403700
+red     lissandra       mana 10 --> 20                                                                                  14900       24403700
+red     irelia          cleared idle                                                                                    14900       24403700
+red     irelia          attacks blue     xinzhao      154  --> 126        shield 0    --> 0                             15000       24403700
+blue    xinzhao         mana 63.4 --> 65.1                                                                              15000       24403700
+red     irelia          mana 12.4 --> 22.4                                                                              15000       24403700
+blue    elise           cleared idle                                                                                    15000       24403700
+blue    elise           has a new target: red     irelia    [4, 3]                                                      15100       24403700
+blue    elise           attacks red      irelia       604  --> 572        shield 0    --> 0                             15100       24403700
+red     irelia          mana 22.4 --> 24.3                                                                              15100       24403700
+blue    elise           heals 99   --> 139                                                                              15100       24403700
+blue    maokai          cleared idle                                                                                    15500       24403700
+blue    maokai          attacks red      irelia       572  --> 533        shield 0    --> 0                             15600       24403700
+red     irelia          mana 24.3 --> 26.6                                                                              15600       24403700
+blue    maokai          mana 68.8 --> 78.8                                                                              15600       24403700
+blue    xinzhao         cleared idle                                                                                    16100       25342000
+blue    xinzhao         ability triggered                                                                               16200       25342000
+blue    xinzhao         armor 95 --> 145                                                                                16200       25342000
+blue    xinzhao         MR 80 --> 130                                                                                   16200       25342000
+blue    xinzhao         attacks red      irelia       533  --> 486        shield 0    --> 0                             16300       25342000
+red     irelia          mana 26.6 --> 29.4                                                                              16300       25342000
+red     irelia          cleared idle                                                                                    16600       25342000
+red     lissandra       cleared idle                                                                                    16600       25342000
+red     lissandra       attacks blue     elise        139  --> 108        shield 0    --> 0                             16700       26348700
+red     lissandra       mana 20 --> 30                                                                                  16700       26348700
+red     irelia          attacks blue     xinzhao      126  --> 104        shield 0    --> 0                             16700       26348700
+red     irelia          mana 29.4 --> 39.4                                                                              16700       26348700
+blue    elise           cleared idle                                                                                    16700       26348700
+blue    elise           attacks red      irelia       486  --> 454        shield 0    --> 0                             16800       26348700
+red     irelia          mana 39.4 --> 41.4                                                                              16800       26348700
+blue    elise           heals 108  --> 148                                                                              16800       26348700
+blue    xinzhao         cleared idle                                                                                    17600       26348700
+blue    xinzhao         attacks red      irelia       454  --> 408        shield 0    --> 0                             17700       26348700
+red     irelia          mana 41.4 --> 44.1                                                                              17700       26348700
+blue    xinzhao         mana 0 --> 10                                                                                   17700       26348700
+blue    maokai          cleared idle                                                                                    17700       26348700
+blue    maokai          ability triggered                                                                               17800       26348700
+blue    maokai          deals red      irelia       408  --> 247        shield 0    --> 0                               17800       27330500
+red     irelia          mana 44.1 --> 53.8                                                                              17800       27330500
+red     irelia          AS 0.65 --> 0.325                                                                               17800       27330500
+blue    maokai          attacks red      irelia       247  --> 188        shield 0    --> 0      crit                   17900       28304400
+red     irelia          mana 53.8 --> 57.3                                                                              17900       28304400
+red     irelia          cleared idle                                                                                    18300       28304400
+red     irelia          attacks blue     xinzhao      104  --> 81         shield 0    --> 0                             18400       28304400
+blue    xinzhao         mana 10 --> 11.3                                                                                18400       28304400
+red     irelia          mana 57.3 --> 67.3                                                                              18400       28304400
+blue    elise           cleared idle                                                                                    18400       28304400
+red     lissandra       cleared idle                                                                                    18400       28304400
+blue    elise           attacks red      irelia       188  --> 156        shield 0    --> 0                             18500       28304400
+red     irelia          mana 67.3 --> 69.3                                                                              18500       28304400
+blue    elise           heals 148  --> 188                                                                              18500       28304400
+red     lissandra       attacks blue     elise        188  --> 158        shield 0    --> 0                             18500       28304400
+red     lissandra       mana 30 --> 40                                                                                  18500       28304400
+blue    xinzhao         cleared idle                                                                                    19000       28304400
+blue    xinzhao         attacks red      irelia       156  --> 109        shield 0    --> 0                             19100       29279900
+red     irelia          mana 69.3 --> 72.0                                                                              19100       29279900
+blue    xinzhao         mana 11.3 --> 21.3                                                                              19100       29279900
+blue    maokai          cleared idle                                                                                    20000       29279900
+blue    maokai          attacks red      irelia       109  --> 70         shield 0    --> 0                             20100       29279900
+red     irelia          mana 72.0 --> 74.4                                                                              20100       29279900
+blue    maokai          mana 0 --> 10                                                                                   20100       29279900
+blue    elise           cleared idle                                                                                    20100       29279900
+blue    elise           attacks red      irelia       70   --> 38         shield 0    --> 0                             20200       29279900
+red     irelia          mana 74.4 --> 76.3                                                                              20200       29279900
+blue    elise           heals 158  --> 198                                                                              20200       29279900
+red     lissandra       cleared idle                                                                                    20200       29279900
+red     lissandra       attacks blue     elise        198  --> 167        shield 0    --> 0                             20300       30254800
+red     lissandra       mana 40 --> 50                                                                                  20300       30254800
+blue    xinzhao         cleared idle                                                                                    20400       30254800
+blue    xinzhao         attacks red      irelia       38   --> -8         shield 0    --> 0                             20500       30254800
+red     irelia          mana 76.3 --> 79.1                                                                              20500       30254800
+red     irelia          dies                                                                                            20500       30254800
+blue    xinzhao         mana 21.3 --> 31.3                                                                              20500       30254800
+blue    xinzhao         has a new target: red     lissandra  [7, 3]                                                     20500       30254800
+blue    elise           cleared idle                                                                                    21800       31231300
+blue    xinzhao         cleared idle                                                                                    21800       31231300
+blue    xinzhao         moves from (4 , 2)   to   (5 , 2)                                                               21900       31231300
+blue    elise           has a new target: red     lissandra  [7, 3]                                                     21900       31231300
+blue    elise           moves from (4 , 1)   to   (5 , 1)                                                               21900       31231300
+red     lissandra       cleared idle                                                                                    22000       31231300
+red     lissandra       ability triggered                                                                               22100       31231300
+red     lissandra       deals blue     xinzhao      81   --> -71        shield 0    --> 0                               22100       35137900
+blue    xinzhao         mana 31.3 --> 40.5                                                                              22100       35137900
+blue    xinzhao         dies                                                                                            22100       35137900
+red     lissandra       deals blue     elise        167  --> 21         shield 0    --> 0                               22100       36111400
+red     lissandra       deals blue     maokai       388  --> 242        shield 0    --> 0                               22100       36111400
+blue    maokai          mana 10 --> 18.8                                                                                22100       36111400
+red     lissandra       attacks blue     elise        21   --> -10        shield 0    --> 0                             22200       36111400
+blue    elise           dies                                                                                            22200       36111400
+red     lissandra       has a new target: blue    maokai    [3, 3]                                                      22200       36111400
+blue    maokai          cleared idle                                                                                    22200       36111400
+blue    maokai          has a new target: red     lissandra  [7, 3]                                                     22300       36111400
+blue    maokai          moves from (3 , 3)   to   (4 , 2)                                                               22300       36111400
+blue    maokai          cleared idle                                                                                    22900       36111400
+blue    maokai          moves from (4 , 2)   to   (5 , 2)                                                               23000       36111400
+blue    maokai          cleared idle                                                                                    23600       37087400
+blue    maokai          moves from (5 , 2)   to   (6 , 2)                                                               23700       37087400
+red     lissandra       cleared idle                                                                                    23900       37087400
+red     lissandra       attacks blue     maokai       242  --> 213        shield 0    --> 0                             24000       37087400
+blue    maokai          mana 18.8 --> 20.5                                                                              24000       37087400
+red     lissandra       mana 0 --> 10                                                                                   24000       37087400
+blue    maokai          cleared idle                                                                                    24300       37087400
+blue    maokai          attacks red      lissandra    550  --> 505        shield 0    --> 0                             24400       37087400
+red     lissandra       mana 10 --> 12.8                                                                                24400       37087400
+blue    maokai          mana 20.5 --> 30.5                                                                              24400       37087400
+red     lissandra       cleared idle                                                                                    25700       37087400
+red     lissandra       attacks blue     maokai       213  --> 183        shield 0    --> 0                             25800       37087400
+blue    maokai          mana 30.5 --> 32.3                                                                              25800       37087400
+red     lissandra       mana 12.8 --> 22.8                                                                              25800       37087400
+blue    maokai          cleared idle                                                                                    26500       38062900
+blue    maokai          attacks red      lissandra    505  --> 459        shield 0    --> 0                             26600       38062900
+red     lissandra       mana 22.8 --> 25.5                                                                              26600       38062900
+blue    maokai          mana 32.3 --> 42.3                                                                              26600       38062900
+red     lissandra       cleared idle                                                                                    27500       38062900
+red     lissandra       attacks blue     maokai       183  --> 153        shield 0    --> 0                             27600       38062900
+blue    maokai          mana 42.3 --> 44.1                                                                              27600       38062900
+red     lissandra       mana 25.5 --> 35.5                                                                              27600       38062900
+blue    maokai          cleared idle                                                                                    28700       38062900
+blue    maokai          attacks red      lissandra    459  --> 413        shield 0    --> 0                             28800       38062900
+red     lissandra       mana 35.5 --> 38.2                                                                              28800       38062900
+blue    maokai          mana 44.1 --> 54.1                                                                              28800       38062900
+red     lissandra       cleared idle                                                                                    29300       39039000
+red     lissandra       attacks blue     maokai       153  --> 124        shield 0    --> 0                             29400       39039000
+blue    maokai          mana 54.1 --> 55.9                                                                              29400       39039000
+red     lissandra       mana 38.2 --> 48.2                                                                              29400       39039000
+blue    maokai          cleared idle                                                                                    30900       39039000
+blue    maokai          attacks red      lissandra    413  --> 367        shield 0    --> 0                             31000       39039000
+red     lissandra       mana 48.2 --> 51.0                                                                              31000       39039000
+blue    maokai          mana 55.9 --> 65.9                                                                              31000       39039000
+red     lissandra       cleared idle                                                                                    31100       39039000
+red     lissandra       ability triggered                                                                               31200       39039000
+red     lissandra       deals blue     maokai       124  --> -168       shield 0    --> 0                               31200       42945300
+blue    maokai          mana 65.9 --> 83.4                                                                              31200       42945300
+blue    maokai          dies                                                                                            31200       42945300
+RED TEAM WON
+lissandra
+round damage = 2
+1       7276825900          moved xinzhao from bench 0 to board [0, 0]                                                  
+1       7276825900          moved maokai from bench 1 to board [0, 1]                                                   
+1       7277830600          moved elise from bench 2 to board [0, 2]                                                    
+1       7277830600          0 reward for minions in play                                                                
+1       7277830600          Reward gained last round = 0.0                                                              
+1       7277830600          cultist: 1, tier: 0                                                                         
+1       7277830600          elderwood: 1, tier: 0                                                                       
+1       7277830600          warlord: 1, tier: 0                                                                         
+1       7277830600          brawler: 1, tier: 0                                                                         
+1       7277830600          duelist: 1, tier: 0                                                                         
+1       7277830600          keeper: 1, tier: 0                                                                          
+1       7277830600          at (0, 0), champion xinzhao, with level = 1, items = [], and chosen = False                 
+1       7277830600          at (0, 1), champion maokai, with level = 1, items = [], and chosen = False                  
+1       7277830600          at (0, 2), champion elise, with level = 1, items = [], and chosen = False                   
+1       7277830600          Player level 3 with gold 2, max_units = 3, num_units_in_play = 3, health = 100              
+1       7320775900          -0.06 reward for losing round                                                               
+1       1204193200          Adding champion sylas with items [] to bench                                                
+1       1204193200          Spending gold on champion sylas with cost = 2, remaining gold 4 and chosen = False          
+1       2806780500          2 actions taken this turn                                                                   

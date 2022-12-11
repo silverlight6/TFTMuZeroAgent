@@ -7,7 +7,6 @@ Prediction = collections.namedtuple(
     'value value_logits reward reward_logits policy_logits')
 
 
-
 class Trainer(object):
     def __init__(self):
         self.optimizer, self.learning_rate_fn = self.create_optimizer()
@@ -95,8 +94,10 @@ class Trainer(object):
             (-1, num_target_steps,
              enc.num_steps)) for enc, v in ((agent.reward_encoder, target_reward),
                                             (agent.value_encoder, target_value)))
+
         accs = collections.defaultdict(list)
         for tstep, prediction in enumerate(predictions):
+            # prediction.value_logits is [64, 601]
             accs['value_loss'].append(
                 self.scale_gradient(
                     tf.nn.softmax_cross_entropy_with_logits(
