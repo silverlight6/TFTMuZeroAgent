@@ -57,7 +57,7 @@ class TFT_Simulation:
                 combat_all.append(False)
                 combat_count.append(0)
             combat_all.append("EMPTY")
-            combat_count.append["EMPTY"] 
+            combat_count.append("EMPTY")
         for num in player_nums: 
             # make sure I am dealing with one of the players who has yet to fight.
             while players[num] and not combat_all[num].combat:
