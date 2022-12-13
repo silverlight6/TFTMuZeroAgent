@@ -1,5 +1,6 @@
 from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
 from Simulator import champion, pool, pool_stats
+from Simulator.stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA
 import random
 
 item_list = list(full_items.keys())
@@ -8,6 +9,41 @@ item_list = list(full_items.keys())
 # add randomness to drops
 # add representations of minions (Melees, Ranges, Krugs, Wolves, Raptors, Nexus, and Herald)
 # add combat between player and minions
+class Minion:
+    def __init__(self, name, y=-1, x=-1):
+        self.name = name
+        self.x = x
+        self.y = y
+
+        self.AD = AD[name]
+        self.AS = AS[name]
+        self.RANGE = RANGE[name]
+        self.ARMOR = ARMOR[name]
+        self.MR = MR[name]
+        self.HEALTH = HEALTH[name]
+        self.MANA = MANA[name]
+        self.MAXMANA = MAXMANA[name]
+class Melee(Minion):
+    def __init__(self, x, y):
+        super().__init__(self, 'meleeminion', x, y)
+class Ranged(Minion):
+    def __init__(self, x, y):
+        super().__init__(self, 'rangedminion', x, y)
+class Krug(Minion):
+    def __init__(self, x, y):
+        super().__init__(self, 'krug', x, y)
+class Wolf(Minion):
+    def __init__(self, name, x, y):
+        super().__init__(self, name, x, y)
+class Raptor(Minion):
+    def __init__(self, name, x, y):
+        super().__init__(self, name, x, y)
+class Nexus(Minion):
+    def __init__(self, x, y):
+        super().__init__(self, 'nexus', x, y)
+class Herald(Minion):
+    def __init__(self, x, y):
+        super().__init__(self, 'herald', x, y)
 
 def minion_round(player, round, pool_obj):
  # simulate minion round here
@@ -27,7 +63,7 @@ def minion_round(player, round, pool_obj):
     elif round == 2:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
         player.gold += 3
-        
+
     # 3 Krugs - give 3 gold and 3 item components
     elif round == 9:
         player.gold += 3
@@ -59,4 +95,7 @@ def minion_round(player, round, pool_obj):
     # invalid round! Do nothing
     else:
         return
+
+def minion_combat(player, round):
+    pass
 
