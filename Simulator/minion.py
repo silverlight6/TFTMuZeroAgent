@@ -9,7 +9,7 @@ item_list = list(full_items.keys())
 # add representations of minions (Melees, Ranges, Krugs, Wolves, Raptors, Nexus, and Herald)
 # add combat between player and minions
 
-def minion_round(player, round):
+def minion_round(player, round, pool_obj):
  # simulate minion round here
     # 2 melee minions - give 1 item component
     if round == 0:
@@ -20,13 +20,14 @@ def minion_round(player, round):
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
         ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
         ran_cost_3 = champion.champion(ran_cost_3)
+        pool_obj.update(ran_cost_3, -1)
         player.add_to_bench(ran_cost_3)
 
     # 2 melee minions and 2 ranged minions - give 3 gold and 1 item component
     elif round == 2:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-
         player.gold += 3
+        
     # 3 Krugs - give 3 gold and 3 item components
     elif round == 9:
         player.gold += 3

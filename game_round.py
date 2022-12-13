@@ -1,7 +1,7 @@
 import config
 import AI_interface
 import random
-from Simulator import champion, pool, pool_stats
+from Simulator import champion, pool, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
 from Simulator.player import player as player_class
 from interface import interface
@@ -430,13 +430,14 @@ class TFT_Simulation:
 
         for player in self.PLAYERS:
             if player:
+                # first carousel
                 ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
                 ran_cost_1 = champion.champion(ran_cost_1,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
                 self.pool_obj.update(ran_cost_1, -1)
                 player.add_to_bench(ran_cost_1)
                 log_to_file(player)
-                player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+                minion.minion_round(player, 0, self.pool_obj)
 
         # ROUND 1 - Buy phase + Give 1 item component and 1 random 3 cost champion
         for player in self.PLAYERS:
@@ -449,11 +450,7 @@ class TFT_Simulation:
 
         for player in self.PLAYERS:
             if player:
-                player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-                ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-                ran_cost_3 = champion.champion(ran_cost_3)
-                self.pool_obj.update(ran_cost_3, -1)
-                player.add_to_bench(ran_cost_3)
+                minion.minion_round(player, 1, self.pool_obj)
 
         # Round 2 -  Buy phase + Give 3 gold and 1 random item component
         for player in self.PLAYERS:
@@ -465,8 +462,7 @@ class TFT_Simulation:
         log_end_turn(2)
         for player in self.PLAYERS:
             if player:
-                player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-                player.gold += 3
+                minion.minion_round(player, 2, self.pool_obj)
 
         for r in range(3, 6):
             # Round 3 to 5 - Buy phase + Combat phase
@@ -507,9 +503,7 @@ class TFT_Simulation:
         # Game Round - 3 gold plus 3 item components
         for player in self.PLAYERS:
             if player:
-                player.gold += 3
-                for _ in range(0, 3):
-                    player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+                minion.minion_round(player, 9, self.pool_obj)
 
         for r in range(9, 12):
             for player in self.PLAYERS:
@@ -545,12 +539,10 @@ class TFT_Simulation:
             if self.check_dead(agents, buffer, game_episode):
                 return True
             log_to_file_combat()
-
+        # Wolves round
         for player in self.PLAYERS:
             if player:
-                player.gold += 3
-                for _ in range(0, 3):
-                    player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+                minion.minion_round(player, 15, self.pool_obj)
 
         for r in range(15, 18):
             for player in self.PLAYERS:
@@ -587,12 +579,10 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Wolves Round - 3 gold plus 3 item components
+        # Raptors round
         for player in self.PLAYERS:
             if player:
-                player.gold += 6
-                for _ in range(0, 4):
-                    player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+                minion.minion_round(player, 21, self.pool_obj)
 
         for r in range(21, 24):
             for player in self.PLAYERS:
@@ -633,9 +623,7 @@ class TFT_Simulation:
         # Dragon Round - 3 gold plus 3 item components
         for player in self.PLAYERS:
             if player:
-                player.gold += 6
-                item_list = list(full_items.keys())
-                player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
+                minion.minion_round(player, 27, self.pool_obj)
 
         for r in range(27, 30):
             for player in self.PLAYERS:
@@ -672,12 +660,10 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Rift Herald - 3 gold plus 3 item components
+        # Rift Herald
         for player in self.PLAYERS:
             if player:
-                player.gold += 6
-                item_list = list(full_items.keys())
-                player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
+                minion.minion_round(player, 33, self.pool_obj)
 
         for r in range(33, 36):
             for player in self.PLAYERS:
