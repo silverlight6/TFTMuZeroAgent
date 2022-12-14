@@ -306,7 +306,6 @@ class Mlp(tf.Module):
 
 class ActionHistory(object):
     """Simple history container used inside the search.
-
   Only used to keep track of the actions executed.
   """
 
@@ -444,7 +443,7 @@ class MCTSAgent:
 
         input_to_jitfunc = []
 
-        # convert dictionary to single list for JIT function by looping through dictionary and
+        # convert dictionary to sin gle list for JIT function by looping through dictionary and
         # converting items to numpy then adding to list
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())

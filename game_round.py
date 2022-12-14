@@ -73,8 +73,6 @@ class TFT_Simulation:
                     players_matched += 2
                     config.WARLORD_WINS['blue'] = players[num].win_streak
                     config.WARLORD_WINS['red'] = players[player_index].win_streak
-                    players[player_index].start_round()
-                    players[num].start_round()
                     index_won, damage = champion.run(champion.champion, players[num], players[player_index],
                                                      self.ROUND_DAMAGE[round_index][1])
                     if index_won == 0:
@@ -110,7 +108,6 @@ class TFT_Simulation:
                     elif index_won == 2 or index_won == 0:
                         players[num].health -= damage
                         players[num].loss_round(player_round)
-                    players[num].start_round()
                     players[num].combat = True
                     players_matched += 1
                 else:
@@ -442,7 +439,7 @@ class TFT_Simulation:
         # ROUND 1 - Buy phase + Give 1 item component and 1 random 3 cost champion
         for player in self.PLAYERS:
             if player:
-                player.gold_income(1)
+                player.start_round(1)
                 self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                 log_to_file(player)
 
@@ -455,7 +452,7 @@ class TFT_Simulation:
         # Round 2 -  Buy phase + Give 3 gold and 1 random item component
         for player in self.PLAYERS:
             if player:
-                player.gold_income(2)
+                player.start_round(2)
                 self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                 log_to_file(player)
 
@@ -468,7 +465,7 @@ class TFT_Simulation:
             # Round 3 to 5 - Buy phase + Combat phase
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -490,7 +487,7 @@ class TFT_Simulation:
         for r in range(6, 9):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -508,7 +505,7 @@ class TFT_Simulation:
         for r in range(9, 12):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -530,7 +527,7 @@ class TFT_Simulation:
         for r in range(12, 15):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -547,7 +544,7 @@ class TFT_Simulation:
         for r in range(15, 18):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -569,7 +566,7 @@ class TFT_Simulation:
         for r in range(18, 21):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -587,7 +584,7 @@ class TFT_Simulation:
         for r in range(21, 24):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -610,7 +607,7 @@ class TFT_Simulation:
             # Round 3 to 5 - Buy phase + Combat phase
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -628,7 +625,7 @@ class TFT_Simulation:
         for r in range(27, 30):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -650,7 +647,7 @@ class TFT_Simulation:
         for r in range(30, 33):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
@@ -668,7 +665,7 @@ class TFT_Simulation:
         for r in range(33, 36):
             for player in self.PLAYERS:
                 if player:
-                    player.gold_income(r)
+                    player.start_round(r)
                     self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
                     log_to_file(player)
             log_end_turn(r)
