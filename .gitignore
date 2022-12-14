@@ -1,4 +1,6 @@
 *.pyc
+/.idea/
+suggestions.py
 /__pycache__
 /Simulator/__pycache__
 /Models/__pycache__
