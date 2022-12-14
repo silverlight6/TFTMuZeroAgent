@@ -38,7 +38,7 @@ class ReplayBuffer:
         # Hard coding this because the need to know this value before any observation are
         # Generated in the case of no successful actions completed yet in the game which
         # Is very likely at the start of the game.
-        return config.OBSERVATION_SHAPE
+        return config.INPUT_SHAPE
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size

@@ -10,6 +10,7 @@ Prediction = collections.namedtuple(
 class Trainer(object):
     def __init__(self):
         self.optimizer, self.learning_rate_fn = self.create_optimizer()
+        self.value_loss = tf.keras.losses.MeanSquaredError()
 
     def create_optimizer(self):
         learning_rate_fn = tf.keras.experimental.CosineDecay(
@@ -104,6 +105,12 @@ class Trainer(object):
                         logits=prediction.value_logits,
                         labels=target_value_encoded[:, tstep]),
                     gradient_scales['value'][tstep]))
+            # accs['value_loss'].append(
+            #     self.scale_gradient(
+            #         self.value_loss(target_value_encoded[:, tstep], prediction.value_logits),
+            #         gradient_scales['value'][tstep]
+            #     )
+            # )
             accs['reward_loss'].append(
                 self.scale_gradient(
                     tf.nn.softmax_cross_entropy_with_logits(

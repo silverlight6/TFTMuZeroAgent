@@ -101,6 +101,10 @@ class player:
 
         self.start_time = time.time_ns()
 
+        # Putting this here to show the next possible opponent
+        self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
+        self.possible_opponents[self.player_num] = -1
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
@@ -242,7 +246,7 @@ class player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (nY >= 0 and nY < 7 and nX >= 0 and nX < 4) and not self.board[x][y]:
+            if (0 <= nY < 7 and 0 <= nX < 4) and not self.board[x][y]:
                 neighbors.append([nY, nX])
         return neighbors
 
@@ -459,7 +463,7 @@ class player:
             self.max_units += 1
             if self.level >= 5:
                 self.reward += 0.5 * self.level_reward
-                self.print("+0.5 reward for leveling to level {}".format(self.level))
+                self.print("+{} reward for leveling to level {}".format(0.5 * self.level_reward, self.level))
             # Only needed if it's possible to level more than once in one transaction
             self.level_up()
 
@@ -881,12 +885,13 @@ class player:
 
     # print("adding " + champion.name + " to triple_catalog")
 
-    def start_round(self):
-        if not self.combat:
-            self.round += 1
-            self.reward += self.num_units_in_play * self.minion_count_reward
-            self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
-            self.printComp()
+    def start_round(self, t_round):
+        self.round = t_round
+        self.reward += self.num_units_in_play * self.minion_count_reward
+        # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
+        self.gold_income(self.round)
+        self.printComp()
+        self.printBench()
 
     def won_game(self):
         self.reward += 0.0
