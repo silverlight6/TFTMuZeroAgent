@@ -113,7 +113,7 @@ def minion_combat(player, enemy, round):
     round_index = 0
     while round > ROUND_DAMAGE[round_index][0]:
             round_index += 1
-
+            
     index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
     # tie!
     if index_won == 0:
