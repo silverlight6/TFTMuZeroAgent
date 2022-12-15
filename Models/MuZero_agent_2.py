@@ -70,19 +70,23 @@ class MinMaxStats(object):
 
 class Node(object):
 
+    #initialize a new node with given prior probability 
     def __init__(self, prior: float):
         self.visit_count = 0
         self.to_play = 1
         self.prior = prior
         self.value_sum = 0
+        #Initialize empty dictionart to store children nodes
         # 5 because there are 5 separate actions.
         self.children = [{} for _ in range(5)]
         self.hidden_state = None
         self.reward = 0
 
+    #check if the node has been expanded (i.e has children)
     def expanded(self) -> bool:
         return len(self.children[0]) > 0
 
+    #calculate the value of the node as an average of visited nodes.
     def value(self) -> float:
         if self.visit_count == 0:
             return 0
@@ -93,30 +97,34 @@ class Network(tf.Module):
     """
     Base class for all of MuZero neural networks.
     """
-
+    #initialize the network with the given representation, dynamics, and prediction model.
     def __init__(self,
                  representation: tf.keras.Model,
                  dynamics: tf.keras.Model,
                  prediction: tf.keras.Model
                  ) -> None:
         super().__init__(name='MuZeroAgent')
-        self.config = config
+        self.config = config    
         self.representation: tf.keras.Model = representation
         self.dynamics: tf.keras.Model = dynamics
         self.prediction: tf.keras.Model = prediction
         # print(dynamics.summary())
         # print(prediction.summary())
 
+        #create encoders for the value and reward, in order to put them in a form suitable for training.
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
+        #build initial and recurrent inference models.
         self.initial_inference_model: tf.keras.Model = self.build_initial_inference_model()
         self.recurrent_inference_model: tf.keras.Model = self.build_recurrent_inference_model()
 
         self.ckpt_time = time.time_ns()
 
+    #build the initial inference model (used to generate predicitons)
     def build_initial_inference_model(self) -> tf.keras.Model:
+        #define the input tensor 
         observation = tf.keras.Input(shape=config.INPUT_SHAPE, dtype=tf.float32, name='observation')
 
         hidden_state = self.representation(observation)
@@ -127,16 +135,13 @@ class Network(tf.Module):
                               outputs=[hidden_state, value, policy_logits],
                               name='initial_inference')
 
-    def initial_inference(self, observation) -> dict:
-        # self.ckpt_time = time.time_ns()
+    # Apply the initial inference model to the given hidden state
+    def initial_inference(self, observation) -> dict:   
         hidden_state, value_logits, policy_logits = \
             self.initial_inference_model(observation, training=False)
-        # print("initial_inference takes {} time".format(time.time_ns() - self.ckpt_time))
-        # self.ckpt_time = time.time_ns()
         value = self.value_encoder.decode(value_logits)
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
-        # print("initial_inference value / reward takes {} time".format(time.time_ns() - self.ckpt_time))
 
         outputs = {
             "value": value,
@@ -148,6 +153,7 @@ class Network(tf.Module):
         }
         return outputs
 
+    # Build the recurrent inference model (used to generate predictions for subsequent steps)
     def build_recurrent_inference_model(self) -> tf.keras.Model:
         hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='hidden_state')
         # state_space = tf.keras.Input(shape=[1, config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='state_space')
@@ -161,6 +167,7 @@ class Network(tf.Module):
                               outputs=[new_hidden_state, reward, value, policy_logits],
                               name='recurrent_inference')
 
+    # Apply the recurrent inference model to the given hidden state
     def recurrent_inference(self, hidden_state, action) -> dict:
         one_hot_action = tf.Variable(tf.one_hot(action[:, 0], config.ACTION_DIM[0], 1., 0.))
         for i in range(1, len(config.ACTION_DIM)):
@@ -231,8 +238,6 @@ class TFTNetwork(Network):
 
         # Hidden state input. [[1, 256], [1. 256]] Needs both the hidden state and lstm state
         dynamic_hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], name='hidden_state_input')
-        # dynamic_state_space = tf.keras.Input(shape=[config.HIDDEN_STATE_SIZE], name='lstm_state_space')
-        # dynamic_hidden_state = [[dynamic_hidden_state[0]], [dynamic_hidden_state[1]]]
         rnn_state = self.flat_to_lstm_input(dynamic_hidden_state)
 
         # Core of the model
@@ -274,9 +279,31 @@ class TFTNetwork(Network):
                                                                     board_output_x, board_output_y]],
                                                           name='prediction')
 
+
         super().__init__(representation=representation_model,
                          dynamics=dynamics_model,
                          prediction=prediction_model)
+
+        #checkpoints for dynamics
+        self.checkpoint_dyn = tf.train.Checkpoint(self.dynamics)
+        self.dyn_manager = tf.train.CheckpointManager(self.checkpoint_dyn, "./SavedModels/dyn", max_to_keep=10000)
+
+    def save_model(self, episode):
+        #save representation and prediction models 
+        self.representation.save("./SavedModels/rep"+str(episode))
+        self.prediction.save("./SavedModels/pred"+str(episode))
+        
+        #checkpoints for dynamics
+        self.dyn_manager.save(checkpoint_number=episode)
+        print(self.dyn_manager.checkpoints)
+
+        print(self.dyn_manager.checkpoints[0])
+        print(self.dyn_manager.latest_checkpoint)
+
+    def load_model(self, episode):
+       self.representation = tf.keras.models.load_model("./SavedModels/rep"+str(episode))
+       self.prediction = tf.keras.models.load_model("./SavedModels/pred"+str(episode))
+       self.checkpoint_dyn.restore("./SavedModels/dyn\ckpt-"+str(episode))
 
     def get_rl_training_variables(self):
         return self.trainable_variables
@@ -418,7 +445,15 @@ def ucb_score_2(parent_visit_count, child_visit_count, PB_C_BASE, PB_C_INIT, pri
     prior_score = pb_c * prior
     return prior_score
 
-
+#EXPLANATION OF MCTS:
+"""
+1. select leaf node with maximum value using method called UCB1 
+2. expand the leaf node, adding children for each possible action
+3. Update leaf node and ancestor values using the values learnt from the children
+ - values for the children are generated using neural network 
+4. Repeat above steps a given number of times
+5. Select path with highest value
+"""
 class MCTSAgent:
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -437,17 +472,19 @@ class MCTSAgent:
         self.ckpt_time = time.time_ns()
 
     def expand_node(self, node: Node, to_play: int, network_output):
-        ckpt = time.time_ns()
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
 
         input_to_jitfunc = []
-
         # convert dictionary to single list for JIT function by looping through dictionary and
         # converting items to numpy then adding to list
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
+        print(input_to_jitfunc)
+        print("____")
+        print(input_to_jitfunc[0])
+        print("____")
         try:  # if we get an error, just fall back to previous implementation
             policy = expand_node2(input_to_jitfunc,
                                   [12, 10, 9, 7, 4])  # hardcoding in self.action_dim because it changes type randomly.
@@ -481,7 +518,6 @@ class MCTSAgent:
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
-        ckpt = time.time_ns()
         actions = []
         return_child = None
         for act_dim in range(len(self.action_dim)):
@@ -492,9 +528,6 @@ class MCTSAgent:
                 return_child = child
         if actions[0] == 7:
             node.to_play *= -1
-
-        # if np.random.randint(0, 1000) == 500:
-        #     print("select child took {} time".format(time.time_ns() - ckpt))
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on

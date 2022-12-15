@@ -265,6 +265,7 @@ def train_model(max_episodes=10000):
 
     # tf.debugging.set_log_device_placement(True)
     global_agent = TFTNetwork()
+    global_agent.load_model(1)
     # global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
@@ -275,6 +276,7 @@ def train_model(max_episodes=10000):
     agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
     train_step = 0
     for episode_cnt in range(1, max_episodes):
+
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
 
@@ -289,17 +291,11 @@ def train_model(max_episodes=10000):
 
         if episode_cnt % 5 == 0:
             game_round.log_to_file_start()
+            global_agent.save_model(episode_cnt)
         for i in range(game_sim.num_players):
             agents[i] = MCTSAgent(global_agent, agent_id=i)
-        # if episode_cnt % 50 == 0:
-        #     saveModel(agents[0].a3c_net, episode_cnt)
+        
         print("Episode " + str(episode_cnt) + " Completed")
-
-
-def saveModel(agent, epoch):
-    checkpoint_path = "savedWeights/cp-{epoch:04d}.ckpt"
-    agent.save_weights(checkpoint_path.format(epoch=epoch))
-
 
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
 def evaluate(agent):
