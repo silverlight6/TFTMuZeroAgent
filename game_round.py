@@ -424,7 +424,8 @@ class TFT_Simulation:
     # This is also taking in a list of buffers, 1 for each player.
     # TO DO: Add an additional set of buffers at the end for the ending state of each player
     def episode(self, agents, buffer, game_episode=0):
-
+        # Currently Carousel rounds are compressed with the combat round after it in the round counter. this might need to change later.
+        # ROUND 0 AKA 1-1, Carousel + First Minion Combat
         for player in self.PLAYERS:
             if player:
                 # first carousel
@@ -436,7 +437,7 @@ class TFT_Simulation:
                 log_to_file(player)
                 minion.minion_round(player, 0, self.pool_obj)
 
-        # ROUND 1 - Buy phase + Give 1 item component and 1 random 3 cost champion
+        # ROUND 1-2 - Buy phase + Give 1 item component and 1 random 3 cost champion
         for player in self.PLAYERS:
             if player:
                 player.start_round(1)
@@ -449,7 +450,7 @@ class TFT_Simulation:
             if player:
                 minion.minion_round(player, 1, self.pool_obj)
 
-        # Round 2 -  Buy phase + Give 3 gold and 1 random item component
+        # ROUND 1-3 -  Buy phase + Give 3 gold and 1 random item component
         for player in self.PLAYERS:
             if player:
                 player.start_round(2)
@@ -461,8 +462,9 @@ class TFT_Simulation:
             if player:
                 minion.minion_round(player, 2, self.pool_obj)
 
+        # STAGE 2 BEGINS HERE
+        # Round 2-1 to 2-3: 3 Player Combats
         for r in range(3, 6):
-            # Round 3 to 5 - Buy phase + Combat phase
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -475,16 +477,18 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Round 6 - random 3 drop with item + Combat phase
+        # random 3 drop with item
         # (Carousel round)
         for player in self.PLAYERS:
+            # Technically round 2-4 here (carousel)
             ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
             ran_cost_3 = champion.champion(ran_cost_3,
                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
             self.pool_obj.update(ran_cost_3, -1)
             player.add_to_bench(ran_cost_3)
 
-        for r in range(6, 9):
+        # Round 2-5 to 2-6: 2 Player Combats
+        for r in range(6, 8):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -497,11 +501,12 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Game Round - 3 gold plus 3 item components
+        # Round 2-7 Krugs Round - 3 gold plus 3 item components
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 9, self.pool_obj)
-
+                minion.minion_round(player, 8, self.pool_obj)
+        # STAGE 3 BEGINS HERE
+        # Round 3-1 to 3-3: 3 Player Combats
         for r in range(9, 12):
             for player in self.PLAYERS:
                 if player:
@@ -515,7 +520,7 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Another carousel
+        # Another carousel (technically round 3-4)
         for player in self.PLAYERS:
             if player:
                 ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
@@ -524,7 +529,8 @@ class TFT_Simulation:
                 self.pool_obj.update(ran_cost_3, -1)
                 player.add_to_bench(ran_cost_3)
 
-        for r in range(12, 15):
+        # Round 3-4 to 3-5: 2 Player Combats
+        for r in range(12, 14):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -536,11 +542,14 @@ class TFT_Simulation:
             if self.check_dead(agents, buffer, game_episode):
                 return True
             log_to_file_combat()
-        # Wolves round
+        
+        # Round 3-7: Wolves round
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 15, self.pool_obj)
+                minion.minion_round(player, 14, self.pool_obj)
 
+        # STAGE 4 BEGINS HERE
+        # Round 4-1 to 4-3: 3 Player Combats
         for r in range(15, 18):
             for player in self.PLAYERS:
                 if player:
@@ -554,7 +563,7 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Another carousel
+        # Another carousel (Technically round 4-4)
         for player in self.PLAYERS:
             if player:
                 ran_cost_4 = list(pool_stats.COST_4.items())[random.randint(0, len(pool_stats.COST_4) - 1)][0]
@@ -563,7 +572,8 @@ class TFT_Simulation:
                 self.pool_obj.update(ran_cost_4, -1)
                 player.add_to_bench(ran_cost_4)
 
-        for r in range(18, 21):
+        # Round 4-5 to 4-6: 2 Player Combats
+        for r in range(18, 20):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -576,11 +586,13 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Raptors round
+        # Round 4-7: Raptors round
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 21, self.pool_obj)
+                minion.minion_round(player, 20, self.pool_obj)
 
+        # STAGE 5 BEGINS HERE
+        # Round 5-1 to 5-3: 3 Player Combats
         for r in range(21, 24):
             for player in self.PLAYERS:
                 if player:
@@ -594,7 +606,7 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Another carousel
+        # Another carousel (Technically round 5-4)
         for player in self.PLAYERS:
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
@@ -603,8 +615,8 @@ class TFT_Simulation:
                 self.pool_obj.update(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
-        for r in range(24, 27):
-            # Round 3 to 5 - Buy phase + Combat phase
+        # Round 5-5 to 5-6: 2 Player Combats
+        for r in range(24, 26):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -617,11 +629,14 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Dragon Round - 3 gold plus 3 item components
+        # Round 5-7: Dragon Round - 6 gold and a full item
+        # here be dragons
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 27, self.pool_obj)
+                minion.minion_round(player, 26, self.pool_obj)
 
+        # STAGE 6 BEGINS HERE
+        # Round 6-1 to 6-3: 3 Player Combats
         for r in range(27, 30):
             for player in self.PLAYERS:
                 if player:
@@ -635,7 +650,7 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Another carousel
+        # Another carousel (Technically round 6-4)
         for player in self.PLAYERS:
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
@@ -644,7 +659,8 @@ class TFT_Simulation:
                 self.pool_obj.update(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
-        for r in range(30, 33):
+        # Round 6-5 to 6-6: 2 Player Combats
+        for r in range(30, 32):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -657,12 +673,14 @@ class TFT_Simulation:
                 return True
             log_to_file_combat()
 
-        # Rift Herald
+        # Round 6-7: Rift Herald - 6 gold and a full item
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 33, self.pool_obj)
+                minion.minion_round(player, 32, self.pool_obj)
 
-        for r in range(33, 36):
+        # STAGE 7 BEGINS HERE
+        # Round 7-1 to 7-3: 3 Player Combats
+        for r in range(32, 35):
             for player in self.PLAYERS:
                 if player:
                     player.start_round(r)
@@ -673,6 +691,77 @@ class TFT_Simulation:
             self.combat_phase(self.PLAYERS, r)
             if self.check_dead(agents, buffer, game_episode):
                 return True
+
+        # Another carousel (Technically round 7-4)
+        for player in self.PLAYERS:
+            if player:
+                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
+                item_list = list(full_items.keys())
+                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
+                self.pool_obj.update(ran_cost_5, -1)
+                player.add_to_bench(ran_cost_5)
+
+        # Round 7-5 to 7-6: 2 Player Combats
+        for r in range(35, 37):
+            for player in self.PLAYERS:
+                if player:
+                    player.start_round(r)
+                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
+                    log_to_file(player)
+            log_end_turn(r)
+
+            self.combat_phase(self.PLAYERS, r)
+            if self.check_dead(agents, buffer, game_episode):
+                return True
+            log_to_file_combat()
+
+        # Round 7-7: Another Rift Herald (long game)
+        for player in self.PLAYERS:
+            if player:
+                minion.minion_round(player, 37, self.pool_obj)
+
+        # STAGE 8 BEGINS HERE
+        # this should rarely/never happen, but just in case
+        # Round 8-1 to 8-3: 3 Player Combats
+        for r in range(38, 41):
+            for player in self.PLAYERS:
+                if player:
+                    player.start_round(r)
+                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
+                    log_to_file(player)
+            log_end_turn(r)
+
+            self.combat_phase(self.PLAYERS, r)
+            if self.check_dead(agents, buffer, game_episode):
+                return True
+
+        # Another carousel (Technically round 8-4)
+        for player in self.PLAYERS:
+            if player:
+                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
+                item_list = list(full_items.keys())
+                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
+                self.pool_obj.update(ran_cost_5, -1)
+                player.add_to_bench(ran_cost_5)
+
+        # Round 8-5 to 8-6: 2 Player Combats
+        for r in range(41, 43):
+            for player in self.PLAYERS:
+                if player:
+                    player.start_round(r)
+                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
+                    log_to_file(player)
+            log_end_turn(r)
+
+            self.combat_phase(self.PLAYERS, r)
+            if self.check_dead(agents, buffer, game_episode):
+                return True
+            log_to_file_combat()
+
+        # Round 8-7: The final Rift Herald
+        for player in self.PLAYERS:
+            if player:
+                minion.minion_round(player, 43, self.pool_obj)
 
         print("Game has gone on way too long. There has to be a bug somewhere")
         for player in self.PLAYERS:

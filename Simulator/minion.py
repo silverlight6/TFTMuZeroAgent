@@ -65,25 +65,25 @@ def minion_round(player, round, pool_obj):
         player.gold += 3
 
     # 3 Krugs - give 3 gold and 3 item components
-    elif round == 9:
+    elif round == 8:
         player.gold += 3
         for _ in range(0, 3):
             player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
     # 1 Greater Murk Wolf and 4 Murk Wolves - give 3 gold and 3 item components
-    elif round == 15:
+    elif round == 14:
         player.gold += 3
         for _ in range(0, 3):
             player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
     # 1 Crimson Raptor and 4 Raptors - give 6 gold and 4 item components
-    elif round == 21:
+    elif round == 20:
         player.gold += 6
         for _ in range(0, 4):
             player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
 
     # 1 Nexus Minion - give 6 gold and a full item
-    elif round == 27:
+    elif round == 26:
         player.gold += 6
         player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
 
@@ -113,7 +113,7 @@ def minion_combat(player, enemy, round):
     round_index = 0
     while round > ROUND_DAMAGE[round_index][0]:
             round_index += 1
-            
+
     index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
     # tie!
     if index_won == 0:
