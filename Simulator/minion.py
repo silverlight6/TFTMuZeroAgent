@@ -10,6 +10,7 @@ item_list = list(full_items.keys())
 # add representations of minions (Melees, Ranges, Krugs, Wolves, Raptors, Nexus, and Herald)
 # add combat between player and minions
 # add check for champion existing in the pool before being removed
+# add minion stats for all minions to stats sheet (Melee, Ranged, Krugs, Wolves, Raptors, Nexus, Herald)
 
 # Objects representing board configs for each minion round
 # These should function similar to player objects except simplified for minion combat
