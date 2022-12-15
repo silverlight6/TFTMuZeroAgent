@@ -117,14 +117,12 @@ def minion_combat(player, enemy, round):
     index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
     # tie!
     if index_won == 0:
-        player.loss_round(round)
         player.health -= damage
     # player wins!
     if index_won == 1:
-        player.won_round(round)
+        pass
     # minions win! (yikes)
     if index_won == 2:
-        player.loss_round(round)
         player.health -= damage
     
 
