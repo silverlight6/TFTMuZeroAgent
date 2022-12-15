@@ -425,7 +425,7 @@ class TFT_Simulation:
     # TO DO: Add an additional set of buffers at the end for the ending state of each player
     def episode(self, agents, buffer, game_episode=0):
         # Currently Carousel rounds are compressed with the combat round after it in the round counter. this might need to change later.
-        # ROUND 0 AKA 1-1, Carousel + First Minion Combat
+        # ROUND 0 AKA 1-1/1-2, Carousel + First Minion Combat
         for player in self.PLAYERS:
             if player:
                 # first carousel
@@ -437,7 +437,7 @@ class TFT_Simulation:
                 log_to_file(player)
                 minion.minion_round(player, 0, self.pool_obj)
 
-        # ROUND 1-2 - Buy phase + Give 1 item component and 1 random 3 cost champion
+        # ROUND 1-3 - Buy phase + Give 1 item component and 1 random 3 cost champion
         for player in self.PLAYERS:
             if player:
                 player.start_round(1)
@@ -450,7 +450,7 @@ class TFT_Simulation:
             if player:
                 minion.minion_round(player, 1, self.pool_obj)
 
-        # ROUND 1-3 -  Buy phase + Give 3 gold and 1 random item component
+        # ROUND 1-4 -  Buy phase + Give 3 gold and 1 random item component
         for player in self.PLAYERS:
             if player:
                 player.start_round(2)
