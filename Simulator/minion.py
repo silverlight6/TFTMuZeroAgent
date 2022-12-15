@@ -9,6 +9,7 @@ item_list = list(full_items.keys())
 # add randomness to drops
 # add representations of minions (Melees, Ranges, Krugs, Wolves, Raptors, Nexus, and Herald)
 # add combat between player and minions
+# add check for champion existing in the pool before being removed
 
 # Objects representing board configs for each minion round
 # These should function similar to player objects except simplified for minion combat
@@ -23,6 +24,7 @@ class FirstMinion(Minion):
     def __init__(self):
         super().__init__(self)
         self.board[1][1] = champion('meleeminion', 1, 1, 1, None, None, None, False)
+        self.board[5][1] = champion('meleeminion', 5, 1, 1, None, None, None, False)
 class SecondMinion(Minion):
     def __init__(self):
         super().__init__(self)
