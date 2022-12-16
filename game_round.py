@@ -1,6 +1,7 @@
 import config
 import AI_interface
 import random
+import numpy as np
 from Simulator import champion, pool, pool_stats
 from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
 from Simulator.player import player as player_class
@@ -31,6 +32,9 @@ class TFT_Simulation:
         self.previous_reward = [0 for _ in range(self.num_players)]
         log_to_file_start()
 
+    # Archived way to calculate reward
+    # Now done in a simpler way by giving a positive reward to the winner and a negative of equal amount to the loser
+    # of each fight
     def calculate_reward(self, player, previous_reward):
         self.player_rewards[player.player_num] = player.reward - previous_reward
         average = 0
@@ -76,18 +80,18 @@ class TFT_Simulation:
                     index_won, damage = champion.run(champion.champion, players[num], players[player_index],
                                                      self.ROUND_DAMAGE[round_index][1])
                     if index_won == 0:
-                        players[num].loss_round(player_round)
+                        players[num].loss_round(damage)
                         players[num].health -= damage
-                        players[player_index].loss_round(player_round)
+                        players[player_index].loss_round(damage)
                         players[player_index].health -= damage
                     if index_won == 1:
-                        players[num].won_round(player_round)
-                        players[player_index].loss_round(player_round)
+                        players[num].won_round(damage)
+                        players[player_index].loss_round(damage)
                         players[player_index].health -= damage
                     if index_won == 2:
-                        players[num].loss_round(player_round)
+                        players[num].loss_round(damage)
                         players[num].health -= damage
-                        players[player_index].won_round(player_round)
+                        players[player_index].won_round(damage)
                     players[player_index].combat = True
                     players[num].combat = True
 
@@ -117,17 +121,16 @@ class TFT_Simulation:
 
     def check_dead(self, agents, buffers, game_episode):
         num_alive = 0
+        game_observation = AI_interface.Observation()
         for i, player in enumerate(self.PLAYERS):
             if player:
                 if player.health <= 0:
 
                     # This won't take into account how much health the most recent
                     # dead had if multiple players die at once
-                    # But this should be good enough for now.
-                    # Get action from the policy network
-                    shop = self.pool_obj.sample(player, 5)
                     # Take an observation
-                    observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
+                    observation, _ = game_observation.observation(player, buffers[player.player_num],
+                                                                  [1, 0, 0, 0, 0, 0, 0, 0])
                     action, logits = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward of -0.5 for losing the game
@@ -148,7 +151,8 @@ class TFT_Simulation:
                     self.pool_obj.return_hero(player)
                     shop = self.pool_obj.sample(player, 5)
                     # Take an observation
-                    observation, _ = AI_interface.observation(shop, player, buffers[player.player_num])
+                    observation, _ = game_observation.observation(player, buffers[player.player_num],
+                                                                  [1, 0, 0, 0, 0, 0, 0, 0])
                     action, logits = agents[player.player_num].policy(observation, player.player_num)
 
                     # Get reward 1 for winning the game
@@ -174,16 +178,22 @@ class TFT_Simulation:
         shop = self.pool_obj.sample(player, 5)
         step_done = False
         actions_taken = 0
+        game_observation = AI_interface.Observation()
+        game_observation.generate_game_comps_vector()
+        game_observation.generate_shop_vector(shop)
         # step_counter = 0
         while not step_done:
+            action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
             # Take an observation
-            observation, game_state_vector = AI_interface.observation(shop, player, buffer)
+            observation, game_state_vector = game_observation.observation(player, buffer, action_vector)
             # Get action from the policy network
             action, policy = agent.policy(observation, player.player_num)
             # Take a step
-            shop, step_done, success = AI_interface.step(action, player, shop, self.pool_obj)
+            shop, step_done, success, time_taken = AI_interface.multi_step(action, player, shop, self.pool_obj,
+                                                                           game_observation, agent, buffer)
 
-            # Get reward
+            # Get reward - This is always 0 with our current reward structure
+            # Leaving it here in case we change our reward structure
             # reward = self.calculate_reward(player, previous_reward)
             reward = player.reward - self.previous_reward[player.player_num]
 
@@ -198,8 +208,8 @@ class TFT_Simulation:
                 buffer.store_observation(game_state_vector)
 
             self.previous_reward[player.player_num] = player.reward
-            actions_taken += 1
-            if actions_taken >= 40:
+            actions_taken += time_taken
+            if actions_taken >= 60:
                 step_done = True
         player.print(str(actions_taken) + " actions taken this turn")
         # step_counter += 1

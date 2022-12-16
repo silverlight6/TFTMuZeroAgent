@@ -470,12 +470,12 @@ class player:
         if self.level == self.max_level:
             self.exp = 0
 
-    def loss_round(self, game_round):
+    def loss_round(self, damage):
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.02 * game_round
-            self.print(str(-0.02 * game_round) + " reward for losing round")
+            self.reward -= 0.02 * damage
+            self.print(str(-0.02 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -554,6 +554,30 @@ class player:
                 self.reward += self.mistake_reward
                 return False
 
+    def move_board_to_board(self, x1, y1, x2, y2):
+        if self.board[x1][y1] and self.board[x2][y2]:
+            temp_champ = self.board[x2][y2]
+            self.board[x2][y2] = self.board[x1][y1]
+            self.board[x1][y1] = temp_champ
+            self.board[x1][y1].x = x1
+            self.board[x1][y1].y = y1
+            self.board[x2][y2].x = x2
+            self.board[x2][y2].y = y2
+            self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
+                       .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
+            self.generate_board_vector()
+            return True
+        elif self.board[x1][y1]:
+            self.board[x2][y2] = self.board[x1][y1]
+            self.board[x1][y1] = None
+            self.board[x2][y2].x = x2
+            self.board[x2][y2].y = y2
+            self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
+            self.generate_board_vector()
+            return True
+        else:
+            self.reward += self.mistake_reward
+            return False
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
     def move_item_to_bench(self, xBench, x):
@@ -892,18 +916,19 @@ class player:
         self.gold_income(self.round)
         self.printComp()
         self.printBench()
+        self.generate_player_vector()
 
     def won_game(self):
         self.reward += 0.0
         self.print("+0 reward for winning game")
 
-    def won_round(self, game_round):
+    def won_round(self, damage):
         if not self.combat:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0.02 * game_round
-            self.print(str(0.02 * game_round) + " reward for winning round")
+            self.reward += 0.02 * damage
+            self.print(str(0.02 * damage) + " reward for winning round")
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
