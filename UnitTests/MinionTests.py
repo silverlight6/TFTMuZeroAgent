@@ -19,7 +19,13 @@ def round0Test():
         p1.buy_champion(champion("zilean"))
     
     minion.minion_round(p1, 0, p1.pool_obj)
-    assert len(p1.item_bench) != 0, "I didn't get any items from the PVE round!"
+    assert not emptyBench(p1.item_bench), "I didn't get any items from the PVE round!"
+
+def emptyBench(item_bench):
+    for i in item_bench:
+        if i is not None:
+            return False
+    return True
 
 def list_of_tests():
     round0Test()
