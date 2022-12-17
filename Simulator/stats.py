@@ -594,6 +594,16 @@ COST = {
     'galio': 0,
     'aphelios_turret': 0,
     'sandguard': 0,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 0,
+    'wolf': 0,
+    'lesserwolf': 0,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 0,
+    'riftherald': 0,
 }
 
 SECONDARY_MAXMANA = {

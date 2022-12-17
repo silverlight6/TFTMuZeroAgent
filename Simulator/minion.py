@@ -20,64 +20,64 @@ class Minion:
         self.bench = [None for _ in range(9)]
         # Champion array, this is a 7 by 4 array.
         self.board = [[None for _ in range(4)] for _ in range(7)]
-        # List of items, there is no object for this so this is a string array
-# need to verify these minion placements
+
+        self.reward = None
 class FirstMinion(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[2][1] = champion('meleeminion')
-        self.board[5][1] = champion('meleeminion')
+        super().__init__()
+        self.board[2][1] = champion.champion('meleeminion')
+        self.board[5][1] = champion.champion('meleeminion')
 class SecondMinion(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[4][2] = champion('meleeminion')
-        self.board[1][2] = champion('meleeminion')
-        self.board[5][1] = champion('rangedminion')
+        super().__init__()
+        self.board[4][2] = champion.champion('meleeminion')
+        self.board[1][2] = champion.champion('meleeminion')
+        self.board[5][1] = champion.champion('rangedminion')
 
 class ThirdMinion(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[4][2] = champion('meleeminion')
-        self.board[1][2] = champion('meleeminion')
-        self.board[5][1] = champion('rangedminion')
-        self.board[1][1] = champion('rangedminion')
+        super().__init__()
+        self.board[4][2] = champion.champion('meleeminion')
+        self.board[1][2] = champion.champion('meleeminion')
+        self.board[5][1] = champion.champion('rangedminion')
+        self.board[1][1] = champion.champion('rangedminion')
 class Krug(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[1][3] = champion('krug')
-        self.board[6][3] = champion('krug')
-        self.board[5][1] = champion('krug')
+        super().__init__()
+        self.board[1][3] = champion.champion('krug')
+        self.board[6][3] = champion.champion('krug')
+        self.board[5][1] = champion.champion('krug')
 class Wolf(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[1][0] = champion('lesserwolf')
-        self.board[2][0] = champion('lesserwolf')
-        self.board[4][0] = champion('lesserwolf')
-        self.board[5][0] = champion('lesserwolf')
-        self.board[3][2] = champion('wolf')
+        super().__init__()
+        self.board[1][0] = champion.champion('lesserwolf')
+        self.board[2][0] = champion.champion('lesserwolf')
+        self.board[4][0] = champion.champion('lesserwolf')
+        self.board[5][0] = champion.champion('lesserwolf')
+        self.board[3][2] = champion.champion('wolf')
 class Raptor(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[3][0] = champion('crimsonraptor')
-        self.board[2][1] = champion('raptor')
-        self.board[1][2] = champion('raptor')
-        self.board[5][1] = champion('raptor')
-        self.board[5][2] = champion('raptor')
+        super().__init__()
+        self.board[3][0] = champion.champion('crimsonraptor')
+        self.board[2][1] = champion.champion('raptor')
+        self.board[1][2] = champion.champion('raptor')
+        self.board[5][1] = champion.champion('raptor')
+        self.board[5][2] = champion.champion('raptor')
 class Nexus(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[3][1] = champion('nexusminion')
+        super().__init__()
+        self.board[3][1] = champion.champion('nexusminion')
 class Herald(Minion):
     def __init__(self):
-        super().__init__(self)
-        self.board[3][1] = champion('riftherald')
+        super().__init__()
+        self.board[3][1] = champion.champion('riftherald')
 
 def minion_round(player, round, pool_obj):
  # simulate minion round here
     # 2 melee minions - give 1 item component
     if round == 0:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-        # minion_combat(player, FirstMinion(), 0)
+        minion_combat(player, FirstMinion(), 0)
 
     # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
     elif round == 1:
@@ -137,7 +137,6 @@ def minion_combat(player, enemy, round):
         ]
     config.WARLORD_WINS['red'] = player.win_streak
     player.end_turn_actions()
-    player.start_round()
 
     round_index = 0
     while round > ROUND_DAMAGE[round_index][0]:
