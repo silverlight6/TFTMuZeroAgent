@@ -115,7 +115,6 @@ def minion_round(player, round, pool_obj):
 
 # modeled after combat_phase from game_round.py, except with a minion "player" versus the player
 def minion_combat(player, enemy, round):
-    # "calculate the damage directly and only apply the items given if they win the corresponding round"
     ROUND_DAMAGE = [
             [3, 0],
             [9, 2],
