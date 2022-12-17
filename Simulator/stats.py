@@ -61,6 +61,16 @@ AD = {
     'construct': 100,
     'galio': [0, 75, 160, 280],
     'sandguard': 0,
+
+    'meleeminion': 20,
+    'rangedminion': 40,
+    'krug': 110,
+    'wolf': 150,
+    'lesserwolf': 120,
+    'crimsonraptor': 200,
+    'raptor': 150,
+    'nexusminion': 400,
+    'riftherald': 600 
 }
 
 AS = {
@@ -127,6 +137,16 @@ AS = {
     'galio': 0.65,
     'aphelios_turret': 0,
     'sandguard': 1,
+
+    'meleeminion': 0.8,
+    'rangedminion': 0.8,
+    'krug': 0.8,
+    'wolf': 1.0,
+    'lesserwolf': 1.00,
+    'crimsonraptor': 0.8,
+    'raptor': 0.8,
+    'nexusminion': 1.00,
+    'riftherald': 1.00 
 }
 
 HEALTH = {
@@ -192,6 +212,16 @@ HEALTH = {
     'construct': [0, 1500, 2500, 3000, 5000],
     'galio': [0, 800, 1400, 2000],
     'sandguard': 950,
+
+    'meleeminion': 250,
+    'rangedminion': 150,
+    'krug': 1200,
+    'wolf': 960,
+    'lesserwolf': 360,
+    'crimsonraptor': 2400,
+    'raptor': 1450,
+    'nexusminion': 6000,
+    'riftherald': 10000
 }
 
 ARMOR = {
@@ -258,6 +288,16 @@ ARMOR = {
     'galio': 40,
     'aphelios_turret': 0,
     'sandguard': 50,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 50,
+    'wolf': 25,
+    'lesserwolf': 25,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 100,
+    'riftherald': 50
 }
 
 MR = {
@@ -324,6 +364,16 @@ MR = {
     'galio': 40,
     'aphelios_turret': 0,
     'sandguard': 50,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 25,
+    'wolf': 0,
+    'lesserwolf': 0,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 100,
+    'riftherald': 0
 }
 
 MANA = {
@@ -390,6 +440,16 @@ MANA = {
     'galio': 75,
     'aphelios_turret': 0,
     'sandguard': 0,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 0,
+    'wolf': 0,
+    'lesserwolf': 0,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 0,
+    'riftherald': 0,
 }
 
 MAXMANA = {
@@ -456,6 +516,16 @@ MAXMANA = {
     'galio': 150,
     'aphelios_turret': 0,
     'sandguard': 0,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 0,
+    'wolf': 0,
+    'lesserwolf': 0,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 0,
+    'riftherald': 0
 }
 
 COST = {
@@ -594,6 +664,16 @@ ABILITY_REQUIRES_TARGET = {
     'galio': False,
     'aphelios_turret': False,
     'sandguard': False,
+
+    'meleeminion': False,
+    'rangedminion': False,
+    'krug': False,
+    'wolf': False,
+    'lesserwolf': False,
+    'crimsonraptor': False,
+    'raptor': False,
+    'nexusminion': False,
+    'riftherald': False,
 }
 
 ABILITY_WHILE_DISARMED = {
@@ -660,6 +740,16 @@ ABILITY_WHILE_DISARMED = {
     'galio': True,
     'aphelios_turret': False,
     'sandguard': False,
+
+    'meleeminion': False,
+    'rangedminion': False,
+    'krug': False,
+    'wolf': False,
+    'lesserwolf': False,
+    'crimsonraptor': False,
+    'raptor': False,
+    'nexusminion': False,
+    'riftherald': False,
 }
 
 RANGE = {
@@ -726,6 +816,16 @@ RANGE = {
     'galio': 1,
     'aphelios_turret': 99,
     'sandguard': 0,
+
+    'meleeminion': 1,
+    'rangedminion': 1,
+    'krug': 1,
+    'wolf': 1,
+    'lesserwolf': 1,
+    'crimsonraptor': 1,
+    'raptor': 1,
+    'nexusminion': 1,
+    'riftherald': 1,
 }
 
 SHIELD_LENGTH = {
@@ -827,6 +927,16 @@ MANALOCK = {
     'galio': 1000 + ABILITY_LENGTH['galio'],
     'aphelios_turret': 0,
     'sandguard': 0,
+
+    'meleeminion': 0,
+    'rangedminion': 0,
+    'krug': 0,
+    'wolf': 0,
+    'lesserwolf': 0,
+    'crimsonraptor': 0,
+    'raptor': 0,
+    'nexusminion': 0,
+    'riftherald': 0,
 } # in milliseconds
 
 

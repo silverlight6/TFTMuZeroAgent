@@ -77,6 +77,7 @@ def minion_round(player, round, pool_obj):
     # 2 melee minions - give 1 item component
     if round == 0:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+        # minion_combat(player, FirstMinion(), 0)
 
     # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
     elif round == 1:
