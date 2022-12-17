@@ -11,7 +11,7 @@ def setup() -> player:
     base_pool = pool()
     player1 = player(base_pool, 0)
     return player1
-    
+
 # Check health calculation from minion combat
 def combatTest():
     p1 = setup()
@@ -24,15 +24,18 @@ def combatTest():
 # test if each round is dropping rewards for the player
 def rewardsTest():
     p1 = setup()
-    # add 3* zilean to board for combat
+    # add 3* zilean and yone to board for combat
     p1.board[0][0] = champion("zilean", None, 0, 0, 3, None, None, None, False)
+    p1.board[0][1] = champion("yone", None, 0, 0, 3, None, None, None, False)
 
     # PVE rounds can drop champions, gold, or items, but not nothing
     for r in rounds:
         p1.gold = 0
         p1.bench = [None for _ in range(10)]
         p1.item_bench = [None for _ in range(10)]
+        
         minion.minion_round(p1, r, p1.pool_obj)
+
         assert not emptyList(p1.item_bench) \
             or not emptyList(p1.bench) \
             or not p1.gold == 0, "I didn't get anything from the PVE round!"
