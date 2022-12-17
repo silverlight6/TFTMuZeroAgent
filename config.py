@@ -39,19 +39,18 @@ ROOT_DIRICHLET_ALPHA = 0.03
 ROOT_EXPLORATION_FRACTION = 0.25
 MINIMUM_REWARD = -1
 MAXIMUM_REWARD = 1
-NUM_SIMULATIONS = 10
 NUM_PLAYERS = 3
+NUM_SIMULATIONS = 25
 PB_C_BASE = 19652
 PB_C_INIT = 1.25
 DISCOUNT = 0.997
 TRAINING_STEPS = 1e10
-OBSERVATION_SHAPE = np.array([1, 1382])
 CORE_LSTM_LAYERS = 2
 UNROLL_STEPS = 16
 SAMPLES_PER_PLAYER = 32
-INPUT_SHAPE = np.array([6910])
-ACTION_CONCAT_SIZE = 42
-ACTION_DIM = [12, 10, 9, 7, 4]
+INPUT_SHAPE = np.array([1390])
+ACTION_CONCAT_SIZE = 10
+ACTION_DIM = 10
 
 
 #### TRAINING ####
@@ -64,7 +63,6 @@ POLICY_LOSS_SCALING = 1
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
 # I'll add a mathematical way of generating these numbers later.
-POLICY_SUB_FACTOR = [.8, .05, .05, .05, .05]
 DEBUG = True
 
 #### TESTING ####

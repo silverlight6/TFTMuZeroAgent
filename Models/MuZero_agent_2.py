@@ -78,13 +78,13 @@ class Node(object):
         self.value_sum = 0
         #Initialize empty dictionart to store children nodes
         # 5 because there are 5 separate actions.
-        self.children = [{} for _ in range(5)]
+        self.children = {}
         self.hidden_state = None
         self.reward = 0
 
     #check if the node has been expanded (i.e has children)
     def expanded(self) -> bool:
-        return len(self.children[0]) > 0
+        return len(self.children) > 0
 
     #calculate the value of the node as an average of visited nodes.
     def value(self) -> float:
@@ -169,10 +169,7 @@ class Network(tf.Module):
 
     # Apply the recurrent inference model to the given hidden state
     def recurrent_inference(self, hidden_state, action) -> dict:
-        one_hot_action = tf.Variable(tf.one_hot(action[:, 0], config.ACTION_DIM[0], 1., 0.))
-        for i in range(1, len(config.ACTION_DIM)):
-            one_hot_action = tf.concat([one_hot_action, tf.one_hot(action[:, i], config.ACTION_DIM[i], 1., 0.)],
-                                       axis=-1)
+        one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
 
         hidden_state, reward_logits, value_logits, policy_logits = \
             self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
@@ -267,16 +264,10 @@ class TFTNetwork(Network):
         x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
         value_output = tf.keras.layers.Softmax()(x)
-        shop_output = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='softmax', name='shop_layer')(x)
-        item_output = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='softmax', name='item_layer')(x)
-        bench_output = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='softmax', name='bench_layer')(x)
-        board_output_x = tf.keras.layers.Dense(config.ACTION_DIM[3], activation='softmax', name='board_x_layer')(x)
-        board_output_y = tf.keras.layers.Dense(config.ACTION_DIM[4], activation='softmax', name='board_y_layer')(x)
+        policy_output = tf.keras.layers.Dense(config.ACTION_DIM, activation='softmax', name='shop_layer')(x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
-                                                          outputs=[value_output,
-                                                                   [shop_output, item_output, bench_output,
-                                                                    board_output_x, board_output_y]],
+                                                          outputs=[value_output, policy_output],
                                                           name='prediction')
 
 
@@ -329,7 +320,6 @@ class Mlp(tf.Module):
 
 class ActionHistory(object):
     """Simple history container used inside the search.
-
   Only used to keep track of the actions executed.
   """
 
@@ -416,16 +406,14 @@ def contractive_mapping(x, eps=0.001):
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return tf.math.sign(x) * (
-            tf.math.square(
-                (tf.sqrt(4 * eps *
-                         (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+    return tf.math.sign(x) * \
+           (tf.math.square((tf.sqrt(4 * eps * (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 
 ##### JITTED FUNCTIONS #######
+# This function uses the GPU or converts the python to C making it 33-10 times faster
 @jit(target_backend='cuda', nopython=True)
-def expand_node2(network_output,
-                 action_dim):  # This function uses the GPU or converts the python to C making it 33-10 times faster
+def expand_node2(network_output, action_dim):
     policy = []
     for i, action_dim in enumerate(action_dim):
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
@@ -465,7 +453,7 @@ class MCTSAgent:
         self.game_pos = 0 #position in current game, higher is better
 
         # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
-        self.action_dim = [12, 10, 9, 7, 4]
+        self.action_dim = 10
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
 
@@ -475,17 +463,18 @@ class MCTSAgent:
         node.reward = network_output["reward"]
 
         input_to_jitfunc = []
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
+        policy_probs = [network_output["policy_logits"].numpy()]
+
         # convert dictionary to single list for JIT function by looping through dictionary and
         # converting items to numpy then adding to list
-        for i in network_output["policy_logits"]:
-            input_to_jitfunc.append(i.numpy())
+        # self.action_dim hardcoded because it changes type randomly.
         try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(input_to_jitfunc,
-                                  [12, 10, 9, 7, 4])  # hardcoding in self.action_dim because it changes type randomly.
-            for i, action_dim in enumerate(policy):
-                policy_sum = sum(action_dim.values())
-                for action, p in action_dim.items():
-                    node.children[i][action] = Node(p / policy_sum)
+            policy = expand_node2(policy_probs, [10])
+            # This policy sum is not in the Google's implementation. Not sure if required.
+            policy_sum = sum(policy[0].values())
+            for action, p in policy[0].items():
+                node.children[action] = Node(p / policy_sum)
         except:
             print("error - reverting to old function")
             self.expand_node_old(node, network_output)
@@ -494,34 +483,28 @@ class MCTSAgent:
         # print("expand_node took {} time".format(time.time_ns() - ckpt))
 
     def expand_node_old(self, node: Node, network_output):  # old version of expand_node for a failsafe
-        policy = []
-        for i, action_dim in enumerate(self.action_dim):
-            policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
-        for i, action_dim in enumerate(policy):
-            policy_sum = sum(action_dim.values())
-            for action, p in action_dim.items():
-                node.children[i][action] = Node(p / policy_sum)
+        policy = {b: math.exp(network_output["policy_logits"][0][b]) for b in range(self.action_dim)}
+        policy_sum = sum(policy.values())
+        for action, p in policy.items():
+            node.children[action] = Node(p / policy_sum)
 
     def add_exploration_noise(self, node: Node):
-        for act_dim in range(len(self.action_dim)):
-            actions = list(node.children[act_dim].keys())
-            noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
-            frac = config.ROOT_EXPLORATION_FRACTION
-            for a, n in zip(actions, noise):
-                node.children[act_dim][a].prior = node.children[act_dim][a].prior * (1 - frac) + n * frac
+        actions = list(node.children.keys())
+        noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
+        frac = config.ROOT_EXPLORATION_FRACTION
+        for a, n in zip(actions, noise):
+            node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
         actions = []
-        return_child = None
-        for act_dim in range(len(self.action_dim)):
-            _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
-                                    child) for action, child in node.children[act_dim].items())
-            actions.append(action)
-            if act_dim == 0:
-                return_child = child
-        if actions[0] == 7:
-            node.to_play *= -1
+        _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
+                                child) for action, child in node.children.items())
+        actions.append(action)
+        return_child = child
+
+        # if np.random.randint(0, 1000) == 500:
+        #     print("select child took {} time".format(time.time_ns() - ckpt))
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
@@ -562,7 +545,6 @@ class MCTSAgent:
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
-            self.ckpt_time = time.time_ns()
             while node.expanded():
                 action, node = self.select_child(node, min_max_stats)
                 history.add_action(action)
@@ -574,22 +556,18 @@ class MCTSAgent:
             # print("mcts child select takes {} time".format(time.time_ns() - self.ckpt_time))
 
             network_output = self.network. \
-                recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
-            self.ckpt_time = time.time_ns()
+                recurrent_inference(parent.hidden_state, np.asarray(history.last_action()))
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
             # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
             # print("mcts expand/backprop takes {} time".format(time.time_ns() - self.ckpt_time))
 
     def select_action(self, node: Node):
-        action = []
-        for act_dim in range(len(self.action_dim)):
-            visit_counts = [
-                (child.visit_count, action) for action, child in node.children[act_dim].items()
-            ]
-            t = self.visit_softmax_temperature()
-            action.append(self.histogram_sample(visit_counts, t, use_softmax=False))
-        return action
+        visit_counts = [
+            (child.visit_count, action) for action, child in node.children.items()
+        ]
+        t = self.visit_softmax_temperature()
+        return self.histogram_sample(visit_counts, t, use_softmax=False)
 
     def policy(self, observation, player_num):
         root = Node(0)
@@ -598,18 +576,10 @@ class MCTSAgent:
         self.expand_node(root, player_num, network_output)
         self.add_exploration_noise(root)
 
-        initial_action = [
-            np.argmax(network_output["policy_logits"][0].numpy()),
-            np.argmax(network_output["policy_logits"][1].numpy()),
-            np.argmax(network_output["policy_logits"][2].numpy()),
-            np.argmax(network_output["policy_logits"][3].numpy()),
-            np.argmax(network_output["policy_logits"][4].numpy())
-        ]
-
-        self.run_mcts(root, initial_action, player_num)
+        self.run_mcts(root, network_output["policy_logits"].numpy(), player_num)
 
         self.ckpt_time = time.time_ns()
-        action = self.select_action(root)
+        action = int(self.select_action(root))
         # print("selecting actions takes {} time".format(time.time_ns() - self.ckpt_time))
 
         # Masking only if training is based on the actions taken in the environment.

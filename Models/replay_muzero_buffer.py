@@ -20,7 +20,7 @@ class ReplayBuffer:
         # commenting out because MuZero supports a wide range of rewards, not just -1 to 1
         # reward = np.clip(reward, -1.0, 1.0)
         self.gameplay_experiences.append(observation)
-        self.action_history.append(action)
+        self.action_history.append(int(action))
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
 
@@ -38,7 +38,7 @@ class ReplayBuffer:
         # Hard coding this because the need to know this value before any observation are
         # Generated in the case of no successful actions completed yet in the game which
         # Is very likely at the start of the game.
-        return config.OBSERVATION_SHAPE
+        return config.INPUT_SHAPE
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
@@ -75,7 +75,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0, 0, 0])
+                            action_set.append([0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -85,7 +85,7 @@ class ReplayBuffer:
                         reward_set.append(self.rewards[current_index])
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
-                        action_set.append([7, 0, 0, 0, 0])
+                        action_set.append(9)
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
@@ -98,7 +98,7 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[0])
                     else:
                         # States past the end of games is treated as absorbing states.
-                        action_set.append([0, 0, 0, 0, 0])
+                        action_set.append(0)
                         value_mask_set.append(1.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)

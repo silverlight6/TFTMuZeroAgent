@@ -101,6 +101,10 @@ class player:
 
         self.start_time = time.time_ns()
 
+        # Putting this here to show the next possible opponent
+        self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
+        self.possible_opponents[self.player_num] = -1
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
@@ -242,7 +246,7 @@ class player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (nY >= 0 and nY < 7 and nX >= 0 and nX < 4) and not self.board[x][y]:
+            if (0 <= nY < 7 and 0 <= nX < 4) and not self.board[x][y]:
                 neighbors.append([nY, nX])
         return neighbors
 
@@ -459,19 +463,19 @@ class player:
             self.max_units += 1
             if self.level >= 5:
                 self.reward += 0.5 * self.level_reward
-                self.print("+0.5 reward for leveling to level {}".format(self.level))
+                self.print("+{} reward for leveling to level {}".format(0.5 * self.level_reward, self.level))
             # Only needed if it's possible to level more than once in one transaction
             self.level_up()
 
         if self.level == self.max_level:
             self.exp = 0
 
-    def loss_round(self, game_round):
+    def loss_round(self, damage):
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.02 * game_round
-            self.print(str(-0.02 * game_round) + " reward for losing round")
+            self.reward -= 0.02 * damage
+            self.print(str(-0.02 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -550,6 +554,30 @@ class player:
                 self.reward += self.mistake_reward
                 return False
 
+    def move_board_to_board(self, x1, y1, x2, y2):
+        if self.board[x1][y1] and self.board[x2][y2]:
+            temp_champ = self.board[x2][y2]
+            self.board[x2][y2] = self.board[x1][y1]
+            self.board[x1][y1] = temp_champ
+            self.board[x1][y1].x = x1
+            self.board[x1][y1].y = y1
+            self.board[x2][y2].x = x2
+            self.board[x2][y2].y = y2
+            self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
+                       .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
+            self.generate_board_vector()
+            return True
+        elif self.board[x1][y1]:
+            self.board[x2][y2] = self.board[x1][y1]
+            self.board[x1][y1] = None
+            self.board[x2][y2].x = x2
+            self.board[x2][y2].y = y2
+            self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
+            self.generate_board_vector()
+            return True
+        else:
+            self.reward += self.mistake_reward
+            return False
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
     def move_item_to_bench(self, xBench, x):
@@ -881,24 +909,26 @@ class player:
 
     # print("adding " + champion.name + " to triple_catalog")
 
-    def start_round(self):
-        if not self.combat:
-            self.round += 1
-            self.reward += self.num_units_in_play * self.minion_count_reward
-            self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
-            self.printComp()
+    def start_round(self, t_round):
+        self.round = t_round
+        self.reward += self.num_units_in_play * self.minion_count_reward
+        # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
+        self.gold_income(self.round)
+        self.printComp()
+        self.printBench()
+        self.generate_player_vector()
 
     def won_game(self):
         self.reward += 0.0
         self.print("+0 reward for winning game")
 
-    def won_round(self, game_round):
+    def won_round(self, damage):
         if not self.combat:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0.02 * game_round
-            self.print(str(0.02 * game_round) + " reward for winning round")
+            self.reward += 0.02 * damage
+            self.print(str(0.02 * damage) + " reward for winning round")
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
