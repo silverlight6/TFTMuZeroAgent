@@ -21,32 +21,56 @@ class Minion:
         # Champion array, this is a 7 by 4 array.
         self.board = [[None for _ in range(4)] for _ in range(7)]
         # List of items, there is no object for this so this is a string array
+# need to verify these minion placements
 class FirstMinion(Minion):
     def __init__(self):
         super().__init__(self)
-        self.board[1][1] = champion('meleeminion', 1, 1, 1, None, None, None, False)
-        self.board[5][1] = champion('meleeminion', 5, 1, 1, None, None, None, False)
+        self.board[2][1] = champion('meleeminion')
+        self.board[5][1] = champion('meleeminion')
 class SecondMinion(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[4][2] = champion('meleeminion')
+        self.board[1][2] = champion('meleeminion')
+        self.board[5][1] = champion('rangedminion')
+
 class ThirdMinion(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[4][2] = champion('meleeminion')
+        self.board[1][2] = champion('meleeminion')
+        self.board[5][1] = champion('rangedminion')
+        self.board[1][1] = champion('rangedminion')
 class Krug(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[1][3] = champion('krug')
+        self.board[6][3] = champion('krug')
+        self.board[5][1] = champion('krug')
 class Wolf(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[1][0] = champion('lesserwolf')
+        self.board[2][0] = champion('lesserwolf')
+        self.board[4][0] = champion('lesserwolf')
+        self.board[5][0] = champion('lesserwolf')
+        self.board[3][2] = champion('wolf')
 class Raptor(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[3][0] = champion('crimsonraptor')
+        self.board[2][1] = champion('raptor')
+        self.board[1][2] = champion('raptor')
+        self.board[5][1] = champion('raptor')
+        self.board[5][2] = champion('raptor')
 class Nexus(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[3][1] = champion('nexusminion')
 class Herald(Minion):
     def __init__(self):
         super().__init__(self)
+        self.board[3][1] = champion('riftherald')
 
 def minion_round(player, round, pool_obj):
  # simulate minion round here
@@ -101,6 +125,7 @@ def minion_round(player, round, pool_obj):
 
 # modeled after combat_phase from game_round.py, except with a minion "player" versus the player
 def minion_combat(player, enemy, round):
+    # "calculate the damage directly and only apply the items given if they win the corresponding round"
     ROUND_DAMAGE = [
             [3, 0],
             [9, 2],
