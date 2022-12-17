@@ -21,18 +21,21 @@ class Minion:
         # Champion array, this is a 7 by 4 array.
         self.board = [[None for _ in range(4)] for _ in range(7)]
 
-        self.reward = None
+        def reward():
+            pass
 class FirstMinion(Minion):
     def __init__(self):
         super().__init__()
         self.board[2][1] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('meleeminion')
+
 class SecondMinion(Minion):
     def __init__(self):
         super().__init__()
         self.board[4][2] = champion.champion('meleeminion')
         self.board[1][2] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('rangedminion')
+
 
 class ThirdMinion(Minion):
     def __init__(self):
@@ -76,8 +79,74 @@ def minion_round(player, round, pool_obj):
  # simulate minion round here
     # 2 melee minions - give 1 item component
     if round == 0:
+        minion_combat(player, FirstMinion(), round)
+
+    # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
+    elif round == 1:
+        minion_combat(player, SecondMinion(), round)
+
+    # 2 melee minions and 2 ranged minions - give 3 gold and 1 item component
+    elif round == 2:
+        minion_combat(player, ThirdMinion(), round)
+
+    # 3 Krugs - give 3 gold and 3 item components
+    elif round == 8:
+        minion_combat(player, Krug(), round)
+
+    # 1 Greater Murk Wolf and 4 Murk Wolves - give 3 gold and 3 item components
+    elif round == 14:
+        minion_combat(player, Wolf(), round)
+
+    # 1 Crimson Raptor and 4 Raptors - give 6 gold and 4 item components
+    elif round == 20:
+        minion_combat(player, Raptor(), round)
+
+    # 1 Nexus Minion - give 6 gold and a full item
+    elif round == 26:
+        minion_combat(player, Nexus(), round)
+
+    # Rift Herald - give 6 gold and a full item
+    elif round >= 33:
+        minion_combat(player, Herald(), round)
+
+    # invalid round! Do nothing
+    else:
+        return
+
+# modeled after combat_phase from game_round.py, except with a minion "player" versus the player
+def minion_combat(player, enemy, round):
+    # "calculate the damage directly and only apply the items given if they win the corresponding round"
+    ROUND_DAMAGE = [
+            [3, 0],
+            [9, 2],
+            [15, 3],
+            [21, 5],
+            [27, 8],
+            [10000, 15]
+        ]
+    config.WARLORD_WINS['red'] = player.win_streak
+    player.end_turn_actions()
+
+    round_index = 0
+    while round > ROUND_DAMAGE[round_index][0]:
+            round_index += 1
+
+    index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
+    # tie!
+    if index_won == 0:
+        player.health -= damage
+    # player wins!
+    if index_won == 1:
+        reward(player, round, player.pool_obj)
+    # minions win! (yikes)
+    if index_won == 2:
+        player.health -= damage
+
+# decide the rewards the player is owed after winning combat against minions
+def reward(player, round, pool_obj):
+    # 2 melee minions - give 1 item component
+    if round == 0:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-        minion_combat(player, FirstMinion(), 0)
 
     # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
     elif round == 1:
@@ -123,34 +192,4 @@ def minion_round(player, round, pool_obj):
     # invalid round! Do nothing
     else:
         return
-
-# modeled after combat_phase from game_round.py, except with a minion "player" versus the player
-def minion_combat(player, enemy, round):
-    # "calculate the damage directly and only apply the items given if they win the corresponding round"
-    ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
-            [10000, 15]
-        ]
-    config.WARLORD_WINS['red'] = player.win_streak
-    player.end_turn_actions()
-
-    round_index = 0
-    while round > ROUND_DAMAGE[round_index][0]:
-            round_index += 1
-
-    index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
-    # tie!
-    if index_won == 0:
-        player.health -= damage
-    # player wins!
-    if index_won == 1:
-        pass
-    # minions win! (yikes)
-    if index_won == 2:
-        player.health -= damage
-    
 
