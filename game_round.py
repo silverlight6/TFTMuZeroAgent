@@ -120,7 +120,7 @@ class TFT_Simulation:
         for i, player in enumerate(self.PLAYERS):
             if player:
                 if player.health <= 0:
-
+                    
                     # This won't take into account how much health the most recent
                     # dead had if multiple players die at once
                     # But this should be good enough for now.
@@ -137,13 +137,14 @@ class TFT_Simulation:
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
                     self.NUM_DEAD += 1
                     self.pool_obj.return_hero(player)
-
+                    player.game_pos = self.NUM_DEAD
                     self.PLAYERS[i] = None
                 else:
                     num_alive += 1
         if num_alive == 1:
             for i, player in enumerate(self.PLAYERS):
                 if player:
+                    player.game_pos = self.NUM_DEAD
                     player.won_game()
                     self.pool_obj.return_hero(player)
                     shop = self.pool_obj.sample(player, 5)

@@ -295,10 +295,6 @@ class TFTNetwork(Network):
         
         #checkpoints for dynamics
         self.dyn_manager.save(checkpoint_number=episode)
-        print(self.dyn_manager.checkpoints)
-
-        print(self.dyn_manager.checkpoints[0])
-        print(self.dyn_manager.latest_checkpoint)
 
     def load_model(self, episode):
        self.representation = tf.keras.models.load_model("./SavedModels/rep"+str(episode))
@@ -465,6 +461,8 @@ class MCTSAgent:
                  ) -> None:
         self.network: Network = network
         self.agent_id = agent_id
+        
+        self.game_pos = 0 #position in current game, higher is better
 
         # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
         self.action_dim = [12, 10, 9, 7, 4]
@@ -481,10 +479,6 @@ class MCTSAgent:
         # converting items to numpy then adding to list
         for i in network_output["policy_logits"]:
             input_to_jitfunc.append(i.numpy())
-        print(input_to_jitfunc)
-        print("____")
-        print(input_to_jitfunc[0])
-        print("____")
         try:  # if we get an error, just fall back to previous implementation
             policy = expand_node2(input_to_jitfunc,
                                   [12, 10, 9, 7, 4])  # hardcoding in self.action_dim because it changes type randomly.

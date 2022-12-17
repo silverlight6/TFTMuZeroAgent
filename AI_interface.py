@@ -265,22 +265,30 @@ def train_model(max_episodes=10000):
 
     # tf.debugging.set_log_device_placement(True)
     global_agent = TFTNetwork()
-    global_agent.load_model(1)
+    bad_agent = TFTNetwork()
+    
     # global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
 
     game_sim = game_round.TFT_Simulation()
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
-    TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players)]
+    TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players-1)]
     agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
+    agents.append(MCTSAgent(network=bad_agent, agent_id=game_sim.num_players-1)) #add in the bad agent
     train_step = 0
+    
+    stats = [[0,0,0]] #stats list for data vis: [[agent tier, pos, episode]...] 
+    tier = 0 
+    beaten = False
+    bad_agent_position = 0 
+
     for episode_cnt in range(1, max_episodes):
 
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
 
-        for i in range(game_sim.num_players):
+        for i in range(game_sim.num_players-1):
             buffers[i].store_global_buffer()
         # Keeping this here in case I want to only update positive rewards
         # rewards = game_round.player_rewards
@@ -288,13 +296,36 @@ def train_model(max_episodes=10000):
             gameplay_experience_batch = global_buffer.sample_batch()
             trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
             train_step += 1
-
+        bad_agent_position = agents[-1].game_pos
         if episode_cnt % 5 == 0:
             game_round.log_to_file_start()
-            global_agent.save_model(episode_cnt)
-        for i in range(game_sim.num_players):
+            beaten = True
+        
+    
+        for i in range(game_sim.num_players-1):
             agents[i] = MCTSAgent(global_agent, agent_id=i)
         
+        # try: #If the bad agent has lost for the past 3 rounds, move up the agent. 
+        #     if stats[-1][1] == 0 and stats[-2][1] == 0 and stats[-3][1] == 0:
+        #         beaten = True
+        # except:
+        #     pass
+
+        if beaten == True:
+            global_agent.save_model(episode_cnt)
+            bad_agent.load_model(episode_cnt)
+            beaten = False 
+            tier += 1 
+        
+        #add in the agent from x rounds previous, as a comparison to see training rate
+        agents.append(MCTSAgent(network=bad_agent, agent_id=i+1))
+        
+        
+        
+        stats.append([tier, bad_agent_position, episode_cnt])
+        print("Bad agent ID = "+str(i+1))
+        print("Stats: ")
+        print(stats[-1]) #[agent tier, agent pos, episode] (for agent pos, higher is a better place)
         print("Episode " + str(episode_cnt) + " Completed")
 
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
