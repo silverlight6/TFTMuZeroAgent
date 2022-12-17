@@ -20,8 +20,6 @@ class Minion:
         # Champion array, this is a 7 by 4 array.
         self.board = [[None for _ in range(4)] for _ in range(7)]
 
-        def reward():
-            pass
 class FirstMinion(Minion):
     def __init__(self):
         super().__init__()
