@@ -6,11 +6,10 @@ import random
 item_list = list(full_items.keys())
 
 # TODO
-# add randomness to drops
-# add representations of minions (Melees, Ranges, Krugs, Wolves, Raptors, Nexus, and Herald)
-# add combat between player and minions
+# add better randomness to drops
 # add check for champion existing in the pool before being removed
-# add minion stats for all minions to stats sheet (Melee, Ranged, Krugs, Wolves, Raptors, Nexus, Herald)
+# add "abilities" for each class of minions (krugs gain 1200 hp when another krug dies, etc)
+    # this would probably be handled with an origin for each type of minion
 
 # Objects representing board configs for each minion round
 # These should function similar to player objects except simplified for minion combat
