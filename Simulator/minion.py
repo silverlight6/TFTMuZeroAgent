@@ -137,8 +137,8 @@ def minion_combat(player, enemy, round, others):
     # tie!
     if index_won == 0:
         player.loss_round(damage)
-        for o in alive:
-            o.won_round(damage/len(alive))
+        for p in alive:
+            p.won_round(damage/len(alive))
         player.health -= damage
     # player wins!
     if index_won == 1:
@@ -146,8 +146,8 @@ def minion_combat(player, enemy, round, others):
     # minions win! (yikes)
     if index_won == 2:
         player.loss_round(damage)
-        for o in alive:
-            o.won_round(damage/len(alive))
+        for p in alive:
+            p.won_round(damage/len(alive))
         player.health -= damage
 
 # decide the loot the player is owed after winning combat against minions
