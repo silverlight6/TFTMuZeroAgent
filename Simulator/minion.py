@@ -133,13 +133,13 @@ def minion_combat(player, enemy, round):
         player.health -= damage
     # player wins!
     if index_won == 1:
-        reward(player, round, player.pool_obj)
+        lootDrop(player, round, player.pool_obj)
     # minions win! (yikes)
     if index_won == 2:
         player.health -= damage
 
 # decide the rewards the player is owed after winning combat against minions
-def reward(player, round, pool_obj):
+def lootDrop(player, round, pool_obj):
     # 2 melee minions - give 1 item component
     if round == 0:
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
