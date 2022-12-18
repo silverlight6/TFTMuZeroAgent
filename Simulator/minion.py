@@ -72,7 +72,7 @@ class Herald(Minion):
         super().__init__()
         self.board[3][1] = champion.champion('riftherald')
 
-def minion_round(player, round, pool_obj, others):
+def minion_round(player, round, others):
  # simulate minion round here
     # 2 melee minions - give 1 item component
     if round == 0:

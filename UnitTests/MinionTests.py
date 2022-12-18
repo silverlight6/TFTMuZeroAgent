@@ -34,7 +34,7 @@ def rewardsTest():
         p1.bench = [None for _ in range(10)]
         p1.item_bench = [None for _ in range(10)]
         
-        minion.minion_round(p1, r, p1.pool_obj, [None for _ in range(2)])
+        minion.minion_round(p1, r, [None for _ in range(2)])
 
         assert not emptyList(p1.item_bench) \
             or not emptyList(p1.bench) \
