@@ -138,7 +138,7 @@ def minion_combat(player, enemy, round):
     if index_won == 2:
         player.health -= damage
 
-# decide the rewards the player is owed after winning combat against minions
+# decide the loot the player is owed after winning combat against minions
 def lootDrop(player, round, pool_obj):
     # 2 melee minions - give 1 item component
     if round == 0:
