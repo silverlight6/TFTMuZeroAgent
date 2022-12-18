@@ -120,7 +120,7 @@ def minion_combat(player, enemy, round, others):
             [27, 8],
             [10000, 15]
         ]
-    config.WARLORD_WINS['red'] = player.win_streak
+    config.WARLORD_WINS['blue'] = player.win_streak
     player.end_turn_actions()
 
     round_index = 0
@@ -132,7 +132,7 @@ def minion_combat(player, enemy, round, others):
     alive = []
     for o in others:
         if o:
-            if o.health > 0:
+            if o.health > 0 and o is not player:
                 alive.append(o)
     # tie!
     if index_won == 0:
@@ -146,8 +146,9 @@ def minion_combat(player, enemy, round, others):
     # minions win! (yikes)
     if index_won == 2:
         player.loss_round(damage)
-        for p in alive:
-            p.won_round(damage/len(alive))
+        if len(alive) > 0:
+            for p in alive:
+                p.won_round(damage/len(alive))
         player.health -= damage
 
 # decide the loot the player is owed after winning combat against minions
