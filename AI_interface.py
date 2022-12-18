@@ -431,7 +431,9 @@ def multi_step(action, player, shop, pool_obj, game_observation, agent, buffer):
 
     # end turn
     elif action == 9:
-        return shop, True, True, 1
+        # Testing a version that does not end the turn on this action.
+        return shop, False, True, 1
+        # return shop, True, True, 1
 
     # Possible to add another action here which is basically pass the action back.
     # Wait and do nothing. If anyone thinks that is beneficial, let me know.

@@ -178,11 +178,7 @@ class TFT_Simulation:
         # First store the end turn and reward for the previous battle together into the buffer
         # If statement is to make sure I don't put a record in for the first round.
         # Player reward starts at 0 but has to change when units go to the board at the end of the first turn
-        if player.reward != 0:
-            buffer.store_replay_buffer(self.last_observation[player.player_num], self.last_action[player.player_num],
-                                       player.reward - self.previous_reward[player.player_num],
-                                       self.last_policy[player.player_num])
-        # Generate a shop for the observation to use
+        
         shop = self.pool_obj.sample(player, 5)
         step_done = False
         actions_taken = 0
@@ -217,7 +213,7 @@ class TFT_Simulation:
 
             self.previous_reward[player.player_num] = player.reward
             actions_taken += time_taken
-            if actions_taken >= 60:
+            if actions_taken >= 30:
                 step_done = True
         player.print(str(actions_taken) + " actions taken this turn")
         # step_counter += 1
