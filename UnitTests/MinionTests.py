@@ -17,7 +17,7 @@ def combatTest():
     p1 = setup()
     p1.gold = 10000
     p1.max_units = 100
-    minion.minion_combat(p1, minion.FirstMinion(), 0)
+    minion.minion_combat(p1, minion.FirstMinion(), 0, [None for _ in range(2)])
 
     assert p1.health < 100, "I didn't lose any health from losing a PVE round!"
 
@@ -34,7 +34,7 @@ def rewardsTest():
         p1.bench = [None for _ in range(10)]
         p1.item_bench = [None for _ in range(10)]
         
-        minion.minion_round(p1, r, p1.pool_obj)
+        minion.minion_round(p1, r, p1.pool_obj, [None for _ in range(2)])
 
         assert not emptyList(p1.item_bench) \
             or not emptyList(p1.bench) \

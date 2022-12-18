@@ -107,11 +107,18 @@ class TFT_Simulation:
                     config.WARLORD_WINS['red'] = player_copy.win_streak
                     index_won, damage = champion.run(champion.champion, players[num], player_copy,
                                                      self.ROUND_DAMAGE[round_index][1])
-                    if index_won == 1:
-                        players[num].won_round(player_round)
-                    elif index_won == 2 or index_won == 0:
+                    # if the alive player loses to a dead player, the dead player's reward is
+                    # given out to all other alive players
+                    alive = []
+                    for o in players:
+                        if o:
+                            if o.health > 0 and o is not players[num]:
+                                alive.append(o)
+                    if index_won == 2 or index_won == 0:
                         players[num].health -= damage
                         players[num].loss_round(player_round)
+                        for o in alive:
+                            o.won_round(damage/len(alive))
                     players[num].combat = True
                     players_matched += 1
                 else:
@@ -445,7 +452,7 @@ class TFT_Simulation:
                 self.pool_obj.update(ran_cost_1, -1)
                 player.add_to_bench(ran_cost_1)
                 log_to_file(player)
-                minion.minion_round(player, 0, self.pool_obj)
+                minion.minion_round(player, 0, self.pool_obj, self.PLAYERS)
 
         # ROUND 1-3 - Buy phase + Give 1 item component and 1 random 3 cost champion
         for player in self.PLAYERS:
@@ -458,7 +465,7 @@ class TFT_Simulation:
 
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 1, self.pool_obj)
+                minion.minion_round(player, 1, self.pool_obj, self.PLAYERS)
 
         # ROUND 1-4 -  Buy phase + Give 3 gold and 1 random item component
         for player in self.PLAYERS:
@@ -470,7 +477,7 @@ class TFT_Simulation:
         log_end_turn(2)
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 2, self.pool_obj)
+                minion.minion_round(player, 2, self.pool_obj, self.PLAYERS)
 
         # STAGE 2 BEGINS HERE
         # Round 2-1 to 2-3: 3 Player Combats
@@ -514,7 +521,7 @@ class TFT_Simulation:
         # Round 2-7 Krugs Round - 3 gold plus 3 item components
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 8, self.pool_obj)
+                minion.minion_round(player, 8, self.pool_obj, self.PLAYERS)
         # STAGE 3 BEGINS HERE
         # Round 3-1 to 3-3: 3 Player Combats
         for r in range(9, 12):
@@ -556,7 +563,7 @@ class TFT_Simulation:
         # Round 3-7: Wolves round
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 14, self.pool_obj)
+                minion.minion_round(player, 14, self.pool_obj, self.PLAYERS)
 
         # STAGE 4 BEGINS HERE
         # Round 4-1 to 4-3: 3 Player Combats
@@ -599,7 +606,7 @@ class TFT_Simulation:
         # Round 4-7: Raptors round
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 20, self.pool_obj)
+                minion.minion_round(player, 20, self.pool_obj, self.PLAYERS)
 
         # STAGE 5 BEGINS HERE
         # Round 5-1 to 5-3: 3 Player Combats
@@ -643,7 +650,7 @@ class TFT_Simulation:
         # here be dragons
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 26, self.pool_obj)
+                minion.minion_round(player, 26, self.pool_obj, self.PLAYERS)
 
         # STAGE 6 BEGINS HERE
         # Round 6-1 to 6-3: 3 Player Combats
@@ -686,7 +693,7 @@ class TFT_Simulation:
         # Round 6-7: Rift Herald - 6 gold and a full item
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 32, self.pool_obj)
+                minion.minion_round(player, 32, self.pool_obj, self.PLAYERS)
 
         # STAGE 7 BEGINS HERE
         # Round 7-1 to 7-3: 3 Player Combats
@@ -728,7 +735,7 @@ class TFT_Simulation:
         # Round 7-7: Another Rift Herald (long game)
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 37, self.pool_obj)
+                minion.minion_round(player, 37, self.pool_obj, self.PLAYERS)
 
         # STAGE 8 BEGINS HERE
         # this should rarely/never happen, but just in case
@@ -771,7 +778,7 @@ class TFT_Simulation:
         # Round 8-7: The final Rift Herald
         for player in self.PLAYERS:
             if player:
-                minion.minion_round(player, 43, self.pool_obj)
+                minion.minion_round(player, 43, self.pool_obj, self.PLAYERS)
 
         print("Game has gone on way too long. There has to be a bug somewhere")
         for player in self.PLAYERS:
