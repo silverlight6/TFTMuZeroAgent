@@ -62,6 +62,16 @@ origin_class = {
     'construct': [],
     'galio': [],
     'sandguard': [],
+    
+    'meleeminion': [],
+    'rangedminion': [],
+    'krug': [],
+    'wolf': [],
+    'lesserwolf': [],
+    'crimsonraptor': [],
+    'raptor': [],
+    'nexusminion': [],
+    'riftherald': [],
 }
 
 chosen_health = 400
