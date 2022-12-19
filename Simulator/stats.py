@@ -1090,7 +1090,7 @@ ABILITY_DMG_GAIN = {
 } # percentages and absolutes in the same dict
 
 ABILITY_EXTRA_DAMAGE = {
-    'kayn': [0, 1.50, 1.50, 1.50]
+    'kayn': [0, 1.65, 1.65, 1.65]
 }
 
 ABILITY_EXTRA_DAMAGE_LENGTH = {'kayn': 10000}

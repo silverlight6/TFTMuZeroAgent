@@ -3,12 +3,66 @@ from Simulator.pool import pool
 from Simulator.champion import champion
 
 
-def setup() -> player:
+def setup(player_num=0) -> player:
     """Creates fresh player and pool"""
     base_pool = pool()
-    player1 = player(base_pool, 0)
+    player1 = player(base_pool, player_num)
     return player1
 
+def thiefsGlovesTest():
+    p1 = setup()
+    p1.gold = 1000
+    p1.max_units = 1
+    p1.buy_champion(champion('nami'))
+    p1.add_to_item_bench('thiefs_gloves')
+    p1.move_bench_to_board(0, 0, 0)
+    p1.move_item_to_board(0, 0, 0)
+    assert p1.board[0][0].items[0] == 'thiefs_gloves'
+    for x in range(3):
+        p1.start_round(x)
+    p1.move_board_to_board(0, 0, 6, 3)
+    p1.start_round(3)
+    p1.move_board_to_bench(6, 3)
+    p1.start_round(4)
+    p1.sell_from_bench(0)
+    p1.buy_champion(champion('nami'))
+    p1.move_item_to_bench(0, 0)
+    p1.start_round(5)
+
+def kaynTests():
+    p1 = setup()
+    p2 = setup(1)
+    p1.gold = 500
+    p2.gold = 500
+    p1.max_units = 10
+    p2.max_units = 10
+    p1.buy_champion(champion('kayn'))
+    p1.move_bench_to_board(0, 0, 0)
+    for x in range(3):
+        p1.start_round(x)
+        p2.start_round(x)
+        p2.buy_champion(champion('kayn'))
+        p2.move_bench_to_board(0, x, 0)
+    assert p1.kayn_transformed,  'Kayn should transform after his third round in combat'
+    assert not p2.kayn_transformed
+    assert p1.item_bench[0] == 'kayn_shadowassassin'
+    assert p1.item_bench[1] == 'kayn_rhast'
+    p2.start_round(3)
+    assert p2.kayn_transformed
+    p1.move_item_to_board(0, 0, 0)
+    assert p2.item_bench[0] == 'kayn_shadowassassin'
+    assert p2.item_bench[1] == 'kayn_rhast'
+    for x in range(7):
+        for y in range(4):
+            if p2.board[x][y]:
+                p2.move_item_to_board(1, x, y)
+                break
+    assert p1.kayn_form == 'kayn_shadowassassin'
+    assert p2.kayn_form == 'kayn_rhast'
+    p1.buy_champion(champion('kayn'))
+    assert p1.bench[0].kayn_form == 'kayn_shadowassassin'
+    for x in range(10):
+        assert not p1.item_bench[x]
 
 def level2Champion():
     """Creates 3 Zileans, there should be 1 2* Zilean on bench"""
@@ -168,6 +222,10 @@ def incomeTest4():
 
 def list_of_tests():
     """tests all test cases"""
+    thiefsGlovesTest()
+
+    kaynTests()
+
     level2Champion()
     level3Champion()
     levelChampFromField()

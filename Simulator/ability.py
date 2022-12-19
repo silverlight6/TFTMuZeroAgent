@@ -959,14 +959,14 @@ def kayn(champion, data={'redash': False}):
         for e in enemies_in_range:
             ability_dmg = stats.ABILITY_DMG[champion.name][champion.stars]
 
-            if 'shadow_assassin' in champion.items \
+            if champion.kayn_form == 'shadow_assassin' \
                     and champion_functions.MILLIS() < stats.ABILITY_EXTRA_DAMAGE_LENGTH[champion.name]:
                 ability_dmg *= stats.ABILITY_EXTRA_DAMAGE[champion.name][champion.stars]
 
             champion.spell(e, ability_dmg)
 
             # healing if rhaast equipped
-            if 'rhaast' in champion.items:
+            if champion.kayn_form == 'rhast':
                 damage = 0
                 if e.MR >= 0:
                     damage = ability_dmg * (100 / (100 + e.MR)) * champion.SP
