@@ -89,6 +89,7 @@ class ReplayBuffer:
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(self.rewards[current_index])
+
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
                         action_set.append(9)

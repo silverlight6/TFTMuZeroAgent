@@ -239,13 +239,15 @@ class TFT_Simulation:
 
     def player_round(self, game_round, players, agent, buffers, game_episode):
         for i in range(config.NUM_PLAYERS):
-            players[i].start_round(game_round)
+            if players[i]:
+                players[i].start_round(game_round)
         AI_interface.batch_step(players, agent, buffers, self.pool_obj)
 
         # TO DO
         # Change this so it isn't tied to a player and can log as time proceeds
         for i in range(config.NUM_PLAYERS):
-            log_to_file(players[i])
+            if players[i]:
+                log_to_file(players[i])
 
     # This is going to take a list of agents, 1 for each player
     # This is also taking in a list of buffers, 1 for each player.

@@ -445,93 +445,95 @@ def multi_step(action, player, shop, pool_obj, game_observation, agent, buffer):
 
 
 def batch_controller(action, players, shops, pool_obj, game_observations, agent, buffers):
-    for player in players:
-        if player:
-            # Python doesn't allow comparisons between arrays, so we're just checking if the nth value is 1 (true) or 0 (false)
-            if player.action_vector[0]:
-                batch_multi_step(action[player.player_num], player, shops, pool_obj, game_observations[player.player_num])
-            if player.action_vector[1]:
-                batch_shop(action[player.player_num], player, shops, game_observations[player.player_num])
+    for i in range(config.NUM_PLAYERS):
+        if players[i]:
+            # Python doesn't allow comparisons between arrays,
+            # so we're just checking if the nth value is 1 (true) or 0 (false)
+            if players[i].action_vector[0]:
+                batch_multi_step(action[players[i].player_num], players[i], shops, pool_obj,
+                                 game_observations[players[i].player_num])
+            if players[i].action_vector[1]:
+                batch_shop(action[players[i].player_num], players[i], shops, game_observations[players[i].player_num])
             # Move item to board
-            if player.current_action == 3:
-                player.action_values.append(action[player.player_num])
-                if player.action_vector[3]:
-                    player.action_vector[4]
-                elif player.action_vector[4]:
-                    player.action_vector[5]
+            if players[i].current_action == 3:
+                players[i].action_values.append(action[players[i].player_num])
+                if players[i].action_vector[3]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
+                elif players[i].action_vector[4]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
                 else:
-                    player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if player.action_values[0] > 9:
-                        player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 10))
-                    if player.action_values[1] > 6:
-                        player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if player.action_values[2] > 3:
-                        player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
-                    player.move_item_to_board(player.action_values[0], player.action_values[1], player.action_values[2])
-                    player.action_values = []
+                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                    if players[i].action_values[0] > 9:
+                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 10))
+                    if players[i].action_values[1] > 6:
+                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
+                    if players[i].action_values[2] > 3:
+                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
+                    players[i].move_item_to_board(players[i].action_values[0], players[i].action_values[1], players[i].action_values[2])
+                    players[i].action_values = []
 
             # Part 2 of selling unit from bench
-            if player.current_action == 4:
-                if action[player.player_num] > 8:
-                    action[player.player_num] = int(np.floor(np.random.rand(1, 1) * 10))
-                player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                player.sell_from_bench(action[player.player_num])
+            if players[i].current_action == 4:
+                if action[players[i].player_num] > 8:
+                    action[players[i].player_num] = int(np.floor(np.random.rand(1, 1) * 10))
+                players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                players[i].sell_from_bench(action[players[i].player_num])
             # Part 2 to 4 of moving bench to board
-            if player.current_action == 5:
-                player.action_values.append(action[player.player_num])
-                if player.action_vector[2]:
-                    player.action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
-                elif player.action_vector[4]:
-                    player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+            if players[i].current_action == 5:
+                players[i].action_values.append(action[players[i].player_num])
+                if players[i].action_vector[2]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
+                elif players[i].action_vector[4]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
                 else:
-                    player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if player.action_values[0] > 8:
-                        player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 9))
-                    if player.action_values[1] > 6:
-                        player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if player.action_values[2] > 3:
-                        player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
-                    player.move_bench_to_board(player.action_values[0], player.action_values[1], player.action_values[2])
-                    player.action_values = []
+                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                    if players[i].action_values[0] > 8:
+                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 9))
+                    if players[i].action_values[1] > 6:
+                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
+                    if players[i].action_values[2] > 3:
+                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
+                    players[i].move_bench_to_board(players[i].action_values[0], players[i].action_values[1],
+                                                   players[i].action_values[2])
+                    players[i].action_values = []
             # Part 2 to 3 of moving board to bench
-            if player.current_action == 6:
-                player.action_values.append(action[player.player_num])
-                if player.action_vector[4]:
-                    player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+            if players[i].current_action == 6:
+                players[i].action_values.append(action[players[i].player_num])
+                if players[i].action_vector[4]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
                 else:
-                    player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if player.action_values[0] > 6:
-                        player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if player.action_values[1] > 3:
-                        player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
-                    player.move_board_to_bench(player.action_values[0], player.action_values[1])
-                    player.action_values = []
+                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                    if players[i].action_values[0] > 6:
+                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
+                    if players[i].action_values[1] > 3:
+                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
+                    players[i].move_board_to_bench(players[i].action_values[0], players[i].action_values[1])
+                    players[i].action_values = []
             # Part 2 to 5 of moving board to board
-            if player.current_action == 7:
-                player.action_values.append(action[player.player_num])
-                if player.action_vector[4]:
-                    player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
-                elif player.action_vector[5]:
-                    player.action_vector = np.array([0, 0, 0, 0, 0, 0, 1, 0])
-                elif player.action_vector[6]:
-                    player.action_vector = np.array([0, 0, 0, 0, 0, 0, 0, 1])
+            if players[i].current_action == 7:
+                players[i].action_values.append(action[players[i].player_num])
+                if players[i].action_vector[4]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+                elif players[i].action_vector[5]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 0, 1, 0])
+                elif players[i].action_vector[6]:
+                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 0, 0, 1])
                 else:
-                    player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if player.action_values[0] > 6:
-                        player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if player.action_values[1] > 3:
-                        player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
-                    if player.action_values[2] > 6:
-                        player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if player.action_values[3] > 3:
-                        player.action_values[3] = int(np.floor(np.random.rand(1, 1) * 4))
-                    player.move_board_to_board(player.action_values[0], player.action_values[1],
-                                            player.action_values[2], player.action_values[3])
-                    player.action_values = []
+                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                    if players[i].action_values[0] > 6:
+                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
+                    if players[i].action_values[1] > 3:
+                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
+                    if players[i].action_values[2] > 6:
+                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 7))
+                    if players[i].action_values[3] > 3:
+                        players[i].action_values[3] = int(np.floor(np.random.rand(1, 1) * 4))
+                    players[i].move_board_to_board(players[i].action_values[0], players[i].action_values[1],
+                                                   players[i].action_values[2], players[i].action_values[3])
+                    players[i].action_values = []
 
 
 def batch_multi_step(action, player, shop, pool_obj, game_observation):
-
     player.current_action = action
     if action == 0:
         player.action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])
@@ -657,41 +659,57 @@ def batch_shop(shop_action, player, shop, game_observation):
 
 # Batch step
 def batch_step(players, agent, buffers, pool_obj):
-    shops = [pool_obj.sample(players[i], 5) for i in range(config.NUM_PLAYERS)]
+    shops = [pool_obj.sample(None, 5) for _ in range(config.NUM_PLAYERS)]
+    for i in range(config.NUM_PLAYERS):
+        if players[i]:
+            shops[players[i].player_num] = pool_obj.sample(players[i], 5)
     actions_taken = 0
     game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
     for i in range(config.NUM_PLAYERS):
         game_observations[i].generate_game_comps_vector()
         game_observations[i].generate_shop_vector(shops[i])
-    t = time.time_ns()
-    while actions_taken < 30:
+
+    while actions_taken < config.ACTIONS_PER_TURN:
         observation_list = []
         previous_action = []
-        for player in players:
-            if player:
+        for i in range(config.NUM_PLAYERS):
+            if players[i]:
                 # TODO
                 # store game state vector later
-                observation, game_state_vector = game_observations[player.player_num]\
-                    .observation(player, buffers[player.player_num], player.action_vector)
+                observation, game_state_vector = game_observations[players[i].player_num] \
+                    .observation(players[i], buffers[players[i].player_num], players[i].action_vector)
                 observation_list.append(observation)
-                buffers[player.player_num].store_observation(game_state_vector)
-                previous_action.append(buffers[player.player_num].get_prev_action())
+                buffers[players[i].player_num].store_observation(game_state_vector)
+                previous_action.append(buffers[players[i].player_num].get_prev_action())
+            else:
+                dummy_observation = Observation()
+                observation = dummy_observation.dummy_observation(buffers[i])
+                observation_list.append(observation)
+                previous_action.append(9)
 
         observation_list = np.squeeze(np.array(observation_list))
         previous_action = np.array(previous_action)
 
         action, policy = agent.batch_policy(observation_list, previous_action)
 
-        rewards = [player.reward - previous_reward[player.player_num] for player in players]
+        rewards = []
+        for i in range(config.NUM_PLAYERS):
+            if players[i]:
+                rewards.append(players[i].reward - previous_reward[players[i].player_num])
+            else:
+                rewards.append(0)
+
+        rewards = np.squeeze(np.asarray(rewards))
         batch_controller(action, players, shops, pool_obj, game_observations, agent, buffers)
         actions_taken += 1
-        for player in players:
-            buffers[player.player_num].store_replay_buffer(observation_list[player.player_num],
-                                                           action[player.player_num], rewards[player.player_num],
-                                                           policy[player.player_num])
+        for i in range(config.NUM_PLAYERS):
+            if players[i]:
+                buffers[players[i].player_num].store_replay_buffer(observation_list[players[i].player_num],
+                                                                   action[players[i].player_num],
+                                                                   rewards[players[i].player_num],
+                                                                   policy[players[i].player_num])
 
-            previous_reward[player.player_num] = player.reward
-    print(time.time_ns() - t)
+                previous_reward[players[i].player_num] = players[i].reward
 
 
 # Includes the vector of the shop, bench, board, and item list.
@@ -729,6 +747,19 @@ class Observation:
         #     input_vector = (input_vector - np.mean(input_vector)) / std
         # print(input_vector.shape)
         return input_vector, complete_game_state_vector
+
+    def dummy_observation(self, buffer):
+        input_vector = buffer.get_prev_observation(0)
+        i = 0
+        while i < buffer.len_observation_buffer() and i < 0:
+            i += 1
+            input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
+
+        while i < 0:
+            i += 1
+            input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
+
+        return input_vector
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

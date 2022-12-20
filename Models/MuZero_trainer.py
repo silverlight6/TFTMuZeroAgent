@@ -119,8 +119,9 @@ class Trainer(object):
                     gradient_scales['reward'][tstep]))
             # predictions.policy_logits is [64, [action_dims]]
             # target_policy is [64, 17, [action_dims]]
+            # print(target_policy.shape)
             policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction.policy_logits,
-                                                                  labels=target_policy[0][:, tstep])
+                                                                  labels=target_policy[:, tstep])
             # entropy_loss = -parametric_action_distribution.entropy(
             #     prediction.policy_logits) * config.policy_loss_entropy_regularizer
             accs['policy_loss'].append(
