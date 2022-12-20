@@ -362,7 +362,7 @@ class ValueEncoder:
         self.step_range_float = tf.cast(self.step_range_int, tf.float32)
         self.use_contractive_mapping = use_contractive_mapping
 
-    def encode(self, value):
+    def encode(self, value): #not worth optimizing 
         if len(value.shape) != 1:
             raise ValueError(
                 'Expected value to be 1D Tensor [batch_size], but got {}.'.format(
@@ -386,7 +386,7 @@ class ValueEncoder:
         )
         return lower_encoding + upper_encoding
 
-    def decode(self, logits):
+    def decode(self, logits): #not worth optimizing 
         if len(logits.shape) != 2:
             raise ValueError(
                 'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
@@ -552,10 +552,7 @@ class MCTSAgent:
 
         self.run_mcts(root, network_output["policy_logits"].numpy(), player_num)
 
-        self.ckpt_time = time.time_ns()
         action = int(self.select_action(root))
-        # print("selecting actions takes {} time".format(time.time_ns() - self.ckpt_time))
-
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
         # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
@@ -597,7 +594,7 @@ class MCTSAgent:
         return .1
 
 
-def masked_distribution(x, use_exp, mask=None):
+def masked_distribution(x, use_exp, mask=None): #takes 0 time 
     if mask is None:
         mask = [1] * len(x)
     assert sum(mask) > 0, 'Not all values can be masked.'
