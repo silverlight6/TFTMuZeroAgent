@@ -8,4 +8,5 @@ suggestions.py
 /UnitTests/__pycache__
 /logs
 log.txt
+/SavedModels
 libdevice.10.bc
