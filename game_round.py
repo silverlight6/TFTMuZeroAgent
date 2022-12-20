@@ -145,14 +145,13 @@ class TFT_Simulation:
                     return False
         log_to_file_combat()
         return True
-
     def check_dead(self, agent, buffers, game_episode):
         num_alive = 0
         game_observation = AI_interface.Observation()
         for i, player in enumerate(self.PLAYERS):
             if player:
                 if player.health <= 0:
-                    
+
                     # This won't take into account how much health the most recent
                     # dead had if multiple players die at once
                     # Take an observation
@@ -167,14 +166,13 @@ class TFT_Simulation:
                     print("Player " + str(player.player_num) + " achieved individual reward = " + str(player.reward))
                     self.NUM_DEAD += 1
                     self.pool_obj.return_hero(player)
-                    player.game_pos = self.NUM_DEAD
+
                     self.PLAYERS[i] = None
                 else:
                     num_alive += 1
         if num_alive == 1:
             for i, player in enumerate(self.PLAYERS):
                 if player:
-                    player.game_pos = self.NUM_DEAD
                     player.won_game()
                     self.pool_obj.return_hero(player)
                     shop = self.pool_obj.sample(player, 5)
@@ -285,7 +283,6 @@ class TFT_Simulation:
         for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 1, self.PLAYERS)
-        log_to_file_combat()
 
         self.player_round(2, self.PLAYERS, agent, buffer, game_episode)
 
@@ -293,7 +290,6 @@ class TFT_Simulation:
         for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 2, self.PLAYERS)
-        log_to_file_combat()
 
         # STAGE 2 BEGINS HERE
         # Round 2-1 to 2-3: 3 Player Combats
@@ -328,14 +324,9 @@ class TFT_Simulation:
 
         # Round 2-7 Krugs Round - 3 gold plus 3 item components
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(8)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(8)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 8, self.PLAYERS)
+
         # STAGE 3 BEGINS HERE
         # Round 3-1 to 3-3: 3 Player Combats
         for r in range(9, 12):
@@ -368,16 +359,8 @@ class TFT_Simulation:
         
         # Round 3-7: Wolves round
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(14)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(14)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 14, self.PLAYERS)
-
-        log_to_file_combat()
 
         # STAGE 4 BEGINS HERE
         # Round 4-1 to 4-3: 3 Player Combats
@@ -411,15 +394,8 @@ class TFT_Simulation:
 
         # Round 4-7: Raptors round
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(20)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(20)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 20, self.PLAYERS)
-        log_to_file_combat()
 
         # STAGE 5 BEGINS HERE
         # Round 5-1 to 5-3: 3 Player Combats
@@ -454,15 +430,8 @@ class TFT_Simulation:
         # Round 5-7: Dragon Round - 6 gold and a full item
         # here be dragons
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(26)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(26)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 26, self.PLAYERS)
-        log_to_file_combat()
 
         # STAGE 6 BEGINS HERE
         # Round 6-1 to 6-3: 3 Player Combats
@@ -496,15 +465,8 @@ class TFT_Simulation:
 
         # Round 6-7: Rift Herald - 6 gold and a full item
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(32)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(32)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 32, self.PLAYERS)
-        log_to_file_combat()
 
         # STAGE 7 BEGINS HERE
         # Round 7-1 to 7-3: 3 Player Combats
@@ -537,15 +499,9 @@ class TFT_Simulation:
 
         # Round 7-7: Another Rift Herald (long game)
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(37)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(37)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 37, self.PLAYERS)
-        log_to_file_combat()
+
         # STAGE 8 BEGINS HERE
         # this should rarely/never happen, but just in case
         # Round 8-1 to 8-3: 3 Player Combats
@@ -578,15 +534,8 @@ class TFT_Simulation:
 
         # Round 8-7: The final Rift Herald
         for player in self.PLAYERS:
-                if player:
-                    player.start_round(43)
-                    self.ai_buy_phase(player, agents[player.player_num], buffer[player.player_num], game_episode)
-                    log_to_file(player)
-        log_end_turn(43)
-        for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 43, self.PLAYERS)
-        log_to_file_combat()
 
         print("Game has gone on way too long. There has to be a bug somewhere")
         for player in self.PLAYERS:

@@ -835,19 +835,16 @@ def train_model(max_episodes=10000):
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
     global_agent = TFTNetwork()
-    bad_agent = TFTNetwork()
-    
-    # global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
     game_sim = game_round.TFT_Simulation()
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     train_step = 0
+    try: 
+        global_agent.load_model(0)
+    except:
+        pass
     
-    stats = [[0,0,0]] #stats list for data vis: [[agent tier, pos, episode]...] 
-    tier = 0 
-    beaten = False
-    bad_agent_position = 0 
 
     for episode_cnt in range(1, max_episodes):
         agent = Batch_MCTSAgent(network=global_agent)
@@ -862,7 +859,7 @@ def train_model(max_episodes=10000):
             gameplay_experience_batch = global_buffer.sample_batch()
             trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
             train_step += 1
-        bad_agent_position = agents[-1].game_pos
+        global_agent.save_model(episode_cnt)
         if episode_cnt % 5 == 0:
             game_round.log_to_file_start()
         

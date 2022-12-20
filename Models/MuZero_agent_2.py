@@ -505,7 +505,7 @@ class MCTSAgent:
         return_child = child
         
 
-        return actions, return_child
+        return action, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
     # the prior.
