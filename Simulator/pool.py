@@ -80,6 +80,8 @@ class pool:
 	# TO DO: Implement the chosen mechanic and ensure the doubling of the right stat
 	# Chosen is implemented as a string with the class being the possible one.
 	def sample(self, player, num, idx=-1):
+		if player is None:
+			return [" " for _ in range(num)]
 		ranInt = [0 for _ in range(num)]
 		championOptions = [None for _ in range(num)]
 		chosen = player.chosen

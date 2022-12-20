@@ -105,6 +105,11 @@ class player:
         self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
         self.possible_opponents[self.player_num] = -1
 
+        self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+        self.current_action = 0
+        self.action_complete = False
+        self.action_values = []
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
@@ -187,7 +192,6 @@ class player:
         num_units_to_move = self.max_units - self.num_units_in_play
         position_found = -1
         for _ in range(num_units_to_move):
-            units_on_bench = True
             found_position = False
             for i in range(position_found + 1, len(self.bench)):
                 if self.bench[i]:
@@ -417,8 +421,7 @@ class player:
     # Including base_exp income here
 
     # This gets called before any of the neural nets happen. This is the start of the round
-    def gold_income(self, t_round):  # time of round since round is a keyword
-        self.start_time = time.time_ns()
+    def gold_income(self, t_round):
         self.exp += 2
         self.level_up()
         if t_round <= 4:
@@ -578,6 +581,7 @@ class player:
         else:
             self.reward += self.mistake_reward
             return False
+
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
     def move_item_to_bench(self, xBench, x):
@@ -910,6 +914,7 @@ class player:
     # print("adding " + champion.name + " to triple_catalog")
 
     def start_round(self, t_round):
+        self.start_time = time.time_ns()
         self.round = t_round
         self.reward += self.num_units_in_play * self.minion_count_reward
         # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")

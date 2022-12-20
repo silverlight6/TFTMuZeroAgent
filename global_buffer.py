@@ -12,7 +12,7 @@ class GlobalBuffer:
     def sample_batch(self):
         # Returns: a batch of gameplay experiences without regard to which agent.
         observation_batch, action_history_batch, target_value_batch, target_reward_batch = [], [], [], []
-        target_policy_a_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
+        target_policy_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
 
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask,\
@@ -25,10 +25,7 @@ class GlobalBuffer:
             target_value_batch.append(value)
             target_reward_batch.append(reward)
             # print(policy)
-            pol_a = []
-            for i in range(len(policy)):
-                pol_a.append(policy[i][0].numpy())
-            target_policy_a_batch.append(pol_a)
+            target_policy_batch.append(policy)
 
         observation_batch = np.squeeze(np.asarray(observation_batch))
         # print(action_history_batch)
@@ -38,8 +35,7 @@ class GlobalBuffer:
         value_mask_batch = np.asarray(value_mask_batch).astype('float32')
         reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
-        target_policy_a_batch = np.asarray(target_policy_a_batch).astype('float32')
-        target_policy_batch = [target_policy_a_batch]
+        target_policy_batch = np.asarray(target_policy_batch).astype('float32')
 
         return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
                 target_value_batch, target_reward_batch, target_policy_batch]
