@@ -412,22 +412,14 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 ##### JITTED FUNCTIONS #######
 # This function uses the GPU or converts the python to C making it 33-10 times faster
-@jit(target_backend='cuda', nopython=True)
+@jit(target_backend="cuda", nopython=True)
 def expand_node2(network_output, action_dim):
     policy = []
-    for i, action_dim in enumerate(action_dim):
+    for i, action_dim in enumerate(action_dim):       
         policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
     return policy
 
 
-@jit(target_backend='cuda', nopython=True)  # I think this improves the UCB score calculation
-def ucb_score_2(parent_visit_count, child_visit_count, PB_C_BASE, PB_C_INIT, prior):
-    pb_c = math.log((parent_visit_count + PB_C_BASE + 1) /
-                    PB_C_BASE) + PB_C_INIT
-    pb_c *= math.sqrt(parent_visit_count) / (child_visit_count + 1)
-
-    prior_score = pb_c * prior
-    return prior_score
 
 #EXPLANATION OF MCTS:
 """
@@ -457,38 +449,21 @@ class MCTSAgent:
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
 
-    def expand_node(self, node: Node, to_play: int, network_output):
+    def expand_node(self, node: Node, to_play: int, network_output): #takes negligible time 
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
 
-        input_to_jitfunc = []
         # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
         policy_probs = [network_output["policy_logits"].numpy()]
-
-        # convert dictionary to single list for JIT function by looping through dictionary and
-        # converting items to numpy then adding to list
-        # self.action_dim hardcoded because it changes type randomly.
-        try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(policy_probs, [10])
-            # This policy sum is not in the Google's implementation. Not sure if required.
-            policy_sum = sum(policy[0].values())
-            for action, p in policy[0].items():
-                node.children[action] = Node(p / policy_sum)
-        except:
-            print("error - reverting to old function")
-            self.expand_node_old(node, network_output)
-
-        # if np.random.randint(0,1000) == 500:
-        # print("expand_node took {} time".format(time.time_ns() - ckpt))
-
-    def expand_node_old(self, node: Node, network_output):  # old version of expand_node for a failsafe
-        policy = {b: math.exp(network_output["policy_logits"][0][b]) for b in range(self.action_dim)}
-        policy_sum = sum(policy.values())
-        for action, p in policy.items():
+        
+        policy = expand_node2(policy_probs, [10])
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        policy_sum = sum(policy[0].values())
+        for action, p in policy[0].items():
             node.children[action] = Node(p / policy_sum)
 
-    def add_exploration_noise(self, node: Node):
+    def add_exploration_noise(self, node: Node): #takes 0 time 
         actions = list(node.children.keys())
         noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
         frac = config.ROOT_EXPLORATION_FRACTION
@@ -496,21 +471,20 @@ class MCTSAgent:
             node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
 
     # Select the child with the highest UCB score.
-    def select_child(self, node: Node, min_max_stats: MinMaxStats):
+    def select_child(self, node: Node, min_max_stats: MinMaxStats): #takes negligible time 
         actions = []
         _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
                                 child) for action, child in node.children.items())
         actions.append(action)
         return_child = child
+        
 
-        # if np.random.randint(0, 1000) == 500:
-        #     print("select child took {} time".format(time.time_ns() - ckpt))
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
     # the prior.
     @staticmethod
-    def ucb_score(parent: Node, child: Node, min_max_stats: MinMaxStats) -> float:
+    def ucb_score(parent: Node, child: Node, min_max_stats: MinMaxStats) -> float: #Takes aprx 0 time
         pb_c = math.log((parent.visit_count + config.PB_C_BASE + 1) /
                         config.PB_C_BASE) + config.PB_C_INIT
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -522,7 +496,7 @@ class MCTSAgent:
     # tree to the root.
     @staticmethod
     def backpropagate(search_path: List[Node], value: float,
-                      min_max_stats: MinMaxStats, player_num: int):
+                      min_max_stats: MinMaxStats, player_num: int): #takes lots of time 
         for node in search_path:
             node.value_sum += value if node.to_play == player_num else -value
             node.visit_count += 1
