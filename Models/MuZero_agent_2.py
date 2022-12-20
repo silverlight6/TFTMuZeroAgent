@@ -34,7 +34,7 @@ def normalize2(value, minimum, maximum):  # faster implementation of normalizati
 class MinMaxStats(object):
     """A class that holds the min-max values of the tree."""
 
-    def __init__(self, minimum: int, maximum: int):
+    def __init__(self, minimum: float, maximum: float):
         self.maximum = minimum
         self.minimum = maximum
         self.set = False
@@ -55,11 +55,11 @@ class MinMaxStats(object):
             minimum = self.minimum
             # Convert from 1d tensor to float if needed (JIT function requires float)
             if type(maximum) != int and type(maximum) != float:
-                maximum = float(maximum.numpy())
+                maximum = float(maximum)
             if type(minimum) != int and type(minimum) != float:
-                minimum = float(minimum.numpy())
+                minimum = float(minimum)
             if type(value) != int and type(value) != float:
-                value = float(value.numpy())
+                value = float(value)
             ans = normalize2(value, maximum, minimum)
             # print("val, max, min = ", value, max, min)
 
@@ -158,7 +158,6 @@ class Network(tf.Module):
                               name='recurrent_inference')
 
     def recurrent_inference(self, hidden_state, action) -> dict:
-        print(action)
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
 
         hidden_state, reward_logits, value_logits, policy_logits = \
@@ -605,8 +604,6 @@ class Batch_MCTSAgent(MCTSAgent):
             # main decision axis.
             for i in range(config.NUM_PLAYERS):
                 while node[i].expanded():
-                    print(node[i])
-                    print(min_max_stats[i])
                     action[i], node[i] = self.select_child(node[i], min_max_stats[i])
                     history[i].add_action(action[i])
                     search_path[i].append(node[i])
@@ -614,13 +611,12 @@ class Batch_MCTSAgent(MCTSAgent):
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
-            hidden_state = [parent[i].hidden_state for i in range(config.NUM_PLAYERS)]
-            print("player 0 last action = {}".format(history[0].last_action()))
-            last_action = [history[i].last_action() for i in range(config.NUM_PLAYERS)]
+            hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
+            last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])
 
-            network_output = self.network.recurrent_inference(hidden_state, np.asarray(last_action))
+            network_output = self.network.recurrent_inference(hidden_state, last_action)
             for i in range(config.NUM_PLAYERS):
-                self.expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)
+                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)
                 # print("value {}".format(network_output["value"]))
                 self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)
 
@@ -629,7 +625,7 @@ class Batch_MCTSAgent(MCTSAgent):
 
         network_output = self.network.initial_inference(observation)
         for i in range(config.NUM_PLAYERS):
-            self.expand_node(root[i], i, network_output)
+            self.batch_expand_node(root[i], i, network_output)
             self.add_exploration_noise(root[i])
 
         self.run_batch_mcts(root, prev_action)
@@ -644,6 +640,27 @@ class Batch_MCTSAgent(MCTSAgent):
         self.num_actions += 1
 
         return action, network_output["policy_logits"]
+
+    def batch_expand_node(self, node: Node, to_play: int, network_output):
+        node.to_play = to_play
+        node.hidden_state = network_output["hidden_state"][to_play]
+        node.reward = network_output["reward"][to_play]
+
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
+        policy_probs = [network_output["policy_logits"][to_play].numpy()]
+
+        # convert dictionary to single list for JIT function by looping through dictionary and
+        # converting items to numpy then adding to list
+        # self.action_dim hardcoded because it changes type randomly.
+        try:  # if we get an error, just fall back to previous implementation
+            policy = expand_node2(policy_probs, [10])
+            # This policy sum is not in the Google's implementation. Not sure if required.
+            policy_sum = sum(policy[0].values())
+            for action, p in policy[0].items():
+                node.children[action] = Node(p / policy_sum)
+        except:
+            # print("error - reverting to old function")
+            self.expand_node_old(node, network_output)
 
 
 def masked_distribution(x, use_exp, mask=None):

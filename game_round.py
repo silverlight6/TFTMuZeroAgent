@@ -283,12 +283,7 @@ class TFT_Simulation:
             if player:
                 minion.minion_round(player, 1, self.PLAYERS)
 
-        # ROUND 1-4 -  Buy phase + Give 3 gold and 1 random item component
-        for player in self.PLAYERS:
-            if player:
-                player.start_round(2)
-                self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                log_to_file(player)
+        self.player_round(2, self.PLAYERS, agent, buffer, game_episode)
 
         log_end_turn(2)
         for player in self.PLAYERS:
@@ -298,11 +293,7 @@ class TFT_Simulation:
         # STAGE 2 BEGINS HERE
         # Round 2-1 to 2-3: 3 Player Combats
         for r in range(3, 6):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -322,11 +313,7 @@ class TFT_Simulation:
 
         # Round 2-5 to 2-6: 2 Player Combats
         for r in range(6, 8):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -338,14 +325,11 @@ class TFT_Simulation:
         for player in self.PLAYERS:
             if player:
                 minion.minion_round(player, 8, self.PLAYERS)
+
         # STAGE 3 BEGINS HERE
         # Round 3-1 to 3-3: 3 Player Combats
         for r in range(9, 12):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -364,11 +348,7 @@ class TFT_Simulation:
 
         # Round 3-4 to 3-5: 2 Player Combats
         for r in range(12, 14):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -384,11 +364,7 @@ class TFT_Simulation:
         # STAGE 4 BEGINS HERE
         # Round 4-1 to 4-3: 3 Player Combats
         for r in range(15, 18):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -407,11 +383,7 @@ class TFT_Simulation:
 
         # Round 4-5 to 4-6: 2 Player Combats
         for r in range(18, 20):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -427,11 +399,7 @@ class TFT_Simulation:
         # STAGE 5 BEGINS HERE
         # Round 5-1 to 5-3: 3 Player Combats
         for r in range(21, 24):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -450,11 +418,7 @@ class TFT_Simulation:
 
         # Round 5-5 to 5-6: 2 Player Combats
         for r in range(24, 26):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -471,11 +435,7 @@ class TFT_Simulation:
         # STAGE 6 BEGINS HERE
         # Round 6-1 to 6-3: 3 Player Combats
         for r in range(27, 30):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -494,11 +454,7 @@ class TFT_Simulation:
 
         # Round 6-5 to 6-6: 2 Player Combats
         for r in range(30, 32):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -514,11 +470,7 @@ class TFT_Simulation:
         # STAGE 7 BEGINS HERE
         # Round 7-1 to 7-3: 3 Player Combats
         for r in range(32, 35):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -536,11 +488,7 @@ class TFT_Simulation:
 
         # Round 7-5 to 7-6: 2 Player Combats
         for r in range(35, 37):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -557,11 +505,7 @@ class TFT_Simulation:
         # this should rarely/never happen, but just in case
         # Round 8-1 to 8-3: 3 Player Combats
         for r in range(38, 41):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)
@@ -579,11 +523,7 @@ class TFT_Simulation:
 
         # Round 8-5 to 8-6: 2 Player Combats
         for r in range(41, 43):
-            for player in self.PLAYERS:
-                if player:
-                    player.start_round(r)
-                    self.ai_buy_phase(player, agent, buffer[player.player_num], game_episode)
-                    log_to_file(player)
+            self.player_round(r, self.PLAYERS, agent, buffer, game_episode)
             log_end_turn(r)
 
             self.combat_phase(self.PLAYERS, r)

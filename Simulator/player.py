@@ -105,6 +105,11 @@ class player:
         self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
         self.possible_opponents[self.player_num] = -1
 
+        self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+        self.current_action = 0
+        self.action_complete = False
+        self.action_values = []
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
@@ -576,6 +581,7 @@ class player:
         else:
             self.reward += self.mistake_reward
             return False
+
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
     def move_item_to_bench(self, xBench, x):
