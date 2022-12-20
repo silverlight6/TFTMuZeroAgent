@@ -19,6 +19,7 @@ class Minion:
         self.bench = [None for _ in range(9)]
         # Champion array, this is a 7 by 4 array.
         self.board = [[None for _ in range(4)] for _ in range(7)]
+        self.opponent = None
 
 class FirstMinion(Minion):
     def __init__(self):
@@ -126,6 +127,9 @@ def minion_combat(player, enemy, round, others):
     round_index = 0
     while round > ROUND_DAMAGE[round_index][0]:
             round_index += 1
+
+    player.opponent = enemy
+    enemy.opponent = player
 
     index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
     # list of currently alive players at the conclusion of combat
