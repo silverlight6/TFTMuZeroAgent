@@ -29,6 +29,13 @@ NetworkOutput = collections.namedtuple(
 def normalize2(value, minimum, maximum):  # faster implementation of normalization
     ans = (value - minimum) / (maximum - minimum)
     return ans
+@jit(target_backend='cuda', nopython=True)
+def update2(value,maximum,minimum):
+    if value > maximum:
+        maximum = value 
+    elif value < minimum:
+        minimum = value
+    return maximum, minimum
 
 
 class MinMaxStats(object):
@@ -39,10 +46,10 @@ class MinMaxStats(object):
         self.minimum = maximum
         self.set = False
 
+
     def update(self, value: float):
-        self.maximum = max(self.maximum, value)
-        self.minimum = min(self.minimum, value)
-        self.set = True
+        self.maximum, self.minimum = update2(float(value), float(self.maximum), float(self.minimum))
+        self.set = True       
 
     def normalize(self, value: float) -> float:
 
@@ -61,7 +68,7 @@ class MinMaxStats(object):
             if type(value) != int and type(value) != float:
                 value = float(value)
             ans = normalize2(value, maximum, minimum)
-            # print("val, max, min = ", value, max, min)
+            
 
             return ans
 
@@ -100,12 +107,16 @@ class Network(tf.Module):
                  prediction: tf.keras.Model
                  ) -> None:
         super().__init__(name='MuZeroAgent')
+        #temp
+        self.rec_count = 0 
+
+
         self.config = config
         self.representation: tf.keras.Model = representation
         self.dynamics: tf.keras.Model = dynamics
         self.prediction: tf.keras.Model = prediction
-        # print(dynamics.summary())
-        # print(prediction.summary())
+       
+       
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
@@ -157,12 +168,13 @@ class Network(tf.Module):
                               outputs=[new_hidden_state, reward, value, policy_logits],
                               name='recurrent_inference')
 
-    def recurrent_inference(self, hidden_state, action) -> dict:
+    def recurrent_inference(self, hidden_state, action) -> dict: #12 ms 
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
-
+        ckpt = time.time_ns()
         hidden_state, reward_logits, value_logits, policy_logits = \
             self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
-
+       
+       
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
 
@@ -174,6 +186,8 @@ class Network(tf.Module):
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
+        self.rec_count += 1 
+        
         return outputs
 
     def rnn_to_flat(self, state):
@@ -385,22 +399,11 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 ##### JITTED FUNCTIONS #######
 # This function uses the GPU or converts the python to C making it 33-10 times faster
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
     policy = []
     policy.append({b: math.exp(network_output[b]) for b in range(action_dim)})
     return policy
-
-
-@jit(target_backend='cuda', nopython=True)  # I think this improves the UCB score calculation
-def ucb_score_2(parent_visit_count, child_visit_count, PB_C_BASE, PB_C_INIT, prior):
-    pb_c = math.log((parent_visit_count + PB_C_BASE + 1) /
-                    PB_C_BASE) + PB_C_INIT
-    pb_c *= math.sqrt(parent_visit_count) / (child_visit_count + 1)
-
-    prior_score = pb_c * prior
-    return prior_score
-
 
 class MCTSAgent:
     """
@@ -413,6 +416,7 @@ class MCTSAgent:
                  ) -> None:
         self.network: Network = network
         self.agent_id = agent_id
+        self.times = [0]*5 
 
         # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
         self.action_dim = 10
@@ -479,16 +483,18 @@ class MCTSAgent:
 
     # At the end of a simulation, we propagate the evaluation all the way up the
     # tree to the root.
-    @staticmethod
-    def backpropagate(search_path: List[Node], value: float,
+    #@staticmethod
+    def backpropagate(self, search_path: List[Node], value: float,
                       min_max_stats: MinMaxStats, player_num: int):
+        
         for node in search_path:
-            node.value_sum += value if node.to_play == player_num else -value
+            
+            node.value_sum += value if node.to_play == player_num else -value #2.72s 
             node.visit_count += 1
-            min_max_stats.update(node.value())
-
-            value = node.reward + config.DISCOUNT * value
-
+        
+            min_max_stats.update(node.value()) #1.48s 
+            
+            value = node.reward + config.DISCOUNT * value #1.76s
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of
     # the search tree and traversing the tree according to the UCB formula until we
@@ -585,19 +591,21 @@ class Batch_MCTSAgent(MCTSAgent):
 
     def __init__(self, network: Network) -> None:
         super().__init__(network, 0)
+        self.times = [0]*6
 
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of
     # the search tree and traversing the tree according to the UCB formula until we
     # reach a leaf node.
     def run_batch_mcts(self, root: list, action: List):
+        ckpt = time.time_ns()
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
-
+        
         for _ in range(config.NUM_SIMULATIONS):
             history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
             node = root
             search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
-
+            
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
@@ -606,41 +614,48 @@ class Batch_MCTSAgent(MCTSAgent):
                     action[i], node[i] = self.select_child(node[i], min_max_stats[i])
                     history[i].add_action(action[i])
                     search_path[i].append(node[i])
-
+            
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
             hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
             last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])
-
-            network_output = self.network.recurrent_inference(hidden_state, last_action)
+            
+            
+            network_output = self.network.recurrent_inference(hidden_state, last_action) #11.05s 
             for i in range(config.NUM_PLAYERS):
-                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)
+                
+                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)#6.84s 
+                
                 # print("value {}".format(network_output["value"]))
-                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)
-
+                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)#12.08s 
+                
     def batch_policy(self, observation, prev_action):
         root = [Node(0) for _ in range(config.NUM_PLAYERS)]
-
-        network_output = self.network.initial_inference(observation)
+        network_output = self.network.initial_inference(observation) #2.1 seconds
+        
         for i in range(config.NUM_PLAYERS):
-            self.batch_expand_node(root[i], i, network_output)
+            self.batch_expand_node(root[i], i, network_output) #0.39 seconds 
+            
+            
             self.add_exploration_noise(root[i])
-
-        self.run_batch_mcts(root, prev_action)
-
+            
+        self.run_batch_mcts(root, prev_action) #24.3 s (3 seconds not in that)
+        
         action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
-
+        
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
         # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-
+       
         return action, network_output["policy_logits"]
 
     def batch_expand_node(self, node: Node, to_play: int, network_output):
+        ckpt = time.time_ns() 
+
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
@@ -651,6 +666,7 @@ class Batch_MCTSAgent(MCTSAgent):
         # convert dictionary to single list for JIT function by looping through dictionary and
         # converting items to numpy then adding to list
         # self.action_dim hardcoded because it changes type randomly.
+        
         try:  # if we get an error, just fall back to previous implementation
             policy = expand_node2(policy_probs, 10)
             # This policy sum is not in the Google's implementation. Not sure if required.

@@ -664,7 +664,7 @@ def batch_step(players, agent, buffers, pool_obj):
         game_observations[i].generate_game_comps_vector()
         game_observations[i].generate_shop_vector(shops[i])
     t = time.time_ns()
-    while actions_taken < 30:
+    while actions_taken < 30:      
         observation_list = []
         previous_action = []
         for player in players:
@@ -672,16 +672,13 @@ def batch_step(players, agent, buffers, pool_obj):
                 # TODO
                 # store game state vector later
                 observation, game_state_vector = game_observations[player.player_num]\
-                    .observation(player, buffers[player.player_num], player.action_vector)
-                observation_list.append(observation)
-                buffers[player.player_num].store_observation(game_state_vector)
-                previous_action.append(buffers[player.player_num].get_prev_action())
-
-        observation_list = np.squeeze(np.array(observation_list))
+                    .observation(player, buffers[player.player_num], player.action_vector)                
+                observation_list.append(observation)                
+                buffers[player.player_num].store_observation(game_state_vector)                
+                previous_action.append(buffers[player.player_num].get_prev_action())       
+        observation_list = np.squeeze(np.array(observation_list))       
         previous_action = np.array(previous_action)
-
-        action, policy = agent.batch_policy(observation_list, previous_action)
-
+        action, policy = agent.batch_policy(observation_list, previous_action) #LOTS OF TIME
         rewards = [player.reward - previous_reward[player.player_num] for player in players]
         batch_controller(action, players, shops, pool_obj, game_observations, agent, buffers)
         actions_taken += 1
@@ -689,9 +686,9 @@ def batch_step(players, agent, buffers, pool_obj):
             buffers[player.player_num].store_replay_buffer(observation_list[player.player_num],
                                                            action[player.player_num], rewards[player.player_num],
                                                            policy[player.player_num])
-
             previous_reward[player.player_num] = player.reward
     print(time.time_ns() - t)
+    agent.network.rec_count = 0
 
 
 # Includes the vector of the shop, bench, board, and item list.
