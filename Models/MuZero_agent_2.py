@@ -388,8 +388,7 @@ def inverse_contractive_mapping(x, eps=0.001):
 @jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
     policy = []
-    for i, action_dim in enumerate(action_dim):
-        policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
+    policy.append({b: math.exp(network_output[b]) for b in range(action_dim)})
     return policy
 
 
@@ -647,19 +646,19 @@ class Batch_MCTSAgent(MCTSAgent):
         node.reward = network_output["reward"][to_play]
 
         # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
-        policy_probs = [network_output["policy_logits"][to_play].numpy()]
+        policy_probs = network_output["policy_logits"][to_play].numpy()
 
         # convert dictionary to single list for JIT function by looping through dictionary and
         # converting items to numpy then adding to list
         # self.action_dim hardcoded because it changes type randomly.
         try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(policy_probs, [10])
+            policy = expand_node2(policy_probs, 10)
             # This policy sum is not in the Google's implementation. Not sure if required.
             policy_sum = sum(policy[0].values())
             for action, p in policy[0].items():
                 node.children[action] = Node(p / policy_sum)
         except:
-            # print("error - reverting to old function")
+            print("error - reverting to old function")
             self.expand_node_old(node, network_output)
 
 

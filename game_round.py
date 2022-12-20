@@ -146,7 +146,7 @@ class TFT_Simulation:
         log_to_file_combat()
         return True
 
-    def check_dead(self, agents, buffers, game_episode):
+    def check_dead(self, agent, buffers, game_episode):
         num_alive = 0
         game_observation = AI_interface.Observation()
         for i, player in enumerate(self.PLAYERS):
@@ -158,7 +158,7 @@ class TFT_Simulation:
                     # Take an observation
                     observation, _ = game_observation.observation(player, buffers[player.player_num],
                                                                   [1, 0, 0, 0, 0, 0, 0, 0])
-                    action, logits = agents[player.player_num].policy(observation, player.player_num)
+                    action, logits = agent.policy(observation, player.current_action)
 
                     # Get reward of -0.5 for losing the game
                     reward = -0.5
@@ -180,7 +180,7 @@ class TFT_Simulation:
                     # Take an observation
                     observation, _ = game_observation.observation(player, buffers[player.player_num],
                                                                   [1, 0, 0, 0, 0, 0, 0, 0])
-                    action, logits = agents[player.player_num].policy(observation, player.player_num)
+                    action, logits = agent.policy(observation, player.current_action)
 
                     # Get reward 1 for winning the game
                     reward = 1
