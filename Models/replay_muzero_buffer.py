@@ -34,6 +34,12 @@ class ReplayBuffer:
         # take the sample from i num from the end of list
         return self.observation_history[i * -1]
 
+    def get_prev_action(self):
+        if self.action_history:
+            return self.action_history[-1]
+        else:
+            return 9
+
     def get_observation_shape(self):
         # Hard coding this because the need to know this value before any observation are
         # Generated in the case of no successful actions completed yet in the game which

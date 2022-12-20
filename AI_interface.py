@@ -1,3 +1,4 @@
+import config
 from Models import MuZero_trainer
 from Simulator import champion, player as player_class, pool
 import datetime
@@ -7,9 +8,8 @@ import tensorflow as tf
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.stats import COST
 from Models.MuZero_agent import MuZero_agent
-from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent
+from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent, Batch_MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
-from multiprocessing import Process
 from global_buffer import GlobalBuffer
 
 CURRENT_EPISODE = 0
@@ -25,7 +25,7 @@ def reset(sim):
 
 
 # The return is the shop, boolean for end of turn, boolean for successful action
-def step(action, player, shop, pool_obj):
+def step_5d(action, player, shop, pool_obj):
     if action[0] == 0:
         if shop[0] == " ":
             player.reward += player.mistake_reward
@@ -442,6 +442,32 @@ def multi_step(action, player, shop, pool_obj, game_observation, agent, buffer):
     return shop, False, True, 1
 
 
+# Batch step
+def batch_step(players, agent, buffers, pool_obj):
+    shops = [pool_obj.sample(players[i], 5) for i in range(config.NUM_PLAYERS)]
+    actions_taken = [0 for _ in range(config.NUM_PLAYERS)]
+    game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
+    for i in range(config.NUM_PLAYERS):
+        game_observations[i].generate_game_comps_vector()
+        game_observations[i].generate_shop_vector(shops[i])
+
+    observation_list = []
+    previous_action = []
+    for player in players:
+        # TODO
+        # store game state vector later
+        observation, game_state_vector = game_observations[player.player_num]\
+            .observation(player, buffers[player.player_num], np.array([1, 0, 0, 0, 0, 0, 0, 0]))
+        observation_list.append(observation)
+        buffers[player.player_num].store_observation(game_state_vector)
+        previous_action.append(buffers[player.player_num].get_prev_action())
+
+    observation_list = np.squeeze(np.array(observation_list))
+    previous_action = np.array(previous_action)
+    print(previous_action.shape)
+    action, policy = agent.batch_policy(observation_list, previous_action)
+
+
 # Includes the vector of the shop, bench, board, and item list.
 # Add a vector for each player composition makeup at the start of the round.
 # action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_axis 2, y_axis 2]
@@ -527,6 +553,7 @@ class Observation:
             shop[chosen_shop_index] = chosen_shop
         self.shop_vector = output_array
 
+
 def reward(player):
     return player.reward
 
@@ -545,24 +572,23 @@ def train_model(max_episodes=10000):
     # test_player = player_class.player(pool_obj, 0)
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
+
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
-    # tf.debugging.set_log_device_placement(True)
     global_agent = TFTNetwork()
     # global_agent = MuZero_agent()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
-
     game_sim = game_round.TFT_Simulation()
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
-    TFTNetworks = [TFTNetwork() for _ in range(game_sim.num_players)]
-    agents = [MCTSAgent(network=network, agent_id=i) for i, network in enumerate(TFTNetworks)]
+
     train_step = 0
     for episode_cnt in range(1, max_episodes):
+        agent = Batch_MCTSAgent(network=global_agent)
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
-        collect_gameplay_experience(game_sim, agents, buffers, episode_cnt)
+        collect_gameplay_experience(game_sim, agent, buffers, episode_cnt)
 
         for i in range(game_sim.num_players):
             buffers[i].store_global_buffer()
@@ -575,8 +601,8 @@ def train_model(max_episodes=10000):
 
         if episode_cnt % 5 == 0:
             game_round.log_to_file_start()
-        for i in range(game_sim.num_players):
-            agents[i] = MCTSAgent(global_agent, agent_id=i)
+        # for i in range(game_sim.num_players):
+        #     agents[i] = MCTSAgent(global_agent, agent_id=i)
         # if episode_cnt % 50 == 0:
         #     saveModel(agents[0].a3c_net, episode_cnt)
         print("Episode " + str(episode_cnt) + " Completed")

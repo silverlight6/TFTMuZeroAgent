@@ -187,7 +187,6 @@ class player:
         num_units_to_move = self.max_units - self.num_units_in_play
         position_found = -1
         for _ in range(num_units_to_move):
-            units_on_bench = True
             found_position = False
             for i in range(position_found + 1, len(self.bench)):
                 if self.bench[i]:
@@ -417,8 +416,7 @@ class player:
     # Including base_exp income here
 
     # This gets called before any of the neural nets happen. This is the start of the round
-    def gold_income(self, t_round):  # time of round since round is a keyword
-        self.start_time = time.time_ns()
+    def gold_income(self, t_round):
         self.exp += 2
         self.level_up()
         if t_round <= 4:
@@ -910,6 +908,7 @@ class player:
     # print("adding " + champion.name + " to triple_catalog")
 
     def start_round(self, t_round):
+        self.start_time = time.time_ns()
         self.round = t_round
         self.reward += self.num_units_in_play * self.minion_count_reward
         # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")

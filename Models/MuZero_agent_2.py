@@ -128,20 +128,16 @@ class Network(tf.Module):
                               name='initial_inference')
 
     def initial_inference(self, observation) -> dict:
-        # self.ckpt_time = time.time_ns()
         hidden_state, value_logits, policy_logits = \
             self.initial_inference_model(observation, training=False)
-        # print("initial_inference takes {} time".format(time.time_ns() - self.ckpt_time))
-        # self.ckpt_time = time.time_ns()
         value = self.value_encoder.decode(value_logits)
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
-        # print("initial_inference value / reward takes {} time".format(time.time_ns() - self.ckpt_time))
 
         outputs = {
             "value": value,
             "value_logits": value_logits,
-            "reward": reward,  # changing this to .numpy() didnt help, just made training take much longer.
+            "reward": reward,
             "reward_logits": reward_logits,
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
@@ -162,6 +158,7 @@ class Network(tf.Module):
                               name='recurrent_inference')
 
     def recurrent_inference(self, hidden_state, action) -> dict:
+        print(action)
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
 
         hidden_state, reward_logits, value_logits, policy_logits = \
@@ -463,15 +460,13 @@ class MCTSAgent:
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
-        actions = []
         _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
                                 child) for action, child in node.children.items())
-        actions.append(action)
         return_child = child
 
         # if np.random.randint(0, 1000) == 500:
         #     print("select child took {} time".format(time.time_ns() - ckpt))
-        return actions, return_child
+        return action, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
     # the prior.
@@ -519,14 +514,12 @@ class MCTSAgent:
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = search_path[-2]
-            # print("mcts child select takes {} time".format(time.time_ns() - self.ckpt_time))
 
             network_output = self.network. \
                 recurrent_inference(parent.hidden_state, np.asarray(history.last_action()))
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
             # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
-            # print("mcts expand/backprop takes {} time".format(time.time_ns() - self.ckpt_time))
 
     def select_action(self, node: Node):
         visit_counts = [
@@ -544,9 +537,7 @@ class MCTSAgent:
 
         self.run_mcts(root, network_output["policy_logits"].numpy(), player_num)
 
-        self.ckpt_time = time.time_ns()
         action = int(self.select_action(root))
-        # print("selecting actions takes {} time".format(time.time_ns() - self.ckpt_time))
 
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
@@ -587,6 +578,72 @@ class MCTSAgent:
     @staticmethod
     def visit_softmax_temperature():
         return .1
+
+
+class Batch_MCTSAgent(MCTSAgent):
+    """
+    Use Monte-Carlo Tree-Search to select moves.
+    """
+
+    def __init__(self, network: Network) -> None:
+        super().__init__(network, 0)
+
+    # Core Monte Carlo Tree Search algorithm.
+    # To decide on an action, we run N simulations, always starting at the root of
+    # the search tree and traversing the tree according to the UCB formula until we
+    # reach a leaf node.
+    def run_batch_mcts(self, root: list, action: List):
+        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
+
+        for _ in range(config.NUM_SIMULATIONS):
+            history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
+            node = root
+            search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
+
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            for i in range(config.NUM_PLAYERS):
+                while node[i].expanded():
+                    print(node[i])
+                    print(min_max_stats[i])
+                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
+                    history[i].add_action(action[i])
+                    search_path[i].append(node[i])
+
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
+            hidden_state = [parent[i].hidden_state for i in range(config.NUM_PLAYERS)]
+            print("player 0 last action = {}".format(history[0].last_action()))
+            last_action = [history[i].last_action() for i in range(config.NUM_PLAYERS)]
+
+            network_output = self.network.recurrent_inference(hidden_state, np.asarray(last_action))
+            for i in range(config.NUM_PLAYERS):
+                self.expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)
+                # print("value {}".format(network_output["value"]))
+                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)
+
+    def batch_policy(self, observation, prev_action):
+        root = [Node(0) for _ in range(config.NUM_PLAYERS)]
+
+        network_output = self.network.initial_inference(observation)
+        for i in range(config.NUM_PLAYERS):
+            self.expand_node(root[i], i, network_output)
+            self.add_exploration_noise(root[i])
+
+        self.run_batch_mcts(root, prev_action)
+
+        action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
+
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+
+        return action, network_output["policy_logits"]
 
 
 def masked_distribution(x, use_exp, mask=None):
