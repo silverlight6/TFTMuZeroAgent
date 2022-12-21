@@ -60,7 +60,6 @@ def magneticRemoverTest():
         p1.move_item_to_bench(x, 1)
     p1.move_item_to_board(0, 0, 0)
     p1.move_item_to_bench(1, 1)
-    print(p1.board[0][0].items)
     assert p1.board[0][0].items == []
     assert p1.bench[1].items == []
 def reforgerTest():
