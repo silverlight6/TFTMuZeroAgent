@@ -57,6 +57,10 @@ items = {
 
     'kayn_rhast': {},
     'kayn_shadowassassin': {},
+
+    'champion_duplicator': {},
+    'magnetic_remover': {},
+    'reforger': {},
 }
 
 item_builds = {
@@ -116,7 +120,6 @@ trait_items = {
     'vanguard': 'vanguards_cuirass',
     'warlord': 'warlords_banner',
     'assassin': 'youmuus_ghostblade',
-
 }
 
 SP = {
