@@ -840,11 +840,7 @@ def train_model(max_episodes=10000):
     game_sim = game_round.TFT_Simulation()
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     train_step = 0
-    try: 
-        global_agent.load_model(0)
-    except:
-        pass
-    
+    global_agent.load_model(0)
 
     for episode_cnt in range(1, max_episodes):
         agent = Batch_MCTSAgent(network=global_agent)
@@ -864,6 +860,7 @@ def train_model(max_episodes=10000):
             game_round.log_to_file_start()
         
         print("Episode " + str(episode_cnt) + " Completed")
+
 
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
 def evaluate(agent):

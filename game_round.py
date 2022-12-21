@@ -145,6 +145,7 @@ class TFT_Simulation:
                     return False
         log_to_file_combat()
         return True
+
     def check_dead(self, agent, buffers, game_episode):
         num_alive = 0
         game_observation = AI_interface.Observation()

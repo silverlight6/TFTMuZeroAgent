@@ -27,10 +27,15 @@ NetworkOutput = collections.namedtuple(
 ##### JITTED FUNCTIONS ######
 @jit(target_backend='cuda', nopython=True)
 def normalize2(value, minimum, maximum):  # faster implementation of normalization
-    ans = (value - minimum) / (maximum - minimum)
-    return ans
+    if minimum != maximum:
+        ans = (value - minimum) / (maximum - minimum)
+        return ans
+    else:
+        return maximum
+
+
 @jit(target_backend='cuda', nopython=True)
-def update2(value,maximum,minimum):
+def update2(value, maximum, minimum):
     if value > maximum:
         maximum = value 
     elif value < minimum:
@@ -284,27 +289,26 @@ class TFTNetwork(Network):
                                                           outputs=[value_output, policy_output],
                                                           name='prediction')
 
-
         super().__init__(representation=representation_model,
                          dynamics=dynamics_model,
                          prediction=prediction_model)
 
-        #checkpoints for dynamics
+        # checkpoints for dynamics
         self.checkpoint_dyn = tf.train.Checkpoint(self.dynamics)
         self.dyn_manager = tf.train.CheckpointManager(self.checkpoint_dyn, "./SavedModels/dyn", max_to_keep=10000)
 
     def save_model(self, episode):
-        #save representation and prediction models 
+        # save representation and prediction models
         self.representation.save("./SavedModels/rep"+str(episode))
         self.prediction.save("./SavedModels/pred"+str(episode))
         
-        #checkpoints for dynamics
+        # checkpoints for dynamics
         self.dyn_manager.save(checkpoint_number=episode)
 
     def load_model(self, episode):
-       self.representation = tf.keras.models.load_model("./SavedModels/rep"+str(episode))
-       self.prediction = tf.keras.models.load_model("./SavedModels/pred"+str(episode))
-       self.checkpoint_dyn.restore("./SavedModels/dyn\ckpt-"+str(episode))
+        self.representation = tf.keras.models.load_model("./SavedModels/rep"+str(episode))
+        self.prediction = tf.keras.models.load_model("./SavedModels/pred"+str(episode))
+        self.checkpoint_dyn.restore("./SavedModels/dyn/ckpt-"+str(episode))
 
     def get_rl_training_variables(self):
         return self.trainable_variables

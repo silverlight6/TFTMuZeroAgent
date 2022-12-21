@@ -54,7 +54,6 @@ class ReplayBuffer:
         if samples_per_player > 0:
             # 8 because I don't want to sample the very end of the range
             samples = random.sample(range(0, len(self.gameplay_experiences) - 8), samples_per_player)
-            td_steps = config.UNROLL_STEPS
             num_steps = len(self.gameplay_experiences)
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
