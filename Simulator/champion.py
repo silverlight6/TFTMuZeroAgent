@@ -29,7 +29,7 @@ test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 
 class champion:
     def __init__(self, name, team=None, y=-1, x=-1, stars=1, itemlist=None, overlord=None,
-                 sandguard_overlord_coordinates=None, chosen=False):
+                 sandguard_overlord_coordinates=None, chosen=False, kayn_form=None):
 
         if itemlist is None:
             itemlist = []
@@ -120,7 +120,6 @@ class champion:
         self.idle = True
         self.ability_active = False
 
-        # self.items = ['shadow_assassin', 'rhaast']
         self.items = itemlist
         self.num_items = 0
         self.ionic_sparked = 0  # just a helper to know who to zap
@@ -132,6 +131,8 @@ class champion:
         self.start_time = time.time_ns()
 
         self.chosen = origin_class.chosen(self, chosen)
+
+        self.kayn_form = kayn_form
 
         if chosen: 
             self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1), 1)
@@ -528,7 +529,8 @@ def run(champion_q, player_1, player_2, round_damage=0):
                     daddy_coordinates = [int(player_1.board[x][y].overlord_coordinates[0]),
                                          int(player_1.board[x][y].overlord_coordinates[1])]
                 blue.append(champion_q(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars,
-                                       player_1.board[x][y].items, False, daddy_coordinates, player_1.board[x][y].chosen))
+                                       player_1.board[x][y].items, False, daddy_coordinates, player_1.board[x][y].chosen
+                                       , player_1.board[x][y].kayn_form))
             if player_2.board[x][y]:
                 daddy_coordinates = False
                 if player_2.board[x][y].name == 'sandguard':
@@ -536,7 +538,8 @@ def run(champion_q, player_1, player_2, round_damage=0):
                                          int(7 - player_2.board[x][y].overlord_coordinates[1])]
                 # Inverting because the combat system uses the whole board and does not mirror at start.
                 red.append(champion_q(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars,
-                                      player_2.board[x][y].items, False, daddy_coordinates, player_2.board[x][y].chosen))
+                                      player_2.board[x][y].items, False, daddy_coordinates, player_2.board[x][y].chosen,
+                                      player_2.board[x][y].kayn_form))
 
     if len(blue) == 0 or len(red) == 0:
         if len(red) == 0 and len(blue) == 0:
