@@ -18,16 +18,16 @@ def championDuplicatorTest():
     p1.buy_champion(champion('leesin'))
     for x in range(4):
         p1.add_to_item_bench('champion_duplicator')
-    p1.move_item_to_bench(0, 0)
+    p1.move_item(0, 0, -1)
     assert p1.item_bench[0] is None
     assert p1.bench[1].name == 'leesin'
     p1.move_bench_to_board(0, 0, 0)
-    p1.move_item_to_board(1, 0, 0)
+    p1.move_item(1, 0, 0)
     assert p1.board[0][0].stars == 2
     assert p1.gold == 995
     p1.buy_champion(champion('jax'))
     p1.move_bench_to_board(0, 1, 0)
-    p1.move_item_to_board(2, 1, 0)
+    p1.move_item(2, 1, 0)
     assert p1.bench[0].name == 'jax'
     p1.buy_champion(champion('nami'))
     p1.buy_champion(champion('aphelios'))
@@ -37,7 +37,7 @@ def championDuplicatorTest():
     p1.buy_champion(champion('teemo'))
     p1.buy_champion(champion('thresh'))
     p1.buy_champion(champion('talon'))
-    p1.move_item_to_bench(3, 3)
+    p1.move_item(3, 3, -1)
     assert p1.item_bench[3] == 'champion_duplicator'
     for x in range(8):
         p1.sell_from_bench(x)
@@ -55,13 +55,14 @@ def magneticRemoverTest():
     for x in range(6):
         p1.add_to_item_bench('deathblade')
     for x in range(2, 5):
-        p1.move_item_to_board(x, 0, 0)
+        p1.move_item(x, 0, 0)
     for x in range(5, 8):
-        p1.move_item_to_bench(x, 1)
-    p1.move_item_to_board(0, 0, 0)
-    p1.move_item_to_bench(1, 1)
+        p1.move_item(x, 1, -1)
+    p1.move_item(0, 0, 0)
+    p1.move_item(1, 1, -1)
     assert p1.board[0][0].items == []
     assert p1.bench[1].items == []
+
 def reforgerTest():
     p1 = setup()
     p1.gold = 1000
@@ -78,17 +79,17 @@ def reforgerTest():
     p1.add_to_item_bench('elderwood_heirloom')
     p1.add_to_item_bench('thiefs_gloves')
     p1.move_bench_to_board(0, 0, 0)
-    p1.move_item_to_board(3, 0, 0)
-    p1.move_item_to_board(4, 0, 0)
-    p1.move_item_to_board(5, 0, 0)
-    p1.move_item_to_board(0, 0, 0)
+    p1.move_item(3, 0, 0)
+    p1.move_item(4, 0, 0)
+    p1.move_item(5, 0, 0)
+    p1.move_item(0, 0, 0)
     assert len(p1.board[0][0].items) == 0
     assert p1.item_bench[0] is None
-    p1.move_item_to_bench(6, 1)
-    p1.move_item_to_bench(7, 1)
-    p1.move_item_to_bench(8, 2)
-    p1.move_item_to_bench(1, 1)
-    p1.move_item_to_bench(2, 2)
+    p1.move_item(6, 1, -1)
+    p1.move_item(7, 1, -1)
+    p1.move_item(8, 2, -1)
+    p1.move_item(1, 1, -1)
+    p1.move_item(2, 2, -1)
     test1 = False
     test2 = False
     test3 = False
@@ -120,8 +121,8 @@ def thiefsGloveCombatTest():
     p2.add_to_item_bench('thiefs_gloves')
     p1.move_bench_to_board(0, 0, 0)
     p2.move_bench_to_board(0, 0, 0)
-    p1.move_item_to_board(0, 0, 0)
-    p2.move_item_to_board(0, 0, 0)
+    p1.move_item(0, 0, 0)
+    p2.move_item(0, 0, 0)
     c_object.run(c_object.champion, p1, p2)
     assert p1.board[0][0].items[0] == 'thiefs_gloves'
 
@@ -133,7 +134,7 @@ def thiefsGlovesTest():
     p1.buy_champion(champion('garen'))
     p1.add_to_item_bench('thiefs_gloves')
     p1.move_bench_to_board(0, 0, 0)
-    p1.move_item_to_board(0, 0, 0)
+    p1.move_item(0, 0, 0)
     assert p1.board[0][0].items[0] == 'thiefs_gloves'
     for x in range(3):
         p1.start_round(x)
@@ -143,7 +144,7 @@ def thiefsGlovesTest():
     p1.start_round(4)
     p1.sell_from_bench(0)
     p1.buy_champion(champion('azir'))
-    p1.move_item_to_bench(0, 0)
+    p1.move_item(0, 0, -1)
     p1.start_round(5)
 
 def kaynTests():
@@ -166,13 +167,13 @@ def kaynTests():
     assert p1.item_bench[1] == 'kayn_rhast'
     p2.start_round(3)
     assert p2.kayn_transformed
-    p1.move_item_to_board(0, 0, 0)
+    p1.move_item(0, 0, 0)
     assert p2.item_bench[0] == 'kayn_shadowassassin'
     assert p2.item_bench[1] == 'kayn_rhast'
     for x in range(7):
         for y in range(4):
             if p2.board[x][y]:
-                p2.move_item_to_board(1, x, y)
+                p2.move_item(1, x, y)
                 break
     assert p1.kayn_form == 'kayn_shadowassassin'
     assert p2.kayn_form == 'kayn_rhast'

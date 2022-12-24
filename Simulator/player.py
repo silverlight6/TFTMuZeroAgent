@@ -192,6 +192,12 @@ class player:
         self.generate_player_vector()
         return True
 
+    def decide_vector_generation(self, x):
+        if x:
+            self.generate_board_vector()
+        else:
+            self.generate_bench_vector()
+
     def end_turn_actions(self):
         # auto-fill the board.
         num_units_to_move = self.max_units - self.num_units_in_play
@@ -623,209 +629,126 @@ class player:
         else:
             self.reward += self.mistake_reward
             return False
+
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
-    def move_item_to_bench(self, xBench, x):
-        if self.item_bench[xBench]:
-            if self.bench[x]:
-                # thiefs glove exception
-                self.print("moving {} to {} with items {}".format(self.item_bench[xBench], self.bench[x].name,
-                                                                  self.bench[x].items))
-                # kayn item support
-                if self.item_bench[xBench] == 'kayn_shadowassassin' or \
-                        self.item_bench[xBench] == 'kayn_rhast':
-                    if self.bench[x].name == 'kayn':
-                        self.transform_kayn(self.item_bench[xBench])
-                        self.generate_item_vector()
-                        self.generate_board_vector()
-                        return True
-                    return False
-                if self.item_bench[xBench] == 'champion_duplicator':
-                    if not self.bench_full():
-                        self.gold += self.bench[x].cost
-                        self.buy_champion(self.bench[x])
-                        self.item_bench[xBench] = None
-                        self.generate_item_vector()
-                        self.generate_bench_vector()
-                        return True
-                    return False
-                if self.item_bench[xBench] == 'magnetic_remover':
-                    if len(self.bench[x].items) > 0:
-                        if not self.item_bench_full(len(self.bench[x].items)):
-                            while len(self.bench[x].items) > 0:
-                                self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
-                                self.bench[x].items.pop(0)
-                            self.item_bench[xBench] = None
-                            self.generate_item_vector()
-                            self.generate_bench_vector()
-                            return True
-                    return False
-                if self.item_bench[xBench] == 'reforger':
-                    self.use_reforge(xBench, x, -1)
-                    return True
-                if self.item_bench[xBench] == 'thiefs_gloves':
-                    if len(self.bench[x].items) < 1:
-                        self.bench[x].items.append(self.item_bench[xBench])
-                        self.item_bench[xBench] = None
-                        self.bench[x].num_items += 3
-                        self.thiefs_glove_loc.append([x, -1])
-                        self.thiefs_gloves(x, -1)
-                        self.generate_item_vector()
-                        self.generate_bench_vector()
-                        return True
-                    return False
-                if ((self.bench[x].num_items < 3 and self.item_bench[xBench] != "thiefs_gloves") or
-                        (self.bench[x].items and self.bench[x].items[-1] in basic_items and self.item_bench[xBench]
-                         in basic_items and self.bench[x].num_items == 3)):
-                    # only execute if you have items
-                    if len(self.bench[x].items) > 0:
-                        # implement the item combinations here. Make exception with thieves gloves
-                        if self.bench[x].items[-1] in basic_items and self.item_bench[xBench] in basic_items:
-                            item_build_values = item_builds.values()
-                            item_index = 0
-                            for index, items in enumerate(item_build_values):
-                                if ((self.bench[x].items[-1] == items[0] and self.item_bench[xBench] == items[1]) or
-                                        (self.bench[x].items[-1] == items[1] and self.item_bench[xBench] == items[0])):
-                                    item_index = index
-                                    break
-                            if item_builds.keys()[item_index] == "theifs_gloves":
-                                if self.bench[x].num_items != 1:
-                                    return False
-                                else:
-                                    self.bench[x].num_items += 2
-                                    self.thiefs_glove_loc.append([x, -1])
-                                    self.thiefs_gloves(x, -1)
-                            self.item_bench[xBench] = None
-                            self.bench[x].items.pop()
-                            self.bench[x].items.append(item_builds.keys()[item_index])
-                            self.reward += .2 * self.item_reward
-                            self.print(
-                                ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
-                        elif self.bench[x].items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
-                            basic_piece = self.bench[x].items.pop()
-                            self.bench[x].items.append(self.item_bench[xBench])
-                            self.bench[x].items.append(basic_piece)
-                            self.item_bench[xBench] = None
-                            self.bench[x].num_items += 1
-                        else:
-                            self.bench[x].items.append(self.item_bench[xBench])
-                            self.item_bench[xBench] = None
-                            self.bench[x].num_items += 1
-                        self.generate_item_vector()
-                        self.generate_bench_vector()
-                        self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], self.bench[x].name,
-                                                                              self.bench[x].items))
-                        return True
-                    else:
-                        self.bench[x].items.append(self.item_bench[xBench])
-                        self.item_bench[xBench] = None
-                        self.bench[x].num_items += 1
-                        self.generate_item_vector()
-                        self.generate_bench_vector()
-                    return True
-                elif self.bench[x].num_items < 1 and self.item_bench[xBench] == "thiefs_gloves":
-                    self.bench[x].items.append(self.item_bench[xBench])
-                    self.item_bench[xBench] = None
-                    self.bench[x].num_items += 3
+    def move_item(self, xBench, x, y):
+        board = False
+        if y >= 0:
+            champ = self.board[x][y]
+            board = True
+        if y == -1:
+            champ = self.bench[x]
+        if self.item_bench[xBench] and champ:
+            # thiefs glove exception
+            self.print("moving {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
+            # kayn item support
+            if self.item_bench[xBench] == 'kayn_shadowassassin' or \
+                    self.item_bench[xBench] == 'kayn_rhast':
+                if champ.name == 'kayn':
+                    self.transform_kayn(self.item_bench[xBench])
                     self.generate_item_vector()
-                    self.generate_bench_vector()
-                    self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], self.bench[x].name,
-                                                                          self.bench[x].items))
-                    self.thiefs_glove_loc.append([x, -1])
+                    self.decide_vector_generation(board)
                     return True
-            # last case where 3 items but the last item is a basic item and the item to input is also a basic item
-        self.reward += self.mistake_reward
-        return False
-
-    def move_item_to_board(self, xBench, x, y):
-        if self.item_bench[xBench]:
-            if self.board[x][y]:
-                self.print("moving to board {} to {} with items {}".format(self.item_bench[xBench],
-                                                                           self.board[x][y].name,
-                                                                           self.board[x][y].items))
-                if self.item_bench[xBench] == 'champion_duplicator':
-                    if not self.bench_full():
-                        self.gold += self.board[x][y].cost
-                        self.buy_champion(self.board[x][y])
-                        self.item_bench[xBench] = None
-                        return True
-                    return False
-                if self.item_bench[xBench] == 'magnetic_remover':
-                    if len(self.board[x][y].items) > 0:
-                        if not self.item_bench_full(len(self.board[x][y].items)):
-                            while len(self.board[x][y].items) > 0:
-                                self.item_bench[self.item_bench_vacancy()] = self.board[x][y].items[0]
-                                self.board[x][y].items.pop(0)
-                            self.item_bench[xBench] = None
-                            self.generate_item_vector()
-                            self.generate_board_vector()
-                            return True
-                    return False
-                if self.item_bench[xBench] == 'reforger':
-                    self.use_reforge(xBench, x, y)
-                    return True
-                if self.item_bench[xBench] == 'kayn_shadowassassin' or \
-                        self.item_bench[xBench] == 'kayn_rhast':
-                    if self.board[x][y].name == 'kayn':
-                        self.transform_kayn(self.item_bench[xBench])
-                        self.generate_item_vector()
-                        self.generate_board_vector()
-                        return True
-                    return False
-                # if the item is a completed thiefs gloves
-                if self.board[x][y].num_items < 1 and self.item_bench[xBench] == "thiefs_gloves":
-                    self.board[x][y].items.append(self.item_bench[xBench])
+                return False
+            if self.item_bench[xBench] == 'champion_duplicator':
+                if not self.bench_full():
+                    self.gold += champ.cost
+                    self.buy_champion(champ)
                     self.item_bench[xBench] = None
-                    self.board[x][y].num_items += 3
+                    self.generate_item_vector()
+                    self.decide_vector_generation(board)
+                    return True
+                return False
+            if self.item_bench[xBench] == 'magnetic_remover':
+                if len(champ.items) > 0:
+                    if not self.item_bench_full(len(champ.items)):
+                        while len(champ.items) > 0:
+                            self.item_bench[self.item_bench_vacancy()] = champ.items[0]
+                            champ.items.pop(0)
+                        self.item_bench[xBench] = None
+                        self.generate_item_vector()
+                        self.decide_vector_generation(board)
+                        return True
+                return False
+            if self.item_bench[xBench] == 'reforger':
+                return self.use_reforge(xBench, x, y)
+            if self.item_bench[xBench] == 'thiefs_gloves':
+                if len(champ.items) < 1:
+                    champ.items.append(self.item_bench[xBench])
+                    self.item_bench[xBench] = None
+                    champ.num_items += 3
                     self.thiefs_glove_loc.append([x, y])
                     self.thiefs_gloves(x, y)
                     self.generate_item_vector()
-                    self.generate_board_vector()
+                    self.decide_vector_generation(board)
                     return True
-                # self.print("moving {} to u
-                elif ((len(self.board[x][y].items) < 3 and self.item_bench[xBench] != "thiefs_gloves") or
-                      (self.board[x][y].items[-1] in basic_items and self.item_bench[xBench] in basic_items and len(
-                          self.board[x][y].items) == 3)):
+                return False
+            if ((champ.num_items < 3 and self.item_bench[xBench] != "thiefs_gloves") or
+                    (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
+                     in basic_items and champ.num_items == 3)):
+                # only execute if you have items
+                if len(champ.items) > 0:
                     # implement the item combinations here. Make exception with thieves gloves
-                    if self.board[x][y].items and self.board[x][y].items[-1] in basic_items \
-                            and self.item_bench[xBench] in basic_items:
+                    if champ.items[-1] in basic_items and self.item_bench[xBench] in basic_items:
                         item_build_values = item_builds.values()
                         item_index = 0
                         for index, items in enumerate(item_build_values):
-                            if ((self.board[x][y].items[-1] == items[0] and self.item_bench[xBench] == items[1]) or
-                                    (self.board[x][y].items[-1] == items[1] and self.item_bench[xBench] == items[0])):
+                            if ((champ.items[-1] == items[0] and self.item_bench[xBench] == items[1]) or
+                                    (champ.items[-1] == items[1] and self.item_bench[xBench] == items[0])):
                                 item_index = index
                                 break
-                        if list(item_builds.keys())[item_index] == "theifs_gloves": #if building a thiefs gloves
-                            if self.board[x][y].num_items != 1:
+                        if item_builds.keys()[item_index] == "theifs_gloves":
+                            if champ.num_items != 1:
                                 return False
                             else:
-                                self.board[x][y].num_items += 2
-                                self.thiefs_glove_loc.append([x, y])
+                                champ.num_items += 2
+                                self.thiefs_glove_loc.append([x, -1])
+                                self.thiefs_gloves(x, -1)
                         self.item_bench[xBench] = None
-                        self.board[x][y].items.pop()
-                        self.board[x][y].items.append(list(item_builds.keys())[item_index])
+                        champ.items.pop()
+                        champ.items.append(item_builds.keys()[item_index])
                         self.reward += .2 * self.item_reward
-                        self.print(".2 reward for combining two basic items into a {}".format(
-                            list(item_builds.keys())[item_index]))
-                    else:
-                        self.board[x][y].items.append(self.item_bench[xBench])
+                        self.print(
+                            ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
+                    elif champ.items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
+                        basic_piece = champ.items.pop()
+                        champ.items.append(self.item_bench[xBench])
+                        champ.items.append(basic_piece)
                         self.item_bench[xBench] = None
-                        self.board[x][y].num_items += 1
-                elif self.board[x][y].items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
-                    basic_piece = self.board[x][y].items.pop()
-                    self.board[x][y].items.append(self.item_bench[xBench])
-                    self.board[x][y].items.append(basic_piece)
-                    self.item_bench[xBench] = None
-                    self.board[x][y].num_items += 1
+                        champ.num_items += 1
+                    else:
+                        champ.items.append(self.item_bench[xBench])
+                        self.item_bench[xBench] = None
+                        champ.num_items += 1
                 else:
-                    return False
+                    champ.items.append(self.item_bench[xBench])
+                    self.item_bench[xBench] = None
+                    champ.num_items += 1
+                self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
+                                                                      champ.items))
                 self.generate_item_vector()
-                self.generate_board_vector()
-                self.print("After {} to {} with items {}".format(self.item_bench[xBench], self.board[x][y].name,
-                                                                 self.board[x][y].items))
+                self.decide_vector_generation(board)
+                return True
+            elif champ.num_items < 1 and self.item_bench[xBench] == "thiefs_gloves":
+                champ.items.append(self.item_bench[xBench])
+                self.item_bench[xBench] = None
+                champ.num_items += 3
+                self.generate_item_vector()
+                self.decide_vector_generation(board)
+                self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
+                                                                      champ.items))
+                self.thiefs_glove_loc.append([x, -1])
+                return True
+        # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         return False
+
+    def move_item_to_bench(self, xBench, x):
+        self.move_item(xBench, x, -1)
+
+    def move_item_to_board(self, xBench, x, y):
+        self.move_item(xBench, x, y)
 
     def num_in_triple_catelog(self, a_champion):
         num = 0
@@ -926,7 +849,6 @@ class player:
                 # thiefs_gloves_location needs to be removed whether there's room on the bench or not
                 if a_champion.items[0] == 'thiefs_gloves':
                     self.thiefs_glove_loc.remove(a_champion.x, a_champion.y)
-
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
@@ -1018,7 +940,6 @@ class player:
         return False
 
     def thiefs_gloves(self, x, y):
-
         r1 = random.randint(0, len(thiefs_gloves_items) - 1)
         r2 = random.randint(0, len(thiefs_gloves_items) - 1)
         while r1 == r2:
@@ -1092,50 +1013,39 @@ class player:
 
     def use_reforge(self,xBench, x, y):
         board = False
+        trait_item_list = list(trait_items.values())
         if y >= 0:
             champ = self.board[x][y]
             board = True
         elif y == -1:
             champ = self.bench[x]
         if len(champ.items) > 0 and not self.item_bench_full(len(champ.items)):
-            while len(champ.items) > 0 and not self.item_bench_full(1):
-                name = champ.items[0]
-                if name == 'spatula':
+            for item in champ.items:
+                if item == 'spatula':
                     self.item_bench[self.item_bench_vacancy()] = 'spatula'
-                    champ.items.pop(0)
-                for j, starting in enumerate(starting_items):
-                    if name == starting:
+                elif item in starting_items:
+                    r = random.randint(0, 7)
+                    while starting_items[r] == item:
                         r = random.randint(0, 7)
-                        while r == j:
-                            r = random.randint(0, 7)
-                        self.item_bench[self.item_bench_vacancy()] = starting_items[r]
-                        champ.items.pop(0)
-                for k, traits in enumerate(trait_items.values()):
-                    if name == traits:
+                    self.item_bench[self.item_bench_vacancy()] = starting_items[r]
+                elif item in trait_item_list:
+                    r = random.randint(0, 7)
+                    while trait_item_list[r] == item:
                         r = random.randint(0, 7)
-                        while r == k:
-                            r = random.randint(0, 7)
-                        trait_item_list = list(trait_items.values())
-                        self.item_bench[self.item_bench_vacancy()] = trait_item_list[r]
-                        champ.items.pop(0)
-                for i, items in enumerate(thiefs_gloves_items):
-                    if name == items:
-                        r = random.randint(0, len(thiefs_gloves_items) - 1)
-                        while i == r:
-                            r = random.randint(0, len(thiefs_gloves_items) - 1)
-                        self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
-                        champ.items.pop(0)
-                if name == 'thiefs_gloves':
+                    self.item_bench[self.item_bench_vacancy()] = trait_item_list[r]
+                elif item in thiefs_gloves_items:
                     r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    for k in range(3):
-                        self.bench[x].items.pop(0)
+                    while thiefs_gloves_items[r] == item:
+                        r = random.randint(0, len(thiefs_gloves_items) - 1)
                     self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+                else:   # this will only ever be thiefs gloves
+                    r = random.randint(0, len(thiefs_gloves_items) - 1)
+                    self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+            champ.items = []
+            champ.num_items = 0
             self.item_bench[xBench] = None
             self.generate_item_vector()
-            if board:
-                self.generate_board_vector()
-            else:
-                self.generate_bench_vector()
+            self.decide_vector_generation(board)
             return True
         return False
 
