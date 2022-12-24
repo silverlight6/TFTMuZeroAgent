@@ -80,9 +80,10 @@ class player:
         # reward for refreshing
         self.refresh_reward = 0
         self.minion_count_reward = 0
-        self.mistake_reward = 0.0
-        self.level_reward = 0
-        self.item_reward = 0
+        self.mistake_reward = 0
+        self.level_reward = .8
+        self.item_reward = .1
+        self.won_game_reward = 0
         self.prev_rewards = 0
 
         # Everyone shares the pool object.
@@ -477,8 +478,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.02 * damage
-            self.print(str(-0.02 * damage) + " reward for losing round")
+            # self.reward -= 0.02 * damage
+            # self.print(str(-0.02 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -611,7 +612,7 @@ class player:
                         self.item_bench[xBench] = None
                         self.bench[x].items.pop()
                         self.bench[x].items.append(item_builds.keys()[item_index])
-                        self.reward += .2 * self.item_reward
+                        self.reward += self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
                     elif self.bench[x].items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
@@ -675,7 +676,7 @@ class player:
                         self.item_bench[xBench] = None
                         self.board[x][y].items.pop()
                         self.board[x][y].items.append(list(item_builds.keys())[item_index])
-                        self.reward += .2 * self.item_reward
+                        self.reward += self.item_reward
                         self.print(".2 reward for combining two basic items into a {}".format(
                             list(item_builds.keys())[item_index]))
                     else:
@@ -924,11 +925,12 @@ class player:
         self.generate_player_vector()
 
     def won_game(self):
-        self.reward += 0.0
+        self.reward += self.won_game_reward
         self.print("+0 reward for winning game")
 
     def won_round(self, damage):
         if not self.combat:
+            print("player {} won combat with damage = {}".format(self.player_num, damage))
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1

@@ -25,6 +25,7 @@ class TFT_Simulator:
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
 
     def calculate_reward(self, player, previous_reward):
+        print("This never gets called")
         self.player_rewards[player.player_num] = player.reward - previous_reward
         average = 0
         for i in range(config.NUM_PLAYERS):

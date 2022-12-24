@@ -139,12 +139,14 @@ class Game_Round:
 
                     # Blue side won
                     if index_won == 1:
+                        print("Blue side won with damage = {}".format(damage))
                         players[num].won_round(damage)
                         players[player_index].loss_round(damage)
                         players[player_index].health -= damage
 
                     # Red side won
                     if index_won == 2:
+                        print("Red side won with damage = {}".format(damage))
                         players[num].loss_round(damage)
                         players[num].health -= damage
                         players[player_index].won_round(damage)

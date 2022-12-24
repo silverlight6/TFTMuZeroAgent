@@ -528,9 +528,12 @@ class Step_Function:
                         players[i].move_board_to_board(players[i].action_values[0], players[i].action_values[1],
                                                        players[i].action_values[2], players[i].action_values[3])
                         players[i].action_values = []
+                # print("reward = {}".format(players[i].reward))
                 rewards.append(players[i].reward)
             else:
+                # print("I should not be here")
                 rewards.append(0)
+        # Some function that evens out rewards to all other players
         rewards = np.squeeze(np.asarray(rewards))
         return rewards
 
