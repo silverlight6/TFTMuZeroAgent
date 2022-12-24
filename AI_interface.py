@@ -28,13 +28,13 @@ def reset(sim):
 def batch_step(sim, agent, buffers):
     actions_taken = 0
     game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
+    
     while actions_taken < 30:      
         observation_list, previous_action = sim.get_observation(buffers)
 
         action, policy = agent.batch_policy(observation_list, previous_action)
 
         rewards = sim.step_function.batch_controller(action, sim.PLAYERS, game_observations)
-        print("actions {} rewards {}".format(action, rewards))
 
         for i in range(config.NUM_PLAYERS):
             if sim.PLAYERS[i]:
@@ -50,7 +50,7 @@ def batch_step(sim, agent, buffers):
 # This is the main overarching gameplay method.
 # This is going to be implemented mostly in the game_round file under the AI side of things. 
 def collect_gameplay_experience(sim, agent, buffers):
-    reset(sim)
+    # reset(sim)
     num_alive = 8
     sim.game_round.play_game_round()
     while num_alive > 1:
@@ -77,12 +77,12 @@ def train_model(max_episodes=10000):
     global_agent = TFTNetwork()
     global_buffer = GlobalBuffer()
     trainer = MuZero_trainer.Trainer()
-    game_sim = TFT_Simulator()
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     train_step = 0
-    global_agent.load_model(0)
+    # global_agent.load_model(0)
 
     for episode_cnt in range(1, max_episodes):
+        game_sim = TFT_Simulator()
         agent = Batch_MCTSAgent(network=global_agent)
         buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
         collect_gameplay_experience(game_sim, agent, buffers)

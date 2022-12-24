@@ -110,6 +110,7 @@ class Game_Round:
                     # Make sure the player is alive as well.
                     while ((not players[player_index]) or players[num].opponent == players[player_index] or players[
                             player_index].combat or num == player_index):
+                        print(f"Current Player Index: {player_index} Current Opponent Index: {num}")
                         player_index = random.randint(0, len(players) - 1)
                         if (players[player_index] and (players_matched == config.NUM_PLAYERS - 2 - self.NUM_DEAD)
                                 and players[num].opponent == players[player_index]):

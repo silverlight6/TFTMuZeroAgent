@@ -41,6 +41,7 @@ class TFT_Simulator:
             if player:
                 if player.health <= 0:
                     self.NUM_DEAD += 1
+                    self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
 
                     self.PLAYERS[i] = None

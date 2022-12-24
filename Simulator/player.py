@@ -930,7 +930,6 @@ class player:
 
     def won_round(self, damage):
         if not self.combat:
-            print("player {} won combat with damage = {}".format(self.player_num, damage))
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
