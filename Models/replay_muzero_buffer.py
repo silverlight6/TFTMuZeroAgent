@@ -34,6 +34,12 @@ class ReplayBuffer:
         # take the sample from i num from the end of list
         return self.observation_history[i * -1]
 
+    def get_prev_action(self):
+        if self.action_history:
+            return self.action_history[-1]
+        else:
+            return 9
+
     def get_observation_shape(self):
         # Hard coding this because the need to know this value before any observation are
         # Generated in the case of no successful actions completed yet in the game which
@@ -48,7 +54,6 @@ class ReplayBuffer:
         if samples_per_player > 0:
             # 8 because I don't want to sample the very end of the range
             samples = random.sample(range(0, len(self.gameplay_experiences) - 8), samples_per_player)
-            td_steps = config.UNROLL_STEPS
             num_steps = len(self.gameplay_experiences)
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
@@ -83,6 +88,7 @@ class ReplayBuffer:
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(self.rewards[current_index])
+
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
                         action_set.append(9)
