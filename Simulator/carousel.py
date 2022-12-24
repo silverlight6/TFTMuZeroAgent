@@ -30,10 +30,16 @@ def carousel(players, round):
             player.add_to_bench(champ)
             player.generate_bench_vector()
     pass
+
+# this will handle champion generation based on the current round
 def generateChampions(round):
     pass
+
+# handles the item generation based on the current round
+# also chooses what kind of item set to generate (e.g. offensive components only, defensive, utility, etc.)
 def generateHeldItems(round):
     pass
+
 def generateAllComponents():
     # generate a list of 1 of every component + 1 random duplicate component
     for i in range(0,9):
