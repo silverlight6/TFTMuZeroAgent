@@ -1,7 +1,10 @@
 import config
-from Simulator.item_stats import item_builds as full_items, basic_items, starting_items, offensive_items, defensive_items
+from Simulator.item_stats import item_builds as item_builds, basic_items, starting_items, offensive_items, defensive_items
 from Simulator import champion, pool, pool_stats
 import random
+
+# TODO:
+# Choose the best champion + item combo for each player
 
 def carousel(players, round, pool_obj):
     # probability of certain arrangements during certain carousels
@@ -18,18 +21,19 @@ def carousel(players, round, pool_obj):
     items = generateHeldItems(round, pool_obj)
 
     # give all champions on the carousel an item
-    for champ in champions:
-        for i in items:
-            if items[i]:
-                champ.add_item(items[i])
-                items[i] = None
-                break
+    for i, champ in enumerate(champions):
+        champ.add_item(items[i])
     
+    # player will choose the highest cost available regardless of item
+    # needs to be changed to choose the "best" choice for each player
+
+    # alive is already ordered from lowest hp to highest
     for player in alive:
+        current = champions[0]
         for champ in champions:
-            player.add_to_bench(champ)
-            player.generate_bench_vector()
-    pass
+            if champ.COST > current.COST:
+                current = champ
+        player.add_to_bench(current)
 
 # this will handle champion generation based on the current round
 def generateChampions(round, pool_obj):
@@ -37,8 +41,57 @@ def generateChampions(round, pool_obj):
 
 # handles the item generation based on the current round
 # also chooses what kind of item set to generate (e.g. offensive components only, defensive, utility, etc.)
-def generateHeldItems(round, pool_obj):
-    pass
+def generateHeldItems(round):
+    roll = random.random()
+    if round == 0:
+        if roll < 0.65:
+            return generateAllComponents()
+        elif roll < 0.76:
+            return generateOffenseComponents()
+        elif roll < 0.87:
+            return generateDefenseComponents()
+        elif roll < 0.98:
+            return generateUtilComponents()
+        elif roll < 0.995:
+            return generateAllSpats()
+        else:
+            return generateFONs()
+    elif round == 6:
+        if roll < 0.80:
+            return generateAllComponents()
+        elif roll < 0.95:
+            return generateAllComponentsSpat()
+        else:
+            return generateThreeSpatsRandComponents()
+    elif round == 12:
+        if roll < 0.50:
+            return generateAllRandomComponents()
+        elif roll < 0.80:
+            return generateAllComponents()
+        elif roll < 0.95:
+            return generateAllComponentsSpat()
+        else:
+            return generateThreeSpatsRandComponents()
+    elif round == 18:
+        if roll < 0.80:
+            return generateAllComponents()
+        elif roll < 0.95:
+            return generateAllComponentsSpat()
+        else:
+            return generateThreeSpatsRandComponents()
+    elif round == 24:
+        if roll < 0.50:
+            return generateComponentItems()
+        elif roll < 0.754:
+            return generateFullItems()
+        # 3% chance for a full set of items made with each component = 24% chance for all components
+        elif roll < 0.994:
+            # since they are equally weighted, can just do a random selection of non-spat components
+            return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
+        else:
+            return generateFONs()
+    elif round >= 30:
+        return generateHalfItems()
 
 # random helper methods for generation of item sets for carousel below
 
@@ -82,46 +135,53 @@ def generateFONs():
     return ['force_of_nature' for _ in range(9)]
 
 def generateAllComponentsSpat():
+    # generate an item list of all components, including a spatula
     items = []
     for i in range(9):
         items.append(basic_items[i])
     return items
 
 def generateThreeSpatsRandComponents():
+    # generate an item list of 3 spatulas and 6 random components
     items = ['spatula', 'spatula', 'spatula']
     for _ in range(6):
         items.append(starting_items[random.randint(0, len(starting_items) - 1)])
     return items
 
 def generateAllRandomComponents():
+    # generate an item list of completely random components
     items = []
     for _ in range(9):
         items.append(starting_items[random.randint(0, len(starting_items) - 1)])
     return items
 
 def generateFullItems():
-    pass
+    # generate an item list of completely random items
+    items = []
+    # list of all possible completed items
+    fullitems = list(item_builds.items())
+    for _ in range(9):
+        # randomly choose an item from the full items list and simultaneously remove it (prevents duplicates)
+        items.append(fullitems.pop(random.randint(0, len(fullitems) - 1)))
+    return items
 
-def generateBFItems():
-    pass
+def generateComponentItems(component):
+    # generate an item list of only items with the specified component
+    # Since only 9 unique components, there should be exactly as many unique items as champions
+    items = []
+    for item in item_builds:
+        if component in item_builds[item]:
+            items.append(item_builds[item])
+    return items
 
-def generateVestItems():
-    pass
-
-def generateBeltItems():
-    pass
-
-def generateBowItems():
-    pass
-
-def generateCloakItems():
-    pass
-
-def generateTearItems():
-    pass
-
-def generateGlovesItems():
-    pass
-
-def generateRodItems():
-    pass
+def generateHalfItems():
+    # generate an item list of half full items, half random components
+    items = []
+    fullitems = list(item_builds.items())
+    for _ in range(5):
+        items.append(fullitems.pop(random.randint(0, len(fullitems) - 1)))
+    
+    for _ in range(4):
+        items.append(basic_items[random.randint(0, len(basic_items) - 1)])
+        
+    return items
