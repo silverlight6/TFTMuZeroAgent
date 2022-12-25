@@ -700,16 +700,17 @@ class player:
                                     (champ.items[-1] == items[1] and self.item_bench[xBench] == items[0])):
                                 item_index = index
                                 break
-                        if item_builds.keys()[item_index] == "theifs_gloves":
+                        if list(item_builds.keys())[item_index] == "theifs_gloves":
                             if champ.num_items != 1:
                                 return False
                             else:
                                 champ.num_items += 2
-                                self.thiefs_glove_loc.append([x, -1])
-                                self.thiefs_gloves(x, -1)
+                                self.thiefs_glove_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
-                        champ.items.append(item_builds.keys()[item_index])
+                        champ.items.append(list(item_builds.keys())[item_index])
+                        if champ.items[0] == 'thiefs_gloves':
+                            self.thiefs_gloves(x, y)
                         self.reward += .2 * self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
@@ -979,7 +980,6 @@ class player:
             if self.bench[x]:
                 if self.bench[x].name == 'kayn':
                     self.bench[x].kaynform = kayn_item
-
 
     def update_team_tiers(self):
         self.team_composition = origin_class.team_origin_class(self)
