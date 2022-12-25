@@ -18,7 +18,7 @@ def carousel(players, round, pool_obj):
                 alive.insert(0, player)
 
     champions = generateChampions(round, pool_obj)
-    items = generateHeldItems(round, pool_obj)
+    items = generateHeldItems(round)
 
     # give all champions on the carousel an item
     for i, champ in enumerate(champions):
@@ -34,9 +34,45 @@ def carousel(players, round, pool_obj):
             if champ.COST > current.COST:
                 current = champ
         player.add_to_bench(current)
+    # pool updating should be handled upon a player choosing a champion
+    # much easier this way
+        pool_obj.update(current, -1)
 
 # this will handle champion generation based on the current round
 def generateChampions(round, pool_obj):
+    oneCosts = list(pool_stats.COST_1.items())
+    twoCosts = list(pool_stats.COST_2.items())
+    threeCosts = list(pool_stats.COST_3.items())
+    fourCosts = list(pool_stats.COST_4.items())
+    fiveCosts = list(pool_stats.COST_5.items())
+    # remove champions from the list that have been exhausted from the pool (checking COST_1, COST_2, etc)
+    for i in oneCosts:
+        pass
+    for i in twoCosts:
+        pass
+    for i in threeCosts:
+        pass
+    for i in fourCosts:
+        pass
+    for i in fiveCosts:
+        pass
+    carouselChamps = []
+    # first carousel - all 1 costs
+    if round == 0:
+        for _ in range(9):
+            carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+        return carouselChamps
+    # second carousel - 1 one cost, 4 two costs, 4 three costs
+    elif round == 6:
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+    elif round == 12:
+        pass
+    elif round == 18:
+        pass
+    elif round == 24:
+        pass
+    elif round >= 30:
+        pass
     pass
 
 # handles the item generation based on the current round
