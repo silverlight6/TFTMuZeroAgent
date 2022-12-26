@@ -110,7 +110,6 @@ class Game_Round:
                     # Make sure the player is alive as well.
                     while ((not players[player_index]) or players[num].opponent == players[player_index] or players[
                             player_index].combat or num == player_index):
-                        print(f"Current Player Index: {player_index} Current Opponent Index: {num}")
                         player_index = random.randint(0, len(players) - 1)
                         if (players[player_index] and (players_matched == config.NUM_PLAYERS - 2 - self.NUM_DEAD)
                                 and players[num].opponent == players[player_index]):
@@ -140,14 +139,12 @@ class Game_Round:
 
                     # Blue side won
                     if index_won == 1:
-                        print("Blue side won with damage = {}".format(damage))
                         players[num].won_round(damage)
                         players[player_index].loss_round(damage)
                         players[player_index].health -= damage
 
                     # Red side won
                     if index_won == 2:
-                        print("Red side won with damage = {}".format(damage))
                         players[num].loss_round(damage)
                         players[num].health -= damage
                         players[player_index].won_round(damage)

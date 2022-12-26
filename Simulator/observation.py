@@ -1,4 +1,5 @@
 import numpy as np
+import config
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
 
@@ -10,8 +11,9 @@ class Observation:
     def __init__(self):
         self.shop_vector = np.zeros(45)
         self.game_comp_vector = np.zeros(208)
+        self.prev_observation = config.INPUT_SHAPE
 
-    def observation(self, player, buffer, action_vector):
+    def observation(self, player, action_vector):
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         complete_game_state_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
@@ -22,15 +24,9 @@ class Observation:
                                                      np.expand_dims(player.player_vector, axis=0),
                                                      np.expand_dims(game_state_vector, axis=0),
                                                      np.expand_dims(action_vector, axis=0), ], axis=-1)
-        i = 0
         input_vector = complete_game_state_vector
-        while i < buffer.len_observation_buffer() and i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
+        self.prev_observation = input_vector
 
-        while i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
         # std = np.std(input_vector)
         # if std == 0:
         # input_vector = input_vector - np.mean(input_vector)
@@ -39,18 +35,8 @@ class Observation:
         # print(input_vector.shape)
         return input_vector, complete_game_state_vector
 
-    def dummy_observation(self, buffer):
-        input_vector = buffer.get_prev_observation(0)
-        i = 0
-        while i < buffer.len_observation_buffer() and i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
-
-        while i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
-
-        return input_vector
+    def dummy_observation(self):
+        return self.prev_observation
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

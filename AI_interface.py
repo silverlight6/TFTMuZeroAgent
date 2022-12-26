@@ -3,6 +3,7 @@ import config
 import datetime
 import numpy as np
 import tensorflow as tf
+import gymnasium as gym
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent
@@ -49,18 +50,22 @@ def batch_step(sim, agent, buffers):
 
 # This is the main overarching gameplay method.
 # This is going to be implemented mostly in the game_round file under the AI side of things. 
-def collect_gameplay_experience(sim, agent, buffers):
-    # reset(sim)
-    num_alive = 8
-    sim.game_round.play_game_round()
-    while num_alive > 1:
-        sim.game_round.play_game_round()
-        batch_step(sim, agent, buffers)
-        num_alive = sim.check_dead()
+def collect_gameplay_experience(env, agent, buffers):
+    observation, info = env.reset()
+    terminated = False
+    while ~terminated:
+        action, policy = agent.batch_policy(observation)  # agent policy that uses the observation and info
+        observation_list, rewards, terminated, truncated, info = env.step(action)
+        for i in range(config.NUM_PLAYERS):
+            if info["players"][i]:
+                local_reward = rewards[info["players"][i].player_num] - previous_reward[info["players"][i].player_num]
+                buffers[info["players"][i].player_num].\
+                    store_replay_buffer(observation_list[info["players"][i].player_num],
+                                        action[info["players"][i].player_num], local_reward,
+                                        policy[info["players"][i].player_num])
+                previous_reward[info["players"][i].player_num] = info["players"][i].reward
 
-    for player in sim.PLAYERS:
-        if player:
-            player.won_game()
+    env.close()
 
 
 def train_model(max_episodes=10000):
@@ -69,6 +74,7 @@ def train_model(max_episodes=10000):
     # test_player = player_class.player(pool_obj, 0)
     # shop = pool_obj.sample(test_player, 5)
     # shape = np.array(observation(shop, test_player)).shape
+    # register_env()
 
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -80,14 +86,14 @@ def train_model(max_episodes=10000):
     # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
     train_step = 0
     # global_agent.load_model(0)
+    env = gym.make("Simulator/TFT-Set4")
 
     for episode_cnt in range(1, max_episodes):
-        game_sim = TFT_Simulator()
         agent = Batch_MCTSAgent(network=global_agent)
-        buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
-        collect_gameplay_experience(game_sim, agent, buffers)
+        buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
+        collect_gameplay_experience(env, agent, buffers)
 
-        for i in range(game_sim.num_players-1):
+        for i in range(config.NUM_PLAYERS):
             buffers[i].store_global_buffer()
         # Keeping this here in case I want to only update positive rewards
         # rewards = game_round.player_rewards
@@ -104,3 +110,10 @@ def train_model(max_episodes=10000):
 
 def evaluate(agent):
     return 0
+
+
+def register_env():
+    gym.envs.registration.register(
+        id="TFT-Set4",
+        entry_point="Simulator:tft_simulator"
+    )
