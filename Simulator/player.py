@@ -1005,9 +1005,8 @@ class player:
 
     def update_team_tiers(self):
         self.team_composition = origin_class.team_origin_class(self)
-        for chosen in self.team_composition.keys():
-            if chosen == self.chosen:
-                self.team_composition[chosen] += 1
+        if self.chosen in self.team_composition.keys():
+            self.team_composition[self.chosen] += 1
         for trait in self.team_composition:
             counter = 0
             # print("Trait {} with number {}".format(trait, self.team_composition[trait]))

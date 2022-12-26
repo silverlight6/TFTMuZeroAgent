@@ -16,7 +16,7 @@ def chosen_test():
     p1.gold = 1000
     p1.max_units = 4
     p1.buy_champion(champion('leesin', chosen='duelist'))
-    assert p1.chosen
+    assert p1.chosen == 'duelist'
     p1.move_bench_to_board(0, 0, 0)
     assert p1.team_tiers['duelist'] == 1
     p2 = setup()
