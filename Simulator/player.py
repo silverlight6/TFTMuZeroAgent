@@ -667,6 +667,9 @@ class player:
                     if not self.item_bench_full(len(champ.items)):
                         while len(champ.items) > 0:
                             self.item_bench[self.item_bench_vacancy()] = champ.items[0]
+                            if champ.items[0] in trait_items.values():
+                                champ.origin.pop(-1)
+                                self.update_team_tiers()
                             champ.items.pop(0)
                         self.item_bench[xBench] = None
                         self.generate_item_vector()
@@ -689,27 +692,45 @@ class player:
             if ((champ.num_items < 3 and self.item_bench[xBench] != "thiefs_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
                      in basic_items and champ.num_items == 3)):
+                for trait, name in enumerate(trait_items.values()):
+                    if self.item_bench[xBench] == name:
+                        item_trait = list(trait_items.keys())[trait]
+                        if item_trait in champ.origin:
+                            return False
+                        else:
+                            champ.origin.append(item_trait)
+                            self.update_team_tiers()
                 # only execute if you have items
                 if len(champ.items) > 0:
                     # implement the item combinations here. Make exception with thieves gloves
                     if champ.items[-1] in basic_items and self.item_bench[xBench] in basic_items:
                         item_build_values = item_builds.values()
                         item_index = 0
+                        item_names = list(item_builds.keys())
                         for index, items in enumerate(item_build_values):
                             if ((champ.items[-1] == items[0] and self.item_bench[xBench] == items[1]) or
                                     (champ.items[-1] == items[1] and self.item_bench[xBench] == items[0])):
                                 item_index = index
                                 break
-                        if item_builds.keys()[item_index] == "theifs_gloves":
+                        for trait, names in enumerate(list(trait_items.values())):
+                            if item_names[item_index] == names:
+                                item_trait = list(trait_items.keys())[trait]
+                                if item_trait in champ.origin:
+                                    return False
+                                else:
+                                    champ.origin.append(item_trait)
+                                    self.update_team_tiers()
+                        if item_names[item_index] == "theifs_gloves":
                             if champ.num_items != 1:
                                 return False
                             else:
                                 champ.num_items += 2
-                                self.thiefs_glove_loc.append([x, -1])
-                                self.thiefs_gloves(x, -1)
+                                self.thiefs_glove_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
-                        champ.items.append(item_builds.keys()[item_index])
+                        champ.items.append(item_names[item_index])
+                        if champ.items[0] == 'thiefs_gloves':
+                            self.thiefs_gloves(x, y)
                         self.reward += .2 * self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
@@ -855,7 +876,9 @@ class player:
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
                     for item in a_champion.items:
-                        # thiefs glove exception
+                        if item in trait_items.values():
+                            a_champion.origin.pop(-1)
+                            self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
                 # if there is only one or two spots left on the item_bench and thiefs_gloves is removed
                 elif not self.item_bench_full(1) and a_champion.items[0] == "thiefs_gloves":
@@ -980,9 +1003,10 @@ class player:
                 if self.bench[x].name == 'kayn':
                     self.bench[x].kaynform = kayn_item
 
-
     def update_team_tiers(self):
         self.team_composition = origin_class.team_origin_class(self)
+        if self.chosen in self.team_composition.keys():
+            self.team_composition[self.chosen] += 1
         for trait in self.team_composition:
             counter = 0
             # print("Trait {} with number {}".format(trait, self.team_composition[trait]))

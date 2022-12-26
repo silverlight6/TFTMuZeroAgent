@@ -11,6 +11,37 @@ def setup(player_num=0) -> player:
     player1 = player(base_pool, player_num)
     return player1
 
+def chosen_test():
+    p1 = setup()
+    p1.gold = 1000
+    p1.max_units = 4
+    p1.buy_champion(champion('leesin', chosen='duelist'))
+    assert p1.chosen == 'duelist'
+    p1.move_bench_to_board(0, 0, 0)
+    assert p1.team_tiers['duelist'] == 1
+    p2 = setup()
+    p2.gold = 1000
+    p2.max_units = 4
+    p1.buy_champion(champion('leesin'))
+    p1.buy_champion(champion('leesin'))
+    assert p1.board[0][0].chosen == 'duelist'
+
+def end_of_turn_actions_test():
+    p1 = setup()
+    p1.gold = 1000
+    p1.max_units = 3
+    for _ in range(8):
+        p1.buy_champion(champion('leesin'))
+    p1.move_bench_to_board(0, 0, 0)
+    p1.buy_champion(champion('nami'))
+    p1.move_bench_to_board(0, 1, 0)
+    p1.add_to_item_bench('duelists_zeal')
+    p1.move_item(0, 1, 0)
+    p1.end_turn_actions()
+    assert p1.bench[1] is None
+    assert p1.bench[2] is not None
+    assert p1.team_tiers['duelist'] == 1
+
 def championDuplicatorTest():
     p1 = setup()
     p1.gold = 1000
@@ -52,14 +83,17 @@ def magneticRemoverTest():
     p1.move_bench_to_board(0, 0, 0)
     p1.add_to_item_bench('magnetic_remover')
     p1.add_to_item_bench('magnetic_remover')
-    for x in range(6):
+    p1.add_to_item_bench('mages_cap')
+    for x in range(5):
         p1.add_to_item_bench('deathblade')
     for x in range(2, 5):
         p1.move_item(x, 0, 0)
     for x in range(5, 8):
         p1.move_item(x, 1, -1)
+    assert p1.team_composition['mage'] != 0
     p1.move_item(0, 0, 0)
     p1.move_item(1, 1, -1)
+    assert p1.team_composition['mage'] == 0
     assert p1.board[0][0].items == []
     assert p1.bench[1].items == []
 
@@ -340,6 +374,9 @@ def incomeTest4():
 
 def list_of_tests():
     """tests all test cases"""
+    chosen_test()
+    end_of_turn_actions_test()
+
     championDuplicatorTest()
     magneticRemoverTest()
     reforgerTest()
