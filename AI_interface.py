@@ -1,17 +1,14 @@
 import time
 import config
 import datetime
-import numpy as np
 import tensorflow as tf
 import gymnasium as gym
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
-from Simulator import player as player_class, pool, game_round
-from Simulator.tft_simulator import TFT_Simulator
+from Simulator import game_round
 from Simulator.observation import Observation
-
 
 
 class AIInterface:
@@ -20,8 +17,7 @@ class AIInterface:
         self.prev_action = [[9] for _ in range(config.NUM_PLAYERS)]
         self.prev_reward = [[0] for _ in range(config.NUM_PLAYERS)]
 
-
-# Batch step
+    # Batch step
     def batch_step(self, env, agent, buffers):
         actions_taken = 0
         game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
@@ -31,39 +27,38 @@ class AIInterface:
 
             action, policy = agent.batch_policy(observation_list, previous_action)
 
-
             rewards = env.step_function.batch_controller(action, env.PLAYERS, game_observations)
 
             for i in range(config.NUM_PLAYERS):
                 if env.PLAYERS[i]:
                     local_reward = rewards[env.PLAYERS[i].player_num] - self.prev_reward[env.PLAYERS[i].player_num]
                     buffers[env.PLAYERS[i].player_num].store_replay_buffer(observation_list[env.PLAYERS[i].player_num],
-                                                                        action[env.PLAYERS[i].player_num],
-                                                                        local_reward, policy[env.PLAYERS[i].player_num])
+                                                                           action[env.PLAYERS[i].player_num],
+                                                                           local_reward,
+                                                                           policy[env.PLAYERS[i].player_num])
                     self.prev_reward[env.PLAYERS[i].player_num] = env.PLAYERS[i].reward
 
             actions_taken += 1
-
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things. 
     def collect_gameplay_experience(self, env, agent, buffers):
         observation, info = env.reset()
         terminated = False
-        while ~terminated:
-            action, policy = agent.batch_policy(observation, self.prev_action)  # agent policy that uses the observation and info
+        while not terminated:
+            # agent policy that uses the observation and info
+            action, policy = agent.batch_policy(observation, self.prev_action)
             self.prev_action = action
             observation_list, rewards, terminated, truncated, info = env.step(action)
             for i in range(config.NUM_PLAYERS):
                 if info["players"][i]:
-                    local_reward = rewards[info["players"][i].player_num] - self.prev_reward[info["players"][i].player_num]
+                    local_reward = rewards[info["players"][i].player_num] - \
+                                   self.prev_reward[info["players"][i].player_num]
                     buffers[info["players"][i].player_num].\
                         store_replay_buffer(observation_list[info["players"][i].player_num],
                                             action[info["players"][i].player_num], local_reward,
                                             policy[info["players"][i].player_num])
                     self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
-
-
 
     def train_model(self, max_episodes=10000):
         # # Uncomment if you change the size of the input array
@@ -104,6 +99,5 @@ class AIInterface:
             
             print("Episode " + str(episode_cnt) + " Completed")
 
-
-    def evaluate(agent):
+    def evaluate(self, agent):
         return 0

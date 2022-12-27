@@ -87,7 +87,6 @@ class Game_Round:
     # of each fight
 
     def combat_phase(self, players, player_round):
-        battle_start_time = time.time_ns()
         random.shuffle(players)
         player_nums = list(range(0, len(players)))
         players_matched = 0

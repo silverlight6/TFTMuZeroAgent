@@ -37,7 +37,6 @@ class TFT_Simulator(gym.Env):
         for i, player in enumerate(self.PLAYERS):
             if player:
                 if player.health <= 0:
-                    print(player.health)
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
@@ -64,8 +63,6 @@ class TFT_Simulator(gym.Env):
                 dummy_observation = Observation()
                 observation = dummy_observation.dummy_observation
                 observation_list.append(observation)
-                print(observation)
-                print(observation_list)
         observation_list = np.array(observation_list)
         return observation_list
 
@@ -83,6 +80,7 @@ class TFT_Simulator(gym.Env):
         self.game_round.play_game_round()
         self.episode_done = False
         observation = self.get_observation()
+        print("Environment was reset")
         return observation, {"players": self.PLAYERS}
 
     def render(self):
