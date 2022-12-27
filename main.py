@@ -2,7 +2,7 @@ import AI_interface
 import config
 from UnitTests.BaseUnitTest import runTest
 # import tensorflow as tf
-#
+
 # gpus = tf.config.list_physical_devices('GPU')
 # if gpus:
 #     try:
@@ -16,11 +16,13 @@ from UnitTests.BaseUnitTest import runTest
 #         print(e)
 
 
+
 def main():
     if config.RUN_UNIT_TEST:
         runTest()
 
-    AI_interface.train_model()
+    interface=AI_interface.AIInterface()
+    interface.train_model()
 
 
 if __name__ == "__main__":

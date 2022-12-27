@@ -82,9 +82,10 @@ class player:
         # reward for refreshing
         self.refresh_reward = 0
         self.minion_count_reward = 0
-        self.mistake_reward = 0.0
-        self.level_reward = 0
-        self.item_reward = 0
+        self.mistake_reward = 0
+        self.level_reward = .8
+        self.item_reward = .1
+        self.won_game_reward = 0
         self.prev_rewards = 0
 
         # Everyone shares the pool object.
@@ -1092,7 +1093,7 @@ class player:
             self.thiefs_gloves(self.thiefs_glove_loc[x][0], self.thiefs_glove_loc[x][1])
 
     def won_game(self):
-        self.reward += 0.0
+        self.reward += self.won_game_reward
         self.print("+0 reward for winning game")
 
     def won_round(self, damage):

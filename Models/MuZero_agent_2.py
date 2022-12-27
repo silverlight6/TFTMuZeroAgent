@@ -82,23 +82,23 @@ class MinMaxStats(object):
 
 class Node(object):
 
-    #initialize a new node with given prior probability 
+    # initialize a new node with given prior probability
     def __init__(self, prior: float):
         self.visit_count = 0
         self.to_play = 1
         self.prior = prior
         self.value_sum = 0
-        #Initialize empty dictionart to store children nodes
+        # Initialize empty dictionart to store children nodes
         # 5 because there are 5 separate actions.
         self.children = {}
         self.hidden_state = None
         self.reward = 0
 
-    #check if the node has been expanded (i.e has children)
+    # check if the node has been expanded (i.e has children)
     def expanded(self) -> bool:
         return len(self.children) > 0
 
-    #calculate the value of the node as an average of visited nodes.
+    # calculate the value of the node as an average of visited nodes.
     def value(self) -> float:
         if self.visit_count == 0:
             return 0
