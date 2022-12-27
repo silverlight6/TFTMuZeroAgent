@@ -1,7 +1,7 @@
 import time
 import config
 import random
-import multiprocessing
+# import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
@@ -211,14 +211,17 @@ class Game_Round:
                 log_to_file(player)
 
         # local_time = time.time_ns()
-        processes = []
-        for player in self.PLAYERS:
-            p = multiprocessing.Process(target=minion.minion_round, args=(player, 0, self.PLAYERS))
-            p.start()
-            processes.append(p)
+        # processes = []
+        # for player in self.PLAYERS:
+        #     p = multiprocessing.Process(target=minion.minion_round, args=(player, 0, self.PLAYERS))
+        #     p.start()
+        #     processes.append(p)
+        #
+        # for process in processes:
+        #     process.join()
 
-        for process in processes:
-            process.join()
+        for player in self.PLAYERS:
+            minion.minion_round(player, 0, self.PLAYERS)
 
         for player in self.PLAYERS:
             if player:
