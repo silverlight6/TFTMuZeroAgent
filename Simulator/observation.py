@@ -11,21 +11,20 @@ class Observation:
     def __init__(self):
         self.shop_vector = np.zeros(45)
         self.game_comp_vector = np.zeros(208)
-        self.prev_observation = config.INPUT_SHAPE
+        self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
 
     def observation(self, player, action_vector):
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
-        complete_game_state_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
-                                                     np.expand_dims(player.board_vector, axis=0),
-                                                     np.expand_dims(player.bench_vector, axis=0),
-                                                     np.expand_dims(player.chosen_vector, axis=0),
-                                                     np.expand_dims(player.item_vector, axis=0),
-                                                     np.expand_dims(player.player_vector, axis=0),
-                                                     np.expand_dims(game_state_vector, axis=0),
-                                                     np.expand_dims(action_vector, axis=0), ], axis=-1)
+        complete_game_state_vector = np.concatenate([shop_vector,
+                                                     player.board_vector,
+                                                     player.bench_vector,
+                                                     player.chosen_vector,
+                                                     player.item_vector,
+                                                     player.player_vector,
+                                                     game_state_vector,
+                                                     action_vector], axis=-1)
         input_vector = complete_game_state_vector
-        self.prev_observation = input_vector
 
         # std = np.std(input_vector)
         # if std == 0:
@@ -34,9 +33,6 @@ class Observation:
         #     input_vector = (input_vector - np.mean(input_vector)) / std
         # print(input_vector.shape)
         return input_vector, complete_game_state_vector
-
-    def dummy_observation(self):
-        return self.prev_observation
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)
