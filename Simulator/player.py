@@ -872,7 +872,7 @@ class player:
             if a_champion.items:
                 # thiefs_gloves_location needs to be removed whether there's room on the bench or not
                 if a_champion.items[0] == 'thiefs_gloves':
-                    self.thiefs_glove_loc.remove(a_champion.x, a_champion.y)
+                    self.thiefs_glove_loc.remove([a_champion.x, a_champion.y])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
