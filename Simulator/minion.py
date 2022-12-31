@@ -182,7 +182,7 @@ def lootDrop(player, round, pool_obj):
         player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
         ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
         ran_cost_3 = champion.champion(ran_cost_3)
-        pool_obj.update(ran_cost_3, -1)
+        pool_obj.update_champion_pool(ran_cost_3, -1)
         player.add_to_bench(ran_cost_3)
 
     # 2 melee minions and 2 ranged minions - give 3 gold and 1 item component

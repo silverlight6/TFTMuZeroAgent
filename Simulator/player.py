@@ -174,7 +174,7 @@ class player:
         success = self.add_to_bench(a_champion)
         # Putting this outside success because when the bench is full. It auto sells the champion.
         # Which adds another to the pool and need this here to remove the fake copy from the pool
-        self.pool_obj.update(a_champion, -1)
+        self.pool_obj.update_champion_pool(a_champion, -1)
         if success:
             # Leaving this out because the agent will learn to simply buy everything and sell everything
             # I want it to just buy what it needs to win rounds.
@@ -933,7 +933,7 @@ class player:
             return False
         if not golden:
             self.gold += cost_star_values[s_champion.cost - 1][s_champion.stars - 1]
-            self.pool_obj.update(s_champion, 1)
+            self.pool_obj.update_champion_pool(s_champion, 1)
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
@@ -955,7 +955,7 @@ class player:
                 return False
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
-                self.pool_obj.update(self.bench[location], 1)
+                self.pool_obj.update_champion_pool(self.bench[location], 1)
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
