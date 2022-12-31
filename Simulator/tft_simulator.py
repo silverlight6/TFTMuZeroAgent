@@ -80,14 +80,17 @@ class TFT_Simulator(gym.Env):
         self.game_round.play_game_round()
         self.episode_done = False
         observation = self.get_observation()
-        print("Environment was reset")
         return observation, {"players": self.PLAYERS}
 
     def render(self):
         ...
 
     def step(self, action):
-        rewards = self.step_function.batch_controller(action, self.PLAYERS, self.game_observations)
+        rewards = []
+        if action.ndim == 1:
+            rewards = self.step_function.batch_controller(action, self.PLAYERS, self.game_observations)
+        elif action.ndim == 2:
+            rewards = self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations)
 
         self.actions_taken += 1
         # If at the end of the turn

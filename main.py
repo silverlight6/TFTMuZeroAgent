@@ -16,14 +16,13 @@ from UnitTests.BaseUnitTest import runTest
 #         print(e)
 
 
-
 def main():
     if config.RUN_UNIT_TEST:
         runTest()
-    
 
-    interface=AI_interface.AIInterface()
+    interface = AI_interface.AIInterface()
     interface.train_model()
+    # interface.collect_dummy_data()
 
 
 if __name__ == "__main__":
