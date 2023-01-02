@@ -79,7 +79,7 @@ class AIInterface:
         # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
         train_step = 0
         # global_agent.load_model(0)
-        env = gym.make("TFT-Set4")
+        env = gym.make("TFT_Set4-v0")
 
         for episode_cnt in range(1, max_episodes):
             agent = Batch_MCTSAgent(network=global_agent)
@@ -101,7 +101,7 @@ class AIInterface:
             print("Episode " + str(episode_cnt) + " Completed")
 
     def collect_dummy_data(self):
-        env = gym.make("TFT-Set4")
+        env = gym.make("TFT_Set4-v0")
         while True:
             _, _ = env.reset()
             terminated = False
