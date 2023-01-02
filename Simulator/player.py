@@ -281,7 +281,7 @@ class player:
         return False
 
     def generate_board_vector(self):
-        output_array = np.zeros(28,3)
+        output_array = np.zeros((28, 3))
         # Loop through champion vector and update occupation state
         hex_count = 0
         for x in range(0, 7):
@@ -293,15 +293,16 @@ class player:
                 # Can use another conditional to indicate that the unit should be sold
                 output_array[hex_count] = [x,y,occupation_state]
                 hex_count += 1
-        self.board_vector = output_array
+        self.board_occupation_vector = output_array.reshape(28*3)
         self.generate_player_vector() # Not sure why player vector is called here
         self.generate_champion_vectors()
+
     def generate_champion_vectors(self):
         '''
         Helps to generate the vectors containing all the champions information. Including both Board and Bench
         :return:
         '''
-        output_array = np.zeros(self.MAX_CHAMPION,self.CHAMPION_INFORMATION) # 19 * 11 = 209
+        output_array = np.zeros((self.MAX_CHAMPION,self.CHAMPION_INFORMATION)) # 19 * 11 = 209
 
         #Check champion on bench from self.bench
         curr_bench_count = 0
@@ -320,7 +321,7 @@ class player:
                     self.generate_single_champion_vector(self.board[x][y], champion_info_array)
                     output_array[curr_board_count] = champion_info_array
                     curr_board_count += 1
-        self.champions_owned_vector = output_array
+        self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
     def generate_single_champion_vector(self, curr_champ, champion_info_array):
         '''
         Helps to generate a vector of length CHAMPION_INFO
@@ -1146,3 +1147,19 @@ if __name__ == "__main__":
     # print(item_arr)
     # champion_info_array[6:11] = item_arr
     # print(champion_info_array)
+
+    output_array = np.zeros((28, 3))
+    print(output_array)
+    # Loop through champion vector and update occupation state
+    hex_count = 0
+    for x in range(0, 7):
+        for y in range(0, 4):
+            if x % 4 == 0:
+                occupation_state = 1
+            else:
+                occupation_state = 0
+            # Can use another conditional to indicate that the unit should be sold
+            output_array[hex_count] = [x, y, occupation_state]
+            hex_count += 1
+    print(output_array)
+    print(output_array.reshape(28 * 3))
