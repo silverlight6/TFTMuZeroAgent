@@ -3,6 +3,7 @@ import config
 import datetime
 import tensorflow as tf
 import gymnasium as gym
+import numpy as np
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent
@@ -49,7 +50,7 @@ class AIInterface:
             # agent policy that uses the observation and info
             action, policy = agent.batch_policy(observation, self.prev_action)
             self.prev_action = action
-            observation_list, rewards, terminated, truncated, info = env.step(action)
+            observation_list, rewards, terminated, truncated, info = env.step(np.asarray(action))
             for i in range(config.NUM_PLAYERS):
                 if info["players"][i]:
                     local_reward = rewards[info["players"][i].player_num] - \
@@ -78,7 +79,7 @@ class AIInterface:
         # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
         train_step = 0
         # global_agent.load_model(0)
-        env = gym.make("Simulator/TFT-Set4")
+        env = gym.make("TFT-Set4")
 
         for episode_cnt in range(1, max_episodes):
             agent = Batch_MCTSAgent(network=global_agent)
@@ -98,6 +99,19 @@ class AIInterface:
                 game_round.log_to_file_start()
 
             print("Episode " + str(episode_cnt) + " Completed")
+
+    def collect_dummy_data(self):
+        env = gym.make("TFT-Set4")
+        while True:
+            _, _ = env.reset()
+            terminated = False
+            t = time.time_ns()
+            while not terminated:
+                # agent policy that uses the observation and info
+                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                self.prev_action = action
+                observation_list, rewards, terminated, truncated, info = env.step(action)
+            print("A game just finished in time {}".format(time.time_ns() - t))
 
     def evaluate(self, agent):
         return 0

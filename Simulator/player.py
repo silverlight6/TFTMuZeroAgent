@@ -560,78 +560,64 @@ class player:
     # Kinda of the attitude that I will let those issues sting me first and deal with them
     # When they come up and appear.
     def move_board_to_bench(self, x, y):
-        if self.bench_full():
-            if self.board[x][y]:
-                if not self.sell_champion(self.board[x][y], field=True):
-                    return False
-                self.print("sold from board [{}, {}]".format(x, y))
-                self.generate_board_vector()
-                self.update_team_tiers()
-                return True
-            self.reward += self.mistake_reward
-            return False
-        else:
-            if self.board[x][y]:
-                # Dealing with edge case of azir
-                if self.board[x][y].name == 'azir':
-                    coords = self.board[x][y].sandguard_overlord_coordinates
-                    self.board[x][y].overlord = False
-                    for coord in coords:
-                        self.board[coord[0]][coord[1]] = None
-                bench_loc = self.bench_vacancy()
-                self.bench[bench_loc] = self.board[x][y]
+        if 0 <= x < 7 and 0 <= y < 4:
+            if self.bench_full():
                 if self.board[x][y]:
-                    self.print("moved {} from board [{}, {}] to bench".format(self.board[x][y].name, x, y))
-                self.board[x][y] = None
-                self.bench[bench_loc].x = bench_loc
-                self.bench[bench_loc].y = -1
-                self.num_units_in_play -= 1
-                # thiefs_gloves lecation tracking
-                if self.bench[bench_loc].items:
-                    if self.bench[bench_loc].items[0] == 'thiefs_gloves':
-                        for loc in self.thiefs_glove_loc:
-                            if loc == [x, y]:
-                                self.thiefs_glove_loc.remove(loc)
-                                self.thiefs_glove_loc.append([bench_loc, -1])
-                self.generate_bench_vector()
-                self.generate_board_vector()
-                self.update_team_tiers()
-                return True
-            else:
+                    if not self.sell_champion(self.board[x][y], field=True):
+                        return False
+                    self.print("sold from board [{}, {}]".format(x, y))
+                    self.generate_board_vector()
+                    self.update_team_tiers()
+                    return True
                 self.reward += self.mistake_reward
                 return False
+            else:
+                if self.board[x][y]:
+                    # Dealing with edge case of azir
+                    if self.board[x][y].name == 'azir':
+                        coords = self.board[x][y].sandguard_overlord_coordinates
+                        self.board[x][y].overlord = False
+                        for coord in coords:
+                            self.board[coord[0]][coord[1]] = None
+                    bench_loc = self.bench_vacancy()
+                    self.bench[bench_loc] = self.board[x][y]
+                    if self.board[x][y]:
+                        self.print("moved {} from board [{}, {}] to bench".format(self.board[x][y].name, x, y))
+                    self.board[x][y] = None
+                    self.bench[bench_loc].x = bench_loc
+                    self.bench[bench_loc].y = -1
+                    self.num_units_in_play -= 1
+                    self.generate_bench_vector()
+                    self.generate_board_vector()
+                    self.update_team_tiers()
+                    return True
+        self.reward += self.mistake_reward
+        return False
 
     def move_board_to_board(self, x1, y1, x2, y2):
-        # Thiefs Gloves exceptions
-        if self.board[x1][y1]:
-            for i, loc in enumerate(self.thiefs_glove_loc):
-                if loc == [x1, y1]:
-                    self.thiefs_glove_loc[i] = [x2, y2]
-                elif loc == [x2, y2]:
-                    self.thiefs_glove_loc[i] = [x1, y1]
-        if self.board[x1][y1] and self.board[x2][y2]:
-            temp_champ = self.board[x2][y2]
-            self.board[x2][y2] = self.board[x1][y1]
-            self.board[x1][y1] = temp_champ
-            self.board[x1][y1].x = x1
-            self.board[x1][y1].y = y1
-            self.board[x2][y2].x = x2
-            self.board[x2][y2].y = y2
-            self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
-                       .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
-            self.generate_board_vector()
-            return True
-        elif self.board[x1][y1]:
-            self.board[x2][y2] = self.board[x1][y1]
-            self.board[x1][y1] = None
-            self.board[x2][y2].x = x2
-            self.board[x2][y2].y = y2
-            self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
-            self.generate_board_vector()
-            return True
-        else:
-            self.reward += self.mistake_reward
-            return False
+        if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
+            if self.board[x1][y1] and self.board[x2][y2]:
+                temp_champ = self.board[x2][y2]
+                self.board[x2][y2] = self.board[x1][y1]
+                self.board[x1][y1] = temp_champ
+                self.board[x1][y1].x = x1
+                self.board[x1][y1].y = y1
+                self.board[x2][y2].x = x2
+                self.board[x2][y2].y = y2
+                self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
+                           .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
+                self.generate_board_vector()
+                return True
+            elif self.board[x1][y1]:
+                self.board[x2][y2] = self.board[x1][y1]
+                self.board[x1][y1] = None
+                self.board[x2][y2].x = x2
+                self.board[x2][y2].y = y2
+                self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
+                self.generate_board_vector()
+                return True
+        self.reward += self.mistake_reward
+        return False
 
     # TO DO : Item combinations.
     # Move item from item_bench to champion_bench
@@ -734,7 +720,7 @@ class player:
                             self.thiefs_gloves(x, y)
                         self.reward += .2 * self.item_reward
                         self.print(
-                            ".2 reward for combining two basic items into a {}".format(item_builds.keys()[item_index]))
+                            ".2 reward for combining two basic items into a {}".format(item_names[item_index]))
                     elif champ.items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
                         basic_piece = champ.items.pop()
                         champ.items.append(self.item_bench[xBench])
@@ -846,9 +832,6 @@ class player:
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
-                # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
-                if self.bench[x].items[0] == 'thiefs_gloves':
-                    self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
@@ -962,6 +945,7 @@ class player:
             self.print("selling champion " + self.bench[location].name)
             self.bench[location] = None
             self.generate_bench_vector()
+
             return return_champ
         return False
 
