@@ -157,6 +157,7 @@ class Step_Function:
                 rewards.append(players[i].reward)
             else:
                 rewards.append(0)
+        return rewards
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken

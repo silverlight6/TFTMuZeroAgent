@@ -80,7 +80,7 @@ class TFT_Simulator(gym.Env):
         self.game_round.play_game_round()
         self.episode_done = False
         observation = self.get_observation()
-        return observation, {"players": self.PLAYERS}
+        return observation, [], False, False, {"players": self.PLAYERS}
 
     def render(self):
         ...
