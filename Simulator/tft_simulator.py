@@ -1,7 +1,7 @@
 import config
 import numpy as np
-import gymnasium as gym
-from gymnasium import spaces
+import gym
+from gym import spaces
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -12,7 +12,7 @@ from Simulator.observation import Observation
 class TFT_Simulator(gym.Env):
     metadata = {}
 
-    def __init__(self):
+    def __init__(self, env_config):
         self.pool_obj = pool.pool()
         self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
         self.observation_space = spaces.MultiDiscrete([config.OBSERVATION_SIZE for _ in range(config.NUM_PLAYERS)])
@@ -28,6 +28,7 @@ class TFT_Simulator(gym.Env):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
+        self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
         self.game_round.play_game_round()
         self.episode_done = False
@@ -50,23 +51,17 @@ class TFT_Simulator(gym.Env):
     def get_observations_objects(self):
         return [self.game_observations for i in range(config.NUM_PLAYERS)]
 
-    def get_observation(self):
-        observation_list = []
-        for i in range(config.NUM_PLAYERS):
-            if self.PLAYERS[i]:
-                # TODO
-                # store game state vector later
-                observation, _ = self.game_observations[self.PLAYERS[i].player_num] \
-                    .observation(self.PLAYERS[i], self.PLAYERS[i].action_vector)
-                observation_list.append(observation)
-            else:
-                dummy_observation = Observation()
-                observation = dummy_observation.dummy_observation
-                observation_list.append(observation)
-        observation_list = np.array(observation_list)
-        return observation_list
+    def get_observation(self, player):
+        if player:
+            # TODO
+            # store game state vector later
+            observation, _ = self.game_observations[player.player_num].observation(player, player.action_vector)
+        else:
+            dummy_observation = Observation()
+            observation = dummy_observation.dummy_observation
+        return observation
 
-    def reset(self, seed=None, options=None):
+    def reset(self):
         self.pool_obj = pool.pool()
         self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
         self.game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
@@ -79,25 +74,39 @@ class TFT_Simulator(gym.Env):
         self.game_round.play_game_round()
         self.game_round.play_game_round()
         self.episode_done = False
-        observation = self.get_observation()
-        return observation, {"players": self.PLAYERS}
+        observation = []
+        for player in self.PLAYERS:
+            observation.append(self.get_observation(player))
+        return np.asarray(observation), {"players": self.PLAYERS}
 
     def render(self):
         ...
 
     def step(self, action):
-        rewards = []
-        if action.ndim == 1:
-            rewards = self.step_function.batch_controller(action, self.PLAYERS, self.game_observations)
-        elif action.ndim == 2:
-            rewards = self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations)
+        reward = 0
+        if action.ndim == 0:
+            reward = self.step_function.action_controller(action, self.PLAYERS, self.game_observations,
+                                                          self.actions_taken_this_turn)
+        elif action.ndim == 1:
+            reward = self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations,
+                                                            self.actions_taken_this_turn)
 
-        self.actions_taken += 1
+        observation = self.get_observation(self.PLAYERS[self.actions_taken_this_turn])
+
+        self.actions_taken_this_turn += 1
+        if self.actions_taken_this_turn == 8:
+            self.actions_taken_this_turn = 0
+            self.actions_taken += 1
+
         # If at the end of the turn
         if self.actions_taken == config.ACTIONS_PER_TURN:
             # Take a game action and reset actions taken
             self.actions_taken = 0
             self.game_round.play_game_round()
+            # reset for the next turn
+            for p in self.PLAYERS:
+                if p:
+                    p.turn_taken = False
 
             # Check if the game is over
             if self.check_dead() == 1 or self.game_round.current_round > 48:
@@ -106,6 +115,9 @@ class TFT_Simulator(gym.Env):
                 for player in self.PLAYERS:
                     if player:
                         player.won_game()
-        observations = self.get_observation()
 
-        return observations, rewards, self.episode_done, False, {"players": self.PLAYERS}
+        terminated = False
+        if self.PLAYERS[self.actions_taken_this_turn] is None:
+            terminated = True
+
+        return observation, reward, self.episode_done or terminated, {"players": self.PLAYERS}
