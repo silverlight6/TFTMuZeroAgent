@@ -6,7 +6,8 @@ import Simulator.champion as champion
 class Step_Function:
     def __init__(self, pool_obj, observation_objs):
         self.pool_obj = pool_obj
-        self.shops = {"player_" + str(player_id) : self.pool_obj.sample(None, 5) for player_id in range(config.NUM_PLAYERS)}
+        self.shops = {"player_" + str(player_id): self.pool_obj.sample(None, 5) for player_id in
+                      range(config.NUM_PLAYERS)}
         self.observation_objs = observation_objs
 
     def generate_shop(self, player):
@@ -23,132 +24,128 @@ class Step_Function:
                 self.observation_objs[player].generate_shop_vector(self.shops[player])
 
     # Input -> [Decision, shop, champion_bench, item_bench, x1, y1, x2, y2]
-    def batch_2d_controller(self, actions, players, game_observations, player_num):
-        i = player_num
-        if players[i]:
-            # Buy a shop unit
-            if actions[players[i].player_num][0] == 0:
-                if actions[players[i].player_num][1] == 0:
-                    if self.shops[players[i].player_num][0] == " ":
-                        players[i].reward += players[i].mistake_reward
-                        return players[i].reward
-                    if self.shops[players[i].player_num][0].endswith("_c"):
-                        c_shop = self.shops[players[i].player_num][0].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[players[i].player_num][0])
-                    success = players[i].buy_champion(a_champion)
-                    if success:
-                        self.shops[players[i].player_num][0] = " "
-                        game_observations[players[i].player_num].\
-                            generate_shop_vector(self.shops[players[i].player_num])
+    def batch_2d_controller(self, actions, players, game_observations):
+        # implement i later
+        for key, player in players.items():
+            if player:
+                # Buy a shop unit
+                if actions[player.player_num][0] == 0:
+                    if actions[player.player_num][1] == 0:
+                        if self.shops[player.player_num][0] == " ":
+                            player.reward += player.mistake_reward
+                            return player.reward
+                        if self.shops[player.player_num][0].endswith("_c"):
+                            c_shop = self.shops[player.player_num][0].split('_')
+                            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+                        else:
+                            a_champion = champion.champion(self.shops[player.player_num][0])
+                        success = player.buy_champion(a_champion)
+                        if success:
+                            self.shops[player.player_num][0] = " "
+                            game_observations[key].generate_shop_vector(self.shops[player.player_num])
 
-                elif actions[players[i].player_num][1] == 1:
-                    if self.shops[players[i].player_num][1] == " ":
-                        players[i].reward += players[i].mistake_reward
-                        return players[i].reward
-                    if self.shops[players[i].player_num][1].endswith("_c"):
-                        c_shop = self.shops[players[i].player_num][1].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[players[i].player_num][1])
-                    success = players[i].buy_champion(a_champion)
-                    if success:
-                        self.shops[players[i].player_num][1] = " "
-                        game_observations[players[i].player_num].\
-                            generate_shop_vector(self.shops[players[i].player_num])
+                    elif actions[player.player_num][1] == 1:
+                        if self.shops[player.player_num][1] == " ":
+                            player.reward += player.mistake_reward
+                            return player.reward
+                        if self.shops[player.player_num][1].endswith("_c"):
+                            c_shop = self.shops[player.player_num][1].split('_')
+                            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+                        else:
+                            a_champion = champion.champion(self.shops[player.player_num][1])
+                        success = player.buy_champion(a_champion)
+                        if success:
+                            self.shops[player.player_num][1] = " "
+                            game_observations[key].generate_shop_vector(self.shops[player.player_num])
 
-                elif actions[players[i].player_num][1] == 2:
-                    if self.shops[players[i].player_num][2] == " ":
-                        players[i].reward += players[i].mistake_reward
-                        return players[i].reward
-                    if self.shops[players[i].player_num][2].endswith("_c"):
-                        c_shop = self.shops[players[i].player_num][2].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[players[i].player_num][2])
-                    success = players[i].buy_champion(a_champion)
-                    if success:
-                        self.shops[players[i].player_num][2] = " "
-                        game_observations[players[i].player_num].\
-                            generate_shop_vector(self.shops[players[i].player_num])
+                    elif actions[player.player_num][1] == 2:
+                        if self.shops[player.player_num][2] == " ":
+                            player.reward += player.mistake_reward
+                            return player.reward
+                        if self.shops[player.player_num][2].endswith("_c"):
+                            c_shop = self.shops[player.player_num][2].split('_')
+                            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+                        else:
+                            a_champion = champion.champion(self.shops[player.player_num][2])
+                        success = player.buy_champion(a_champion)
+                        if success:
+                            self.shops[player.player_num][2] = " "
+                            game_observations[key].generate_shop_vector(self.shops[player.player_num])
 
-                elif actions[players[i].player_num][1] == 3:
-                    if self.shops[players[i].player_num][3] == " ":
-                        players[i].reward += players[i].mistake_reward
-                        return players[i].reward
-                    if self.shops[players[i].player_num][3].endswith("_c"):
-                        c_shop = self.shops[players[i].player_num][3].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[players[i].player_num][3])
+                    elif actions[player.player_num][1] == 3:
+                        if self.shops[player.player_num][3] == " ":
+                            player.reward += player.mistake_reward
+                            return player.reward
+                        if self.shops[player.player_num][3].endswith("_c"):
+                            c_shop = self.shops[player.player_num][3].split('_')
+                            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+                        else:
+                            a_champion = champion.champion(self.shops[player.player_num][3])
 
-                    success = players[i].buy_champion(a_champion)
-                    if success:
-                        self.shops[players[i].player_num][3] = " "
-                        game_observations[players[i].player_num].\
-                            generate_shop_vector(self.shops[players[i].player_num])
+                        success = player.buy_champion(a_champion)
+                        if success:
+                            self.shops[player.player_num][3] = " "
+                            game_observations[key].generate_shop_vector(self.shops[player.player_num])
 
-                elif actions[players[i].player_num][1] == 4:
-                    if self.shops[players[i].player_num][4] == " ":
-                        players[i].reward += players[i].mistake_reward
-                        return players[i].reward
-                    if self.shops[players[i].player_num][4].endswith("_c"):
-                        c_shop = self.shops[players[i].player_num][4].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[players[i].player_num][4])
+                    elif actions[player.player_num][1] == 4:
+                        if self.shops[player.player_num][4] == " ":
+                            player.reward += player.mistake_reward
+                            return player.reward
+                        if self.shops[player.player_num][4].endswith("_c"):
+                            c_shop = self.shops[player.player_num][4].split('_')
+                            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+                        else:
+                            a_champion = champion.champion(self.shops[player.player_num][4])
 
-                    success = players[i].buy_champion(a_champion)
-                    if success:
-                        self.shops[players[i].player_num][4] = " "
-                        game_observations[players[i].player_num].\
-                            generate_shop_vector(self.shops[players[i].player_num])
+                        success = player.buy_champion(a_champion)
+                        if success:
+                            self.shops[player.player_num][4] = " "
+                            game_observations[key].generate_shop_vector(self.shops[player.player_num])
 
-            # Refresh
-            elif actions[players[i].player_num][0] == 1:
-                if players[i].refresh():
-                    self.shops[players[i].player_num] = self.pool_obj.sample(players[i], 5)
+                # Refresh
+                elif actions[player.player_num][0] == 1:
+                    if player.refresh():
+                        self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
-            # Buy exp
-            elif actions[players[i].player_num][0] == 2:
-                players[i].buy_exp()
+                # Buy exp
+                elif actions[player.player_num][0] == 2:
+                    player.buy_exp()
 
-            # Move Item
-            elif actions[players[i].player_num][0] == 3:
-                # Call network to activate the move_item_agent
-                players[i].move_item_to_board(actions[players[i].player_num][3], actions[players[i].player_num][4],
-                                              actions[players[i].player_num][5])
+                # Move Item
+                elif actions[player.player_num][0] == 3:
+                    # Call network to activate the move_item_agent
+                    player.move_item_to_board(actions[player.player_num][3], actions[player.player_num][4],
+                                              actions[player.player_num][5])
 
-            # Sell Unit from bench
-            elif actions[players[i].player_num][0] == 4:
-                # Call network to activate the bench_agent
-                players[i].sell_from_bench(actions[players[i].player_num][2])
+                # Sell Unit from bench
+                elif actions[player.player_num][0] == 4:
+                    # Call network to activate the bench_agent
+                    player.sell_from_bench(actions[player.player_num][2])
 
-            # Move bench to board
-            elif actions[players[i].player_num][0] == 5:
-                # Call network to activate the bench and board agents
-                players[i].move_bench_to_board(actions[players[i].player_num][2], actions[players[i].player_num][4],
-                                               actions[players[i].player_num][5])
+                # Move bench to board
+                elif actions[player.player_num][0] == 5:
+                    # Call network to activate the bench and board agents
+                    player.move_bench_to_board(actions[player.player_num][2], actions[player.player_num][4],
+                                               actions[player.player_num][5])
 
-            # Move board to bench
-            elif actions[players[i].player_num][0] == 6:
-                # Call network to activate the bench and board agents
-                players[i].move_board_to_bench(actions[players[i].player_num][5], actions[players[i].player_num][6])
+                # Move board to bench
+                elif actions[player.player_num][0] == 6:
+                    # Call network to activate the bench and board agents
+                    player.move_board_to_bench(actions[player.player_num][5], actions[player.player_num][6])
 
-            # Move board to board
-            elif actions[players[i].player_num][0] == 7:
-                players[i].move_board_to_board(actions[players[i].player_num][4], actions[players[i].player_num][5],
-                                               actions[players[i].player_num][6], actions[players[i].player_num][7])
+                # Move board to board
+                elif actions[player.player_num][0] == 7:
+                    player.move_board_to_board(actions[player.player_num][4], actions[player.player_num][5],
+                                               actions[player.player_num][6], actions[player.player_num][7])
 
-            # Update the other players information
-            elif actions[players[i].player_num][0] == 8:
-                game_observations[players[i].player_num].generate_game_comps_vector()
+                # Update the other players information
+                elif actions[player.player_num][0] == 8:
+                    game_observations[key].generate_game_comps_vector()
 
-            # End turn with later implementations, currently nothing
-            elif actions[players[i].player_num][0] == 9:
-                ...
-            return players[i].reward
+                # End turn with later implementations, currently nothing
+                elif actions[player.player_num][0] == 9:
+                    ...
+                return player.reward
         return 0
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
@@ -443,95 +440,95 @@ class Step_Function:
             return self.shops, False, False, 1
         return self.shops, False, True, 1
 
-    def action_controller(self, action, players, game_observations, player_num):
-        i = player_num
-        if players[i]:
-            # Python doesn't allow comparisons between arrays,
-            # so we're just checking if the nth value is 1 (true) or 0 (false)
-            if players[i].action_vector[0]:
-                self.batch_multi_step(action, players[i], game_observations[players[i].player_num])
-            if players[i].action_vector[1]:
-                self.batch_shop(action, players[i], game_observations[players[i].player_num])
-            # Move item to board
-            if players[i].current_action == 3:
-                players[i].action_values.append(action)
-                if players[i].action_vector[3]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
-                elif players[i].action_vector[4]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
-                else:
-                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if players[i].action_values[0] > 9:
-                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 10))
-                    if players[i].action_values[1] > 6:
-                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if players[i].action_values[2] > 3:
-                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
-                    players[i].move_item_to_board(players[i].action_values[0], players[i].action_values[1],
-                                                  players[i].action_values[2])
-                    players[i].action_values = []
+    def action_controller(self, actions, players, game_observations):
+        for key, player in players.items():
+            if player:
+                # Python doesn't allow comparisons between arrays,
+                # so we're just checking if the nth value is 1 (true) or 0 (false)
+                if player.action_vector[0]:
+                    self.batch_multi_step(actions[key], player, game_observations[key])
+                if player.action_vector[1]:
+                    self.batch_shop(actions[key], player, game_observations[key])
+                # Move item to board
+                if player.current_action == 3:
+                    player.action_values.append(actions[key])
+                    if player.action_vector[3]:
+                        player.action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
+                    elif player.action_vector[4]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+                    else:
+                        player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                        if player.action_values[0] > 9:
+                            player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 10))
+                        if player.action_values[1] > 6:
+                            player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
+                        if player.action_values[2] > 3:
+                            player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
+                        player.move_item_to_board(player.action_values[0], player.action_values[1],
+                                                  player.action_values[2])
+                        player.action_values = []
 
-            # Part 2 of selling unit from bench
-            if players[i].current_action == 4:
-                if action > 8:
-                    action = int(np.floor(np.random.rand(1, 1) * 10))
-                players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                players[i].sell_from_bench(action)
-            # Part 2 to 4 of moving bench to board
-            if players[i].current_action == 5:
-                players[i].action_values.append(action)
-                if players[i].action_vector[2]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
-                elif players[i].action_vector[4]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
-                else:
-                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if players[i].action_values[0] > 8:
-                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 9))
-                    if players[i].action_values[1] > 6:
-                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if players[i].action_values[2] > 3:
-                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
-                    players[i].move_bench_to_board(players[i].action_values[0], players[i].action_values[1],
-                                                   players[i].action_values[2])
-                    players[i].action_values = []
-            # Part 2 to 3 of moving board to bench
-            if players[i].current_action == 6:
-                players[i].action_values.append(action)
-                if players[i].action_vector[4]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
-                else:
-                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if players[i].action_values[0] > 6:
-                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if players[i].action_values[1] > 3:
-                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
-                    players[i].move_board_to_bench(players[i].action_values[0], players[i].action_values[1])
-                    players[i].action_values = []
-            # Part 2 to 5 of moving board to board
-            if players[i].current_action == 7:
-                players[i].action_values.append(action)
-                if players[i].action_vector[4]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
-                elif players[i].action_vector[5]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 0, 1, 0])
-                elif players[i].action_vector[6]:
-                    players[i].action_vector = np.array([0, 0, 0, 0, 0, 0, 0, 1])
-                else:
-                    players[i].action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
-                    if players[i].action_values[0] > 6:
-                        players[i].action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if players[i].action_values[1] > 3:
-                        players[i].action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
-                    if players[i].action_values[2] > 6:
-                        players[i].action_values[2] = int(np.floor(np.random.rand(1, 1) * 7))
-                    if players[i].action_values[3] > 3:
-                        players[i].action_values[3] = int(np.floor(np.random.rand(1, 1) * 4))
-                    players[i].move_board_to_board(players[i].action_values[0], players[i].action_values[1],
-                                                   players[i].action_values[2], players[i].action_values[3])
-                    players[i].action_values = []
-            return players[i].reward
-        # Some function that evens out rewards to all other players
+                # Part 2 of selling unit from bench
+                if player.current_action == 4:
+                    if actions[key] > 8:
+                        action = int(np.floor(np.random.rand(1, 1) * 10))
+                    player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                    player.sell_from_bench(actions[key])
+                # Part 2 to 4 of moving bench to board
+                if player.current_action == 5:
+                    player.action_values.append(actions[key])
+                    if player.action_vector[2]:
+                        player.action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
+                    elif player.action_vector[4]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+                    else:
+                        player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                        if player.action_values[0] > 8:
+                            player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 9))
+                        if player.action_values[1] > 6:
+                            player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 7))
+                        if player.action_values[2] > 3:
+                            player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 4))
+                        player.move_bench_to_board(player.action_values[0], player.action_values[1],
+                                                   player.action_values[2])
+                        player.action_values = []
+                # Part 2 to 3 of moving board to bench
+                if player.current_action == 6:
+                    player.action_values.append(actions[key])
+                    if player.action_vector[4]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+                    else:
+                        player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                        if player.action_values[0] > 6:
+                            player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
+                        if player.action_values[1] > 3:
+                            player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
+                        player.move_board_to_bench(player.action_values[0], player.action_values[1])
+                        player.action_values = []
+                # Part 2 to 5 of moving board to board
+                if player.current_action == 7:
+                    player.action_values.append(actions[key])
+                    if player.action_vector[4]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 1, 0, 0])
+                    elif player.action_vector[5]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 0, 1, 0])
+                    elif player.action_vector[6]:
+                        player.action_vector = np.array([0, 0, 0, 0, 0, 0, 0, 1])
+                    else:
+                        player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+                        if player.action_values[0] > 6:
+                            player.action_values[0] = int(np.floor(np.random.rand(1, 1) * 7))
+                        if player.action_values[1] > 3:
+                            player.action_values[1] = int(np.floor(np.random.rand(1, 1) * 4))
+                        if player.action_values[2] > 6:
+                            player.action_values[2] = int(np.floor(np.random.rand(1, 1) * 7))
+                        if player.action_values[3] > 3:
+                            player.action_values[3] = int(np.floor(np.random.rand(1, 1) * 4))
+                        player.move_board_to_board(player.action_values[0], player.action_values[1],
+                                                   player.action_values[2], player.action_values[3])
+                        player.action_values = []
+                return player.reward
+            # Some function that evens out rewards to all other players
         return 0
 
     def batch_multi_step(self, action, player, game_observation):
@@ -655,4 +652,3 @@ class Step_Function:
                 game_observation.generate_shop_vector(self.shops[player.player_num])
             else:
                 return
-

@@ -33,10 +33,9 @@ class AIInterface:
             rewards = []
             for i, agent in enumerate(agents):
                 player_observation, local_reward, local_terminated, _, info = env.last()
-                print("After last")
+                player_observation = np.expand_dims(player_observation, axis=0)
                 local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
-
-                env.step(np.asarray(local_action))
+                env.step(local_action)
 
                 actions.append(local_action)
                 policy.append(local_policy)

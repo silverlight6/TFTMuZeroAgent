@@ -25,7 +25,7 @@ def env():
     # local_env = wrappers.AssertOutOfBoundsWrapper(local_env)
     # Provides a wide vareity of helpful user errors
     # Strongly recommended
-    local_env = wrappers.OrderEnforcingWrapper(local_env)
+    # local_env = wrappers.OrderEnforcingWrapper(local_env)
     return local_env
 
 
@@ -141,9 +141,9 @@ class TFT_Simulator(ParallelEnv):
             self.dones[player_id] = False
             self.infos[player_id] = {}
             self.actions[player_id] = {}
-            self.num_moves = 0
         # print(self.observations)
         print("After reset")
+        return self.observations
 
     def render(self):
         ...
@@ -152,13 +152,12 @@ class TFT_Simulator(ParallelEnv):
         self.reset()
 
     def step(self, action):
-        print("In the step function")
-        if action.ndim == 0:
-            self.step_function.action_controller(action, self.PLAYERS, self.game_observations,
-                                                 self.actions_taken_this_turn)
-        elif action.ndim == 1:
-            self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations,
-                                                   self.actions_taken_this_turn)
+        action_list = np.asarray(list(action.values()))
+        print(action_list)
+        if action_list.ndim == 1:
+            self.step_function.action_controller(action, self.PLAYERS, self.game_observations)
+        elif action_list.ndim == 2:
+            self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations)
 
         self.actions_taken_this_turn += 1
         if self.actions_taken_this_turn == 8:
@@ -190,3 +189,5 @@ class TFT_Simulator(ParallelEnv):
         # terminated = False
         # if self.PLAYERS[self.actions_taken_this_turn] is None:
         #     terminated = True
+
+        return self.observations, self.rewards, self.dones, {agent: False for agent in self.agents}, self.infos

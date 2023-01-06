@@ -149,7 +149,7 @@ class Network(tf.Module):
                               name='initial_inference')
 
     # Apply the initial inference model to the given hidden state
-    def initial_inference(self, observation) -> dict:   
+    def initial_inference(self, observation) -> dict:
         hidden_state, value_logits, policy_logits = \
             self.initial_inference_model(observation, training=False)
         value = self.value_encoder.decode(value_logits)
@@ -460,8 +460,8 @@ class MCTSAgent:
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
 
-    def expand_node(self, node: Node, to_play: int, network_output):  # takes negligible time
-        node.to_play = to_play
+    def expand_node(self, node: Node, network_output):  # takes negligible time
+        node.to_play = 0
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
 
@@ -557,7 +557,7 @@ class MCTSAgent:
 
             network_output = self.network. \
                 recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
-            self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
+            self.expand_node(node, network_output)
             # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
 
@@ -568,14 +568,14 @@ class MCTSAgent:
         t = self.visit_softmax_temperature()
         return self.histogram_sample(visit_counts, t, use_softmax=False)
 
-    def policy(self, observation, player_num):
+    def policy(self, observation, previous_action):
         root = Node(0)
 
         network_output = self.network.initial_inference(observation)
-        self.expand_node(root, player_num, network_output)
+        self.expand_node(root, network_output)
         self.add_exploration_noise(root)
 
-        self.run_mcts(root, network_output["policy_logits"].numpy(), player_num)
+        self.run_mcts(root, network_output["policy_logits"].numpy(), previous_action)
 
         action = int(self.select_action(root))
         # Masking only if training is based on the actions taken in the environment.
@@ -654,27 +654,25 @@ class Batch_MCTSAgent(MCTSAgent):
             parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
             hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
             last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])
-            
-            
-            network_output = self.network.recurrent_inference(hidden_state, last_action) #11.05s 
+
+            network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
             for i in range(config.NUM_PLAYERS):
                 
-                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)#6.84s 
+                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)  # 7s
                 
                 # print("value {}".format(network_output["value"]))
-                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)#12.08s 
+                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
                 
     def batch_policy(self, observation, prev_action):
         root = [Node(0) for _ in range(config.NUM_PLAYERS)]
-        network_output = self.network.initial_inference(observation) #2.1 seconds
+        network_output = self.network.initial_inference(observation)  # 2.1 seconds
         
         for i in range(config.NUM_PLAYERS):
-            self.batch_expand_node(root[i], i, network_output) #0.39 seconds 
-            
-            
+            self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
+
             self.add_exploration_noise(root[i])
             
-        self.run_batch_mcts(root, prev_action) #24.3 s (3 seconds not in that)
+        self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
         
         action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
         
