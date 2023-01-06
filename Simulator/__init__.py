@@ -1,4 +1,4 @@
-from gymnasium.envs.registration import register
+from gymnasium.envs.registration import ( register, load_env_plugins )
 
 register(
     id='TFTSet4-v0',
@@ -10,3 +10,4 @@ register(
     entry_point='Simulator.single_player_env:Single_Player_Game'
 )
 
+load_env_plugins()
