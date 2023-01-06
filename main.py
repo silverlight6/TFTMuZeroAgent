@@ -22,8 +22,8 @@ def main():
 
     interface = AI_interface.AIInterface()
     interface.train_model()
-    # interface.collect_dummy_data()
-    # interface.PPO_algorithm()
+    #interface.collect_dummy_data()
+    #interface.PPO_algorithm()
 
 
 if __name__ == "__main__":

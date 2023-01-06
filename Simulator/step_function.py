@@ -6,21 +6,21 @@ import Simulator.champion as champion
 class Step_Function:
     def __init__(self, pool_obj, observation_objs):
         self.pool_obj = pool_obj
-        self.shops = [self.pool_obj.sample(None, 5) for _ in range(config.NUM_PLAYERS)]
+        self.shops = {"player_" + str(player_id) : self.pool_obj.sample(None, 5) for player_id in range(config.NUM_PLAYERS)}
         self.observation_objs = observation_objs
 
     def generate_shop(self, player):
         self.shops[player.player_num] = self.pool_obj.sample(None, 5)
 
     def generate_shops(self, players):
-        for player in players:
+        for player in players.values():
             if player:
                 self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
     def generate_shop_vectors(self, players):
-        for player in players:
-            if player:
-                self.observation_objs[player.player_num].generate_shop_vector(self.shops[player.player_num])
+        for player in players.keys():
+            if players[player]:
+                self.observation_objs[player].generate_shop_vector(self.shops[player])
 
     # Input -> [Decision, shop, champion_bench, item_bench, x1, y1, x2, y2]
     def batch_2d_controller(self, actions, players, game_observations, player_num):

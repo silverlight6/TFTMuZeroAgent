@@ -43,14 +43,13 @@ class TFT_Simulator(ParallelEnv):
 
     def __init__(self, env_config):
         self.pool_obj = pool.pool()
-        self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
-
-        self.game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
+        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id) for player_id in range(config.NUM_PLAYERS)}
+        self.game_observations = {"player_" + str(player_id) : Observation() for player_id in range(config.NUM_PLAYERS)}
         self.render_mode = None
 
         self.NUM_DEAD = 0
         self.num_players = config.NUM_PLAYERS
-        self.player_rewards = [0 for _ in range(config.NUM_PLAYERS)]
+        self.player_rewards = {"player_" + str(player_id) : 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -106,23 +105,23 @@ class TFT_Simulator(ParallelEnv):
         return [self.game_observations for _ in range(config.NUM_PLAYERS)]
 
     def observe(self, agent):
-        print("Why hello there")
-        if agent:
-            # TODO
-            # store game state vector later
-            self.observations[agent] = self.game_observations[agent.player_num].observation(agent, agent.action_vector)
-        else:
-            dummy_observation = Observation()
-            self.observations[agent] = dummy_observation.dummy_observation
-        print("How do you do")
+        # print("Why hello there")
+        # if agent:
+        #     # TODO
+        #     # store game state vector later
+        #     self.observations[agent] = self.game_observations[agent.player_num].observation(agent, agent.action_vector)
+        # else:
+        #     dummy_observation = Observation()
+        #     self.observations[agent] = dummy_observation.dummy_observation
+        # print("How do you do")
         return dict(self.observations[agent])
 
     def reset(self, seed=None, options=None):
         self.pool_obj = pool.pool()
-        self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
-        self.game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
+        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id) for player_id in range(config.NUM_PLAYERS)}
+        self.game_observations = {"player_" + str(player_id) : Observation() for player_id in range(config.NUM_PLAYERS)}
         self.NUM_DEAD = 0
-        self.player_rewards = [0 for _ in range(config.NUM_PLAYERS)]
+        self.player_rewards = {"player_" + str(player_id) : 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -135,14 +134,15 @@ class TFT_Simulator(ParallelEnv):
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
 
-        for player in self.PLAYERS:
-            self.observations[player.player_num] = self.game_observations[
-                player.player_num].observation(player, player.action_vector)
-            self.rewards[player.player_num] = 0
-            self._cumulative_rewards[player.player_num] = 0
-            self.dones[player.player_num] = False
-            self.infos[player.player_num] = {}
-            self.actions[player.player_num] = {}
+        for player_id in self.PLAYERS.keys():
+            player=self.PLAYERS[player_id]
+            self.observations[player_id] = self.game_observations[
+                player_id].observation(player, player.action_vector)
+            self.rewards[player_id] = 0
+            self._cumulative_rewards[player_id] = 0
+            self.dones[player_id] = False
+            self.infos[player_id] = {}
+            self.actions[player_id] = {}
             self.num_moves = 0
         print("After reset")
 
