@@ -156,7 +156,7 @@ class Step_Function:
     def multi_step(self, action, player, game_observation, agent, buffer):
         if action == 0:
             action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])
-            observation, _ = game_observation.observation(player, buffer, action_vector)
+            observation = game_observation.observation(player, buffer, action_vector)
             shop_action, policy = agent.policy(observation, player.player_num)
 
             if shop_action > 4:
@@ -449,11 +449,9 @@ class Step_Function:
             # Python doesn't allow comparisons between arrays,
             # so we're just checking if the nth value is 1 (true) or 0 (false)
             if players[i].action_vector[0]:
-                self.batch_multi_step(action, players[i],
-                                      game_observations[players[i].player_num])
+                self.batch_multi_step(action, players[i], game_observations[players[i].player_num])
             if players[i].action_vector[1]:
-                self.batch_shop(action, players[i],
-                                game_observations[players[i].player_num])
+                self.batch_shop(action, players[i], game_observations[players[i].player_num])
             # Move item to board
             if players[i].current_action == 3:
                 players[i].action_values.append(action)

@@ -2,7 +2,8 @@ import config
 import functools
 import gym
 import numpy as np
-from gym import spaces
+from typing import Dict
+from gym.spaces import Discrete
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -24,7 +25,7 @@ def env():
     # local_env = wrappers.AssertOutOfBoundsWrapper(local_env)
     # Provides a wide vareity of helpful user errors
     # Strongly recommended
-    # local_env = wrappers.OrderEnforcingWrapper(local_env)
+    local_env = wrappers.OrderEnforcingWrapper(local_env)
     return local_env
 
 
@@ -43,13 +44,14 @@ class TFT_Simulator(ParallelEnv):
 
     def __init__(self, env_config):
         self.pool_obj = pool.pool()
-        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id) for player_id in range(config.NUM_PLAYERS)}
-        self.game_observations = {"player_" + str(player_id) : Observation() for player_id in range(config.NUM_PLAYERS)}
+        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id)
+                        for player_id in range(config.NUM_PLAYERS)}
+        self.game_observations = {"player_" + str(player_id): Observation() for player_id in range(config.NUM_PLAYERS)}
         self.render_mode = None
 
         self.NUM_DEAD = 0
         self.num_players = config.NUM_PLAYERS
-        self.player_rewards = {"player_" + str(player_id) : 0 for player_id in range(config.NUM_PLAYERS)}
+        self.player_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -60,9 +62,9 @@ class TFT_Simulator(ParallelEnv):
         self.episode_done = False
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
+        self.agents = self.possible_agents[:]
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents)))))
-        self.agents = self.possible_agents[:]
         self._agent_selector = agent_selector(self.possible_agents)
         self.agent_selection = self.possible_agents[0]
 
@@ -73,18 +75,24 @@ class TFT_Simulator(ParallelEnv):
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
-        self.num_moves = 0
+
+        self.observation_spaces: Dict = dict(
+            zip(self.agents,
+                [Discrete(config.OBSERVATION_SIZE) for _ in self.possible_agents])
+        )
+
+        self.action_spaces = {agent: Discrete(config.ACTION_DIM) for agent in self.agents}
 
         super().__init__()
         print("At the end of init")
 
     @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent: str) -> gym.Space:
-        return spaces.Discrete(config.OBSERVATION_SIZE)
+    def observation_space(self, agent: str) -> Discrete:
+        return self.observation_spaces[agent]
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent: str) -> gym.Space:
-        return spaces.Discrete(config.ACTION_DIM)
+        return self.action_spaces[agent]
 
     def check_dead(self):
         num_alive = 0
@@ -101,27 +109,17 @@ class TFT_Simulator(ParallelEnv):
                     num_alive += 1
         return num_alive
 
-    def get_observations_objects(self):
-        return [self.game_observations for _ in range(config.NUM_PLAYERS)]
-
     def observe(self, agent):
-        # print("Why hello there")
-        # if agent:
-        #     # TODO
-        #     # store game state vector later
-        #     self.observations[agent] = self.game_observations[agent.player_num].observation(agent, agent.action_vector)
-        # else:
-        #     dummy_observation = Observation()
-        #     self.observations[agent] = dummy_observation.dummy_observation
-        # print("How do you do")
+        print("Why hello there")
         return dict(self.observations[agent])
 
     def reset(self, seed=None, options=None):
         self.pool_obj = pool.pool()
-        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id) for player_id in range(config.NUM_PLAYERS)}
-        self.game_observations = {"player_" + str(player_id) : Observation() for player_id in range(config.NUM_PLAYERS)}
+        self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id)
+                        for player_id in range(config.NUM_PLAYERS)}
+        self.game_observations = {"player_" + str(player_id): Observation() for player_id in range(config.NUM_PLAYERS)}
         self.NUM_DEAD = 0
-        self.player_rewards = {"player_" + str(player_id) : 0 for player_id in range(config.NUM_PLAYERS)}
+        self.player_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -135,7 +133,7 @@ class TFT_Simulator(ParallelEnv):
         self.agent_selection = self._agent_selector.next()
 
         for player_id in self.PLAYERS.keys():
-            player=self.PLAYERS[player_id]
+            player = self.PLAYERS[player_id]
             self.observations[player_id] = self.game_observations[
                 player_id].observation(player, player.action_vector)
             self.rewards[player_id] = 0
@@ -144,10 +142,14 @@ class TFT_Simulator(ParallelEnv):
             self.infos[player_id] = {}
             self.actions[player_id] = {}
             self.num_moves = 0
+        # print(self.observations)
         print("After reset")
 
     def render(self):
         ...
+
+    def close(self):
+        self.reset()
 
     def step(self, action):
         print("In the step function")
@@ -162,6 +164,10 @@ class TFT_Simulator(ParallelEnv):
         if self.actions_taken_this_turn == 8:
             self.actions_taken_this_turn = 0
             self.actions_taken += 1
+
+        for player_id in self.observations.keys():
+            self.observations[player_id] = self.game_observations[
+                player_id].observation(self.PLAYERS[player_id], self.PLAYERS[player_id].action_vector)
 
         # If at the end of the turn
         if self.actions_taken == config.ACTIONS_PER_TURN:

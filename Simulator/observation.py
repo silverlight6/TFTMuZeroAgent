@@ -24,8 +24,6 @@ class Observation:
                                                      player.player_vector,
                                                      game_state_vector,
                                                      action_vector], axis=-1)
-        complete_game_state_vector
-
         # std = np.std(input_vector)
         # if std == 0:
         # input_vector = input_vector - np.mean(input_vector)
