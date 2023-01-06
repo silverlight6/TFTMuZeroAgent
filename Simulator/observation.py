@@ -24,7 +24,7 @@ class Observation:
                                                      player.player_vector,
                                                      game_state_vector,
                                                      action_vector], axis=-1)
-        input_vector = complete_game_state_vector
+        complete_game_state_vector
 
         # std = np.std(input_vector)
         # if std == 0:
@@ -32,7 +32,7 @@ class Observation:
         # else:
         #     input_vector = (input_vector - np.mean(input_vector)) / std
         # print(input_vector.shape)
-        return input_vector, complete_game_state_vector
+        return complete_game_state_vector
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

@@ -23,7 +23,7 @@ class AIInterface:
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, agents, buffers):
-        observation, info = env.reset()
+        env.reset()
         terminated = [False for _ in range(config.NUM_PLAYERS)]
         while not all(terminated):
             # agent policy that uses the observation and info
@@ -33,7 +33,7 @@ class AIInterface:
             rewards = []
             for i, agent in enumerate(agents):
                 player_observation, local_reward, local_terminated, _, info = env.last()
-
+                print("After last")
                 local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
 
                 env.step(np.asarray(local_action))
