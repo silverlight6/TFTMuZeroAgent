@@ -6,12 +6,12 @@ import gym
 import numpy as np
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
-from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent
+from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent, MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator import game_round
-from Simulator.observation import Observation
 from Simulator.tft_simulator import TFT_Simulator
 from ray.rllib.algorithms.ppo import PPOConfig
+from Simulator.tft_simulator import env as global_env
 
 
 class AIInterface:
@@ -22,21 +22,29 @@ class AIInterface:
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
-    def collect_gameplay_experience(self, env, agent, buffers):
+    def collect_gameplay_experience(self, env, agents, buffers):
         observation, info = env.reset()
         terminated = [False for _ in range(config.NUM_PLAYERS)]
         while not all(terminated):
             # agent policy that uses the observation and info
-            actions, policy = agent.batch_policy(observation, self.prev_actions)
-            self.prev_actions = actions
+            actions = []
+            policy = []
             observation = []
             rewards = []
-            for i, action in enumerate(actions):
-                player_observation, local_reward, local_terminated, info = env.step(np.asarray(action))
+            for i, agent in enumerate(agents):
+                player_observation, local_reward, local_terminated, _, info = env.last()
+
+                local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
+
+                env.step(np.asarray(local_action))
+
+                actions.append(local_action)
+                policy.append(local_policy)
                 observation.append(player_observation)
                 rewards.append(local_reward)
                 terminated[i] = local_terminated
 
+            self.prev_actions = actions
             rewards = np.array(rewards)
             observation = np.array(observation)
 
@@ -68,12 +76,12 @@ class AIInterface:
         # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
         train_step = 0
         # global_agent.load_model(0)
-        env = gym.make("TFT_Set4-v0", env_config=None)
+        env = global_env()
 
         for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
+            agents = [MCTSAgent(network=global_agent, agent_id=i) for i in range(config.NUM_PLAYERS)]
             buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            self.collect_gameplay_experience(env, agent, buffers)
+            self.collect_gameplay_experience(env, agents, buffers)
 
             for i in range(config.NUM_PLAYERS):
                 buffers[i].store_global_buffer()

@@ -109,38 +109,35 @@ class Network(tf.Module):
     """
     Base class for all of MuZero neural networks.
     """
-    #initialize the network with the given representation, dynamics, and prediction model.
+    # initialize the network with the given representation, dynamics, and prediction model.
     def __init__(self,
                  representation: tf.keras.Model,
                  dynamics: tf.keras.Model,
                  prediction: tf.keras.Model
                  ) -> None:
         super().__init__(name='MuZeroAgent')
-        #temp
-        self.rec_count = 0 
-
+        # temp
+        self.rec_count = 0
 
         self.config = config
         self.representation: tf.keras.Model = representation
         self.dynamics: tf.keras.Model = dynamics
         self.prediction: tf.keras.Model = prediction
-       
-       
 
-        #create encoders for the value and reward, in order to put them in a form suitable for training.
+        # create encoders for the value and reward, in order to put them in a form suitable for training.
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        #build initial and recurrent inference models.
+        # build initial and recurrent inference models.
         self.initial_inference_model: tf.keras.Model = self.build_initial_inference_model()
         self.recurrent_inference_model: tf.keras.Model = self.build_recurrent_inference_model()
 
         self.ckpt_time = time.time_ns()
 
-    #build the initial inference model (used to generate predicitons)
+    # build the initial inference model (used to generate predicitons)
     def build_initial_inference_model(self) -> tf.keras.Model:
-        #define the input tensor 
+        # define the input tensor
         observation = tf.keras.Input(shape=config.INPUT_SHAPE, dtype=tf.float32, name='observation')
 
         hidden_state = self.representation(observation)
@@ -189,8 +186,7 @@ class Network(tf.Module):
         ckpt = time.time_ns()
         hidden_state, reward_logits, value_logits, policy_logits = \
             self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
-       
-       
+
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
 
@@ -430,15 +426,13 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 ##### JITTED FUNCTIONS #######
 # This function uses the GPU or converts the python to C making it 33-10 times faster
-#@jit(target_backend='cuda', nopython=True)
+# @jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
     policy = [{b: math.exp(network_output[b]) for b in range(action_dim)}]
     return policy
 
 
-
-
-#EXPLANATION OF MCTS:
+# EXPLANATION OF MCTS:
 """
 1. select leaf node with maximum value using method called UCB1 
 2. expand the leaf node, adding children for each possible action
@@ -447,6 +441,8 @@ def expand_node2(network_output, action_dim):
 4. Repeat above steps a given number of times
 5. Select path with highest value
 """
+
+
 class MCTSAgent:
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -458,14 +454,13 @@ class MCTSAgent:
                  ) -> None:
         self.network: Network = network
         self.agent_id = agent_id
-        self.times = [0]*5 
 
         # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
         self.action_dim = 10
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
 
-    def expand_node(self, node: Node, to_play: int, network_output): #takes negligible time 
+    def expand_node(self, node: Node, to_play: int, network_output):  # takes negligible time
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
@@ -526,15 +521,16 @@ class MCTSAgent:
     # tree to the root.
     @staticmethod
     def backpropagate(search_path: List[Node], value: float,
-                      min_max_stats: MinMaxStats, player_num: int): #takes lots of time 
+                      min_max_stats: MinMaxStats, player_num: int):  # takes lots of time
         for node in search_path:
             
-            node.value_sum += value if node.to_play == player_num else -value #2.72s 
+            node.value_sum += value if node.to_play == player_num else -value  # 2.72s
             node.visit_count += 1
         
-            min_max_stats.update(node.value()) #1.48s 
+            min_max_stats.update(node.value())  # 1.48s
             
-            value = node.reward + config.DISCOUNT * value #1.76s
+            value = node.reward + config.DISCOUNT * value  # 1.76s
+
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of
     # the search tree and traversing the tree according to the UCB formula until we
@@ -630,7 +626,6 @@ class Batch_MCTSAgent(MCTSAgent):
 
     def __init__(self, network: Network) -> None:
         super().__init__(network, 0)
-        self.times = [0]*6
 
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of

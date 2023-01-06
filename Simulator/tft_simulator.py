@@ -1,22 +1,49 @@
 import config
-import numpy as np
+import functools
 import gym
+import numpy as np
 from gym import spaces
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
 from Simulator.game_round import Game_Round
 from Simulator.observation import Observation
+from pettingzoo.utils.env import ParallelEnv
+from pettingzoo.utils import parallel_to_aec, wrappers
 
 
-class TFT_Simulator(gym.Env):
+def env(render_mode=None):
+    """
+    The env function often wraps the environment in wrappers by default.
+    You can find full documentation for these methods
+    elsewhere in the developer documentation.
+    """
+    local_env = raw_env()
+
+    # this wrapper helps error handling for discrete action spaces
+    # local_env = wrappers.AssertOutOfBoundsWrapper(local_env)
+    # Provides a wide vareity of helpful user errors
+    # Strongly recommended
+    local_env = wrappers.OrderEnforcingWrapper(local_env)
+    return local_env
+
+
+def raw_env():
+    """
+    To support the AEC API, the raw_env() function just uses the from_parallel
+    function to convert from a ParallelEnv to an AEC env
+    """
+    local_env = TFT_Simulator(env_config=None)
+    local_env = parallel_to_aec(local_env)
+    return local_env
+
+
+class TFT_Simulator(ParallelEnv):
     metadata = {}
 
     def __init__(self, env_config):
         self.pool_obj = pool.pool()
         self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
-        self.observation_space = spaces.MultiDiscrete([config.OBSERVATION_SIZE for _ in range(config.NUM_PLAYERS)])
-        self.action_space = spaces.MultiDiscrete([config.ACTION_DIM for _ in range(config.NUM_PLAYERS)])
 
         self.game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
         self.render_mode = None
@@ -32,6 +59,19 @@ class TFT_Simulator(gym.Env):
         self.game_round.play_game_round()
         self.game_round.play_game_round()
         self.episode_done = False
+
+        self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
+        self.agent_name_mapping = dict(
+            zip(self.possible_agents, list(range(len(self.possible_agents)))))
+        self.agents = self.possible_agents[:]
+
+    @functools.lru_cache(maxsize=None)
+    def observation_space(self, agent: str) -> gym.Space:
+        return spaces.Discrete(config.OBSERVATION_SIZE)
+
+    @functools.lru_cache(maxsize=None)
+    def action_space(self, agent: str) -> gym.Space:
+        return spaces.Discrete(config.ACTION_DIM)
 
     def check_dead(self):
         num_alive = 0
@@ -49,7 +89,7 @@ class TFT_Simulator(gym.Env):
         return num_alive
 
     def get_observations_objects(self):
-        return [self.game_observations for i in range(config.NUM_PLAYERS)]
+        return [self.game_observations for _ in range(config.NUM_PLAYERS)]
 
     def get_observation(self, player):
         if player:
@@ -61,7 +101,7 @@ class TFT_Simulator(gym.Env):
             observation = dummy_observation.dummy_observation
         return observation
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         self.pool_obj = pool.pool()
         self.PLAYERS = [player_class(self.pool_obj, i) for i in range(config.NUM_PLAYERS)]
         self.game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
