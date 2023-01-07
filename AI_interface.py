@@ -27,20 +27,29 @@ class AIInterface:
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, agents, buffers):
+        # Reset the environment
         env.reset()
-        terminated = {agent: False for agent in env.agents}
+        # Used to know when players die and which agent is currently acting
+        terminated = {player_id: False for player_id in env.agents}
+        # Current action to help with MuZero
+        actions = {player_id: 0 for player_id in env.agents}
+        # While the game is still going on.
         while not all(terminated):
-            # agent policy that uses the observation and info
-            actions = []
             for key, terminate in terminated.items():
                 if not terminate:
+                    # Get the information related to the player
                     player_observation, local_reward, local_terminated, _, info = env.last()
+                    # This is here to make the input (1, observation_size) for initial_inference
                     player_observation = np.expand_dims(player_observation, axis=0)
-                    local_action, local_policy = agents[key].policy(player_observation, self.prev_actions[i])
+                    # Ask our model for an action and policy
+                    local_action, local_policy = agents[key].policy(player_observation, self.prev_actions[key])
+                    # Take that action within the environment
                     env.step(local_action)
-                    actions.append(local_action)
-
+                    # store the action for MuZero
+                    actions[key] = local_action
+                    # update our local version of terminated (might be able to use the environment's)
                     terminated[key] = local_terminated
+                    # Store the information in a buffer to train on later.
                     buffers[key].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
 
             self.prev_actions = actions
@@ -66,8 +75,8 @@ class AIInterface:
         env = parallel_env()
 
         for episode_cnt in range(1, max_episodes):
-            agents = { player_id : MCTSAgent(global_buffer, player_num = i) for i, player_id in enumerate(env.agents.keys()) } 
-            buffers = { player_id: ReplayBuffer(global_buffer) for player_id in env.possible_agents }
+            agents = {player_id: MCTSAgent(global_agent, i) for i, player_id in enumerate(env.agents.keys())}
+            buffers = {player_id: ReplayBuffer(global_buffer) for player_id in env.possible_agents}
 
             self.collect_gameplay_experience(env, agents, buffers)
 
@@ -129,7 +138,7 @@ class AIInterface:
     
     def testEnv(self):
         env = parallel_env()
-        parallel_api_test(env, num_cycles=1000)
+        parallel_api_test(env, num_cycles=100000)
 
     def env_creator(self):
         env = parallel_env()

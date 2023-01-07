@@ -53,10 +53,10 @@ class TFT_Simulator(AECEnv):
         self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
         self.game_round.play_game_round()
-        self.episode_done = False
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
         self.agents = self.possible_agents[:]
+        self.kill_list = []
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents)))))
         self._agent_selector = agent_selector(self.possible_agents)
@@ -98,6 +98,7 @@ class TFT_Simulator(AECEnv):
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
                     self.PLAYERS[key] = None
+                    self.kill_list.append(key)
                     self.game_round.update_players(self.PLAYERS)
                 else:
                     num_alive += 1
@@ -107,7 +108,6 @@ class TFT_Simulator(AECEnv):
         return self.observations[player_id]
 
     def reset(self, seed=None, options=None):
-
         self.pool_obj = pool.pool()
         self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id)
                         for player_id in range(config.NUM_PLAYERS)}
@@ -120,21 +120,22 @@ class TFT_Simulator(AECEnv):
         self.actions_taken = 0
         self.game_round.play_game_round()
         self.game_round.play_game_round()
-        self.episode_done = False
 
         self.agents = self.possible_agents.copy()
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
 
-        for player_id in self.PLAYERS.keys():
-            player = self.PLAYERS[player_id]
-            self.observations[player_id] = self.game_observations[
-                player_id].observation(player, player.action_vector)
-            self.rewards[player_id] = 0
-            self._cumulative_rewards[player_id] = 0
-            self.terminations[player_id] = False
-            self.infos[player_id] = {}
-            self.actions[player_id] = {}
+        self.terminations = {agent: False for agent in self.agents}
+        self.truncations = {agent: False for agent in self.agents}
+
+        self.infos = {agent: {} for agent in self.agents}
+        self.actions = {agent: {} for agent in self.agents}
+
+        self.rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+
+        self.observations = {agent: self.game_observations[agent].observation(
+            self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -150,7 +151,7 @@ class TFT_Simulator(AECEnv):
 
     def step(self, action):
         if self.terminations[self.agent_selection]:
-            self.agent_selection = self._agent_selector.next()
+            self._was_dead_step(action)
             # self._was_dead_step(action)
             return
         action = np.asarray(action)
@@ -159,39 +160,52 @@ class TFT_Simulator(AECEnv):
         elif action.ndim == 2:
             self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations)
 
+        # This is most of the env implementations I see, but I don't think we need it in our particularly environment
+        # self._clear_rewards()
+        self.rewards[self.agent_selection] = \
+            self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
+        self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
+        self._cumulative_rewards[self.agent_selection] = \
+            self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
+        self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
+            self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
+
+        self.terminations = {a: False for a in self.agents}
+        self.truncations = {a: False for a in self.agents}
+
+        # Also called in many environments but the line above this does the same thing but better
+        # self._accumulate_rewards()
         if self._agent_selector.is_last():
             self.actions_taken += 1
-        else:
-            self._clear_rewards()
 
-        for player_id in self.observations.keys():
-            if self.PLAYERS[player_id] is None:
-                if not self.terminations[player_id]:
-                    self.terminations[player_id] = True
-                    print(self.agents)
-            else:
-                self.observations[player_id] = self.game_observations[
-                    player_id].observation(self.PLAYERS[player_id], self.PLAYERS[player_id].action_vector)
-                self.rewards[player_id] = self.PLAYERS[player_id].reward - self.previous_rewards[player_id]
-                self.previous_rewards[player_id] = self.PLAYERS[player_id].reward
-                self._cumulative_rewards[player_id] = self._cumulative_rewards[player_id] + self.rewards[player_id]
+            # If at the end of the turn
+            if self.actions_taken >= config.ACTIONS_PER_TURN * len(self.agents):
+                # Take a game action and reset actions taken
+                self.actions_taken = 0
+                self.game_round.play_game_round()
 
-        # If at the end of the turn
-        if self.actions_taken == config.ACTIONS_PER_TURN:
-            # Take a game action and reset actions taken
-            self.actions_taken = 0
-            self.game_round.play_game_round()
+                # Check if the game is over
+                if self.check_dead() == 1 or self.game_round.current_round > 48:
+                    # Anyone left alive (should only be 1 player unless time limit) wins the game
+                    for player_id in self.agents:
+                        if self.PLAYERS[player_id]:
+                            self.PLAYERS[player_id].won_game()
 
-            # Check if the game is over
-            if self.check_dead() == 1 or self.game_round.current_round > 48:
-                self.episode_done = True
-                # Anyone left alive (should only be 1 player unless time limit) wins the game
-                for player_id in self.PLAYERS.keys():
-                    if self.PLAYERS[player_id]:
-                        self.PLAYERS[player_id].won_game()
-                        self.terminations[player_id] = True
+                    self.terminations = {a: True for a in self.agents}
 
-        self._accumulate_rewards()
-        self.agent_selection = self._agent_selector.next()
+            for k in self.kill_list:
+                self.terminations[k] = True
+                self.agents.remove(k)
 
-        # return self.observations, self.rewards, self.terminations, self.infos
+            self.kill_list = []
+            self.actions_taken += 1
+            self._agent_selector.reinit(self.agents)
+
+        # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
+        if len(self.agents) != 0:
+            self.agent_selection = self._agent_selector.next()
+
+        # Probably not needed but doesn't hurt?
+        # self._deads_step_first()
+
+        return self.observations, self.rewards, self.terminations, self.truncations, self.infos
