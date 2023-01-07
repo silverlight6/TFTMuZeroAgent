@@ -51,7 +51,7 @@ class TFT_Simulator(ParallelEnv):
 
         self.NUM_DEAD = 0
         self.num_players = config.NUM_PLAYERS
-        self.player_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
+        self.previous_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -114,12 +114,13 @@ class TFT_Simulator(ParallelEnv):
         return dict(self.observations[agent])
 
     def reset(self, seed=None, options=None):
+
         self.pool_obj = pool.pool()
         self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id)
                         for player_id in range(config.NUM_PLAYERS)}
         self.game_observations = {"player_" + str(player_id): Observation() for player_id in range(config.NUM_PLAYERS)}
         self.NUM_DEAD = 0
-        self.player_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
+        self.previous_rewards = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
@@ -141,8 +142,8 @@ class TFT_Simulator(ParallelEnv):
             self.dones[player_id] = False
             self.infos[player_id] = {}
             self.actions[player_id] = {}
-        # print(self.observations)
-        print("After reset")
+
+        super().__init__()
         return self.observations
 
     def render(self):
@@ -165,8 +166,12 @@ class TFT_Simulator(ParallelEnv):
             self.actions_taken += 1
 
         for player_id in self.observations.keys():
-            self.observations[player_id] = self.game_observations[
-                player_id].observation(self.PLAYERS[player_id], self.PLAYERS[player_id].action_vector)
+            if self.PLAYERS[player_id] is None:
+                self.dones[player_id] = True
+            else:
+                self.observations[player_id] = self.game_observations[
+                    player_id].observation(self.PLAYERS[player_id], self.PLAYERS[player_id].action_vector)
+                self.rewards[player_id] = self.previous_rewards[player_id] - self.PLAYERS[player_id]
 
         # If at the end of the turn
         if self.actions_taken == config.ACTIONS_PER_TURN:
@@ -182,12 +187,9 @@ class TFT_Simulator(ParallelEnv):
             if self.check_dead() == 1 or self.game_round.current_round > 48:
                 self.episode_done = True
                 # Anyone left alive (should only be 1 player unless time limit) wins the game
-                for player in self.PLAYERS:
-                    if player:
-                        player.won_game()
+                for player_id in self.PLAYERS.keys():
+                    if self.PLAYERS[player_id]:
+                        self.PLAYERS[player_id].won_game()
+                        self.dones[player_id] = True
 
-        # terminated = False
-        # if self.PLAYERS[self.actions_taken_this_turn] is None:
-        #     terminated = True
-
-        return self.observations, self.rewards, self.dones, {agent: False for agent in self.agents}, self.infos
+        return self.observations, self.rewards, self.dones, self.infos

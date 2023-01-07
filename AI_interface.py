@@ -24,6 +24,9 @@ class AIInterface:
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, agents, buffers):
         env.reset()
+        player_observation = np.zeros(config.OBSERVATION_SIZE)
+        player_observation = np.expand_dims(player_observation, axis=0)
+        print(player_observation.shape)
         terminated = [False for _ in range(config.NUM_PLAYERS)]
         while not all(terminated):
             # agent policy that uses the observation and info
@@ -32,30 +35,21 @@ class AIInterface:
             observation = []
             rewards = []
             for i, agent in enumerate(agents):
-                player_observation, local_reward, local_terminated, _, info = env.last()
-                player_observation = np.expand_dims(player_observation, axis=0)
                 local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
-                env.step(local_action)
+                print(local_action)
+
+                player_observation, local_reward, local_terminated, info = env.step(local_action)
+                print(local_action)
 
                 actions.append(local_action)
                 policy.append(local_policy)
                 observation.append(player_observation)
                 rewards.append(local_reward)
                 terminated[i] = local_terminated
+                if local_terminated:
+                    buffers[i].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
 
             self.prev_actions = actions
-            rewards = np.array(rewards)
-            observation = np.array(observation)
-
-            for i in range(config.NUM_PLAYERS):
-                if info["players"][i]:
-                    local_reward = rewards[info["players"][i].player_num] - \
-                                   self.prev_reward[info["players"][i].player_num]
-                    buffers[info["players"][i].player_num].\
-                        store_replay_buffer(observation[info["players"][i].player_num],
-                                            actions[info["players"][i].player_num], local_reward,
-                                            policy[info["players"][i].player_num])
-                    self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
 
     def train_model(self, max_episodes=10000):
         # # Uncomment if you change the size of the input array
