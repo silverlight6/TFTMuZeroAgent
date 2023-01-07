@@ -12,6 +12,8 @@ from Simulator import game_round
 from Simulator.tft_simulator import TFT_Simulator
 from ray.rllib.algorithms.ppo import PPOConfig
 from Simulator.tft_simulator import env as global_env
+from ray.tune.registry import register_env
+from ray.rllib.env import PettingZooEnv
 
 
 class AIInterface:
@@ -24,27 +26,18 @@ class AIInterface:
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, agents, buffers):
         env.reset()
-        player_observation = np.zeros(config.OBSERVATION_SIZE)
-        player_observation = np.expand_dims(player_observation, axis=0)
-        print(player_observation.shape)
         terminated = [False for _ in range(config.NUM_PLAYERS)]
         while not all(terminated):
             # agent policy that uses the observation and info
             actions = []
-            policy = []
-            observation = []
-            rewards = []
             for i, agent in enumerate(agents):
+                player_observation, local_reward, local_terminated, _, info = env.last()
+                player_observation = np.expand_dims(player_observation, axis=0)
                 local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
-                print(local_action)
 
-                player_observation, local_reward, local_terminated, info = env.step(local_action)
-                print(local_action)
-
+                env.step(local_action)
                 actions.append(local_action)
-                policy.append(local_policy)
-                observation.append(player_observation)
-                rewards.append(local_reward)
+
                 terminated[i] = local_terminated
                 if local_terminated:
                     buffers[i].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
@@ -104,11 +97,16 @@ class AIInterface:
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
+
+        local_env_creator = lambda local_config: global_env()
+
+        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(local_env_creator(local_config)))
+
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
             PPOConfig().environment(
                 # Env class to use (here: our gym.Env sub-class from above).
-                env=TFT_Simulator,
+                env='tft-set4-v0',
                 env_config={},
             )
             .rollouts(num_rollout_workers=4)

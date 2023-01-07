@@ -3,7 +3,7 @@ import functools
 import gym
 import numpy as np
 from typing import Dict
-from gym.spaces import Discrete
+from gym.spaces import MultiDiscrete, Discrete
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -78,16 +78,15 @@ class TFT_Simulator(ParallelEnv):
 
         self.observation_spaces: Dict = dict(
             zip(self.agents,
-                [Discrete(config.OBSERVATION_SIZE) for _ in self.possible_agents])
+                [MultiDiscrete([config.OBSERVATION_SIZE, ]) for _ in self.possible_agents])
         )
 
         self.action_spaces = {agent: Discrete(config.ACTION_DIM) for agent in self.agents}
 
         super().__init__()
-        print("At the end of init")
 
     @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent: str) -> Discrete:
+    def observation_space(self, agent: str) -> MultiDiscrete:
         return self.observation_spaces[agent]
 
     @functools.lru_cache(maxsize=None)
@@ -110,7 +109,6 @@ class TFT_Simulator(ParallelEnv):
         return num_alive
 
     def observe(self, agent):
-        print("Why hello there")
         return dict(self.observations[agent])
 
     def reset(self, seed=None, options=None):
@@ -154,7 +152,7 @@ class TFT_Simulator(ParallelEnv):
 
     def step(self, action):
         action_list = np.asarray(list(action.values()))
-        print(action_list)
+
         if action_list.ndim == 1:
             self.step_function.action_controller(action, self.PLAYERS, self.game_observations)
         elif action_list.ndim == 2:
@@ -171,7 +169,7 @@ class TFT_Simulator(ParallelEnv):
             else:
                 self.observations[player_id] = self.game_observations[
                     player_id].observation(self.PLAYERS[player_id], self.PLAYERS[player_id].action_vector)
-                self.rewards[player_id] = self.previous_rewards[player_id] - self.PLAYERS[player_id]
+                self.rewards[player_id] = self.previous_rewards[player_id] - self.PLAYERS[player_id].reward
 
         # If at the end of the turn
         if self.actions_taken == config.ACTIONS_PER_TURN:
@@ -192,4 +190,4 @@ class TFT_Simulator(ParallelEnv):
                         self.PLAYERS[player_id].won_game()
                         self.dones[player_id] = True
 
-        return self.observations, self.rewards, self.dones, self.infos
+        return self.observations, self.rewards, self.dones, {agent: False for agent in self.agents}, self.infos
