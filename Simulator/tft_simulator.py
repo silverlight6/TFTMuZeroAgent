@@ -3,7 +3,7 @@ import functools
 import gym
 import numpy as np
 from typing import Dict
-from gym.spaces import MultiDiscrete, Discrete
+from gym.spaces import MultiDiscrete, Discrete, Box
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -78,7 +78,7 @@ class TFT_Simulator(ParallelEnv):
 
         self.observation_spaces: Dict = dict(
             zip(self.agents,
-                [MultiDiscrete([config.OBSERVATION_SIZE, ]) for _ in self.possible_agents])
+                [Box(low=(-5.0), high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float32) for _ in self.possible_agents])
         )
 
         self.action_spaces = {agent: Discrete(config.ACTION_DIM) for agent in self.agents}
@@ -190,4 +190,4 @@ class TFT_Simulator(ParallelEnv):
                         self.PLAYERS[player_id].won_game()
                         self.dones[player_id] = True
 
-        return self.observations, self.rewards, self.dones, {agent: False for agent in self.agents}, self.infos
+        return self.observations, self.rewards, self.dones, self.infos
