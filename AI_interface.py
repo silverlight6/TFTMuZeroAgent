@@ -14,6 +14,8 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from Simulator.tft_simulator import env as global_env
 from ray.tune.registry import register_env
 from ray.rllib.env import ParallelPettingZooEnv
+from pettingzoo.test import parallel_api_test
+
 
 
 class AIInterface:
@@ -26,21 +28,20 @@ class AIInterface:
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, agents, buffers):
         env.reset()
-        terminated = [False for _ in range(config.NUM_PLAYERS)]
+        terminated = {agent: False for agent in env.agents}
         while not all(terminated):
             # agent policy that uses the observation and info
             actions = []
-            for i, agent in enumerate(agents):
-                player_observation, local_reward, local_terminated, _, info = env.last()
-                player_observation = np.expand_dims(player_observation, axis=0)
-                local_action, local_policy = agent.policy(player_observation, self.prev_actions[i])
+            for key, terminate in terminated.items():
+                if not terminate:
+                    player_observation, local_reward, local_terminated, _, info = env.last()
+                    player_observation = np.expand_dims(player_observation, axis=0)
+                    local_action, local_policy = agents[key].policy(player_observation, self.prev_actions[i])
+                    env.step(local_action)
+                    actions.append(local_action)
 
-                env.step(local_action)
-                actions.append(local_action)
-
-                terminated[i] = local_terminated
-                if local_terminated:
-                    buffers[i].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
+                    terminated[key] = local_terminated
+                    buffers[key].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
 
             self.prev_actions = actions
 
@@ -62,11 +63,12 @@ class AIInterface:
         # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
         train_step = 0
         # global_agent.load_model(0)
-        env = global_env()
+        env = parallel_env()
 
         for episode_cnt in range(1, max_episodes):
-            agents = [MCTSAgent(network=global_agent, agent_id=i) for i in range(config.NUM_PLAYERS)]
-            buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
+            agents = { player_id : MCTSAgent(global_buffer, player_num = i) for i, player_id in enumerate(env.agents.keys()) } 
+            buffers = { player_id: ReplayBuffer(global_buffer) for player_id in env.possible_agents }
+
             self.collect_gameplay_experience(env, agents, buffers)
 
             for i in range(config.NUM_PLAYERS):
@@ -97,7 +99,7 @@ class AIInterface:
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
-        local_env_creator = lambda _: env_creator()
+        local_env_creator = lambda _: self.env_creator()
 
         register_env('tft-set4-v0', lambda local_config: ParallelPettingZooEnv(local_env_creator(local_config)))
 
@@ -124,8 +126,12 @@ class AIInterface:
 
     def evaluate(self, agent):
         return 0
+    
+    def testEnv(self):
+        env = parallel_env()
+        parallel_api_test(env, num_cycles=1000)
 
-
-def env_creator():
-    env = parallel_env()
-    return env
+    def env_creator(self):
+        env = parallel_env()
+        self.testEnv(env)
+        return env
