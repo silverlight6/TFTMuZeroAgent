@@ -249,7 +249,7 @@ class Game_Round:
                 log_to_file(player)
         log_end_turn(self.current_round)
 
-        self.combat_phase(self.PLAYERS.values(), self.current_round)
+        self.combat_phase(list(self.PLAYERS.values()), self.current_round)
         # Will implement check dead later
         # if self.check_dead(agent, buffer, game_episode):
         #     return True

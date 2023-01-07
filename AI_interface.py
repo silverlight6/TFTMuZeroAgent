@@ -9,11 +9,11 @@ from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent, MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator import game_round
-from Simulator.tft_simulator import TFT_Simulator
+from Simulator.tft_simulator import TFT_Simulator, parallel_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Simulator.tft_simulator import env as global_env
 from ray.tune.registry import register_env
-from ray.rllib.env import PettingZooEnv
+from ray.rllib.env import ParallelPettingZooEnv
 
 
 class AIInterface:
@@ -97,10 +97,9 @@ class AIInterface:
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
+        local_env_creator = lambda _: env_creator()
 
-        local_env_creator = lambda local_config: global_env()
-
-        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(local_env_creator(local_config)))
+        register_env('tft-set4-v0', lambda local_config: ParallelPettingZooEnv(local_env_creator(local_config)))
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -109,9 +108,10 @@ class AIInterface:
                 env='tft-set4-v0',
                 env_config={},
             )
-            .rollouts(num_rollout_workers=4)
-            # .framework("tf2")
-            # .training(model={"fcnet_hiddens": [256, 256]})
+            .rollouts(num_rollout_workers=1)
+            .framework("tf2")
+            .training(model={"fcnet_hiddens": [256, 256]})
+            .evaluation(evaluation_num_workers=1, evaluation_interval=50)
         )
         # Construct the actual (PPO) algorithm object from the config.
         algo = cfg.build()
@@ -126,9 +126,6 @@ class AIInterface:
         return 0
 
 
-def env_creator(env_name):
-    if env_name == 'TFT_Set4-v0':
-        from Simulator.tft_simulator import TFT_Simulator as env
-    else:
-        raise NotImplementedError
+def env_creator():
+    env = parallel_env()
     return env
