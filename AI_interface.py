@@ -2,18 +2,18 @@ import time
 import config
 import datetime
 import tensorflow as tf
-import gym
+import gymnasium as gym
 import numpy as np
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, Batch_MCTSAgent, MCTSAgent
 from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator import game_round
-from Simulator.tft_simulator import TFT_Simulator, parallel_env
+from Simulator.tft_simulator import TFT_Simulator, parallel_env, env
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.registry import register_env
-from ray.rllib.env import ParallelPettingZooEnv
-from pettingzoo.test import parallel_api_test
+from ray.rllib.env import PettingZooEnv
+from pettingzoo.test import parallel_api_test, api_test
 
 
 class AIInterface:
@@ -64,15 +64,15 @@ class AIInterface:
         # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
         train_step = 0
         # global_agent.load_model(0)
-        env = parallel_env()
+        tft_env = parallel_env()
 
         for episode_cnt in range(1, max_episodes):
             agent = Batch_MCTSAgent(global_agent)
-            buffers = {player_id: ReplayBuffer(global_buffer) for player_id in env.possible_agents}
+            buffers = {player_id: ReplayBuffer(global_buffer) for player_id in tft_env.possible_agents}
 
-            self.collect_gameplay_experience(env, agent, buffers)
+            self.collect_gameplay_experience(tft_env, agent, buffers)
 
-            for key in env.possible_agents:
+            for key in tft_env.possible_agents:
                 buffers[key].store_global_buffer()
             # Keeping this here in case I want to only update positive rewards
             # rewards = game_round.player_rewards
@@ -96,13 +96,13 @@ class AIInterface:
                 # agent policy that uses the observation and info
                 action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
                 self.prev_actions = action
-                observation_list, rewards, terminated, info = env.step(action)
+                observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
         local_env_creator = lambda _: self.env_creator()
 
-        register_env('tft-set4-v0', lambda local_config: ParallelPettingZooEnv(local_env_creator(local_config)))
+        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(local_env_creator(local_config)))
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -110,6 +110,8 @@ class AIInterface:
                 # Env class to use (here: our gym.Env sub-class from above).
                 env='tft-set4-v0',
                 env_config={},
+                observation_space=gym.spaces.Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
+                action_space=gym.spaces.Discrete(config.ACTION_DIM)
             )
             .rollouts(num_rollout_workers=1)
             .framework("tf2")
@@ -129,10 +131,11 @@ class AIInterface:
         return 0
     
     def testEnv(self):
-        env = parallel_env()
-        parallel_api_test(env, num_cycles=100000)
+        local_env = parallel_env()
+        parallel_api_test(local_env, num_cycles=100000)
+        second_env = env()
+        api_test(second_env, num_cycles=100000)
 
     def env_creator(self):
-        env = parallel_env()
-        self.testEnv(env)
-        return env
+        local_env = env()
+        return local_env
