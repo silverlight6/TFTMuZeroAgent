@@ -832,6 +832,9 @@ class player:
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
+                # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
+                if self.bench[x].items[0] == 'thiefs_gloves':
+                    self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
@@ -945,7 +948,6 @@ class player:
             self.print("selling champion " + self.bench[location].name)
             self.bench[location] = None
             self.generate_bench_vector()
-
             return return_champ
         return False
 
