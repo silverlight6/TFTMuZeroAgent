@@ -108,9 +108,8 @@ class AIInterface:
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
-        local_env_creator = lambda _: self.env_creator()
-
-        register_env('tft-set4-v0', lambda local_config: ParallelPettingZooEnv(local_env_creator(local_config)))
+        #register our environment, we have no config parameters
+        register_env('tft-set4-v0', lambda local_config: ParallelPettingZooEnv(self.env_creator(local_config)))
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -140,7 +139,7 @@ class AIInterface:
         env = parallel_env()
         parallel_api_test(env, num_cycles=100000)
 
-    def env_creator(self):
-        env = parallel_env()
-        self.testEnv(env)
-        return env
+    #function looks stupid as is right now, but should remain this way
+    #for potential future abstractions
+    def env_creator(self,config):
+        return TFT_Simulator(config)
