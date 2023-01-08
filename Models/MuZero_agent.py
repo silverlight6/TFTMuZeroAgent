@@ -22,11 +22,14 @@ KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
     'value reward policy_logits hidden_state')
+
+
 ##### JITTED FUNCTIONS ######
 @jit(target_backend='cuda', nopython = True)
 def normalize2(value, min, max):
     ans = (value - min)/(max-min)
     return ans
+
 
 class MinMaxStats(object):
     """A class that holds the min-max values of the tree."""
@@ -74,7 +77,6 @@ class Node(object):
         # 5 because there are 5 separate actions.
         self.children = [{} for _ in range(5)]
         self.hidden_state = None
-        self.reward = 0
 
     def expanded(self) -> bool:
         return len(self.children[0]) > 0
