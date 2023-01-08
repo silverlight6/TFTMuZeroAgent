@@ -73,11 +73,12 @@ class TFT_Simulator(AECEnv):
 
         self.observation_spaces: Dict = dict(
             zip(self.agents,
-                [Box(low=(-5.0), high=5.0, shape=(config.OBSERVATION_SIZE,),
+                [Box(low=(-5.0), high=5.0, shape=(config.NUM_PLAYERS, config.OBSERVATION_SIZE,),
                      dtype=np.float32) for _ in self.possible_agents])
         )
 
-        self.action_spaces = {agent: Discrete(config.ACTION_DIM) for agent in self.agents}
+        self.action_spaces = {agent: MultiDiscrete([config.ACTION_DIM for _ in range(config.NUM_PLAYERS)])
+                              for agent in self.agents}
 
         super().__init__()
 
@@ -141,7 +142,7 @@ class TFT_Simulator(AECEnv):
         self.agent_selection = self._agent_selector.next()
 
         super().__init__()
-        # return self.observations
+        return self.observations
 
     def render(self):
         ...
@@ -155,6 +156,7 @@ class TFT_Simulator(AECEnv):
             # self._was_dead_step(action)
             return
         action = np.asarray(action)
+
         if action.ndim == 1:
             self.step_function.action_controller(action, self.PLAYERS, self.game_observations)
         elif action.ndim == 2:
@@ -162,13 +164,12 @@ class TFT_Simulator(AECEnv):
 
         # This is most of the env implementations I see, but I don't think we need it in our particularly environment
         # self._clear_rewards()
+
         self.rewards[self.agent_selection] = \
             self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
         self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
         self._cumulative_rewards[self.agent_selection] = \
             self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
-        self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
-            self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
@@ -204,6 +205,9 @@ class TFT_Simulator(AECEnv):
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
         if len(self.agents) != 0:
             self.agent_selection = self._agent_selector.next()
+
+        self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
+            self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()

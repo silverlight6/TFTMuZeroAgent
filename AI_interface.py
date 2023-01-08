@@ -11,47 +11,39 @@ from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator import game_round
 from Simulator.tft_simulator import TFT_Simulator, parallel_env
 from ray.rllib.algorithms.ppo import PPOConfig
-from Simulator.tft_simulator import env as global_env
 from ray.tune.registry import register_env
 from ray.rllib.env import ParallelPettingZooEnv
 from pettingzoo.test import parallel_api_test
 
 
-
 class AIInterface:
 
     def __init__(self):
-        self.prev_actions = [[9] for _ in range(config.NUM_PLAYERS)]
-        self.prev_reward = [0 for _ in range(config.NUM_PLAYERS)]
+        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
-    def collect_gameplay_experience(self, env, agents, buffers):
+    def collect_gameplay_experience(self, env, agent, buffers):
         # Reset the environment
-        env.reset()
+        player_observation = env.reset()
+        # This is here to make the input (1, observation_size) for initial_inference
+        player_observation = np.asarray(list(player_observation.values()))
         # Used to know when players die and which agent is currently acting
-        terminated = {player_id: False for player_id in env.agents}
+        terminated = {player_id: False for player_id in env.possible_agents}
         # Current action to help with MuZero
-        actions = {player_id: 0 for player_id in env.agents}
         # While the game is still going on.
-        while not all(terminated):
-            for key, terminate in terminated.items():
-                if not terminate:
-                    # Get the information related to the player
-                    player_observation, local_reward, local_terminated, _, info = env.last()
-                    # This is here to make the input (1, observation_size) for initial_inference
-                    player_observation = np.expand_dims(player_observation, axis=0)
-                    # Ask our model for an action and policy
-                    local_action, local_policy = agents[key].policy(player_observation, self.prev_actions[key])
-                    # Take that action within the environment
-                    env.step(local_action)
-                    # store the action for MuZero
-                    actions[key] = local_action
-                    # update our local version of terminated (might be able to use the environment's)
-                    terminated[key] = local_terminated
-                    # Store the information in a buffer to train on later.
-                    buffers[key].store_replay_buffer(player_observation, local_action, local_reward, local_policy)
-
+        while not all(terminated.values()):
+            # Ask our model for an action and policy
+            actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+            step_actions = {player_id: actions[i] for i, player_id in enumerate(terminated.keys())}
+            # Take that action within the environment and return all of our information for the next player
+            next_observation, reward, terminated, _, info = env.step(step_actions)
+            # store the action for MuZero
+            for i, key in enumerate(terminated.keys()):
+                # Store the information in a buffer to train on later.
+                buffers[key].store_replay_buffer(player_observation, actions[i], reward, policy)
+            # Set up the observation for the next action
+            player_observation = np.asarray(list(next_observation.values()))
             self.prev_actions = actions
 
     def train_model(self, max_episodes=10000):
@@ -75,13 +67,13 @@ class AIInterface:
         env = parallel_env()
 
         for episode_cnt in range(1, max_episodes):
-            agents = {player_id: MCTSAgent(global_agent, i) for i, player_id in enumerate(env.agents.keys())}
+            agent = Batch_MCTSAgent(global_agent)
             buffers = {player_id: ReplayBuffer(global_buffer) for player_id in env.possible_agents}
 
-            self.collect_gameplay_experience(env, agents, buffers)
+            self.collect_gameplay_experience(env, agent, buffers)
 
-            for i in range(config.NUM_PLAYERS):
-                buffers[i].store_global_buffer()
+            for key in env.possible_agents:
+                buffers[key].store_global_buffer()
             # Keeping this here in case I want to only update positive rewards
             # rewards = game_round.player_rewards
             while global_buffer.available_batch():
