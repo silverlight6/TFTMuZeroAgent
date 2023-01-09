@@ -43,7 +43,7 @@ class AIInterface:
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
-                buffers[key].store_replay_buffer(player_observation, actions[i], reward[key], policy[i])
+                buffers[key].store_replay_buffer(player_observation[i], actions[i], reward[key], policy[i])
             # Set up the observation for the next action
             player_observation = np.asarray(list(next_observation.values()))
             self.prev_actions = actions

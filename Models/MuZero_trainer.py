@@ -36,6 +36,7 @@ class Trainer(object):
                      target_value, target_reward, target_policy, train_step, summary_writer):
 
         # initial step
+        print(observation)
         output = agent.initial_inference(observation)
 
         predictions = [

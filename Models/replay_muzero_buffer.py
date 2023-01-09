@@ -74,8 +74,8 @@ class ReplayBuffer:
                     for i, reward in enumerate(self.rewards[current_index:]):
                         value += reward * config.DISCOUNT ** i
 
-                    print("value {} at index {}".format(value, current_index))
-                    print("self.rewards from current_index {}".format(self.rewards[current_index:]))
+                    #print("value {} at index {}".format(value, current_index))
+                    #print("self.rewards from current_index {}".format(self.rewards[current_index:]))
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
                         if current_index != sample:
