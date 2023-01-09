@@ -191,7 +191,6 @@ class TFT_Simulator(AECEnv):
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
         if self._agent_selector.is_last():
-            print(self.actions_taken)
             self.actions_taken += 1
 
             # If at the end of the turn

@@ -35,14 +35,15 @@ class AIInterface:
         while not all(terminated.values()):
             # Ask our model for an action and policy
             actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
-            step_actions = {player_id: actions[i] for i, player_id in enumerate(terminated.keys())}
+            step_actions = self.getStepActions(terminated, actions)
+            
+
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
-            print(reward)
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
-                buffers[key].store_replay_buffer(player_observation, actions[i], reward, policy)
+                buffers[key].store_replay_buffer(player_observation, actions[i], reward[key], policy[i])
             # Set up the observation for the next action
             player_observation = np.asarray(list(next_observation.values()))
             self.prev_actions = actions
@@ -90,7 +91,7 @@ class AIInterface:
     '''
     rewards have to make sense
     clip the values
-    normalize across all agents in a single game
+    normalize across all agents in a single game : mean of 1 SD of 1
     make sure non-para env passes test from PettingZoo
     '''
 
@@ -147,3 +148,12 @@ class AIInterface:
     #for potential future abstractions
     def env_creator(self,config):
         return TFT_Simulator(config)
+    
+    def getStepActions(self, terminated, actions):
+        step_actions = {}
+        i = 0
+        for player_id, terminate in terminated.items():
+            if not terminate:
+                step_actions[player_id] = actions[i]
+                i += 1
+        return step_actions

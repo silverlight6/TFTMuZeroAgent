@@ -626,6 +626,7 @@ class Batch_MCTSAgent(MCTSAgent):
 
     def __init__(self, network: Network) -> None:
         super().__init__(network, 0)
+        self.NUM_ALIVE = config.NUM_PLAYERS
 
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of
@@ -636,14 +637,14 @@ class Batch_MCTSAgent(MCTSAgent):
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         
         for _ in range(config.NUM_SIMULATIONS):
-            history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
+            history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
             node = root
-            search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
+            search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
             
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
-            for i in range(config.NUM_PLAYERS):
+            for i in range(self.NUM_ALIVE):
                 while node[i].expanded():
                     action[i], node[i] = self.select_child(node[i], min_max_stats[i])
                     history[i].add_action(action[i])
@@ -651,30 +652,31 @@ class Batch_MCTSAgent(MCTSAgent):
             
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
-            parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
-            hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
-            last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])
+            parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
+            hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
+            last_action = np.asarray([history[i].last_action() for i in range(self.NUM_ALIVE)])
 
             network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
-            for i in range(config.NUM_PLAYERS):
+            for i in range(self.NUM_ALIVE):
                 
-                self.batch_expand_node(node[i], self.player_to_play(i, history[i].last_action()), network_output)  # 7s
+                self.batch_expand_node(node[i], node[i].to_play, network_output)  # 7s
                 
                 # print("value {}".format(network_output["value"]))
                 self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
                 
     def batch_policy(self, observation, prev_action):
-        root = [Node(0) for _ in range(config.NUM_PLAYERS)]
+        self.NUM_ALIVE = observation.shape[0]
+        root = [Node(0) for _ in range(self.NUM_ALIVE)]
         network_output = self.network.initial_inference(observation)  # 2.1 seconds
         
-        for i in range(config.NUM_PLAYERS):
+        for i in range(self.NUM_ALIVE):
             self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
 
             self.add_exploration_noise(root[i])
             
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
         
-        action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
+        action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
         
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
@@ -687,7 +689,6 @@ class Batch_MCTSAgent(MCTSAgent):
 
     def batch_expand_node(self, node: Node, to_play: int, network_output):
         ckpt = time.time_ns() 
-
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
