@@ -447,6 +447,7 @@ class Step_Function:
                 self.batch_multi_step(action, player, game_observations[key])
             if player.action_vector[1]:
                 self.batch_shop(action, player, game_observations[key])
+                player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
             # Move item to board
             if player.current_action == 3:
                 player.action_values.append(action)
