@@ -169,11 +169,12 @@ class TFT_Simulator(AECEnv):
             self._was_dead_step(action)
             return
         action = np.asarray(action)
-
-        if action.ndim == 1:
-            self.step_function.action_controller(action, self.PLAYERS, self.game_observations)
-        elif action.ndim == 2:
-            self.step_function.batch_2d_controller(action, self.PLAYERS, self.game_observations)
+        if action.ndim == 0:
+            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection],
+                                                 self.agent_selection, self.game_observations)
+        elif action.ndim == 1:
+            self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection],
+                                                   self.agent_selection, self.game_observations)
 
         # This is most of the env implementations I see, but I don't think we need it in our particularly environment
         # self._clear_rewards()
