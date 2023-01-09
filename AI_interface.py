@@ -23,23 +23,23 @@ class AIInterface:
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
-    def collect_gameplay_experience(self, env, agent, buffers):
+    def collect_gameplay_experience(self, tft_env, agent, buffers):
         # Reset the environment
-        player_observation = env.reset()
+        player_observation = tft_env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = np.asarray(list(player_observation.values()))
         # Used to know when players die and which agent is currently acting
-        terminated = {player_id: False for player_id in env.possible_agents}
+        terminated = {player_id: False for player_id in tft_env.possible_agents}
+        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
         # Current action to help with MuZero
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
             actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
             step_actions = self.getStepActions(terminated, actions)
-            
 
             # Take that action within the environment and return all of our information for the next player
-            next_observation, reward, terminated, _, info = env.step(step_actions)
+            next_observation, reward, terminated, _, info = tft_env.step(step_actions)
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.

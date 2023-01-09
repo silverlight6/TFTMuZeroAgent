@@ -633,7 +633,6 @@ class Batch_MCTSAgent(MCTSAgent):
     # the search tree and traversing the tree according to the UCB formula until we
     # reach a leaf node.
     def run_batch_mcts(self, root: list, action: List):
-        ckpt = time.time_ns()
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         
         for _ in range(config.NUM_SIMULATIONS):
@@ -688,7 +687,6 @@ class Batch_MCTSAgent(MCTSAgent):
         return action, network_output["policy_logits"]
 
     def batch_expand_node(self, node: Node, to_play: int, network_output):
-        ckpt = time.time_ns() 
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
