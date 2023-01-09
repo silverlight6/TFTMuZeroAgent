@@ -190,10 +190,11 @@ class TFT_Simulator(AECEnv):
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
         if self._agent_selector.is_last():
+            print(self.actions_taken)
             self.actions_taken += 1
 
             # If at the end of the turn
-            if self.actions_taken >= config.ACTIONS_PER_TURN * len(self.agents):
+            if self.actions_taken >= config.ACTIONS_PER_TURN:
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
                 self.game_round.play_game_round()
@@ -212,7 +213,6 @@ class TFT_Simulator(AECEnv):
                 self.agents.remove(k)
 
             self.kill_list = []
-            self.actions_taken += 1
             self._agent_selector.reinit(self.agents)
 
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.

@@ -38,6 +38,7 @@ class AIInterface:
             step_actions = {player_id: actions[i] for i, player_id in enumerate(terminated.keys())}
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
+            print(reward)
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
@@ -85,6 +86,13 @@ class AIInterface:
                 game_round.log_to_file_start()
 
             print("Episode " + str(episode_cnt) + " Completed")
+    
+    '''
+    rewards have to make sense
+    clip the values
+    normalize across all agents in a single game
+    make sure non-para env passes test from PettingZoo
+    '''
 
     def collect_dummy_data(self):
         env = gym.make("TFT_Set4-v0", env_config={})
