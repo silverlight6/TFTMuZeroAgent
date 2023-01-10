@@ -73,9 +73,9 @@ class player:
         # As well as a 1 for win, 0 for a loss or draw in the last 3 rounds
         self.player_vector = np.zeros(9)
 
-        self.board_occupation_vector = np.zeroes(self.BOARD_SIZE * 3)  # 28 hex * 3 - (x, y, Occupied State)
-        self.bench_occupation_vector = np.zeroes(self.BENCH_SIZE)
-        self.champions_owned_vector = np.zeroes(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+        self.board_occupation_vector = np.zeros(self.BOARD_SIZE)  # 28 hex * 3 - (x, y, Occupied State)
+        self.bench_occupation_vector = np.zeros(self.BENCH_SIZE)
+        self.champions_owned_vector = np.zeros(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -178,7 +178,7 @@ class player:
         success = self.add_to_bench(a_champion)
         # Putting this outside success because when the bench is full. It auto sells the champion.
         # Which adds another to the pool and need this here to remove the fake copy from the pool
-        self.pool_obj.update_champion_pool(a_champion, -1)
+        self.pool_obj.update_pool(a_champion, -1)
         if success:
             # Leaving this out because the agent will learn to simply buy everything and sell everything
             # I want it to just buy what it needs to win rounds.
@@ -281,7 +281,7 @@ class player:
         return False
 
     def generate_board_vector(self):
-        output_array = np.zeros((28, 3))
+        output_array = np.zeros(28)
         # Loop through champion vector and update occupation state
         hex_count = 0
         for x in range(0, 7):
@@ -291,9 +291,9 @@ class player:
                 else:
                     occupation_state = 0
                 # Can use another conditional to indicate that the unit should be sold
-                output_array[hex_count] = [x,y,occupation_state]
+                output_array[hex_count] = occupation_state
                 hex_count += 1
-        self.board_occupation_vector = output_array.reshape(28*3)
+        self.board_occupation_vector = output_array
         self.generate_player_vector() # Not sure why player vector is called here
         self.generate_champion_vectors()
 
@@ -322,6 +322,7 @@ class player:
                     output_array[curr_board_count] = champion_info_array
                     curr_board_count += 1
         self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+
     def generate_single_champion_vector(self, curr_champ, champion_info_array):
         '''
         Helps to generate a vector of length CHAMPION_INFO
@@ -346,13 +347,13 @@ class player:
             champion_info_array[5] = 0.5
         # else 0 , 0 implies that did not participate in combat
 
-        item_arr = np.zero(6)
-        for index, item in enumerate(curr_champ.items()):
+        item_arr = np.zeros(6)
+        for index, item in enumerate(curr_champ.items):
             item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
             # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
             # first spot of each of the item is left empty for now
             item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
-        champion_info_array[6:11] = item_arr
+        champion_info_array[6:] = item_arr
 
     def generate_bench_vector(self):
         output_array = np.zeros(9)
@@ -362,7 +363,7 @@ class player:
             else:
                 occupation_state = 0
             output_array[x] = occupation_state
-        self.bench_vector = output_array
+        self.bench_occupation_vector = output_array
         self.generate_champion_vectors()
 
     def generate_chosen_vector(self):
@@ -378,12 +379,14 @@ class player:
 
     # return output_array
     def generate_item_vector(self):
-        item_arr = np.zero(self.MAX_BENCH_SPACE * 2)
+        item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
         for index, item in enumerate(self.item_bench):
-            item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
-            # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
-            # first spot of each of the item is left empty for now
-            item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+            if item:
+                item_index = list(item_list.keys()).index(item) + 1
+                # Avoiding index 0 as index 0 is reserved for no items
+                # Hoping to have the observation in terms of components instead but not too sure if the components
+                # can be retrieved. Leaving 1 spot empty for now first spot of each of the item is left empty for now
+                item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
 
     def generate_player_vector(self):
         self.player_vector[0] = self.gold / 100
@@ -926,7 +929,7 @@ class player:
             return False
         if not golden:
             self.gold += cost_star_values[s_champion.cost - 1][s_champion.stars - 1]
-            self.pool_obj.update_champion_pool(s_champion, 1)
+            self.pool_obj.update_pool(s_champion, 1)
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
@@ -948,7 +951,7 @@ class player:
                 return False
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
-                self.pool_obj.update_champion_pool(self.bench[location], 1)
+                self.pool_obj.update_pool(self.bench[location], 1)
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
@@ -1106,46 +1109,3 @@ class player:
                     return
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
-
-if __name__ == "__main__":
-    pass
-    # c_index = list(COST.keys()).index('akali')
-    # print(c_index)
-    # champion_info_array = np.zeros(8)
-    # for z in range(6, 0, -1):
-    #     if c_index > 2 * z:
-    #         champion_info_array[z] = 1
-    #         c_index -= 2 * z
-    #
-    # print(champion_info_array)
-    # i_index = list(item_list.keys()).index('bf_sword')
-    # print(i_index)
-    # champion_info_array = np.zeros(12)
-    # item_arr = np.zeros(6)
-    # for index, item in enumerate(['chain_vest','youmuus_ghostblade','chain_vest']):
-    #     print(item)
-    #     item_index = list(item_list.keys()).index(item) + 1 # +1 so that index 0 is reserved for no items
-    #     print(item_index)
-    #     # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
-    #     # first spot of the item array  is left empty for now
-    #     item_arr[index * 2] = float(item_index) / player.MAX_NUMBER_ITEMS
-    #
-    # print(item_arr)
-    # champion_info_array[6:11] = item_arr
-    # print(champion_info_array)
-
-    output_array = np.zeros((28, 3))
-    print(output_array)
-    # Loop through champion vector and update occupation state
-    hex_count = 0
-    for x in range(0, 7):
-        for y in range(0, 4):
-            if x % 4 == 0:
-                occupation_state = 1
-            else:
-                occupation_state = 0
-            # Can use another conditional to indicate that the unit should be sold
-            output_array[hex_count] = [x, y, occupation_state]
-            hex_count += 1
-    print(output_array)
-    print(output_array.reshape(28 * 3))

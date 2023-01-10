@@ -68,10 +68,10 @@ class pool:
 		for i in range(len(player.board)):
 			for k in range(len(player.board[0])):
 				if player.board[i][k]:
-					self.update_champion_pool(player.board[i][k], 1)
+					self.update_pool(player.board[i][k], 1)
 		for i in range(len(player.bench)):
 			if player.bench[i]:
-				self.update_champion_pool(player.bench[i], 1)
+				self.update_pool(player.bench[i], 1)
 
 	# Player is the player that the sample is being picked for
 	# Num is the number of samples to be returned
@@ -173,7 +173,7 @@ class pool:
 			index = idx
 		return championOptions
 
-	def update_champion_pool(self, u_champion, direction):
+	def update_pool(self, u_champion, direction):
 		'''
 
 		:param u_champion: everytime a champion is taken from the pool, update the statistics
