@@ -17,8 +17,9 @@ class Observation:
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         complete_game_state_vector = np.concatenate([shop_vector,
-                                                     player.board_vector,
-                                                     player.bench_vector,
+                                                     player.board_occupation_vector,
+                                                     player.champions_owned_vector,
+                                                     player.bench_occupation_vector,
                                                      player.chosen_vector,
                                                      player.item_vector,
                                                      player.player_vector,
