@@ -17,8 +17,9 @@ from math import floor
 class player:
 
     MAX_CHAMPION = 19 # 10 on board, 9 on bench
-    # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
-    CHAMPION_INFORMATION = 12
+    # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
+    # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
+    CHAMPION_INFORMATION = 11
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
@@ -326,25 +327,28 @@ class player:
     def generate_single_champion_vector(self, curr_champ, champion_info_array):
         '''
         Helps to generate a vector of length CHAMPION_INFO
+        champion number (1 spot), champion star level(1 spot), champion cost (1 spot),
+        chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
+
         :param curr_champ: Object champion
         :param champion_info_array: The array to update the information in
         :return:
         '''
+
         # start with champion name
         c_index = list(COST.keys()).index(
             curr_champ.name) + 1  # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
         # This should update the champion name section of the vector
         champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
-        champion_info_array[1] = curr_champ.stars
-        champion_info_array[2] = curr_champ.cost
+        champion_info_array[1] = curr_champ.stars / 3
+        champion_info_array[2] = curr_champ.cost / 5
 
         if curr_champ.chosen:
             champion_info_array[3] = 1
-
         if curr_champ.survive_combat:
             champion_info_array[4] = 1
         elif curr_champ.participated_in_combat:  # Did not survive combat
-            champion_info_array[5] = 0.5
+            champion_info_array[4] = 0.5
         # else 0 , 0 implies that did not participate in combat
 
         item_arr = np.zeros(6)
@@ -353,7 +357,7 @@ class player:
             # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
             # first spot of each of the item is left empty for now
             item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
-        champion_info_array[6:] = item_arr
+        champion_info_array[5:] = item_arr
 
     def generate_bench_vector(self):
         output_array = np.zeros(9)
@@ -838,12 +842,15 @@ class player:
 
     # This is always going to be from the bench
     def return_item_from_bench(self, x):
+        print("In return item from bench")
         # if the unit exists
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
                 # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thiefs_gloves':
+                    print(self.thiefs_glove_loc)
+                    print(x)
                     self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
