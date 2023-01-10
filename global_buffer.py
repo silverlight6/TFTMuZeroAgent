@@ -24,11 +24,9 @@ class GlobalBuffer:
             policy_mask_batch.append(policy_mask)
             target_value_batch.append(value)
             target_reward_batch.append(reward)
-            # print(policy)
             target_policy_batch.append(policy)
 
         observation_batch = np.squeeze(np.asarray(observation_batch))
-        # print(action_history_batch)
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')
         target_reward_batch = np.asarray(target_reward_batch).astype('float32')

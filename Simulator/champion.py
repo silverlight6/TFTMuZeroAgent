@@ -40,9 +40,9 @@ class champion:
 
         # in case we're spawning a construct, galio or a turret, the rest are handled at the bottom of the object
         if name != 'construct' and name != 'galio' and name != 'aphelios_turret':
-            self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
-            self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1),1)
-            self.AD = round(AD[name] * config.STARMULTIPLIER ** (stars - 1),1)
+            self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1), 1)
+            self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1), 1)
+            self.AD = round(AD[name] * config.STARMULTIPLIER ** (stars - 1), 1)
             
         self.SP = 1
 
@@ -111,7 +111,7 @@ class champion:
         self.underlords = []
         self.overlord = overlord
         self.overlord_coordinates = sandguard_overlord_coordinates
-        self.origin = origin_class_stats.origin_class[self.name]
+        self.origin = origin_class_stats.origin_class[self.name].copy()
 
         self.will_revive = [[None], [None]]  # consists of [[zilean_champion], [GA]]
 
