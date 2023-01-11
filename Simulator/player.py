@@ -396,7 +396,6 @@ class player:
         for ind, item in enumerate(self.item_bench):
             if item:
                 if item in item_builds.keys():
-                    print(item)
                     component1, component2 = item_builds[item]
                     component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     component2_index = list(item_list.keys()).index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
