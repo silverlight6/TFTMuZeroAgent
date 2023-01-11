@@ -23,7 +23,6 @@ class player:
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
-    MAX_ITEMS_IN_SET = len(item_list) # 64 + 8 basic component = 72 (+ bunch of radiant or wtv if those exist)
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
     def __init__(self, pool_pointer, player_num):
