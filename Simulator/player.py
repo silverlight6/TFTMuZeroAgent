@@ -5,7 +5,7 @@ import numpy as np
 import random
 from Simulator import champion, origin_class
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thiefs_gloves_items, \
-                                                                    starting_items, trait_items
+                                                                    starting_items, trait_items, uncraftable_items
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -356,13 +356,13 @@ class player:
             if ind <= 2:
                 if item in item_builds.keys():
                     component1, component2 = item_builds[item]
-                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = list(item_list.keys()).index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
                     item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
                 else:
                     component1 = item
-                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
             else:
                 print("This champion got more than 2 items")
@@ -397,13 +397,13 @@ class player:
             if item:
                 if item in item_builds.keys():
                     component1, component2 = item_builds[item]
-                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = list(item_list.keys()).index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
                     item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
                 else:
                     component1 = item
-                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
         self.item_vector = item_arr
 
