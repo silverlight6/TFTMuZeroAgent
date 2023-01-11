@@ -406,7 +406,6 @@ class player:
                     component1 = item
                     component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-        print(item_arr)
         self.item_vector = item_arr
 
     def generate_player_vector(self):
