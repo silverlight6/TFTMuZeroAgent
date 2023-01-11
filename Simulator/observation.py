@@ -26,10 +26,6 @@ class Observation:
                                                      game_state_vector,
                                                      action_vector], axis=-1)
         input_vector = complete_game_state_vector
-        print("printing vector")
-        # print(player.board_occupation_vector)
-        # print(player.champions_owned_vector.reshape((19,11)))
-        # print(player.bench_occupation_vector)
 
         # std = np.std(input_vector)
         # if std == 0:
@@ -37,7 +33,6 @@ class Observation:
         # else:
         #     input_vector = (input_vector - np.mean(input_vector)) / std
         # print(input_vector.shape)
-        print(input_vector.shape)
         return input_vector, complete_game_state_vector
 
     def generate_game_comps_vector(self):
