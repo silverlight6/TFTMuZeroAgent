@@ -352,11 +352,15 @@ class player:
         # else 0 , 0 implies that did not participate in combat
 
         item_arr = np.zeros(6)
-        for index, item in enumerate(curr_champ.items):
-            item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
-            # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
-            # first spot of each of the item is left empty for now
-            item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+        for ind, item in enumerate(curr_champ.items):
+            if ind <= 2:
+                item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
+                # first spot of each of the item is left empty for now
+                item_arr[ind * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+            else:
+                print("This champion got more than 2 items")
+                print(curr_champ.items)
         champion_info_array[5:] = item_arr
 
     def generate_bench_vector(self):
@@ -842,16 +846,15 @@ class player:
 
     # This is always going to be from the bench
     def return_item_from_bench(self, x):
-        print("In return item from bench")
         # if the unit exists
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
                 # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thiefs_gloves':
-                    print(self.thiefs_glove_loc)
-                    print(x)
-                    self.thiefs_glove_loc.remove([x, -1])
+                    if x in self.thiefs_glove_loc:
+                        # printed the conditional and it seems like it's always false.
+                        self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
