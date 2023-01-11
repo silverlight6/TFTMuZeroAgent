@@ -295,7 +295,7 @@ class player:
                 output_array[hex_count] = occupation_state
                 hex_count += 1
         self.board_occupation_vector = output_array
-        self.generate_player_vector() # Not sure why player vector is called here
+        self.generate_player_vector()
         self.generate_champion_vectors()
 
     def generate_champion_vectors(self):
@@ -354,13 +354,18 @@ class player:
         item_arr = np.zeros(6)
         for ind, item in enumerate(curr_champ.items):
             if ind <= 2:
-                item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
-                # first spot of each of the item is left empty for now
-                item_arr[ind * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+                if item in item_builds.keys():
+                    component1, component2 = item_builds[item]
+                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = list(item_list.keys()).index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
+                else:
+                    component1 = item
+                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
             else:
                 print("This champion got more than 2 items")
-                print(curr_champ.items)
         champion_info_array[5:] = item_arr
 
     def generate_bench_vector(self):
@@ -388,13 +393,20 @@ class player:
     # return output_array
     def generate_item_vector(self):
         item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
-        for index, item in enumerate(self.item_bench):
+        for ind, item in enumerate(self.item_bench):
             if item:
-                item_index = list(item_list.keys()).index(item) + 1
-                # Avoiding index 0 as index 0 is reserved for no items
-                # Hoping to have the observation in terms of components instead but not too sure if the components
-                # can be retrieved. Leaving 1 spot empty for now first spot of each of the item is left empty for now
-                item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+                if item in item_builds.keys():
+                    print(item)
+                    component1, component2 = item_builds[item]
+                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = list(item_list.keys()).index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
+                else:
+                    component1 = item
+                    component1_index = list(item_list.keys()).index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
+        self.item_vector = item_arr
 
     def generate_player_vector(self):
         self.player_vector[0] = self.gold / 100
