@@ -23,7 +23,8 @@ class player:
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
-    MAX_ITEMS_IN_SET = 100 # 64 + 8 basic component = 72 (+ bunch of radiant or wtv if those exist)
+    MAX_ITEMS_IN_SET = len(item_list) # 64 + 8 basic component = 72 (+ bunch of radiant or wtv if those exist)
+    UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
     def __init__(self, pool_pointer, player_num):
 
@@ -358,12 +359,12 @@ class player:
                     component1, component2 = item_builds[item]
                     component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
-                    item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
                 else:
                     component1 = item
                     component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
             else:
                 print("This champion got more than 2 items")
         champion_info_array[5:] = item_arr
@@ -399,12 +400,13 @@ class player:
                     component1, component2 = item_builds[item]
                     component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
                     component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
-                    item_arr[ind * 2] = float(component2_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
                 else:
                     component1 = item
                     component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.MAX_ITEMS_IN_SET
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+        print(item_arr)
         self.item_vector = item_arr
 
     def generate_player_vector(self):
