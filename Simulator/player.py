@@ -140,6 +140,8 @@ class player:
             self.chosen = a_champion.chosen
         # print("items are = " + str(a_champion.items))
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
+        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
+            self.thiefs_glove_loc.append([bench_loc, -1])
         self.generate_bench_vector()
         return True
 
@@ -539,7 +541,7 @@ class player:
                     if m_champion.items[0] == 'thiefs_gloves':
                         for x, loc in enumerate(self.thiefs_glove_loc):
                             if loc == [bench_x, -1]:
-                                self.thiefs_glove_loc[x] = [board_x][board_y]
+                                self.thiefs_glove_loc[x] = [board_x, board_y]
                 if m_champion.name == 'azir':
                     # There should never be a situation where the board is too fill to fit the sandguards.
                     sand_coords = self.find_azir_sandguards(board_x, board_y)
@@ -834,6 +836,8 @@ class player:
             if self.bench[x].items:
                 # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thiefs_gloves':
+                    if [x, -1] not in self.thiefs_glove_loc:
+                        print(self.thiefs_glove_loc)
                     self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
