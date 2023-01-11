@@ -539,9 +539,7 @@ class player:
                 # tracking thiefs gloves location
                 if len(m_champion.items) > 0:
                     if m_champion.items[0] == 'thiefs_gloves':
-                        for x, loc in enumerate(self.thiefs_glove_loc):
-                            if loc == [bench_x, -1]:
-                                self.thiefs_glove_loc[x] = [board_x, board_y]
+                        self.thiefs_gloves_loc_update(bench_x, -1, board_x, board_y)
                 if m_champion.name == 'azir':
                     # There should never be a situation where the board is too fill to fit the sandguards.
                     sand_coords = self.find_azir_sandguards(board_x, board_y)
@@ -589,6 +587,8 @@ class player:
                     self.bench[bench_loc].x = bench_loc
                     self.bench[bench_loc].y = -1
                     self.num_units_in_play -= 1
+                    if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
+                        self.thiefs_gloves_loc_update(bench_loc, -1, x, y)
                     self.generate_bench_vector()
                     self.generate_board_vector()
                     self.update_team_tiers()
@@ -600,6 +600,9 @@ class player:
         if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
             if self.board[x1][y1] and self.board[x2][y2]:
                 temp_champ = self.board[x2][y2]
+                if (self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves') or \
+                   (self.board[x2][y2].items and self.board[x2][y2].items[0] == 'thiefs_gloves'):
+                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = temp_champ
                 self.board[x1][y1].x = x1
@@ -611,6 +614,8 @@ class player:
                 self.generate_board_vector()
                 return True
             elif self.board[x1][y1]:
+                if self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves':
+                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
@@ -837,8 +842,7 @@ class player:
                 # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thiefs_gloves':
                     if [x, -1] not in self.thiefs_glove_loc:
-                        print(self.thiefs_glove_loc)
-                    self.thiefs_glove_loc.remove([x, -1])
+                        self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
@@ -1008,6 +1012,16 @@ class player:
                     break
             self.team_tiers[trait] = counter
         origin_class.game_comp_tiers[self.player_num] = self.team_tiers
+
+    def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
+        if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
+            return True
+        elif [x1, y1] in self.thiefs_glove_loc:
+            self.thiefs_glove_loc.remove([x1, y1])
+            self.thiefs_glove_loc.append([x2, y2])
+        elif [x2, y2] in self.thiefs_glove_loc:
+            self.thiefs_glove_loc.remove([x2, y2])
+            self.thiefs_glove_loc.append([x1, y1])
 
     # Method for keeping track of which units are golden
     # It calls golden which then calls add_to_bench which calls this again with the goldened unit
