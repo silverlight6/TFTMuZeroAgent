@@ -20,7 +20,7 @@ class ReplayBuffer:
         # commenting out because MuZero supports a wide range of rewards, not just -1 to 1
         # reward = np.clip(reward, -1.0, 1.0)
         self.gameplay_experiences.append(observation)
-        self.action_history.append(action)
+        self.action_history.append(int(action))
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
 
@@ -34,11 +34,17 @@ class ReplayBuffer:
         # take the sample from i num from the end of list
         return self.observation_history[i * -1]
 
+    def get_prev_action(self):
+        if self.action_history:
+            return self.action_history[-1]
+        else:
+            return 9
+
     def get_observation_shape(self):
         # Hard coding this because the need to know this value before any observation are
         # Generated in the case of no successful actions completed yet in the game which
         # Is very likely at the start of the game.
-        return config.OBSERVATION_SHAPE
+        return config.INPUT_SHAPE
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
@@ -48,7 +54,6 @@ class ReplayBuffer:
         if samples_per_player > 0:
             # 8 because I don't want to sample the very end of the range
             samples = random.sample(range(0, len(self.gameplay_experiences) - 8), samples_per_player)
-            td_steps = config.UNROLL_STEPS
             num_steps = len(self.gameplay_experiences)
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
@@ -62,12 +67,11 @@ class ReplayBuffer:
                 policy_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    bootstrap_index = current_index + td_steps
                     #### POSSIBLE EXTENSION -- set up value_approximation storing
                     # value = value_approximations[bootstrap_index] * discount**td_steps
                     value = 0.0
 
-                    for i, reward in enumerate(self.rewards[current_index:bootstrap_index]):
+                    for i, reward in enumerate(self.rewards[current_index:]):
                         value += reward * config.DISCOUNT ** i
 
                     reward_mask = 1.0 if current_index > sample else 0.0
@@ -76,7 +80,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0, 0, 0])
+                            action_set.append([0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -84,9 +88,10 @@ class ReplayBuffer:
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(self.rewards[current_index])
+
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
-                        action_set.append([7, 0, 0, 0, 0])
+                        action_set.append(9)
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
@@ -99,7 +104,7 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[0])
                     else:
                         # States past the end of games is treated as absorbing states.
-                        action_set.append([0, 0, 0, 0, 0])
+                        action_set.append(0)
                         value_mask_set.append(1.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
