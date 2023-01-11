@@ -481,6 +481,78 @@ class player:
                 if self.team_tiers['fortune'] > 1:
                     self.fortune_loss_streak += 1
 
+    def move_bench_board(self, bench_x:int, board_x:int, board_y:int):
+        """Swaps a field slot with a bench slot
+
+        Args:
+            bench_x (int): bench coordinate
+            board_x (int): board x coordinate
+            board_y (int): board y coordinate
+        """
+
+        #check if input is valid
+        if 0 <= bench_x < 9 and self.bench[bench_x] and 7 > board_x >= 0 and 4 > board_y >= 0:
+            isBoardEmpty = (self.board[board_x][board_y] == None)
+            isBenchEmpty = (self.bench[bench_x] == None)
+            isBoardSandSoldier = (self.board[board_x][board_y].name == "sandguard")
+            isBenchAzir = (self.board[board_x][board_y].name == 'azir')
+            isBoardAzir = (self.bench[bench_x].name == 'azir')
+
+            #prevent moving sand soldier to bench
+            if isBoardSandSoldier:
+                self.print("can't move sand soldier to bench")
+                self.reward += self.mistake_reward
+                return False
+
+
+            #make sure you dont field too many units
+            if isBoardEmpty and not isBenchEmpty:
+                if self.num_units_in_play >= self.max_units:
+                    self.print("board is full!")
+                    self.reward += self.mistake_reward
+                    return False
+                self.num_units_in_play += 1
+
+            #count if unit gets moved to bench and no unit gets fielded
+            if isBenchEmpty and not isBoardEmpty:
+                self.num_units_in_play += 1
+            
+
+            #remove Azir to bench sandguards
+            if isBoardAzir:
+                coords = self.board[board_x][board_y].sandguard_overlord_coordinates
+                self.board[board_x][board_y].overlord = False
+                for coord in coords:
+                    self.board[coord[0]][coord[1]] = None
+
+            #do the move
+            self.bench[bench_x], self.board[board_x][board_y] = self.board[board_x][board_y], self.bench[bench_x]
+            
+            #add console statement
+            printstring = ""
+            if not isBenchEmpty:
+                printstring += f"moved {self.board[board_x][board_y].name} to board[{board_x},{board_y}]"
+            if not isBenchAzir and not isBoardEmpty:
+                printstring += "and"
+            if not isBoardEmpty:
+                printstring += f"moved {self.bench[bench_x]} to bench"
+            self.print(printstring)
+
+            #add Azir to board sandguards
+            if isBenchAzir:
+                sand_coords = self.find_azir_sandguards(board_x, board_y)
+                self.board[board_x][board_y].overlord = True
+                self.board[board_x][board_y].sandguard_overlord_coordinates = sand_coords
+            
+            #update for AI
+            self.generate_bench_vector()
+            self.generate_board_vector()
+            self.update_team_tiers()
+            return True
+
+        self.reward += self.mistake_reward
+        return False
+
     # location to pick which unit from bench goes to board.
     def move_bench_to_board(self, bench_x, board_x, board_y):
         # print("bench_x = " + str(bench_x) + " with len(self.bench) = " + str(len(self.bench)))
