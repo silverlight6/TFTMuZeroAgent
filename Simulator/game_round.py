@@ -194,6 +194,7 @@ class Game_Round:
         self.step_func_obj.generate_shop_vectors(self.PLAYERS)
         for player in self.PLAYERS.values():
             if player:
+                print(f"round {self.current_round}: {player.health}")
                 player.start_round(self.current_round)
 
         # TO DO
@@ -219,27 +220,26 @@ class Game_Round:
         #
         # for process in processes:
         #     process.join()
-
-        for player in self.PLAYERS.values():
-            minion.minion_round(player, 0, self.PLAYERS.values())
-
         for player in self.PLAYERS.values():
             if player:
                 player.start_round(1)
+        for player in self.PLAYERS.values():
+            minion.minion_round(player, 0, self.PLAYERS.values())
         # False stands for no one died
         return False
 
     # r for minion round
     def minion_round(self):
         for player in self.PLAYERS.values():
+            print(player.board)
             if player:
                 log_to_file(player)
         log_end_turn(self.current_round)
 
+        self.start_round()
         for player in self.PLAYERS.values():
             if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
-        self.start_round()
         return False
 
     # r stands for round or game_round but round is a keyword so using r instead
