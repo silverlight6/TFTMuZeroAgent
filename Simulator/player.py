@@ -992,15 +992,15 @@ class player:
         else:
             return False
 
-        def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
-            if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
-                return True
-            elif [x1, y1] in self.thiefs_glove_loc:
-                self.thiefs_glove_loc.remove([x1, y1])
-                self.thiefs_glove_loc.append([x2, y2])
-            elif [x2, y2] in self.thiefs_glove_loc:
-                self.thiefs_glove_loc.remove([x2, y2])
-                self.thiefs_glove_loc.append([x1, y1])
+    def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
+        if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
+            return True
+        elif [x1, y1] in self.thiefs_glove_loc:
+            self.thiefs_glove_loc.remove([x1, y1])
+            self.thiefs_glove_loc.append([x2, y2])
+        elif [x2, y2] in self.thiefs_glove_loc:
+            self.thiefs_glove_loc.remove([x2, y2])
+            self.thiefs_glove_loc.append([x1, y1])
 
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
