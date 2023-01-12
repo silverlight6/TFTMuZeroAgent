@@ -68,10 +68,10 @@ class pool:
 		for i in range(len(player.board)):
 			for k in range(len(player.board[0])):
 				if player.board[i][k]:
-					self.update(player.board[i][k], 1)
+					self.update_pool(player.board[i][k], 1)
 		for i in range(len(player.bench)):
 			if player.bench[i]:
-				self.update(player.bench[i], 1)
+				self.update_pool(player.bench[i], 1)
 
 	# Player is the player that the sample is being picked for
 	# Num is the number of samples to be returned
@@ -173,10 +173,13 @@ class pool:
 			index = idx
 		return championOptions
 
-	# everytime a minion is taken from the pool, update the statistics
-	# direction is positive for adding and negative for selling from pool.
-	# i.e. If a player sells a unit, it's a positive direction for the pool
-	def update(self, u_champion, direction):
+	def update_pool(self, u_champion, direction):
+		'''
+
+		:param u_champion: everytime a champion is taken from the pool, update the statistics
+		:param direction: positive for adding and negative for selling from pool. i.e. If a player sells a unit, it's a positive direction for the pool
+		:return: NA
+		'''
 		# This line is actually a little faster than combining this line and cost = stats.COST[u_champion.name]
 		# because it does not require loading the array for champion costs to search for the value.
 		cost = u_champion.cost

@@ -15,6 +15,15 @@ from math import floor
 # This is the base player class
 # Stores all values relevant to an individual player in the game
 class player:
+
+    MAX_CHAMPION = 19 # 10 on board, 9 on bench
+    # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
+    CHAMPION_INFORMATION = 12
+    BOARD_SIZE = 28
+    BENCH_SIZE = 9
+    MAX_CHAMPION_IN_SET = 58
+    MAX_ITEMS_IN_SET = 100 # 64 + 8 basic component = 72 (+ bunch of radiant or wtv if those exist)
+    MAX_BENCH_SPACE = 10
     def __init__(self, pool_pointer, player_num):
 
         self.gold = 0
@@ -54,24 +63,19 @@ class player:
         self.level_costs = [0, 2, 2, 6, 10, 20, 36, 56, 80, 100]
         self.max_level = 9
 
-        # We have 28 board slots. Each slot has a champion info.
-        # 6 spots for champion. 2 spots for the level. 1 spot for chosen.
-        # 6 spots for items. 3 item slots.
-        # (6 * 3 + 6 + 2 + 1) * 28 = 756
-        self.board_vector = np.zeros(812)
-
-        # We have 9 bench slots. Same rules as above
-        self.bench_vector = np.zeros(243)
-
-        # This time we only need 6 bits per slot with 10 slots
-        self.item_vector = np.zeros(60)
+        # 2 spot for each item(2 component) 10 slots
+        self.item_vector = np.zeros(20)
 
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
 
-        # gold, exp, level, round_number, max_units, num_in_play / max in  in the range between 0 and 1
+        # gold, exp, level, round_number, max_units, num_in_play / max in the range between 0 and 1
         # As well as a 1 for win, 0 for a loss or draw in the last 3 rounds
         self.player_vector = np.zeros(9)
+
+        self.board_occupation_vector = np.zeros(self.BOARD_SIZE)  # 28 hex * 3 - (x, y, Occupied State)
+        self.bench_occupation_vector = np.zeros(self.BENCH_SIZE)
+        self.champions_owned_vector = np.zeros(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -176,7 +180,7 @@ class player:
         success = self.add_to_bench(a_champion)
         # Putting this outside success because when the bench is full. It auto sells the champion.
         # Which adds another to the pool and need this here to remove the fake copy from the pool
-        self.pool_obj.update(a_champion, -1)
+        self.pool_obj.update_pool(a_champion, -1)
         if success:
             # Leaving this out because the agent will learn to simply buy everything and sell everything
             # I want it to just buy what it needs to win rounds.
@@ -279,81 +283,90 @@ class player:
         return False
 
     def generate_board_vector(self):
-        # 27 - length of each component, 7 - x axis, 4 - y axis
-        output_array = np.zeros(29 * 7 * 4)
+        output_array = np.zeros(28)
+        # Loop through champion vector and update occupation state
+        hex_count = 0
         for x in range(0, 7):
             for y in range(0, 4):
-                input_array = np.zeros(29)
                 if self.board[x][y]:
-                    # start with champion name
-                    c_index = list(COST.keys()).index(self.board[x][y].name)
-                    # This should update the champion name section of the vector
-                    for z in range(6, 0, -1):
-                        if c_index > 2 * z:
-                            input_array[z] = 1
-                            c_index -= 2 * z
-                    if self.board[x][y].stars == 1:
-                        input_array[6:8] = [0, 1]
-                    if self.board[x][y].stars == 2:
-                        input_array[6:8] = [1, 0]
-                    if self.board[x][y].stars == 3:
-                        input_array[6:8] = [1, 1]
-                    if self.board[x][y].chosen:
-                        input_array[8] = 1
-                    if self.board[x][y].participated_in_combat:
-                        input_array[9] = 1
-                    if self.board[x][y].survive_combat:
-                        input_array[10] = 1
+                    occupation_state = 1
+                else:
+                    occupation_state = 0
+                # Can use another conditional to indicate that the unit should be sold
+                output_array[hex_count] = occupation_state
+                hex_count += 1
+        self.board_occupation_vector = output_array
+        self.generate_player_vector() # Not sure why player vector is called here
+        self.generate_champion_vectors()
 
-                    if champion.items:
-                        for i in range(0, 3):
-                            if i < len(self.board[x][y].items) and self.board[x][y].items[i]:
-                                i_index = list(item_list.keys()).index(self.board[x][y].items[i])
-                                # This should update the item name section of the vector
-                                for z in range(6, 0, -1):
-                                    if i_index > 2 * z:
-                                        input_array[11 + 6 * (i + 1) - z] = 1
-                                        i_index -= 2 * z
-                lower_bound = 29 * (x + 7 * y)
-                output_array[lower_bound: lower_bound + 29] = input_array
-        self.board_vector = output_array
-        self.generate_player_vector()
+    def generate_champion_vectors(self):
+        '''
+        Helps to generate the vectors containing all the champions information. Including both Board and Bench
+        :return:
+        '''
+        output_array = np.zeros((self.MAX_CHAMPION,self.CHAMPION_INFORMATION)) # 19 * 11 = 209
+
+        #Check champion on bench from self.bench
+        curr_bench_count = 0
+        for x in range(0, 9):
+            champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
+            if self.bench[x]:
+                self.generate_single_champion_vector(self.bench[x], champion_info_array)
+                output_array[curr_bench_count] = champion_info_array
+
+        #Check champion on board from self.board
+        curr_board_count = 9 # Starts at 9, skipping the 9 spot on bench
+        for x in range(0, 7):
+            for y in range(0, 4):
+                champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
+                if self.board[x][y]:
+                    self.generate_single_champion_vector(self.board[x][y], champion_info_array)
+                    output_array[curr_board_count] = champion_info_array
+                    curr_board_count += 1
+        self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+
+    def generate_single_champion_vector(self, curr_champ, champion_info_array):
+        '''
+        Helps to generate a vector of length CHAMPION_INFO
+        :param curr_champ: Object champion
+        :param champion_info_array: The array to update the information in
+        :return:
+        '''
+        # start with champion name
+        c_index = list(COST.keys()).index(
+            curr_champ.name) + 1  # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
+        # This should update the champion name section of the vector
+        champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
+        champion_info_array[1] = curr_champ.stars
+        champion_info_array[2] = curr_champ.cost
+
+        if curr_champ.chosen:
+            champion_info_array[3] = 1
+
+        if curr_champ.survive_combat:
+            champion_info_array[4] = 1
+        elif curr_champ.participated_in_combat:  # Did not survive combat
+            champion_info_array[5] = 0.5
+        # else 0 , 0 implies that did not participate in combat
+
+        item_arr = np.zeros(6)
+        for index, item in enumerate(curr_champ.items):
+            item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
+            # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
+            # first spot of each of the item is left empty for now
+            item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+        champion_info_array[6:] = item_arr
 
     def generate_bench_vector(self):
-        output_array = np.zeros(27 * 9)
+        output_array = np.zeros(9)
         for x in range(0, 9):
-            input_array = np.zeros(27)
             if self.bench[x]:
-                # start with champion name
-                c_index = list(COST.keys()).index(self.bench[x].name)
-                # This should update the champion name section of the vector
-                for z in range(6, 0, -1):
-                    if c_index > 2 * z:
-                        input_array[z] = 1
-                        c_index -= 2 * z
-                if self.bench[x].stars == 1:
-                    input_array[6:8] = [0, 1]
-                if self.bench[x].stars == 2:
-                    input_array[6:8] = [1, 0]
-                if self.bench[x].stars == 3:
-                    input_array[6:8] = [1, 1]
-                if self.bench[x].chosen:
-                    input_array[8] = 1
-                else:
-                    input_array[8] = 0
-
-                if champion.items:
-                    for i in range(0, 3):
-                        if i < len(self.bench[x].items) and self.bench[x].items[i]:
-                            i_index = list(item_list.keys()).index(self.bench[x].items[i])
-                            # This should update the item name section of the vector
-                            for z in range(6, 0, -1):
-                                if i_index > 2 * z:
-                                    input_array[9 + 6 * (i + 1) - z] = 1
-                                    i_index -= 2 * z
-            lower_bound = 27 * x
-            output_array[lower_bound: lower_bound + 27] = input_array
-        self.bench_vector = output_array
+                occupation_state = 1
+            else:
+                occupation_state = 0
+            output_array[x] = occupation_state
+        self.bench_occupation_vector = output_array
+        self.generate_champion_vectors()
 
     def generate_chosen_vector(self):
         output_array = np.zeros(5)
@@ -368,17 +381,14 @@ class player:
 
     # return output_array
     def generate_item_vector(self):
-        for x in range(0, len(self.item_bench)):
-            input_array = np.zeros(6)
-            if self.item_bench[x]:
-                i_index = list(item_list.keys()).index(self.item_bench[x])
-                # This should update the item name section of the vector
-                for z in range(0, 6, -1):
-                    if i_index > 2 * z:
-                        input_array[6 - z] = 1
-                        i_index -= 2 * z
-            self.item_vector[6 * x: 6 * (x + 1)] = input_array
-        # return self.item_array
+        item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
+        for index, item in enumerate(self.item_bench):
+            if item:
+                item_index = list(item_list.keys()).index(item) + 1
+                # Avoiding index 0 as index 0 is reserved for no items
+                # Hoping to have the observation in terms of components instead but not too sure if the components
+                # can be retrieved. Leaving 1 spot empty for now first spot of each of the item is left empty for now
+                item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
 
     def generate_player_vector(self):
         self.player_vector[0] = self.gold / 100
@@ -927,7 +937,7 @@ class player:
             return False
         if not golden:
             self.gold += cost_star_values[s_champion.cost - 1][s_champion.stars - 1]
-            self.pool_obj.update(s_champion, 1)
+            self.pool_obj.update_pool(s_champion, 1)
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
@@ -949,7 +959,7 @@ class player:
                 return False
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
-                self.pool_obj.update(self.bench[location], 1)
+                self.pool_obj.update_pool(self.bench[location], 1)
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
