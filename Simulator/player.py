@@ -992,6 +992,15 @@ class player:
         else:
             return False
 
+        def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
+            if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
+                return True
+            elif [x1, y1] in self.thiefs_glove_loc:
+                self.thiefs_glove_loc.remove([x1, y1])
+                self.thiefs_glove_loc.append([x2, y2])
+            elif [x2, y2] in self.thiefs_glove_loc:
+                self.thiefs_glove_loc.remove([x2, y2])
+                self.thiefs_glove_loc.append([x1, y1])
 
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
@@ -1022,16 +1031,6 @@ class player:
                     break
             self.team_tiers[trait] = counter
         origin_class.game_comp_tiers[self.player_num] = self.team_tiers
-
-    def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
-        if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
-            return True
-        elif [x1, y1] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x1, y1])
-            self.thiefs_glove_loc.append([x2, y2])
-        elif [x2, y2] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x2, y2])
-            self.thiefs_glove_loc.append([x1, y1])
 
     # Method for keeping track of which units are golden
     # It calls golden which then calls add_to_bench which calls this again with the goldened unit
