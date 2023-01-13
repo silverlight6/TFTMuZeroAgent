@@ -5,7 +5,7 @@ import numpy as np
 import random
 from Simulator import champion, origin_class
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thiefs_gloves_items, \
-                                                                    starting_items, trait_items
+                                                                    starting_items, trait_items, uncraftable_items
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -17,12 +17,13 @@ from math import floor
 class player:
 
     MAX_CHAMPION = 19 # 10 on board, 9 on bench
-    # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
-    CHAMPION_INFORMATION = 12
+    # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
+    # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
+    CHAMPION_INFORMATION = 11
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
-    MAX_ITEMS_IN_SET = 100 # 64 + 8 basic component = 72 (+ bunch of radiant or wtv if those exist)
+    UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
     def __init__(self, pool_pointer, player_num):
 
@@ -296,7 +297,7 @@ class player:
                 output_array[hex_count] = occupation_state
                 hex_count += 1
         self.board_occupation_vector = output_array
-        self.generate_player_vector() # Not sure why player vector is called here
+        self.generate_player_vector()
         self.generate_champion_vectors()
 
     def generate_champion_vectors(self):
@@ -328,34 +329,46 @@ class player:
     def generate_single_champion_vector(self, curr_champ, champion_info_array):
         '''
         Helps to generate a vector of length CHAMPION_INFO
+        champion number (1 spot), champion star level(1 spot), champion cost (1 spot),
+        chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
+
         :param curr_champ: Object champion
         :param champion_info_array: The array to update the information in
         :return:
         '''
+
         # start with champion name
         c_index = list(COST.keys()).index(
             curr_champ.name) + 1  # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
         # This should update the champion name section of the vector
         champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
-        champion_info_array[1] = curr_champ.stars
-        champion_info_array[2] = curr_champ.cost
+        champion_info_array[1] = curr_champ.stars / 3
+        champion_info_array[2] = curr_champ.cost / 5
 
         if curr_champ.chosen:
             champion_info_array[3] = 1
-
         if curr_champ.survive_combat:
             champion_info_array[4] = 1
         elif curr_champ.participated_in_combat:  # Did not survive combat
-            champion_info_array[5] = 0.5
+            champion_info_array[4] = 0.5
         # else 0 , 0 implies that did not participate in combat
 
         item_arr = np.zeros(6)
-        for index, item in enumerate(curr_champ.items):
-            item_index = list(item_list.keys()).index(item) + 1  # Avoiding index 0 as index 0 is reserved for no items
-            # Hoping to have the observation in terms of components instead but not too sure if the components can be retrieved. Leaving 1 spot empty for now
-            # first spot of each of the item is left empty for now
-            item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
-        champion_info_array[6:] = item_arr
+        for ind, item in enumerate(curr_champ.items):
+            if ind <= 2:
+                if item in item_builds.keys():
+                    component1, component2 = item_builds[item]
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
+                else:
+                    component1 = item
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+            else:
+                print("This champion got more than 2 items")
+        champion_info_array[5:] = item_arr
 
     def generate_bench_vector(self):
         output_array = np.zeros(9)
@@ -382,13 +395,19 @@ class player:
     # return output_array
     def generate_item_vector(self):
         item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
-        for index, item in enumerate(self.item_bench):
+        for ind, item in enumerate(self.item_bench):
             if item:
-                item_index = list(item_list.keys()).index(item) + 1
-                # Avoiding index 0 as index 0 is reserved for no items
-                # Hoping to have the observation in terms of components instead but not too sure if the components
-                # can be retrieved. Leaving 1 spot empty for now first spot of each of the item is left empty for now
-                item_arr[index * 2] = float(item_index) / self.MAX_ITEMS_IN_SET
+                if item in item_builds.keys():
+                    component1, component2 = item_builds[item]
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
+                else:
+                    component1 = item
+                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+        self.item_vector = item_arr
 
     def generate_player_vector(self):
         self.player_vector[0] = self.gold / 100
@@ -851,8 +870,7 @@ class player:
             if self.bench[x].items:
                 # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thiefs_gloves':
-                    if [x, -1] not in self.thiefs_glove_loc:
-                        self.thiefs_glove_loc.remove([x, -1])
+                    self.thiefs_glove_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
