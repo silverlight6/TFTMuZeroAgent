@@ -1,11 +1,8 @@
 import numpy as np
 import config
 import random
-import ray
 from global_buffer import GlobalBuffer
 
-
-@ray.remote
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
         self.gameplay_experiences = []
@@ -39,6 +36,12 @@ class ReplayBuffer:
             return self.action_history[-1]
         else:
             return 9
+
+    def get_reward_sequence(self):
+        return self.rewards
+    
+    def set_reward_sequence(self, rewards):
+        self.rewards = rewards
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size

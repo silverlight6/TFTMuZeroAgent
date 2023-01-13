@@ -12,6 +12,7 @@ from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
+from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
@@ -51,18 +52,19 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers[key].store_replay_buffer.remote(player_observation[i], actions[i], reward[key], policy[i])
+                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions
-
-            for buffer in buffers.values():
-                buffer.store_global_buffer.remote()
-            buffers = {player_id: ReplayBuffer.remote(global_buffer) for player_id in tft_env.possible_agents}
+           # buffers.rewardNorm.remote()
+            buffers.store_global_buffer.remote()
+            buffers = BufferWrapper.remote(global_buffer)
 
             weights = ray.get(storage.get_model.remote())
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
+
+
 
     def test_collect_gameplay_experience(self, env, agent, buffers):
         observation, info = env.reset()
@@ -71,7 +73,7 @@ class DataWorker(object):
             # agent policy that uses the observation and info
             action, policy = agent.batch_policy(observation, self.prev_actions)
             self.prev_actions = action
-            observation_list, rewards, terminated, truncated, info = env.step(np.asarray(action))
+            observation_list, rewards, terminated, _, info = env.step(np.asarray(action))
             for i in range(config.NUM_PLAYERS):
                 if info["players"][i]:
                     local_reward = rewards[info["players"][i].player_num] - \
@@ -127,15 +129,14 @@ class AIInterface:
         train_step = 0
         env = parallel_env()
 
-        buffers = [{player_id: ReplayBuffer.remote(global_buffer) for player_id in env.possible_agents}
-                   for _ in range(config.CONCURRENT_GAMES)]
+        buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
 
         weights = storage.get_target_model.remote()
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            workers.append(ray.get(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                     storage, weights)))
             time.sleep(1)
 
         global_agent = TFTNetwork()
