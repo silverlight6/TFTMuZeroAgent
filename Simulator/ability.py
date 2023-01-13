@@ -80,7 +80,7 @@ def aatrox(champion):
 
         for n in target_neighbors:
             c = field.coordinates[n[0]][n[1]]
-            if c == None:
+            if c is None:
                 free_hexes.append(n)
 
         # break if there's no more space around the target unit. this should be implemented better
@@ -123,7 +123,8 @@ def ahri(champion):
 def ahri_ability(champion, data):
     radius = stats.ABILITY_RADIUS[champion.name]
     # interruption
-    if (champion.stunned or champion.health <= 0): radius = stats.ABILITY_RADIUS[champion.name] - 1
+    if champion.stunned or champion.health <= 0:
+        radius = stats.ABILITY_RADIUS[champion.name] - 1
 
     enemies = field.enemies_in_distance(champion, data['y'], data['x'], radius)
     for e in enemies:
@@ -143,8 +144,6 @@ def akali(champion):
 def annie(champion):
     default_ability_calls(champion)
 
-    target_hexes = []
-
     # 1. find hex that is our neighbor and closest to the target
     neighbors = field.find_neighbors(champion.y, champion.x)
     for n in neighbors:
@@ -159,11 +158,8 @@ def annie(champion):
     # 3 leave the neighbor out of the spell which is in a line's way that's drawn from champion to 'cone_center'
 
     spell_target = neighbors[0]
-    cone_center = []
-    leave_out = []
 
     direction_y = spell_target[0] - champion.y + 1
-    direction_x = -99
     if champion.y % 2 == 0:
         direction_x = spell_target[1] - champion.x + 1
         cone_center_table = [
@@ -202,8 +198,6 @@ def annie(champion):
 
     neighbors = field.find_neighbors(cone_center[0], cone_center[1])
     neighbors.append(cone_center)
-    # print("IN ANNIE ABILITY")
-    # print(neighbors)
     for n in neighbors:
         if n != leave_out and n[0] >= 0 and n[1] >= 0 and n[0] < 8 and n[1] < 7 and field.coordinates[n[0]][n[1]] \
                 and field.coordinates[n[0]][n[1]].team != champion.team and field.coordinates[n[0]][n[1]].champion:
@@ -290,8 +284,8 @@ def azir(champion):
                         push_counter = 1
                         while not push_coordinates:
                             if i + push_counter < len(affected_hexes[j]):
-                                if field.coordinates[affected_hexes[j][i + push_counter][0]] \
-                                        [affected_hexes[j][i + push_counter][1]] is None:
+                                if field.coordinates[affected_hexes[j][i + push_counter][0]][
+                                                     affected_hexes[j][i + push_counter][1]] is None:
                                     push_coordinates = [affected_hexes[j][i + push_counter][0],
                                                         affected_hexes[j][i + push_counter][1]]
                                 else:
@@ -304,7 +298,6 @@ def azir(champion):
 
                     # if not, then just stun for 2 seconds
                     else:
-                        # c.clear_que_idle()
                         c.add_que('change_stat', -1, None, 'stunned', True)
                         c.clear_que_stunned_removal()
                         c.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None,
@@ -347,7 +340,8 @@ def cassiopeia(champion):
                 includes_all = False
                 break
 
-        if includes_all: line_end_point.append([f[0], f[1]])
+        if includes_all:
+            line_end_point.append([f[0], f[1]])
 
     line_end_point = line_end_point[0]
     # line_end_point = line_end_point[random.randint(0,len(line_end_point) - 1)]
@@ -388,11 +382,11 @@ def cassiopeia(champion):
                                               False)
             d_from_champion = field.distance({'y': champion.y, 'x': champion.x}, {'y': f[0], 'x': f[1]}, False)
 
-            if (
-                    d_from_end_point == 2 and d_from_first_corner == 2 and d_from_second_corner == 2 and d_from_champion == 2):
+            if d_from_end_point == 2 and d_from_first_corner == 2 and \
+                    d_from_second_corner == 2 and d_from_champion == 2:
                 mid_hex = f
-            if (
-                    d_from_end_point == 2 and d_from_first_corner == 3 and d_from_second_corner == 3 and d_from_champion == 2):
+            if (d_from_end_point == 2 and d_from_first_corner == 3 and
+                    d_from_second_corner == 3 and d_from_champion == 2):
                 mid_hex_secondary = f
 
     # if the hexes align the right way, there's two extra coords that need to be added. one next to each corner
@@ -410,11 +404,12 @@ def cassiopeia(champion):
                                                       {'y': f[0], 'x': f[1]}, False)
                 d_from_champion = field.distance({'y': champion.y, 'x': champion.x}, {'y': f[0], 'x': f[1]}, False)
 
-                if ((d_from_first_corner == 1 or d_from_second_corner == 1) and d_from_champion == 3):
+                if (d_from_first_corner == 1 or d_from_second_corner == 1) and d_from_champion == 3:
                     additional_coords.append(f)
 
     mid_hex_neighbors = []
-    if (mid_hex): mid_hex_neighbors = field.find_neighbors(mid_hex[0], mid_hex[1])
+    if mid_hex:
+        mid_hex_neighbors = field.find_neighbors(mid_hex[0], mid_hex[1])
 
     cone = mid_hex_neighbors
     cone.append(mid_hex)
@@ -431,7 +426,7 @@ def cassiopeia(champion):
     already_targeted = []
     for c in cone:
         coords = field.coordinates
-        if c[0] >= 0 and c[0] <= 7 and c[1] >= 0 and c[1] <= 6:
+        if 7 >= c[0] >= 0 <= c[1] <= 6:
             h = coords[c[0]][c[1]]
             if h and h.team != champion.team and h.champion and h not in already_targeted:
                 # h.add_que('change_stat', -1, None, 'stunned', True)
@@ -558,7 +553,6 @@ def evelynn(champion):
     elif r > stats.ABILITY_TARGET_PROBABILITIES[champion.name][2]:
         targets = 2
 
-    target_list = [champion.target]
     target_y = champion.target.y
     target_x = champion.target.x
 
@@ -582,13 +576,13 @@ def evelynn(champion):
     teleport_hexes = []
     for i in range(0, 7):
         for j in range(0, 6):
-            c = field.coordinates
             d_from_champion = field.distance({'y': champion.y, 'x': champion.x}, {'y': i, 'x': j}, False)
             d_from_target = field.distance({'y': target_y, 'x': target_x}, {'y': i, 'x': j}, False)
             if d_from_champion == 3 and d_from_target == 4:
                 teleport_hexes.append([i, j])
     # if there's none, just pick the neighbors
-    if len(teleport_hexes) == 0: teleport_hexes = field.find_neighbors(champion.y, champion.x)
+    if len(teleport_hexes) == 0:
+        teleport_hexes = field.find_neighbors(champion.y, champion.x)
 
     # make sure that we teleport backwards
     if champion.y > target_y:
@@ -625,7 +619,6 @@ def ezreal_ability(champion, data):
     longest_line = max([len(affected_hexes[0]), len(affected_hexes[1]), len(affected_hexes[2]), len(affected_hexes[3]),
                         len(affected_hexes[4])])
 
-    base_delay = stats.ABILITY_LENGTH[champion.name] / longest_line
     already_targeted = []
 
     for i in range(0, longest_line):
@@ -674,7 +667,6 @@ def fiora_ability(champion, data):
         field.find_target(champion)
 
     if champion.target:
-        # champion.target.clear_que_idle()
         champion.target.add_que('change_stat', -1, None, 'stunned', True)
         champion.target.clear_que_stunned_removal()
         champion.target.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None,
@@ -855,7 +847,8 @@ def jarvaniv(champion):
             if c and c.team != champion.team and c.champion and c not in already_targeted:
                 c.add_que('change_stat', -1, None, 'stunned', True)
                 c.clear_que_stunned_removal()
-                c.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None, 'stunned', False)
+                c.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None, 'stunned',
+                          False)
 
                 champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
 

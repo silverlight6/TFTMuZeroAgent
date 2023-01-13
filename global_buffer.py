@@ -1,9 +1,11 @@
-from collections import deque
-import numpy as np
-
+import ray
 import config
+import time
+import numpy as np
+from collections import deque
 
 
+@ray.remote
 class GlobalBuffer:
     def __init__(self):
         self.gameplay_experiences = deque(maxlen=25000)
@@ -13,7 +15,6 @@ class GlobalBuffer:
         # Returns: a batch of gameplay experiences without regard to which agent.
         observation_batch, action_history_batch, target_value_batch, target_reward_batch = [], [], [], []
         target_policy_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
-
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask,\
                 value, reward, policy = self.gameplay_experiences.popleft()
@@ -48,6 +49,7 @@ class GlobalBuffer:
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size:
             return True
+        time.sleep(20)
         return False
 
     # Leaving this transpose method here in case some model other than
