@@ -1,3 +1,4 @@
+import collections
 import numpy as np
 import config
 from Simulator.stats import COST
@@ -12,8 +13,9 @@ class Observation:
         self.shop_vector = np.zeros(45)
         self.game_comp_vector = np.zeros(208)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
+        self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS*config.OBSERVATION_TIME_STEP_INTERVAL)
 
-    def observation(self, player, action_vector):
+    def observation(self, player, action_vector, players):
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         complete_game_state_vector = np.concatenate([shop_vector,
@@ -25,13 +27,41 @@ class Observation:
                                                      player.player_vector,
                                                      game_state_vector,
                                                      action_vector], axis=-1)
+
         # std = np.std(input_vector)
         # if std == 0:
         # input_vector = input_vector - np.mean(input_vector)
         # else:
         #     input_vector = (input_vector - np.mean(input_vector)) / std
         # print(input_vector.shape)
-        return complete_game_state_vector
+
+        # partial observations for other players
+        other_player_observations = []
+        for player_id in players:
+            other_player = players[player_id]
+            if other_player and other_player != player:
+                other_player_vector = np.concatenate([other_player.board_occupation_vector,
+                                                      other_player.champions_owned_vector,
+                                                      other_player.bench_occupation_vector,
+                                                      other_player.chosen_vector,
+                                                      other_player.item_vector,
+                                                      other_player.player_vector], axis=-1)
+                other_player_observations.append(other_player_vector)
+
+        # initially fill the queue with duplicates of first observation so we can still sample when there aren't enough timesteps yet
+        maxlen = config.OBSERVATION_TIME_STEPS*config.OBSERVATION_TIME_STEP_INTERVAL
+        if len(self.cur_player_observations) == 0:
+            for _ in range(maxlen):
+                self.cur_player_observations.append(complete_game_state_vector)
+
+        # enqueue latest observation and pop the oldest (performed automatically by deque with maxlen configured)
+        self.cur_player_observations.append(complete_game_state_vector)
+
+        cur_player_observation = np.array([self.cur_player_observations[i] for i in range(0, maxlen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
+        other_player_observation = np.array(other_player_observations).flatten()
+        total_observation = np.concatenate((cur_player_observation, other_player_observation))
+        total_observation_padded = np.pad(total_observation, (0,config.OBSERVATION_SIZE-total_observation.size))
+        return total_observation_padded
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

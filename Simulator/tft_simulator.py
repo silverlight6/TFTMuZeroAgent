@@ -150,7 +150,7 @@ class TFT_Simulator(AECEnv):
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
         self.observations = {agent: self.game_observations[agent].observation(
-            self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
+            self.PLAYERS[agent], self.PLAYERS[agent].action_vector, self.PLAYERS) for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -219,7 +219,7 @@ class TFT_Simulator(AECEnv):
         if len(self.agents) != 0:
             self.agent_selection = self._agent_selector.next()
             self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
-                self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
+                self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector, self.PLAYERS)
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()
