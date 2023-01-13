@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 
 from typing import Dict, List
-from numba import jit, cuda, typed
 
 import collections
 import math
@@ -24,8 +23,6 @@ NetworkOutput = collections.namedtuple(
     'value reward policy_logits hidden_state')
 
 
-##### JITTED FUNCTIONS ######
-@jit(target_backend='cuda', nopython=True)
 def normalize2(value, minimum, maximum):  # faster implementation of normalization
     if minimum != maximum:
         ans = (value - minimum) / (maximum - minimum)
@@ -34,7 +31,6 @@ def normalize2(value, minimum, maximum):  # faster implementation of normalizati
         return maximum
 
 
-@jit(target_backend='cuda', nopython=True)
 def update2(value, maximum, minimum):
     if value > maximum:
         maximum = value 
@@ -50,7 +46,6 @@ class MinMaxStats(object):
         self.maximum = minimum
         self.minimum = maximum
         self.set = False
-
 
     def update(self, value: float):
         self.maximum, self.minimum = update2(float(value), float(self.maximum), float(self.minimum))
@@ -73,8 +68,6 @@ class MinMaxStats(object):
             if type(value) != int and type(value) != float:
                 value = float(value)
             ans = normalize2(value, maximum, minimum)
-            
-
             return ans
 
         return value
@@ -105,7 +98,7 @@ class Node(object):
         return self.value_sum / self.visit_count
 
 
-class Network(tf.Module):
+class Network(tf.keras.Model):
     """
     Base class for all of MuZero neural networks.
     """
@@ -183,7 +176,6 @@ class Network(tf.Module):
     # Apply the recurrent inference model to the given hidden state
     def recurrent_inference(self, hidden_state, action) -> dict:
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
-        ckpt = time.time_ns()
         hidden_state, reward_logits, value_logits, policy_logits = \
             self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
 
@@ -228,10 +220,9 @@ class TFTNetwork(Network):
     """
     Neural networks for tic-tac-toe game.
     """
-
     def __init__(self) -> None:
-        regularizer = tf.keras.regularizers.l2(l=1e-4)
 
+        regularizer = tf.keras.regularizers.l2(l=1e-4)
         # Representation model. Observation --> hidden state
         representation_model: tf.keras.Model = tf.keras.Sequential([
             tf.keras.Input(shape=config.INPUT_SHAPE),
@@ -289,28 +280,20 @@ class TFTNetwork(Network):
                          dynamics=dynamics_model,
                          prediction=prediction_model)
 
-        # checkpoints for dynamics
-        self.checkpoint_dyn = tf.train.Checkpoint(self.dynamics)
-        self.dyn_manager = tf.train.CheckpointManager(self.checkpoint_dyn, "./SavedModels/dyn", max_to_keep=10000)
+    # Renaming as to not override built-in functions
+    def tft_save_model(self, episode):
+        self.save_weights("./SavedModels/checkpoint_{}".format(episode))
 
-    def save_model(self, episode):
-        # save representation and prediction models
-        self.representation.save("./SavedModels/rep"+str(episode))
-        self.prediction.save("./SavedModels/pred"+str(episode))
-        
-        # checkpoints for dynamics
-        self.dyn_manager.save(checkpoint_number=episode)
-
-    def load_model(self, episode):
-        self.representation = tf.keras.models.load_model("./SavedModels/rep"+str(episode))
-        self.prediction = tf.keras.models.load_model("./SavedModels/pred"+str(episode))
-        self.checkpoint_dyn.restore("./SavedModels/dyn/ckpt-"+str(episode))
+    # Renaming as to not override built-in functions
+    def tft_load_model(self, episode):
+        self.load_weights("./SavedModels/checkpoint_{}".format(episode))
+        print("Loading model episode {}".format(episode))
 
     def get_rl_training_variables(self):
         return self.trainable_variables
 
 
-class Mlp(tf.Module):
+class Mlp(tf.keras.Model):
     def __init__(self, hidden_size=256, mlp_dim=512):
         super(Mlp, self).__init__()
         self.fc1 = tf.keras.layers.Dense(mlp_dim, dtype=tf.float32)
@@ -360,13 +343,13 @@ class ValueEncoder:
                  use_contractive_mapping=True):
         if not max_value > min_value:
             raise ValueError('max_value must be > min_value')
-        # min_value = float(min_value)
-        # max_value = float(max_value)
+        min_value = float(min_value)
+        max_value = float(max_value)
         if use_contractive_mapping:
             max_value = contractive_mapping(max_value)
             min_value = contractive_mapping(min_value)
         if num_steps <= 0:
-            num_steps = int(math.ceil(max_value) + 1 - math.floor(min_value))
+            num_steps = tf.math.ceil(max_value) + 1 - tf.math.floor(min_value)
         self.min_value = min_value
         self.max_value = max_value
         self.value_range = max_value - min_value
@@ -376,7 +359,7 @@ class ValueEncoder:
         self.step_range_float = tf.cast(self.step_range_int, tf.float32)
         self.use_contractive_mapping = use_contractive_mapping
 
-    def encode(self, value): #not worth optimizing 
+    def encode(self, value):  # not worth optimizing
         if len(value.shape) != 1:
             raise ValueError(
                 'Expected value to be 1D Tensor [batch_size], but got {}.'.format(
@@ -400,7 +383,7 @@ class ValueEncoder:
         )
         return lower_encoding + upper_encoding
 
-    def decode(self, logits): #not worth optimizing 
+    def decode(self, logits):  # not worth optimizing
         if len(logits.shape) != 2:
             raise ValueError(
                 'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
@@ -424,6 +407,7 @@ def inverse_contractive_mapping(x, eps=0.001):
            (tf.math.square((tf.sqrt(4 * eps * (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 
+# Keeping the JIT functions commented out because I don't know how it will act with Ray and I don't want to debug this.
 ##### JITTED FUNCTIONS #######
 # This function uses the GPU or converts the python to C making it 33-10 times faster
 # @jit(target_backend='cuda', nopython=True)
@@ -455,7 +439,6 @@ class MCTSAgent:
         self.network: Network = network
         self.agent_id = agent_id
 
-        # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
         self.action_dim = 10
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
@@ -468,21 +451,11 @@ class MCTSAgent:
         # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
         policy_probs = network_output["policy_logits"].numpy()[0]
 
-        # convert dictionary to single list for JIT function by looping through dictionary and
-        # converting items to numpy then adding to list
-        # self.action_dim hardcoded because it changes type randomly.
-        try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(policy_probs, 10)
-            # This policy sum is not in the Google's implementation. Not sure if required.
-            policy_sum = sum(policy[0].values())
-            for action, p in policy[0].items():
-                node.children[action] = Node(p / policy_sum)
-        except:
-            print("error - reverting to old function")
-            self.expand_node_old(node, network_output)
-
-        # if np.random.randint(0,1000) == 500:
-        # print("expand_node took {} time".format(time.time_ns() - ckpt))
+        policy = expand_node2(policy_probs, 10)
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        policy_sum = sum(policy[0].values())
+        for action, p in policy[0].items():
+            node.children[action] = Node(p / policy_sum)
 
     def expand_node_old(self, node: Node, network_output):  # old version of expand_node for a failsafe
         policy = {b: math.exp(network_output["policy_logits"][0][b]) for b in range(self.action_dim)}
@@ -490,7 +463,7 @@ class MCTSAgent:
         for action, p in policy.items():
             node.children[action] = Node(p / policy_sum)
 
-    def add_exploration_noise(self, node: Node): #takes 0 time 
+    def add_exploration_noise(self, node: Node):  # takes 0 time
         actions = list(node.children.keys())
         noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
         frac = config.ROOT_EXPLORATION_FRACTION
@@ -502,14 +475,13 @@ class MCTSAgent:
         _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
                                 child) for action, child in node.children.items())
         return_child = child
-        
 
         return action, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
     # the prior.
     @staticmethod
-    def ucb_score(parent: Node, child: Node, min_max_stats: MinMaxStats) -> float: #Takes aprx 0 time
+    def ucb_score(parent: Node, child: Node, min_max_stats: MinMaxStats) -> float:  # Takes aprx 0 time
         pb_c = math.log((parent.visit_count + config.PB_C_BASE + 1) /
                         config.PB_C_BASE) + config.PB_C_INIT
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -558,7 +530,6 @@ class MCTSAgent:
             network_output = self.network. \
                 recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
             self.expand_node(node, network_output)
-            # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
 
     def select_action(self, node: Node):
@@ -578,6 +549,7 @@ class MCTSAgent:
         self.run_mcts(root, network_output["policy_logits"].numpy(), previous_action)
 
         action = int(self.select_action(root))
+
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
         # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
@@ -691,22 +663,13 @@ class Batch_MCTSAgent(MCTSAgent):
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
 
-        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
         policy_probs = network_output["policy_logits"][to_play].numpy()
 
-        # convert dictionary to single list for JIT function by looping through dictionary and
-        # converting items to numpy then adding to list
-        # self.action_dim hardcoded because it changes type randomly.
-        
-        try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(policy_probs, 10)
-            # This policy sum is not in the Google's implementation. Not sure if required.
-            policy_sum = sum(policy[0].values())
-            for action, p in policy[0].items():
-                node.children[action] = Node(p / policy_sum)
-        except:
-            print("error - reverting to old function")
-            self.expand_node_old(node, network_output)
+        policy = expand_node2(policy_probs, 10)
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        policy_sum = sum(policy[0].values())
+        for action, p in policy[0].items():
+            node.children[action] = Node(p / policy_sum)
 
 
 def masked_distribution(x, use_exp, mask=None):

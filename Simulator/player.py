@@ -556,9 +556,6 @@ class player:
         return False
 
     # automatically put the champion at the end of the open bench
-    # Will likely have to deal with azir and other edge cases here.
-    # Kinda of the attitude that I will let those issues sting me first and deal with them
-    # When they come up and appear.
     def move_board_to_bench(self, x, y):
         if 0 <= x < 7 and 0 <= y < 4:
             if self.bench_full():
@@ -971,7 +968,6 @@ class player:
             return True
         else:
             return False
-
 
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item

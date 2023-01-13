@@ -92,7 +92,7 @@ class TFT_Simulator(AECEnv):
         #                       for agent in self.agents}
 
         # For PPO
-        self.action_spaces = {agent: Discrete(config.ACTION_DIM)
+        self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
                               for agent in self.agents}
         super().__init__()
 
