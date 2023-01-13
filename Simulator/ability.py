@@ -1754,7 +1754,7 @@ def pyke(champion):
 def pyke_ability(champion, data):
     coords = field.coordinates
     for p in data['path']:
-        c = coords[p[0]][p[1]]
+        c = coords[p[0]][p[1]]      # I got one crash here where pyke chose coordinates out of range
         if c and c.team != champion.team and c.champion:
             c.add_que('change_stat', -1, None, 'stunned', True)
             c.clear_que_stunned_removal()

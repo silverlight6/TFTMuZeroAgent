@@ -112,7 +112,7 @@ class champion:
         self.underlords = []
         self.overlord = overlord
         self.overlord_coordinates = sandguard_overlord_coordinates
-        self.origin = origin_class_stats.origin_class[self.name]
+        self.origin = origin_class_stats.origin_class[self.name].copy()
 
         self.will_revive = [[None], [None]]  # consists of [[zilean_champion], [GA]]
 

@@ -206,7 +206,7 @@ class Game_Round:
                 ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
                 ran_cost_1 = champion.champion(ran_cost_1,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update(ran_cost_1, -1)
+                self.pool_obj.update_pool(ran_cost_1, -1)
                 player.add_to_bench(ran_cost_1)
                 log_to_file(player)
 
@@ -253,7 +253,7 @@ class Game_Round:
             ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
             ran_cost_3 = champion.champion(ran_cost_3,
                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-            self.pool_obj.update(ran_cost_3, -1)
+            self.pool_obj.update_pool(ran_cost_3, -1)
             player.add_to_bench(ran_cost_3)
 
     def carousel3_4(self):
@@ -262,7 +262,7 @@ class Game_Round:
                 ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
                 ran_cost_3 = champion.champion(ran_cost_3,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update(ran_cost_3, -1)
+                self.pool_obj.update_pool(ran_cost_3, -1)
                 player.add_to_bench(ran_cost_3)
 
     def carousel4_4(self):
@@ -271,7 +271,7 @@ class Game_Round:
                 ran_cost_4 = list(pool_stats.COST_4.items())[random.randint(0, len(pool_stats.COST_4) - 1)][0]
                 ran_cost_4 = champion.champion(ran_cost_4,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update(ran_cost_4, -1)
+                self.pool_obj.update_pool(ran_cost_4, -1)
                 player.add_to_bench(ran_cost_4)
 
     def carousel5_4(self):
@@ -280,7 +280,7 @@ class Game_Round:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update(ran_cost_5, -1)
+                self.pool_obj.update_pool(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
     def carousel6_4(self):
@@ -289,7 +289,7 @@ class Game_Round:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update(ran_cost_5, -1)
+                self.pool_obj.update_pool(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
     def carousel7_4(self):
@@ -298,7 +298,7 @@ class Game_Round:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update(ran_cost_5, -1)
+                self.pool_obj.update_pool(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
     def carousel8_4(self):
@@ -307,7 +307,7 @@ class Game_Round:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update(ran_cost_5, -1)
+                self.pool_obj.update_pool(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5)
 
     def terminate_game(self):
