@@ -29,18 +29,20 @@ class DataWorker(object):
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
-    def collect_gameplay_experience(self, tft_env, buffers, global_buffer, storage, weights):
+    def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
+
         self.agent_network.set_weights(weights)
         agent = Batch_MCTSAgent(self.agent_network)
         while True:
             # Reset the environment
-            player_observation = tft_env.reset()
+            player_observation = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
-            terminated = {player_id: False for player_id in tft_env.possible_agents}
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+            terminated = {player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
+            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
@@ -48,7 +50,7 @@ class DataWorker(object):
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
-                next_observation, reward, terminated, _, info = tft_env.step(step_actions)
+                next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
@@ -56,6 +58,7 @@ class DataWorker(object):
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions
+
             buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
@@ -63,8 +66,6 @@ class DataWorker(object):
             weights = ray.get(storage.get_model.remote())
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
-
-
 
     def test_collect_gameplay_experience(self, env, agent, buffers):
         observation, info = env.reset()
@@ -120,24 +121,23 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+        train_step = 200
 
         global_buffer = GlobalBuffer.remote()
 
         trainer = MuZero_trainer.Trainer()
-        storage = Storage.remote()
+        storage = Storage.remote(train_step)
 
-        train_step = 0
         env = parallel_env()
 
         buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
 
-        weights = storage.get_target_model.remote()
+        weights = ray.get(storage.get_target_model.remote())
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(ray.get(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights)))
-            # legendary line ahead
+            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                     storage, weights))
             time.sleep(1)
 
         global_agent = TFTNetwork()

@@ -48,6 +48,7 @@ class GlobalBuffer:
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size:
+            time.sleep(5)
             return True
         time.sleep(20)
         return False

@@ -358,13 +358,14 @@ class player:
             if ind <= 2:
                 if item in item_builds.keys():
                     component1, component2 = item_builds[item]
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1
+                    component2_index = uncraftable_items.index(component2) + 1
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
                     item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
                 else:
                     component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
             else:
                 print("This champion got more than 2 items")
