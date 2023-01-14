@@ -149,7 +149,7 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
-        self.observations = {agent: self.game_observations[agent].observation(
+        self.observations = {agent: self.game_observations[agent].observation(agent,
             self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
@@ -170,11 +170,11 @@ class TFT_Simulator(AECEnv):
             return
         action = np.asarray(action)
         if action.ndim == 0:
-            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection],
+            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                  self.agent_selection, self.game_observations)
         elif action.ndim == 1:
-            self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection],
-                                                   self.agent_selection, self.game_observations)
+            self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+                                                   self.agent_selection, self.game_observations, self.PLAYERS)
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
@@ -218,7 +218,7 @@ class TFT_Simulator(AECEnv):
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
         if len(self.agents) != 0:
             self.agent_selection = self._agent_selector.next()
-            self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
+            self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(self.agent_selection,
                 self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
 
         # Probably not needed but doesn't hurt?

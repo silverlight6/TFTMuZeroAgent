@@ -24,7 +24,7 @@ class Step_Function:
                 self.observation_objs[player].generate_shop_vector(self.shops[player])
 
     # Input -> [Decision, shop, champion_bench, item_bench, x1, y1, x2, y2]
-    def batch_2d_controller(self, action, player, key, game_observations):
+    def batch_2d_controller(self, action, player, players, key, game_observations):
         # implement i later
         if player:
             # Buy a shop unit
@@ -140,6 +140,7 @@ class Step_Function:
             # Update the other players information
             elif action[0] == 8:
                 game_observations[key].generate_game_comps_vector()
+                game_observations[key].generate_other_player_vectors(player, players)
 
             # End turn with later implementations, currently nothing
             elif action[0] == 9:
@@ -149,7 +150,7 @@ class Step_Function:
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken
-    def multi_step(self, action, player, game_observation, agent, buffer):
+    def multi_step(self, action, player, game_observation, agent, buffer, players):
         if action == 0:
             action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])
             observation = game_observation.observation(player, buffer, action_vector)
@@ -425,6 +426,7 @@ class Step_Function:
         # Later in training, turn this number up to 7 due to how long it takes a normal player to execute
         elif action == 8:
             game_observation.generate_game_comps_vector()
+            game_observation.generate_other_player_vectors(player, players)
             return self.shops, False, True, 1
 
         # end turn
@@ -439,12 +441,12 @@ class Step_Function:
             return self.shops, False, False, 1
         return self.shops, False, True, 1
 
-    def action_controller(self, action, player, key, game_observations):
+    def action_controller(self, action, player, players, key, game_observations):
         if player:
             # Python doesn't allow comparisons between arrays,
             # so we're just checking if the nth value is 1 (true) or 0 (false)
             if player.action_vector[0]:
-                self.batch_multi_step(action, player, game_observations[key])
+                self.batch_multi_step(action, player, players, game_observations[key])
             if player.action_vector[1]:
                 self.batch_shop(action, player, game_observations[key])
                 player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
@@ -530,7 +532,7 @@ class Step_Function:
             # Some function that evens out rewards to all other players
         return 0
 
-    def batch_multi_step(self, action, player, game_observation):
+    def batch_multi_step(self, action, player, players, game_observation):
         player.current_action = action
         if action == 0:
             player.action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])
@@ -561,6 +563,7 @@ class Step_Function:
 
         elif action == 8:
             game_observation.generate_game_comps_vector()
+            game_observation.generate_other_player_vectors(player, players)
 
         elif action == 9:
             # This would normally be end turn but figure it out later
