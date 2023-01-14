@@ -28,7 +28,7 @@ class player:
     def __init__(self, pool_pointer, player_num):
 
         self.gold = 0
-        self.level = 0
+        self.level = 1
         self.exp = 0
         self.health = 100
         self.player_num = player_num
@@ -55,7 +55,7 @@ class player:
         # I need to comment how this works.
         self.triple_catalog = []
         self.num_units_in_play = 0
-        self.max_units = 0
+        self.max_units = 1
         self.exp_cost = 4
         self.round = 0
 
@@ -236,11 +236,14 @@ class player:
                 if self.board[x][y]:
                     self.board[x][y].participated_in_combat = True
                     self.board[x][y].survive_combat = False
+        # update bench to did not participate in combat
         for x in range(len(self.bench)):
             if self.bench[x]:
                 self.bench[x].participated_in_combat = False
                 self.bench[x].survive_combat = False
-        # update bench to did not participate in combat
+        # print comp and bench for log purposes at end of turn
+        self.printComp()
+        self.printBench()
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
@@ -1111,8 +1114,6 @@ class player:
         self.reward += self.num_units_in_play * self.minion_count_reward
         # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
         self.gold_income(self.round)
-        self.printComp()
-        self.printBench()
         self.generate_player_vector()
         if self.kayn_check():
             self.kayn_turn_count += 1

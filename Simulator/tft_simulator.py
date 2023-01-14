@@ -50,7 +50,6 @@ class TFT_Simulator(AECEnv):
         self.actions_taken = 0
         self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
-        self.game_round.play_game_round()
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
         self.agents = self.possible_agents[:]

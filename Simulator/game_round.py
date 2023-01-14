@@ -212,8 +212,8 @@ class Game_Round:
 
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
-
         for player in self.PLAYERS.values():
+            print(player.level)
             if player:
                 player.start_round(1)
         # False stands for no one died
