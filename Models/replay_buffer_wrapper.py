@@ -34,12 +34,11 @@ class BufferWrapper:
 
     def rewardNorm(self):
         reward_dat = []
-        rewardLens = [0]
+        rewardLens = []
 
         for b in self.buffers.values():
             # clip rewards to prevent outliers from skewing results
             rewards = b.get_reward_sequence()
-            print(rewards)
             rewards = np.clip(rewards, -3, 3)
             # store length of array to allocate elements later after normalization
             rewardLens.append(len(rewards))
@@ -48,16 +47,14 @@ class BufferWrapper:
         # reshape array of arrays of rewards to a single array
         # this reshaping should leave data from each reward array in order
         reward_dat = np.array(reward_dat)
-        reward_dat.flatten()
-        print(reward_dat[0])
+        reward_dat = np.hstack(reward_dat)
         # normalize the values from this array w/ sklearn
-        reward_dat = preprocessing.normalize(reward_dat)
-        print(reward_dat[0])
+        reward_dat = preprocessing.scale(reward_dat)
         # reassign normalized values back into original arrays
-        i = 0
-        for b in self.buffers.values():
-            print("setting")
-            b.set_reward_sequence(rewards[rewardLens[i]:rewardLens[i+1]])
+        index = 0
+        for i, b in enumerate(self.buffers.values()):
+            b.set_reward_sequence(reward_dat[index : index + rewardLens[i]])
+            index += rewardLens[i]
     
     def store_global_buffer(self):
         for b in self.buffers.values():
