@@ -282,11 +282,11 @@ class TFTNetwork(Network):
 
     # Renaming as to not override built-in functions
     def tft_save_model(self, episode):
-        self.save_weights("./SavedModels/checkpoint_{}".format(episode))
+        self.save_weights("./Checkpoints/checkpoint_{}".format(episode))
 
     # Renaming as to not override built-in functions
     def tft_load_model(self, episode):
-        self.load_weights("./SavedModels/checkpoint_{}".format(episode))
+        self.load_weights("./Checkpoints/checkpoint_{}".format(episode))
         print("Loading model episode {}".format(episode))
 
     def get_rl_training_variables(self):

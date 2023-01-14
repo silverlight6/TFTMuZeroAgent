@@ -16,7 +16,7 @@ from math import floor
 # Stores all values relevant to an individual player in the game
 class player:
 
-    MAX_CHAMPION = 19 # 10 on board, 9 on bench
+    MAX_CHAMPION = 19  # 10 on board, 9 on bench
     # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
     # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
     CHAMPION_INFORMATION = 11
@@ -25,6 +25,7 @@ class player:
     MAX_CHAMPION_IN_SET = 58
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
+
     def __init__(self, pool_pointer, player_num):
 
         self.gold = 0
@@ -118,6 +119,7 @@ class player:
         self.kayn_form = None
 
         self.thiefs_glove_loc = []
+
         self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
         self.current_action = 0
         self.action_complete = False
@@ -304,13 +306,14 @@ class player:
         self.generate_champion_vectors()
 
     def generate_champion_vectors(self):
-        '''
+        """
         Helps to generate the vectors containing all the champions information. Including both Board and Bench
         :return:
-        '''
-        output_array = np.zeros((self.MAX_CHAMPION,self.CHAMPION_INFORMATION)) # 19 * 11 = 209
+        """
 
-        #Check champion on bench from self.bench
+        output_array = np.zeros((self.MAX_CHAMPION, self.CHAMPION_INFORMATION))  # 19 * 11 = 209
+
+        # Check champion on bench from self.bench
         curr_bench_count = 0
         for x in range(0, 9):
             champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
@@ -318,7 +321,7 @@ class player:
                 self.generate_single_champion_vector(self.bench[x], champion_info_array)
                 output_array[curr_bench_count] = champion_info_array
 
-        #Check champion on board from self.board
+        # Check champion on board from self.board
         curr_board_count = 9 # Starts at 9, skipping the 9 spot on bench
         for x in range(0, 7):
             for y in range(0, 4):
@@ -330,7 +333,7 @@ class player:
         self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
 
     def generate_single_champion_vector(self, curr_champ, champion_info_array):
-        '''
+        """
         Helps to generate a vector of length CHAMPION_INFO
         champion number (1 spot), champion star level(1 spot), champion cost (1 spot),
         chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
@@ -338,11 +341,12 @@ class player:
         :param curr_champ: Object champion
         :param champion_info_array: The array to update the information in
         :return:
-        '''
+        """
 
         # start with champion name
-        c_index = list(COST.keys()).index(
-            curr_champ.name) + 1  # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
+        # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
+        c_index = list(COST.keys()).index(curr_champ.name) + 1
+
         # This should update the champion name section of the vector
         champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
         champion_info_array[1] = curr_champ.stars / 3
