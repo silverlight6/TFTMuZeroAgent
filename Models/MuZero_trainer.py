@@ -34,7 +34,6 @@ class Trainer(object):
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, train_step, summary_writer):
-
         # initial step
         output = agent.initial_inference(observation)
 

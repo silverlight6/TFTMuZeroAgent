@@ -157,7 +157,7 @@ def minion_combat(player, enemy, round, others):
     if index_won == 0:
         player.loss_round(damage)
         for p in alive:
-            p.won_round(damage/len(alive))
+            p.won_ghost(damage/len(alive))
         player.health -= damage
     # player wins!
     if index_won == 1:
@@ -167,7 +167,7 @@ def minion_combat(player, enemy, round, others):
         player.loss_round(damage)
         if len(alive) > 0:
             for p in alive:
-                p.won_round(damage/len(alive))
+                p.won_ghost(damage/len(alive))
         player.health -= damage
 
 

@@ -358,13 +358,14 @@ class player:
             if ind <= 2:
                 if item in item_builds.keys():
                     component1, component2 = item_builds[item]
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1
+                    component2_index = uncraftable_items.index(component2) + 1
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
                     item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
                 else:
                     component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
+                    component1_index = uncraftable_items.index(component1) + 1
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
             else:
                 print("This champion got more than 2 items")
@@ -585,9 +586,6 @@ class player:
         return False
 
     # automatically put the champion at the end of the open bench
-    # Will likely have to deal with azir and other edge cases here.
-    # Kinda of the attitude that I will let those issues sting me first and deal with them
-    # When they come up and appear.
     def move_board_to_bench(self, x, y):
         if 0 <= x < 7 and 0 <= y < 4:
             if self.bench_full():
@@ -1019,7 +1017,7 @@ class player:
         elif [x2, y2] in self.thiefs_glove_loc:
             self.thiefs_glove_loc.remove([x2, y2])
             self.thiefs_glove_loc.append([x1, y1])
-
+            
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
         for x in range(len(self.item_bench)):
@@ -1144,3 +1142,7 @@ class player:
                     return
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
+    
+    def won_ghost(self, damage):
+        self.reward += 0.02 * damage
+        self.print(str(0.02 * damage) + " reward for someone losing to ghost")
