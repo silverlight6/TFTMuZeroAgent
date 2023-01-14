@@ -176,9 +176,9 @@ class TFT_Simulator(AECEnv):
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection],
                                                    self.agent_selection, self.game_observations)
 
-        # This is most of the env implementations I see, but I don't think we need it in our particularly environment
-        # self._clear_rewards()
-
+        # if we don't use this line, rewards will compound per step 
+        # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
+        self._clear_rewards()
         self.rewards[self.agent_selection] = \
             self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
         self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
@@ -223,5 +223,4 @@ class TFT_Simulator(AECEnv):
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()
-
         return self.observations, self.rewards, self.terminations, self.truncations, self.infos

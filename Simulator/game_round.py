@@ -177,7 +177,7 @@ class Game_Round:
                         players[num].loss_round(player_round)
                         if len(alive) > 0:
                             for other in alive:
-                                other.won_round(damage/len(alive))
+                                other.won_ghost(damage/len(alive))
                     players[num].combat = True
                     players_matched += 1
                 else:

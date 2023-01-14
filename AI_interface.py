@@ -137,6 +137,7 @@ class AIInterface:
         for i, worker in enumerate(data_workers):
             workers.append(ray.get(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights)))
+            # legendary line ahead
             time.sleep(1)
 
         global_agent = TFTNetwork()

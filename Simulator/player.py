@@ -1141,3 +1141,7 @@ class player:
                     return
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
+    
+    def won_ghost(self, damage):
+        self.reward += 0.02 * damage
+        self.print(str(0.02 * damage) + " reward for someone losing to ghost")
