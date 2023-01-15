@@ -16,3 +16,5 @@ Any and all questions related to this project are welcome at slucoris@gmail.com
 Any and all further improvements to this project will be looked at, discussed, and highly likely accepted.
 
 The environment is separated from the model so if someone wants to add an additional model to this environment, they are welcome to do so following the same examples as the current model is set up.
+
+If anyone wants to participate in the project, all are welcome to join the discord at https://discord.gg/cPKwGU7dbU
