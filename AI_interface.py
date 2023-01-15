@@ -5,11 +5,17 @@ from Simulator import champion, player as player_class, pool
 import datetime
 import game_round
 import numpy as np
+<<<<<<< Updated upstream
 import tensorflow as tf
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.stats import COST
 from Models.MuZero_agent import MuZero_agent
 from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent, Batch_MCTSAgent
+=======
+from global_buffer import GlobalBuffer
+from Models import MuZero_trainer
+from Models.MuZero_agent_2 import TFTNetwork, MCTS
+>>>>>>> Stashed changes
 from Models.replay_muzero_buffer import ReplayBuffer
 from global_buffer import GlobalBuffer
 
@@ -717,6 +723,7 @@ def batch_step(players, agent, buffers, pool_obj):
 # action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_axis 2, y_axis 2]
 class Observation:
     def __init__(self):
+<<<<<<< Updated upstream
         self.shop_vector = np.zeros(45)
         self.game_comp_vector = np.zeros(208)
 
@@ -868,3 +875,105 @@ def train_model(max_episodes=10000):
 # TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
 def evaluate(agent):
     return 0
+=======
+        self.prev_action = [[9] for _ in range(config.NUM_PLAYERS)]
+        self.prev_reward = [[0] for _ in range(config.NUM_PLAYERS)]
+
+    # Batch step
+    def batch_step(self, env, agent, buffers):
+        actions_taken = 0
+        game_observations = [Observation() for _ in range(config.NUM_PLAYERS)]
+
+        while actions_taken < 30:
+            observation_list, previous_action = env.get_observation(buffers)
+
+            action, policy = agent.batch_policy(observation_list, previous_action)
+
+            rewards = env.step_function.batch_controller(action, env.PLAYERS, game_observations)
+
+            for i in range(config.NUM_PLAYERS):
+                if env.PLAYERS[i]:
+                    local_reward = rewards[env.PLAYERS[i].player_num] - self.prev_reward[env.PLAYERS[i].player_num]
+                    buffers[env.PLAYERS[i].player_num].store_replay_buffer(observation_list[env.PLAYERS[i].player_num],
+                                                                           action[env.PLAYERS[i].player_num],
+                                                                           local_reward,
+                                                                           policy[env.PLAYERS[i].player_num])
+                    self.prev_reward[env.PLAYERS[i].player_num] = env.PLAYERS[i].reward
+
+            actions_taken += 1
+
+    # This is the main overarching gameplay method.
+    # This is going to be implemented mostly in the game_round file under the AI side of things.
+    def collect_gameplay_experience(self, env, agent, buffers):
+        observation, info = env.reset()
+        terminated = False
+        while not terminated:
+            # agent policy that uses the observation and info
+            action, policy = agent.batch_policy(observation, self.prev_action)
+            self.prev_action = action
+            observation_list, rewards, terminated, truncated, info = env.step(np.asarray(action))
+            for i in range(config.NUM_PLAYERS):
+                if info["players"][i]:
+                    local_reward = rewards[info["players"][i].player_num] - \
+                                   self.prev_reward[info["players"][i].player_num]
+                    buffers[info["players"][i].player_num].\
+                        store_replay_buffer(observation_list[info["players"][i].player_num],
+                                            action[info["players"][i].player_num], local_reward,
+                                            policy[info["players"][i].player_num])
+                    self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
+
+    def train_model(self, max_episodes=10000):
+        # # Uncomment if you change the size of the input array
+        # pool_obj = pool.pool()
+        # test_player = player_class.player(pool_obj, 0)
+        # shop = pool_obj.sample(test_player, 5)
+        # shape = np.array(observation(shop, test_player)).shape
+        # register_env()
+
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+
+        global_agent = TFTNetwork()
+        global_buffer = GlobalBuffer()
+        trainer = MuZero_trainer.Trainer()
+        # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
+        train_step = 0
+        # global_agent.load_model(0)
+        env = gym.make("TFT_Set4-v0")
+
+        for episode_cnt in range(1, max_episodes):
+            agent = MCTS(network=global_agent)
+            buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
+            self.collect_gameplay_experience(env, agent, buffers)
+
+            for i in range(config.NUM_PLAYERS):
+                buffers[i].store_global_buffer()
+            # Keeping this here in case I want to only update positive rewards
+            # rewards = game_round.player_rewards
+            while global_buffer.available_batch():
+                gameplay_experience_batch = global_buffer.sample_batch()
+                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                train_step += 1
+            global_agent.save_model(episode_cnt)
+            if episode_cnt % 5 == 0:
+                game_round.log_to_file_start()
+
+            print("Episode " + str(episode_cnt) + " Completed")
+
+    def collect_dummy_data(self):
+        env = gym.make("TFT_Set4-v0")
+        while True:
+            _, _ = env.reset()
+            terminated = False
+            t = time.time_ns()
+            while not terminated:
+                # agent policy that uses the observation and info
+                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                self.prev_action = action
+                observation_list, rewards, terminated, truncated, info = env.step(action)
+            print("A game just finished in time {}".format(time.time_ns() - t))
+
+    def evaluate(self, agent):
+        return 0
+>>>>>>> Stashed changes

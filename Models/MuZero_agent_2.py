@@ -4,6 +4,8 @@ from __future__ import print_function
 
 from typing import Dict, List
 from numba import jit, cuda, typed
+import core.ctree.cytree as tree
+
 
 import collections
 import math
@@ -432,8 +434,6 @@ def expand_node2(network_output, action_dim):
     return policy
 
 
-
-
 #EXPLANATION OF MCTS:
 """
 1. select leaf node with maximum value using method called UCB1 
@@ -538,7 +538,7 @@ class MCTSAgent:
     def run_mcts(self, root: Node, action: List, player_num: int):
         min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
 
-        for _ in range(config.NUM_SIMULATIONS):
+        for _ in range(config.NUM_SIMULATIONS): 
             history = ActionHistory(action)
             node = root
             search_path = [node]
@@ -619,6 +619,134 @@ class MCTSAgent:
         return .1
 
 
+class MCTS(MCTSAgent):
+    def __init__(self, network):
+        super().__init__(network, 0)
+        self.times = [0]*6
+
+    def run_batch_mcts(self, roots, action):
+        #with torch.no_grad():
+
+        # preparation
+        num = len(roots)
+        discount = config.DISCOUNT  # we have these 
+        # the data storage of hidden states: storing the states of all the tree nodes
+        # 1 x batch x 64
+        # the data storage of value prefix hidden states in LSTM
+        # the index of each layer in the tree
+        hidden_state_index_x = 0
+        # minimax value storage
+        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
+        min_max_stats_lst = tree.MinMaxStatsList(num)
+        min_max_stats_lst.set_delta(config.MAXIUMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
+        horizons = 1  # self.config.lstm_horizon_len
+
+        for _ in range(self.config.num_simulations):
+            # prepare a result wrapper to transport results between python and c++ parts
+            results = tree.ResultsWrapper(num)
+            # traverse to select actions for each root
+            # hidden_state_index_x_lst: the first index of leaf node states in hidden_state_pool
+            # hidden_state_index_y_lst: the second index of leaf node states in hidden_state_pool
+            # the hidden state of the leaf node is hidden_state_pool[x, y]; value prefix states are the same
+            # obtain the search horizon for leaf nodes
+            search_lens = results.get_search_len()
+
+            # hidden_states = torch.from_numpy(np.asarray(hidden_states)).to(device).float()
+            # last_actions = torch.from_numpy(np.asarray(last_actions)).to(device).unsqueeze(1).long() 
+
+            # evaluation for leaf nodes
+            history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
+            node = roots
+            search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
+            
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            for i in range(config.NUM_PLAYERS):
+                while node[i].expanded():
+                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
+                    history[i].add_action(action[i])
+                    search_path[i].append(node[i])
+            
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
+            hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
+            last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])               
+            
+            network_output = self.network.recurrent_inference(hidden_state, last_action) #11.05s 
+            #network_output = "temp"
+            #dont need (have our own implementation )
+            # if self.config.amp_type == 'torch_amp':
+            #     with autocast():
+            #         network_output = model.recurrent_inference(hidden_states, (hidden_states_c_reward, hidden_states_h_reward), last_actions)
+            # else:
+            #     network_output = model.recurrent_inference(hidden_states, (hidden_states_c_reward, hidden_states_h_reward), last_actions)
+            value_prefix_pool = network_output["value_logits"].reshape(-1).tolist()
+            value_pool = network_output["value"].reshape(-1).tolist()
+            policy_logits_pool = network_output["policy_logits"].tolist()
+
+
+            # reset 0
+            # reset the hidden states in LSTM every horizon steps in search
+            # only need to predict the value prefix in a range (eg: s0 -> s5)
+            assert horizons > 0
+            reset_idx = (np.array(search_lens) % horizons == 0)
+            assert len(reset_idx) == num
+            is_reset_lst = reset_idx.astype(np.int32).tolist()
+            hidden_state_index_x += 1
+
+            # backpropagation along the search path to update the attributes
+            tree.batch_back_propagate(hidden_state_index_x, discount,
+                                        value_prefix_pool, value_pool, policy_logits_pool,
+                                        min_max_stats_lst, results, is_reset_lst)
+    
+    def batch_policy(self, observation, prev_action):
+        root = [Node(0) for _ in range(config.NUM_PLAYERS)]
+        network_output = self.network.initial_inference(observation) #2.1 seconds
+        
+        for i in range(config.NUM_PLAYERS):
+            self.batch_expand_node(root[i], i, network_output) #0.39 seconds 
+            
+            
+            self.add_exploration_noise(root[i])
+            
+        self.run_batch_mcts(root, prev_action) #24.3 s (3 seconds not in that)
+        
+        action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
+        
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+       
+        return action, network_output["policy_logits"]
+
+    def batch_expand_node(self, node: Node, to_play: int, network_output):
+        node.to_play = to_play
+        node.hidden_state = network_output["hidden_state"][to_play]
+        node.reward = network_output["reward"][to_play]
+
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
+        policy_probs = network_output["policy_logits"][to_play].numpy()
+
+        # convert dictionary to single list for JIT function by looping through dictionary and
+        # converting items to numpy then adding to list
+        # self.action_dim hardcoded because it changes type randomly.
+        
+        try:  # if we get an error, just fall back to previous implementation
+            policy = expand_node2(policy_probs, 10)
+            # This policy sum is not in the Google's implementation. Not sure if required.
+            policy_sum = sum(policy[0].values())
+            for action, p in policy[0].items():
+                node.children[action] = Node(p / policy_sum)
+        except:
+            print("error - reverting to old function")
+            self.expand_node_old(node, network_output)
+
+
 class Batch_MCTSAgent(MCTSAgent):
     """
     Use Monte-Carlo Tree-Search to select moves.
@@ -633,7 +761,6 @@ class Batch_MCTSAgent(MCTSAgent):
     # the search tree and traversing the tree according to the UCB formula until we
     # reach a leaf node.
     def run_batch_mcts(self, root: list, action: List):
-        ckpt = time.time_ns()
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         
         for _ in range(config.NUM_SIMULATIONS):
@@ -689,8 +816,6 @@ class Batch_MCTSAgent(MCTSAgent):
         return action, network_output["policy_logits"]
 
     def batch_expand_node(self, node: Node, to_play: int, network_output):
-        ckpt = time.time_ns() 
-
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
