@@ -7,3 +7,9 @@ cudatoolkit
 config~=0.5.1
 tensorflow-gpu~=2.11.0
 gymnasium~=0.27.0
+
+pandas
+dm-tree
+tabulate
+scikit-image
+scikit-learn~=1.2.0
