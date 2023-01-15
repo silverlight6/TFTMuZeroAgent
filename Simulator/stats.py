@@ -848,7 +848,7 @@ SHIELD_LENGTH = {
 ABILITY_LENGTH = {
     'aatrox': 500,
     'ahri': 1500,
-    'aphelios': [0,7000,8000,9000,11000],
+    'aphelios': [0, 7000, 8000, 9000, 11000],
     'ashe': 5000,
     'azir': 1500,
     'ezreal': 1500,
@@ -1090,7 +1090,7 @@ ABILITY_DMG_GAIN = {
 } # percentages and absolutes in the same dict
 
 ABILITY_EXTRA_DAMAGE = {
-    'kayn': [0, 1.50, 1.50, 1.50]
+    'kayn': [0, 1.65, 1.65, 1.65]
 }
 
 ABILITY_EXTRA_DAMAGE_LENGTH = {'kayn': 10000}

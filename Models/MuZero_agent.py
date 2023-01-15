@@ -22,11 +22,12 @@ KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
     'value reward policy_logits hidden_state')
-##### JITTED FUNCTIONS ######
-@jit(target_backend='cuda', nopython = True)
+
+
 def normalize2(value, min, max):
     ans = (value - min)/(max-min)
     return ans
+
 
 class MinMaxStats(object):
     """A class that holds the min-max values of the tree."""
@@ -35,6 +36,7 @@ class MinMaxStats(object):
         self.maximum = minimum
         self.minimum = maximum
         self.set = False
+
     def update(self, value: float):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
@@ -42,39 +44,35 @@ class MinMaxStats(object):
 
     def normalize(self, value: float) -> float:
         
-        #if self.maximum > self.minimum:
-        if self.set == True:   
+        # if self.maximum > self.minimum:
+        if self.set:
             # We normalize only when we have set the maximum and minimum values.
             
             if value == 0:
                 value = 0.0
-            max =self.maximum
+            max = self.maximum
             min = self.minimum
-            #print("val, max, min = ", value, max, min)
-            #print("types:", type(value), type(max), type(min))
             if type(max) != int and type(max) != float:
                 max = float(max.numpy())
             if type(min) != int and type(min) != float:
                 min = float(min.numpy())
             if type(value) != int and type(value) != float:
                 value = float(value.numpy())
-            #print("val, max, min = ", value, max, min)
 
-            return (normalize2(value, max, min))
+            return normalize2(value, max, min)
 
         return value
 
-class Node(object):
 
+class Node(object):
     def __init__(self, prior: float):
         self.visit_count = 0
         self.to_play = 1
         self.prior = prior
         self.value_sum = 0
         # 5 because there are 5 separate actions.
-        self.children = [{} for _ in range(5)]
+        self.children = [{} for _ in range(len(config.ACTION_DIM))]
         self.hidden_state = None
-        self.reward = 0
 
     def expanded(self) -> bool:
         return len(self.children[0]) > 0
@@ -84,9 +82,6 @@ class Node(object):
             return 0
         return self.value_sum / self.visit_count
 
-
-##### JITTED FUNCTIONS #######
-@jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
     policy = []
     for i, action_dim in enumerate(action_dim):
@@ -101,7 +96,7 @@ class MuZero_agent(tf.Module):
         self.start_time = time.time_ns()
         self.ckpt_time = time.time_ns()
         # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
-        self.action_dim = [12, 10, 9, 7, 4]
+        self.action_dim = [10, 5, 9, 10, 7, 4, 7, 4]
         self.mlp_block_num = 2
         self.batch_size = config.BATCH_SIZE
         self.t_board = t_board
@@ -125,19 +120,22 @@ class MuZero_agent(tf.Module):
 
         # I can play around with the num_steps (0) later.
         # Not a 100% sure what difference it will make at this time.
-        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))))
 
-        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))))
 
         self._to_hidden = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final')
-        self._value_head = tf.keras.layers.Dense(self.value_encoder.num_steps, name='output', dtype=tf.float32)
-        self._reward_head = tf.keras.layers.Dense(self.reward_encoder.num_steps, name='output', dtype=tf.float32)
+        self._value_head = tf.keras.layers.Dense(config.ENCODER_NUM_STEPS, name='output', dtype=tf.float32)
+        self._reward_head = tf.keras.layers.Dense(config.ENCODER_NUM_STEPS, name='output', dtype=tf.float32)
 
-        self._shop_output = tf.keras.layers.Dense(self.action_dim[0], activation='softmax', name='shop_layer')
-        self._item_output = tf.keras.layers.Dense(self.action_dim[1], activation='softmax', name='item_layer')
+        self._decision_output = tf.keras.layers.Dense(self.action_dim[0], activation='softmax', name='decision_layer')
+        self._shop_output = tf.keras.layers.Dense(self.action_dim[1], activation='softmax', name='shop_layer')
         self._bench_output = tf.keras.layers.Dense(self.action_dim[2], activation='softmax', name='bench_layer')
-        self._board_output_x = tf.keras.layers.Dense(self.action_dim[3], activation='softmax', name='board_x_layer')
-        self._board_output_y = tf.keras.layers.Dense(self.action_dim[4], activation='softmax', name='board_y_layer')
+        self._item_output = tf.keras.layers.Dense(self.action_dim[3], activation='softmax', name='item_layer')
+        self._board_output_x = tf.keras.layers.Dense(self.action_dim[4], activation='softmax', name='board_x_layer')
+        self._board_output_y = tf.keras.layers.Dense(self.action_dim[5], activation='softmax', name='board_y_layer')
+        self._board_output_x2 = tf.keras.layers.Dense(self.action_dim[6], activation='softmax', name='board_x2_layer')
+        self._board_output_y2 = tf.keras.layers.Dense(self.action_dim[7], activation='softmax', name='board_y2_layer')
 
     def policy(self, observation, player_num):
         self.ckpt_time = time.time_ns()
@@ -155,7 +153,10 @@ class MuZero_agent(tf.Module):
             np.argmax(network_output["policy_logits"][1].numpy()),
             np.argmax(network_output["policy_logits"][2].numpy()),
             np.argmax(network_output["policy_logits"][3].numpy()),
-            np.argmax(network_output["policy_logits"][4].numpy())
+            np.argmax(network_output["policy_logits"][4].numpy()),
+            np.argmax(network_output["policy_logits"][5].numpy()),
+            np.argmax(network_output["policy_logits"][6].numpy()),
+            np.argmax(network_output["policy_logits"][7].numpy())
         ]
         self.run_mcts(root, initial_action, player_num)
         action = self.select_action(root)
@@ -170,39 +171,16 @@ class MuZero_agent(tf.Module):
         return action, network_output["policy_logits"]
 
     def expand_node(self, node: Node, to_play: int, network_output):
-        ckpt = time.time_ns()
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
-        input_to_jitfunc = [] 
-        for i in network_output["policy_logits"]:
-            input_to_jitfunc.append(i.numpy())
-        # print(network_output["policy_logits"])
-        # print("^ pol logits")
-        # print(input_to_jitfunc)
-        # print("^inputs")
-        # print(self.action_dim)
-        # print("^act dim ")
-        try:
-            policy = expand_node2(input_to_jitfunc, [12,10,9,7,4]) #hardcoding in action_dim for now, for some reason type becomes ListWrapper
-            for i, action_dim in enumerate(policy):
-                policy_sum = sum(action_dim.values())
-                for action, p in action_dim.items():
-                    node.children[i][action] = Node(p / policy_sum)
-        except:
-            print("error - revert to old")
-            self.expand_node_old(node, network_output)
-        
-        if np.random.randint(0,1000) == 500:
-            print("expand_node took {} time".format(time.time_ns() - ckpt))
-    def expand_node_old(self, node: Node, network_output):
-        policy = []
-        for i, action_dim in enumerate(self.action_dim):
-            policy.append({b: math.exp(network_output["policy_logits"][i][0][b]) for b in range(action_dim)})
+        policy_probs = masked_softmax(network_output["policy_logits"])
+        policy = {a: policy_probs[a] for a in self.action_dim}
         for i, action_dim in enumerate(policy):
             policy_sum = sum(action_dim.values())
             for action, p in action_dim.items():
                 node.children[i][action] = Node(p / policy_sum)
+
     # So let me make a few quick notes here first
     # I want to build blocks in other functions and then tie them together at the end.
     # I also want to start to put more stuff in the configuration as I go
@@ -302,12 +280,16 @@ class MuZero_agent(tf.Module):
 
     def policy_head(self, x):
         x = self.head_hidden_layers(x)
+        decision_output = self._decision_output(x)
         shop_output = self._shop_output(x)
         item_output = self._item_output(x)
         bench_output = self._bench_output(x)
         board_output_x = self._board_output_x(x)
         board_output_y = self._board_output_y(x)
-        return [shop_output, item_output, bench_output, board_output_x, board_output_y]
+        board_output_x2 = self._board_output_x2(x)
+        board_output_y2 = self._board_output_y2(x)
+        return [decision_output, shop_output, item_output, bench_output,
+                board_output_x, board_output_y, board_output_x2, board_output_y2]
 
     def head_hidden_layers(self, x):
         def _make_layer(head_size):
@@ -366,12 +348,10 @@ class MuZero_agent(tf.Module):
             network_output = self.recurrent_inference(parent.hidden_state,
                                                       np.expand_dims(np.asarray(history.last_action()), axis=0))
             self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
-            # print("value {}".format(network_output["value"]))
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
 
     # Select the child with the highest UCB score.
     def select_child(self, node: Node, min_max_stats: MinMaxStats):
-        ckpt = time.time_ns()
         actions = []
         return_child = None
         for act_dim in range(len(self.action_dim)):
@@ -382,9 +362,7 @@ class MuZero_agent(tf.Module):
                 return_child = child
         if actions[0] == 7:
             node.to_play *= -1
-            
-        if np.random.randint(0,1000) == 500:
-            print("select child took {} time".format(time.time_ns() - ckpt))
+
         return actions, return_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
@@ -589,17 +567,15 @@ class ValueEncoder:
     def __init__(self,
                  min_value,
                  max_value,
-                 num_steps,
                  use_contractive_mapping=True):
-        if not max_value > min_value:
-            raise ValueError('max_value must be > min_value')
+        # if not max_value > min_value:
+        #     raise ValueError('max_value must be > min_value')
         # min_value = float(min_value)
         # max_value = float(max_value)
         if use_contractive_mapping:
             max_value = contractive_mapping(max_value)
             min_value = contractive_mapping(min_value)
-        if num_steps <= 0:
-            num_steps = int(math.ceil(max_value) + 1 - math.floor(min_value))
+        num_steps = tf.math.ceil(max_value) + 1 - tf.math.floor(min_value)
         self.min_value = min_value
         self.max_value = max_value
         self.value_range = max_value - min_value
@@ -658,11 +634,91 @@ def inverse_contractive_mapping(x, eps=0.001):
                 (tf.sqrt(4 * eps *
                          (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
-# Possibilities for the other 4 dimensions on the action space
-# If I get an option that requires one of my other dimensions to be non-standard
-# I can either take a maximum as I would do in the normal setting or I can create
-# Another tree for the separate dimensions and search down that tree for the right option
-# I would only use the smaller dimension on the root and then use the main option
-# For all of the other nodes. I think this is what should be implemented in the long run
-# But for now to get the algorithm running, implementing a simple max across the space is
-# Fine.
+
+class Batch_MCTSAgent(MuZero_agent):
+    """
+    Use Monte-Carlo Tree-Search to select moves.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.NUM_ALIVE = config.NUM_PLAYERS
+
+    # Core Monte Carlo Tree Search algorithm.
+    # To decide on an action, we run N simulations, always starting at the root of
+    # the search tree and traversing the tree according to the UCB formula until we
+    # reach a leaf node.
+    def run_batch_mcts(self, root: list, action: List):
+        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
+
+        for _ in range(config.NUM_SIMULATIONS):
+            history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
+            node = root
+            search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
+
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            for i in range(self.NUM_ALIVE):
+                while node[i].expanded():
+                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
+                    history[i].add_action(action[i])
+                    search_path[i].append(node[i])
+
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
+            hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
+            last_action = np.asarray([history[i].last_action() for i in range(self.NUM_ALIVE)])
+
+            network_output = self.recurrent_inference(hidden_state, last_action)  # 11.05s
+            for i in range(self.NUM_ALIVE):
+                self.batch_expand_node(node[i], node[i].to_play, network_output)  # 7s
+
+                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
+
+    def batch_policy(self, observation, prev_action):
+        self.NUM_ALIVE = observation.shape[0]
+        root = [Node(0) for _ in range(self.NUM_ALIVE)]
+        network_output = self.initial_inference(observation)  # 2.1 seconds
+
+        for i in range(self.NUM_ALIVE):
+            self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
+
+            self.add_exploration_noise(root[i])
+
+        self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
+
+        action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
+
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+
+        return action, network_output["policy_logits"]
+
+    def batch_expand_node(self, node: Node, to_play: int, network_output):
+        node.to_play = to_play
+        node.hidden_state = network_output["hidden_state"][to_play]
+        node.reward = network_output["reward"][to_play]
+
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
+        policy_probs = []
+        for a in range(len(self.action_dim)):
+            policy_probs.append(masked_softmax(network_output["policy_logits"][a][to_play]))
+        policy = {a: policy_probs[a] for a in range(len(self.action_dim))}
+        for i, [key, action_dim] in enumerate(policy.items()):
+            policy_sum = sum(action_dim)
+            for p in action_dim:
+                node.children[i][key] = Node(p / policy_sum)
+        # Figure out a way to traverse the tree intelligently with multiple axes
+
+    def select_action(self, node: Node):
+        visit_counts = [
+            (child.visit_count, action) for action, child in node.children.items()
+        ]
+        t = self.visit_softmax_temperature()
+        return self.histogram_sample(visit_counts, t, use_softmax=False)

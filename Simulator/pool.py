@@ -68,10 +68,10 @@ class pool:
 		for i in range(len(player.board)):
 			for k in range(len(player.board[0])):
 				if player.board[i][k]:
-					self.update(player.board[i][k], 1)
+					self.update_pool(player.board[i][k], 1)
 		for i in range(len(player.bench)):
 			if player.bench[i]:
-				self.update(player.bench[i], 1)
+				self.update_pool(player.bench[i], 1)
 
 	# Player is the player that the sample is being picked for
 	# Num is the number of samples to be returned
@@ -80,6 +80,7 @@ class pool:
 	# TO DO: Implement the chosen mechanic and ensure the doubling of the right stat
 	# Chosen is implemented as a string with the class being the possible one.
 	def sample(self, player, num, idx=-1):
+		# If player is None, for example they died, return an empty shop
 		if player is None:
 			return [" " for _ in range(num)]
 		ranInt = [0 for _ in range(num)]
@@ -108,14 +109,22 @@ class pool:
 
 			# cost 1
 			if index == 0:
+				# Get a list of all the champions in the pool
 				cost_1 = list(COST_1.values())
+				# Pick a random number to look for the position of that champion
 				ranPoolInt = random.randint(0, self.num_cost_1 - 1)
+				# Until the counter is greater than the number of champions checked
 				while counter < ranPoolInt:
+					# Increment counter to the next champion
 					counter += cost_1[counterIndex]
+					# Increment the champion index
 					counterIndex += 1
+					# If we sample the last champion in the list
 					if counterIndex == len(cost_1):
 						break
+				# Get a list of the champion names
 				keys_list = list(COST_1)
+				# Set the option to be the champion name of choice
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 2
@@ -173,10 +182,13 @@ class pool:
 			index = idx
 		return championOptions
 
-	# everytime a minion is taken from the pool, update the statistics
-	# direction is positive for adding and negative for selling from pool.
-	# i.e. If a player sells a unit, it's a positive direction for the pool
-	def update(self, u_champion, direction):
+	def update_pool(self, u_champion, direction):
+		'''
+
+		:param u_champion: everytime a champion is taken from the pool, update the statistics
+		:param direction: positive for adding and negative for selling from pool. i.e. If a player sells a unit, it's a positive direction for the pool
+		:return: NA
+		'''
 		# This line is actually a little faster than combining this line and cost = stats.COST[u_champion.name]
 		# because it does not require loading the array for champion costs to search for the value.
 		cost = u_champion.cost

@@ -36,13 +36,16 @@ def initiate(champion):
 
             value = data[stat]
             original_value = getattr(champion, stat)
-            if(stat == 'AS'):                                   change_stat(champion, stat, original_value * value)
-            elif(stat == 'spell_damage_reduction_percentage'):  change_stat(champion, stat, original_value * value)
-            elif(stat == 'will_revive'):                        change_stat(champion, stat, value)
+            if stat == 'AS':
+                change_stat(champion, stat, original_value * value)
+            elif stat == 'spell_damage_reduction_percentage':
+                change_stat(champion, stat, original_value * value)
+            elif stat == 'will_revive':
+                change_stat(champion, stat, value)
+            else:
+                change_stat(champion, stat, original_value + value, 'initiate_item_stat_change')
             
-            else: change_stat(champion, stat, original_value + value, 'initiate_item_stat_change')
-            
-        if(i in item_stats.initiative_items):
+        if i in item_stats.initiative_items:
             eval(i)(champion)
 
 # where item functions are based at
@@ -563,31 +566,7 @@ def sunfire_cape(champion, data = {'loop': False}):
 
 
 def thiefs_gloves(champion):
-    item_list = item_stats.items
-    item_names = list(item_list.keys())
-    item_names = item_names[9:]
-
-    item_names.remove('thiefs_gloves')
-    item_names.remove('force_of_nature')
-    item_names.remove('duelists_zeal')
-    item_names.remove('elderwood_heirloom')
-    item_names.remove('mages_cap')
-    item_names.remove('mantle_of_dusk')
-    item_names.remove('sword_of_the_divine')
-    item_names.remove('vanguards_cuirass')
-    item_names.remove('warlords_banner')
-    item_names.remove('youmuus_ghostblade')
-
-    r1 = random.randint(0,len(item_names) - 1)
-    r2 = random.randint(0,len(item_names) - 1)
-    while r1 == r2:
-        r2 = random.randint(0,len(item_names) - 1)
-
-    champion.print(" thiefs_gloves: {} and {}".format(item_names[r1], item_names[r2]))
-
-    champion.items.append(item_names[r1])
-    champion.items.append(item_names[r2])
-
+    ...
 
 titans_resolve_list = [] #[champion, stacks, maxxed]
 def titans_resolve(champion, target, crit):

@@ -3,7 +3,6 @@ import config
 import random
 from global_buffer import GlobalBuffer
 
-
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
         self.gameplay_experiences = []
@@ -17,8 +16,6 @@ class ReplayBuffer:
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        # commenting out because MuZero supports a wide range of rewards, not just -1 to 1
-        # reward = np.clip(reward, -1.0, 1.0)
         self.gameplay_experiences.append(observation)
         self.action_history.append(int(action))
         self.rewards.append(reward)
@@ -40,21 +37,21 @@ class ReplayBuffer:
         else:
             return 9
 
-    def get_observation_shape(self):
-        # Hard coding this because the need to know this value before any observation are
-        # Generated in the case of no successful actions completed yet in the game which
-        # Is very likely at the start of the game.
-        return config.INPUT_SHAPE
+    def get_reward_sequence(self):
+        return self.rewards
+    
+    def set_reward_sequence(self, rewards):
+        self.rewards = rewards
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
-            if (len(self.gameplay_experiences) - 8) > config.SAMPLES_PER_PLAYER else len(self.gameplay_experiences) - 8
+            if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
+            else len(self.gameplay_experiences) - config.UNROLL_STEPS
         if samples_per_player > 0:
-            # 8 because I don't want to sample the very end of the range
-            samples = random.sample(range(0, len(self.gameplay_experiences) - 8), samples_per_player)
-            td_steps = config.UNROLL_STEPS
+            # config.UNROLL_STEPS because I don't want to sample the very end of the range
+            samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
             num_steps = len(self.gameplay_experiences)
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
@@ -114,4 +111,4 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[0])
                 sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                               policy_mask_set, value_set, reward_set, policy_set]
-                self.g_buffer.store_replay_sequence(sample_set)
+                self.g_buffer.store_replay_sequence.remote(sample_set)
