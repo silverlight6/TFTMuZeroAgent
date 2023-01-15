@@ -5,17 +5,9 @@ from Simulator import champion, player as player_class, pool
 import datetime
 import game_round
 import numpy as np
-<<<<<<< Updated upstream
-import tensorflow as tf
-from Simulator.origin_class import team_traits, game_comp_tiers
-from Simulator.stats import COST
-from Models.MuZero_agent import MuZero_agent
-from Models.MuZero_agent_2 import TFTNetwork, MCTSAgent, Batch_MCTSAgent
-=======
 from global_buffer import GlobalBuffer
 from Models import MuZero_trainer
 from Models.MuZero_agent_2 import TFTNetwork, MCTS
->>>>>>> Stashed changes
 from Models.replay_muzero_buffer import ReplayBuffer
 from global_buffer import GlobalBuffer
 
@@ -723,159 +715,6 @@ def batch_step(players, agent, buffers, pool_obj):
 # action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_axis 2, y_axis 2]
 class Observation:
     def __init__(self):
-<<<<<<< Updated upstream
-        self.shop_vector = np.zeros(45)
-        self.game_comp_vector = np.zeros(208)
-
-    def observation(self, player, buffer, action_vector):
-        shop_vector = self.shop_vector
-        game_state_vector = self.game_comp_vector
-        complete_game_state_vector = np.concatenate([np.expand_dims(shop_vector, axis=0),
-                                                     np.expand_dims(player.board_vector, axis=0),
-                                                     np.expand_dims(player.bench_vector, axis=0),
-                                                     np.expand_dims(player.chosen_vector, axis=0),
-                                                     np.expand_dims(player.item_vector, axis=0),
-                                                     np.expand_dims(player.player_vector, axis=0),
-                                                     np.expand_dims(game_state_vector, axis=0),
-                                                     np.expand_dims(action_vector, axis=0), ], axis=-1)
-        i = 0
-        input_vector = complete_game_state_vector
-        while i < buffer.len_observation_buffer() and i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
-
-        while i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
-        # std = np.std(input_vector)
-        # if std == 0:
-        # input_vector = input_vector - np.mean(input_vector)
-        # else:
-        #     input_vector = (input_vector - np.mean(input_vector)) / std
-        # print(input_vector.shape)
-        return input_vector, complete_game_state_vector
-
-    def dummy_observation(self, buffer):
-        input_vector = buffer.get_prev_observation(0)
-        i = 0
-        while i < buffer.len_observation_buffer() and i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, buffer.get_prev_observation(i)], axis=-1)
-
-        while i < 0:
-            i += 1
-            input_vector = np.concatenate([input_vector, np.zeros(buffer.get_observation_shape())], axis=-1)
-
-        return input_vector
-
-    def generate_game_comps_vector(self):
-        output = np.zeros(208)
-        for i in range(len(game_comp_tiers)):
-            tiers = np.array(list(game_comp_tiers[i].values()))
-            tierMax = np.max(tiers)
-            if tierMax != 0:
-                tiers = tiers / tierMax
-            output[i * 26: i * 26 + 26] = tiers
-        self.game_comp_vector = output
-
-    def generate_shop_vector(self, shop):
-        # each champion has 6 bit for the name, 1 bit for the chosen.
-        # 5 of them makes it 35.
-        output_array = np.zeros(45)
-        shop_chosen = False
-        chosen_shop_index = -1
-        chosen_shop = ''
-        for x in range(0, len(shop)):
-            input_array = np.zeros(8)
-            if shop[x]:
-                chosen = 0
-                if shop[x].endswith("_c"):
-                    chosen_shop_index = x
-                    chosen_shop = shop[x]
-                    c_shop = shop[x].split('_')
-                    shop[x] = c_shop[0]
-                    chosen = 1
-                    shop_chosen = c_shop[1]
-                i_index = list(COST.keys()).index(shop[x])
-                # This should update the item name section of the vector
-                for z in range(6, 0, -1):
-                    if i_index > 2 ** (z - 1):
-                        input_array[6 - z] = 1
-                        i_index -= 2 ** (z - 1)
-                input_array[7] = chosen
-            # Input chosen mechanics once I go back and update the chosen mechanics.
-            output_array[8 * x: 8 * (x + 1)] = input_array
-        if shop_chosen:
-            if shop_chosen == 'the':
-                shop_chosen = 'the_boss'
-            i_index = list(team_traits.keys()).index(shop_chosen)
-            # This should update the item name section of the vector
-            for z in range(5, 0, -1):
-                if i_index > 2 * z:
-                    output_array[45 - z] = 1
-                    i_index -= 2 * z
-            shop[chosen_shop_index] = chosen_shop
-        self.shop_vector = output_array
-
-
-def reward(player):
-    return player.reward
-
-
-# This is the main overarching gameplay method.
-# This is going to be implemented mostly in the game_round file under the AI side of things. 
-def collect_gameplay_experience(sim, agent, buffers, episode_cnt):
-    reset(sim)
-    sim.episode(agent, buffers, episode_cnt)
-
-
-# TO DO: Implement evaluator
-def train_model(max_episodes=10000):
-    # # Uncomment if you change the size of the input array
-    # pool_obj = pool.pool()
-    # test_player = player_class.player(pool_obj, 0)
-    # shop = pool_obj.sample(test_player, 5)
-    # shape = np.array(observation(shop, test_player)).shape
-
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-    global_agent = TFTNetwork()
-    global_buffer = GlobalBuffer()
-    trainer = MuZero_trainer.Trainer()
-    game_sim = game_round.TFT_Simulation()
-    # agents = [MuZero_agent() for _ in range(game_sim.num_players)]
-    train_step = 0
-    try: 
-        global_agent.load_model(0)
-    except:
-        pass
-    
-
-    for episode_cnt in range(1, max_episodes):
-        agent = Batch_MCTSAgent(network=global_agent)
-        buffers = [ReplayBuffer(global_buffer) for _ in range(game_sim.num_players)]
-        collect_gameplay_experience(game_sim, agent, buffers, episode_cnt)
-
-        for i in range(game_sim.num_players-1):
-            buffers[i].store_global_buffer()
-        # Keeping this here in case I want to only update positive rewards
-        # rewards = game_round.player_rewards
-        while global_buffer.available_batch():
-            gameplay_experience_batch = global_buffer.sample_batch()
-            trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-            train_step += 1
-        global_agent.save_model(episode_cnt)
-        if episode_cnt % 5 == 0:
-            game_round.log_to_file_start()
-        
-        print("Episode " + str(episode_cnt) + " Completed")
-
-# TO DO: Has to run some episodes and return an average reward. Probably 5 games of 8 players.  
-def evaluate(agent):
-    return 0
-=======
         self.prev_action = [[9] for _ in range(config.NUM_PLAYERS)]
         self.prev_reward = [[0] for _ in range(config.NUM_PLAYERS)]
 
@@ -976,4 +815,3 @@ def evaluate(agent):
 
     def evaluate(self, agent):
         return 0
->>>>>>> Stashed changes
