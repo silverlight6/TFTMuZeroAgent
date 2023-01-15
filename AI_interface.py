@@ -13,7 +13,7 @@ from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
+from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork, MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
@@ -32,7 +32,8 @@ class DataWorker(object):
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
 
         self.agent_network.set_weights(weights)
-        agent = Batch_MCTSAgent(self.agent_network)
+        agent = MCTS(self.agent_network)
+        print("agent init")
         while True:
             # Reset the environment
             player_observation = env.reset()
@@ -116,7 +117,7 @@ class AIInterface:
     def train_model(self):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=len(gpus), num_cpus=16)
+        ray.init(num_gpus=len(gpus), num_cpus=3)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -136,8 +137,8 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            workers.append(ray.get(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                     storage, weights)))
             time.sleep(1)
 
         global_agent = TFTNetwork()
@@ -155,20 +156,22 @@ class AIInterface:
                     global_agent.tft_save_model(train_step)
 
     def test_train_model(self, max_episodes=10000):
+        print("start train")
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer()
+        global_buffer = GlobalBuffer.remote()
         trainer = MuZero_trainer.Trainer()
         train_step = 0
         # global_agent.load_model(0)
-        env = gym.make("TFT_Set4-v0")
-        dataWorker = DataWorker()
+        env = parallel_env()
+        dataWorker = DataWorker.remote(0)
 
         for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
+            agent = MCTS(network=global_agent)
+            print("agent init")
             buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
             dataWorker.test_collect_gameplay_experience(env, agent, buffers)
 
@@ -226,12 +229,3 @@ class AIInterface:
 
     def env_creator(self, cfg):
         return TFT_Simulator(cfg)
-
-    def train_model(self, max_episodes=10000):
-        # # Uncomment if you change the size of the input array
-        # pool_obj = pool.pool()
-        # test_player = player_class.player(pool_obj, 0)
-        # shop = pool_obj.sample(test_player, 5)
-        # shape = np.array(observation(shop, test_player)).shape
-        # register_env()
-

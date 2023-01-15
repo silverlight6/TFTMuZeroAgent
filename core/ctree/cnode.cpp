@@ -57,7 +57,7 @@ namespace tree{
         int action_num = this->action_num;
         float temp_policy;
         float policy_sum = 0.0;
-        float policy[action_num];
+        std::vector<float> policy(action_num);
         float policy_max = FLOAT_MIN;
         for(int a = 0; a < action_num; ++a){
             if(policy_max < policy_logits[a]){
@@ -379,9 +379,9 @@ namespace tree{
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount, tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
         // set seed
-        timeval t1;
-        gettimeofday(&t1, NULL);
-        srand(t1.tv_usec);
+        //timeval t1;
+        //gettimeofday(&t1, NULL);
+        //srand(t1.tv_usec);
 
         int last_action = -1;
         float parent_q = 0.0;

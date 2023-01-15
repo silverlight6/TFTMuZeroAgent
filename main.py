@@ -9,6 +9,7 @@ def main():
 
     interface = AI_interface.AIInterface()
     interface.train_model()
+    #interface.test_train_model()
     # interface.collect_dummy_data()
     # interface.testEnv()
     # interface.PPO_algorithm()
