@@ -407,10 +407,6 @@ def inverse_contractive_mapping(x, eps=0.001):
            (tf.math.square((tf.sqrt(4 * eps * (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 
-# Keeping the JIT functions commented out because I don't know how it will act with Ray and I don't want to debug this.
-##### JITTED FUNCTIONS #######
-# This function uses the GPU or converts the python to C making it 33-10 times faster
-# @jit(target_backend='cuda', nopython=True)
 def expand_node2(network_output, action_dim):
     policy = [{b: math.exp(network_output[b]) for b in range(action_dim)}]
     return policy
