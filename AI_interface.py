@@ -160,16 +160,16 @@ class AIInterface:
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer()
+        global_buffer = GlobalBuffer.remote()
         trainer = MuZero_trainer.Trainer()
         train_step = 0
         # global_agent.load_model(0)
-        env = gym.make("TFT_Set4-v0")
-        dataWorker = DataWorker()
+        env = parallel_env()
+        dataWorker = DataWorker().remote()
 
         for episode_cnt in range(1, max_episodes):
             agent = Batch_MCTSAgent(network=global_agent)
-            buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
+            buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.NUM_PLAYERS)]
             dataWorker.test_collect_gameplay_experience(env, agent, buffers)
 
             for i in range(config.NUM_PLAYERS):
