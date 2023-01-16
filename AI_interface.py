@@ -113,7 +113,7 @@ class AIInterface:
     def __init__(self):
         ...
 
-    def train_model(self):
+    def train_model(self, starting_train_step = 100):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
@@ -121,7 +121,7 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-        train_step = 100
+        train_step = starting_train_step
 
         global_buffer = GlobalBuffer.remote()
 
