@@ -194,7 +194,8 @@ class Trainer(object):
             tf.summary.scalar('accuracy/value', -get_mean('value_diff'), step=train_step)
             tf.summary.scalar('accuracy/reward', -get_mean('reward_diff'), step=train_step)
 
-            tf.summary.scalar('episode_max_reward', tf.reduce_max(target_reward), step=train_step)
+            tf.summary.scalar('episode_max/reward', tf.reduce_max(target_reward), step=train_step)
+            tf.summary.scalar('episode_max/value', tf.reduce_max(target_value), step=train_step)
 
         return mean_loss
 
