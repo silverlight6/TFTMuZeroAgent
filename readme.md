@@ -27,5 +27,4 @@ Python version: ~ Python 3.8
 
 ```
 pip3 install -r requirements.txt # Install all libraries in requirements.txt
-pip3 freeze > requirements.txt # To update requirements if any new libraries are installed
 ```
