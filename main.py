@@ -10,7 +10,8 @@ def main():
     #TODO(lobotuerk) A lot of hardcoded parameters should be used like this intead.
     parser = argparse.ArgumentParser(description='Train an AI to play TFT',
                                 epilog='For more information, go to https://github.com/silverlight6/TFTMuZeroAgent')
-    parser.add_argument('--starting_episode', '-se', dest='starting_episode', type=int, help='Episode number to start the training. Used for loading checkpoints')
+    parser.add_argument('--starting_episode', '-se', dest='starting_episode', type=int, 
+                        help='Episode number to start the training. Used for loading checkpoints, disables loading if = 0')
     args = parser.parse_args()
 
     interface = AI_interface.AIInterface()
