@@ -26,5 +26,6 @@ Python version: ~ Python 3.8
 - Install all necessary libraries in codebase
 
 ```
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt # Install all libraries in requirements.txt
+pip3 freeze > requirements.txt # To update requirements if any new libraries are installed
 ```
