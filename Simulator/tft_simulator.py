@@ -173,7 +173,7 @@ class TFT_Simulator(AECEnv):
                                                  self.agent_selection, self.game_observations)
         elif action.ndim == 1:
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
-                                                   self.agent_selection, self.game_observations, self.PLAYERS)
+                                                   self.agent_selection, self.game_observations)
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)

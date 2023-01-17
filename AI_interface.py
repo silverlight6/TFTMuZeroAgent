@@ -17,22 +17,38 @@ from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
+from Models.A3C_Agent import A3C_Agent
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 @ray.remote(num_gpus=0.25)
 class DataWorker(object):
     def __init__(self, rank):
-        self.agent_network = TFTNetwork()
-        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+        if config.MODEL == "MuZero":
+            self.agent_network = TFTNetwork()
+            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+        elif config.MODEL == "A3C":
+            self.agent_network = A3C_Agent(config.INPUT_SHAPE)
+            self.prev_actions = [[0 for _ in range(len(config.ACTION_8D_DIM))] for _ in range(config.NUM_PLAYERS)]
+        else:
+            self.agent_network = TFTNetwork()
+            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+
         self.rank = rank
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
+        if config.MODEL == "MuZero":
+            self.agent_network.set_weights(weights)
+            agent = Batch_MCTSAgent(self.agent_network)
+        elif config.MODEL == "A3C":
+            self.agent_network.a3c_net.set_weights(weights)
+            agent = self.agent_network
+        else:
+            self.agent_network.set_weights(weights)
+            agent = Batch_MCTSAgent(self.agent_network)
 
-        self.agent_network.set_weights(weights)
-        agent = Batch_MCTSAgent(self.agent_network)
         while True:
             # Reset the environment
             player_observation = env.reset()
@@ -40,13 +56,11 @@ class DataWorker(object):
             player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
-            # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+                actions, policy = agent.batch_policy(player_observation, self.prev_actions)
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -55,16 +69,34 @@ class DataWorker(object):
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
                     buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
+
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
+                # Update previous actions for the next round
                 self.prev_actions = actions
+                # Make sure it is of the same length as the observation when a player dies
+                self.prev_actions = np.delete(self.prev_actions, np.argwhere(list(terminated.values())), axis=0)
 
-            buffers.rewardNorm.remote()
-            buffers.store_global_buffer.remote()
+            if config.MODEL == "MuZero":
+                buffers.rewardNorm.remote()
+                buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
 
             weights = ray.get(storage.get_model.remote())
-            agent.network.set_weights(weights)
+            if config.MODEL == "MuZero":
+                agent.network.set_weights(weights)
+            elif config.MODEL == "A3C":
+                agent.a3c_net.set_weights(weights)
+            else:
+                agent.network.set_weights(weights)
+
+            # Current action to help with MuZero
+            if config.MODEL == "MuZero":
+                self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+            elif config.MODEL == "A3C":
+                self.prev_actions = [[0 for _ in range(len(config.ACTION_8D_DIM))] for _ in range(config.NUM_PLAYERS)]
+            else:
+                self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
             self.rank += config.CONCURRENT_GAMES
 
     def test_collect_gameplay_experience(self, env, agent, buffers):
@@ -111,9 +143,9 @@ class DataWorker(object):
 class AIInterface:
 
     def __init__(self):
-        ...
+        self.env = parallel_env()
 
-    def train_model(self, starting_train_step = 0):
+    def train_muzero_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
@@ -121,14 +153,11 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-        train_step = starting_train_step
 
         global_buffer = GlobalBuffer.remote()
 
         trainer = MuZero_trainer.Trainer()
-        storage = Storage.remote(train_step)
-
-        env = parallel_env()
+        storage = Storage.remote(starting_train_step)
 
         buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
 
@@ -136,7 +165,7 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+            workers.append(worker.collect_gameplay_experience.remote(self.env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(1)
 
@@ -154,6 +183,41 @@ class AIInterface:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 
+    def train_a3c_model(self):
+        os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+        gpus = tf.config.list_physical_devices('GPU')
+        ray.init(num_gpus=len(gpus), num_cpus=16)
+
+        train_step = 100
+
+        global_buffer = GlobalBuffer.remote()
+
+        storage = Storage.remote(train_step)
+
+        global_agent = A3C_Agent(config.INPUT_SHAPE)
+        global_agent_weights = ray.get(storage.get_target_model.remote())
+        global_agent.a3c_net.set_weights(global_agent_weights)
+
+        buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
+
+        weights = ray.get(storage.get_target_model.remote())
+        workers = []
+        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        for i, worker in enumerate(data_workers):
+            workers.append(worker.collect_gameplay_experience.remote(self.env, buffers[i], global_buffer,
+                                                                     storage, weights))
+            time.sleep(1)
+
+        while True:
+            if ray.get(global_buffer.available_batch.remote()):
+                gameplay_experience_batch = ray.get(global_buffer.sample_a3c_batch.remote())
+                global_agent.train_step(gameplay_experience_batch)
+                storage.set_target_model.remote(global_agent.a3c_net.get_weights())
+                train_step += 1
+                if train_step % 100 == 0:
+                    storage.set_model.remote()
+                    global_agent.tft_save_model(train_step)
+
     def test_train_model(self, max_episodes=10000):
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -164,13 +228,12 @@ class AIInterface:
         trainer = MuZero_trainer.Trainer()
         train_step = 0
         # global_agent.load_model(0)
-        env = parallel_env()
         dataWorker = DataWorker().remote()
 
         for episode_cnt in range(1, max_episodes):
             agent = Batch_MCTSAgent(network=global_agent)
             buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            dataWorker.test_collect_gameplay_experience(env, agent, buffers)
+            dataWorker.test_collect_gameplay_experience(self.env, agent, buffers)
 
             for i in range(config.NUM_PLAYERS):
                 buffers[i].store_global_buffer()

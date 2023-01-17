@@ -45,6 +45,34 @@ class GlobalBuffer:
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(sample)
 
+    def sample_a3c_batch(self):
+        # Returns: a batch of gameplay experiences without regard to which agent.
+        state_batch, logit_batch, action_batch, reward_batch, p_action_batch = [], [], [], [], []
+
+        for gameplay_experience in range(self.batch_size):
+            [state, logit, action, reward, prev_action] = self.gameplay_experiences.popleft()
+            state_batch.append(state)
+            logit_batch.append(logit)
+            action_batch.append(action)
+            reward_batch.append(reward)
+            p_action_batch.append(prev_action)
+
+        state_batch = np.squeeze(np.asarray(state_batch))
+        # logit_batch = np.squeeze(np.asarray(logit_batch))
+        action_batch = np.squeeze(np.asarray(action_batch))
+        reward_batch = np.squeeze(np.asarray(reward_batch))
+        p_action_batch = np.squeeze(np.asarray(p_action_batch))
+
+        return [state_batch, logit_batch, action_batch, reward_batch, p_action_batch]
+
+    def store_replay_a3c_sequence(self, state, logits, action, reward, prev_action, prev_reward):
+        # Records a single step of gameplay experience
+        # First few are self-explanatory
+        # done is boolean if game is done after taking said action
+        reward = np.clip(reward, -1.0, 1.0)
+        logits = self.transpose(logits)
+        self.gameplay_experiences.append([state, logits, action, reward, prev_action, prev_reward])
+
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size:
