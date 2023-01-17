@@ -36,13 +36,16 @@ def initiate(champion):
 
             value = data[stat]
             original_value = getattr(champion, stat)
-            if(stat == 'AS'):                                   change_stat(champion, stat, original_value * value)
-            elif(stat == 'spell_damage_reduction_percentage'):  change_stat(champion, stat, original_value * value)
-            elif(stat == 'will_revive'):                        change_stat(champion, stat, value)
+            if stat == 'AS':
+                change_stat(champion, stat, original_value * value)
+            elif stat == 'spell_damage_reduction_percentage':
+                change_stat(champion, stat, original_value * value)
+            elif stat == 'will_revive':
+                change_stat(champion, stat, value)
+            else:
+                change_stat(champion, stat, original_value + value, 'initiate_item_stat_change')
             
-            else: change_stat(champion, stat, original_value + value, 'initiate_item_stat_change')
-            
-        if(i in item_stats.initiative_items):
+        if i in item_stats.initiative_items:
             eval(i)(champion)
 
 # where item functions are based at

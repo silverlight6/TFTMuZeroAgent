@@ -848,7 +848,7 @@ SHIELD_LENGTH = {
 ABILITY_LENGTH = {
     'aatrox': 500,
     'ahri': 1500,
-    'aphelios': [0,7000,8000,9000,11000],
+    'aphelios': [0, 7000, 8000, 9000, 11000],
     'ashe': 5000,
     'azir': 1500,
     'ezreal': 1500,

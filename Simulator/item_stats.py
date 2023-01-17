@@ -63,6 +63,27 @@ items = {
     'reforger': {},
 }
 
+
+uncraftable_items = [
+
+'bf_sword',
+'chain_vest',
+'giants_belt',
+'needlessly_large_rod',
+'negatron_cloak',
+'recurve_bow',
+'sparring_gloves',
+'spatula',
+'tear_of_the_goddess',
+'kayn_rhast',
+'kayn_shadowassassin',
+'champion_duplicator',
+'magnetic_remover',
+'reforger',
+
+]
+
+
 item_builds = {
     'bloodthirster': ['bf_sword', 'negatron_cloak'],
     'blue_buff': ['tear_of_the_goddess', 'tear_of_the_goddess'],
