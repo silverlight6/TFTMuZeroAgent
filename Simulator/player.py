@@ -4,7 +4,7 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
-from Simulator.item_stats import items as item_list, basic_items, item_builds, thiefs_gloves_items, \
+from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
@@ -116,7 +116,7 @@ class player:
         self.kayn_transformed = False
         self.kayn_form = None
 
-        self.thiefs_glove_loc = []
+        self.thieves_gloves_loc = []
         self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
         self.current_action = 0
         self.action_complete = False
@@ -144,8 +144,8 @@ class player:
             self.chosen = a_champion.chosen
         # print("items are = " + str(a_champion.items))
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
-        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
-            self.thiefs_glove_loc.append([bench_loc, -1])
+        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
+            self.thieves_gloves_loc.append([bench_loc, -1])
         self.generate_bench_vector()
         return True
 
@@ -548,8 +548,8 @@ class player:
                 self.board[board_x][board_y] = m_champion
                 # tracking thiefs gloves location
                 if len(m_champion.items) > 0:
-                    if m_champion.items[0] == 'thiefs_gloves':
-                        self.thiefs_gloves_loc_update(bench_x, -1, board_x, board_y)
+                    if m_champion.items[0] == 'thieves_gloves':
+                        self.thieves_gloves_loc_update(bench_x, -1, board_x, board_y)
                 if m_champion.name == 'azir':
                     # There should never be a situation where the board is too fill to fit the sandguards.
                     sand_coords = self.find_azir_sandguards(board_x, board_y)
@@ -597,8 +597,8 @@ class player:
                     self.bench[bench_loc].x = bench_loc
                     self.bench[bench_loc].y = -1
                     self.num_units_in_play -= 1
-                    if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
-                        self.thiefs_gloves_loc_update(bench_loc, -1, x, y)
+                    if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
+                        self.thieves_gloves_loc_update(bench_loc, -1, x, y)
                     self.generate_bench_vector()
                     self.generate_board_vector()
                     self.update_team_tiers()
@@ -610,9 +610,9 @@ class player:
         if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
             if self.board[x1][y1] and self.board[x2][y2]:
                 temp_champ = self.board[x2][y2]
-                if (self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves') or \
-                   (self.board[x2][y2].items and self.board[x2][y2].items[0] == 'thiefs_gloves'):
-                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
+                if (self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thieves_gloves') or \
+                   (self.board[x2][y2].items and self.board[x2][y2].items[0] == 'thieves_gloves'):
+                    self.thieves_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = temp_champ
                 self.board[x1][y1].x = x1
@@ -624,8 +624,8 @@ class player:
                 self.generate_board_vector()
                 return True
             elif self.board[x1][y1]:
-                if self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves':
-                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
+                if self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thieves_gloves':
+                    self.thieves_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
@@ -682,18 +682,18 @@ class player:
                 return False
             if self.item_bench[xBench] == 'reforger':
                 return self.use_reforge(xBench, x, y)
-            if self.item_bench[xBench] == 'thiefs_gloves':
+            if self.item_bench[xBench] == 'thieves_gloves':
                 if len(champ.items) < 1:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
                     champ.num_items += 3
-                    self.thiefs_glove_loc.append([x, y])
-                    self.thiefs_gloves(x, y)
+                    self.thieves_gloves_loc.append([x, y])
+                    self.thieves_gloves(x, y)
                     self.generate_item_vector()
                     self.decide_vector_generation(board)
                     return True
                 return False
-            if ((champ.num_items < 3 and self.item_bench[xBench] != "thiefs_gloves") or
+            if ((champ.num_items < 3 and self.item_bench[xBench] != "thieves_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
                      in basic_items and champ.num_items == 3)):
                 for trait, name in enumerate(trait_items.values()):
@@ -724,17 +724,17 @@ class player:
                                 else:
                                     champ.origin.append(item_trait)
                                     self.update_team_tiers()
-                        if item_names[item_index] == "theifs_gloves":
+                        if item_names[item_index] == "thieves_gloves":
                             if champ.num_items != 1:
                                 return False
                             else:
                                 champ.num_items += 2
-                                self.thiefs_glove_loc.append([x, y])
+                                self.thieves_gloves_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
                         champ.items.append(item_names[item_index])
-                        if champ.items[0] == 'thiefs_gloves':
-                            self.thiefs_gloves(x, y)
+                        if champ.items[0] == 'thieves_gloves':
+                            self.thieves_gloves(x, y)
                         self.reward += .2 * self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_names[item_index]))
@@ -757,7 +757,7 @@ class player:
                 self.generate_item_vector()
                 self.decide_vector_generation(board)
                 return True
-            elif champ.num_items < 1 and self.item_bench[xBench] == "thiefs_gloves":
+            elif champ.num_items < 1 and self.item_bench[xBench] == "thieves_gloves":
                 champ.items.append(self.item_bench[xBench])
                 self.item_bench[xBench] = None
                 champ.num_items += 3
@@ -765,7 +765,7 @@ class player:
                 self.decide_vector_generation(board)
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
                                                                       champ.items))
-                self.thiefs_glove_loc.append([x, -1])
+                self.thieves_gloves_loc.append([x, -1])
                 return True
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
@@ -849,18 +849,18 @@ class player:
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
-                # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
-                if self.bench[x].items[0] == 'thiefs_gloves':
-                    if [x, -1] not in self.thiefs_glove_loc:
-                        self.thiefs_glove_loc.remove([x, -1])
+                # thieves_gloves_loc_always needs to be cleared even if there's not enough room on bench
+                if self.bench[x].items[0] == 'thieves_gloves':
+                    if [x, -1] not in self.thieves_gloves_loc:
+                        self.thieves_gloves_loc.remove([x, -1])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
                     for i in self.bench[x].items:
                         # thieves glove exception
                         self.item_bench[self.item_bench_vacancy()] = i
-                # if there is only one or two spots left on the item_bench and thiefs_gloves is removed
-                elif not self.item_bench_full(1) and self.bench[x].items[0] == "thiefs_gloves":
+                # if there is only one or two spots left on the item_bench and thieves_gloves is removed
+                elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
@@ -874,9 +874,9 @@ class player:
         if a_champion:
             # skip if there are no items, trying to save a little processing time.
             if a_champion.items:
-                # thiefs_gloves_location needs to be removed whether there's room on the bench or not
-                if a_champion.items[0] == 'thiefs_gloves':
-                    self.thiefs_glove_loc.remove([a_champion.x, a_champion.y])
+                # thieves_gloves_location needs to be removed whether there's room on the bench or not
+                if a_champion.items[0] == 'thieves_gloves':
+                    self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
@@ -885,8 +885,8 @@ class player:
                             a_champion.origin.pop(-1)
                             self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
-                # if there is only one or two spots left on the item_bench and thiefs_gloves is removed
-                elif not self.item_bench_full(1) and a_champion.items[0] == "thiefs_gloves":
+                # if there is only one or two spots left on the item_bench and thieves_gloves is removed
+                elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
@@ -969,38 +969,38 @@ class player:
             return return_champ
         return False
 
-    def thiefs_gloves(self, x, y):
-        r1 = random.randint(0, len(thiefs_gloves_items) - 1)
-        r2 = random.randint(0, len(thiefs_gloves_items) - 1)
+    def thieves_gloves(self, x, y):
+        r1 = random.randint(0, len(thieves_gloves_items) - 1)
+        r2 = random.randint(0, len(thieves_gloves_items) - 1)
         while r1 == r2:
-            r2 = random.randint(0, len(thiefs_gloves_items) - 1)
-        self.print("thiefs_gloves: {} and {}".format(thiefs_gloves_items[r1], thiefs_gloves_items[r2]))
+            r2 = random.randint(0, len(thieves_gloves_items) - 1)
+        self.print("thieves_gloves: {} and {}".format(thieves_gloves_items[r1], thieves_gloves_items[r2]))
         if y >= 0:
             if len(self.board[x][y].items) != 1:
                 self.board[x][y].items.remove(self.board[x][y].items[1])
                 self.board[x][y].items.remove(self.board[x][y].items[1])
-            self.board[x][y].items.append(thiefs_gloves_items[r1])
-            self.board[x][y].items.append(thiefs_gloves_items[r2])
+            self.board[x][y].items.append(thieves_gloves_items[r1])
+            self.board[x][y].items.append(thieves_gloves_items[r2])
             return True
         elif y == -1:
             if len(self.bench[x].items) != 1:
                 self.bench[x].items.remove(self.bench[x].items[1])
                 self.bench[x].items.remove(self.bench[x].items[1])
-            self.bench[x].items.append(thiefs_gloves_items[r1])
-            self.bench[x].items.append(thiefs_gloves_items[r2])
+            self.bench[x].items.append(thieves_gloves_items[r1])
+            self.bench[x].items.append(thieves_gloves_items[r2])
             return True
         else:
             return False
 
-    def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
-        if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
+    def thieves_gloves_loc_update(self, x1, y1, x2, y2):
+        if [x1, y1] in self.thieves_gloves_loc and [x2, y2] in self.thieves_gloves_loc:
             return True
-        elif [x1, y1] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x1, y1])
-            self.thiefs_glove_loc.append([x2, y2])
-        elif [x2, y2] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x2, y2])
-            self.thiefs_glove_loc.append([x1, y1])
+        elif [x1, y1] in self.thieves_gloves_loc:
+            self.thieves_gloves_loc.remove([x1, y1])
+            self.thieves_gloves_loc.append([x2, y2])
+        elif [x2, y2] in self.thieves_gloves_loc:
+            self.thieves_gloves_loc.remove([x2, y2])
+            self.thieves_gloves_loc.append([x1, y1])
 
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
@@ -1073,14 +1073,14 @@ class player:
                     while trait_item_list[r] == item:
                         r = random.randint(0, 7)
                     self.item_bench[self.item_bench_vacancy()] = trait_item_list[r]
-                elif item in thiefs_gloves_items:
-                    r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    while thiefs_gloves_items[r] == item:
-                        r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+                elif item in thieves_gloves_items:
+                    r = random.randint(0, len(thieves_gloves_items) - 1)
+                    while thieves_gloves_items[r] == item:
+                        r = random.randint(0, len(thieves_gloves_items) - 1)
+                    self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
                 else:   # this will only ever be thiefs gloves
-                    r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+                    r = random.randint(0, len(thieves_gloves_items) - 1)
+                    self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
             champ.items = []
             champ.num_items = 0
             self.item_bench[xBench] = None
@@ -1102,8 +1102,8 @@ class player:
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
-        for x in range(len(self.thiefs_glove_loc)):
-            self.thiefs_gloves(self.thiefs_glove_loc[x][0], self.thiefs_glove_loc[x][1])
+        for x in range(len(self.thieves_gloves_loc)):
+            self.thieves_gloves(self.thieves_gloves_loc[x][0], self.thieves_gloves_loc[x][1])
 
     def won_game(self):
         self.reward += self.won_game_reward

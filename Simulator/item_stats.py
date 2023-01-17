@@ -44,7 +44,7 @@ items = {
     'statikk_shiv': {'AS': 1.15, 'mana': 15},
     'sunfire_cape': {'armor': 25, 'health': 200},
     'sword_of_the_divine': {'AD': 15},
-    'thiefs_gloves': {'crit_chance': 0.2, 'dodge': 0.2},
+    'thieves_gloves': {'crit_chance': 0.2, 'dodge': 0.2},
     'titans_resolve': {'AS': 1.15, 'armor': 20},
     'trap_claw': {'health': 200, 'dodge': 0.20},
     'vanguards_cuirass': {'armor': 25},
@@ -99,7 +99,7 @@ item_builds = {
     'statikk_shiv': ['recurve_bow', 'tear_of_the_goddess'],
     'sunfire_cape': ['chain_vest', 'giants_belt'],
     'sword_of_the_divine': ['bf_sword', 'spatula'],
-    'thiefs_gloves': ['sparring_gloves', 'sparring_gloves'],
+    'thieves_gloves': ['sparring_gloves', 'sparring_gloves'],
     'titans_resolve': ['chain_vest', 'recurve_bow'],
     'trap_claw': ['giants_belt', 'sparring_gloves'],
     'vanguards_cuirass': ['chain_vest', 'spatula'],
@@ -236,7 +236,7 @@ item_activate_every_x_attacks = {'statikk_shiv': 3}
 initiative_items = [
     'rapid_firecannon',
     'sunfire_cape',
-    'thiefs_gloves',
+    'thieves_gloves',
     'duelists_zeal',
     'elderwood_heirloom',
     'mages_cap',
@@ -247,7 +247,7 @@ initiative_items = [
     'youmuus_ghostblade'
 ]  # these items will call their items.py -function from items.initiate()
 
-thiefs_gloves_items = [
+thieves_gloves_items = [
     'bloodthirster',
     'blue_buff',
     'bramble_vest',

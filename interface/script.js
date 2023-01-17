@@ -112,7 +112,7 @@ items = [
     'statikk_shiv',
     'sunfire_cape',
     'sword_of_the_divine',
-    'thiefs_gloves',
+    'thieves_gloves',
     'titans_resolve',
     'trap_claw',
     'vanguards_cuirass',

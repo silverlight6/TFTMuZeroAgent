@@ -562,7 +562,7 @@ def sunfire_cape(champion, data = {'loop': False}):
             champion.add_que('execute_function', item_stats.cooldown['sunfire_cape'], [sunfire_cape, {'loop': True}])
 
 
-def thiefs_gloves(champion):
+def thieves_gloves(champion):
     ...
 
 titans_resolve_list = [] #[champion, stacks, maxxed]
