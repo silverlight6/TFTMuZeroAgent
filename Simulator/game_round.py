@@ -177,7 +177,7 @@ class Game_Round:
                         players[num].loss_round(player_round)
                         if len(alive) > 0:
                             for other in alive:
-                                other.won_round(damage/len(alive))
+                                other.won_ghost(damage/len(alive))
                     players[num].combat = True
                     players_matched += 1
                 else:
@@ -192,15 +192,15 @@ class Game_Round:
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
         self.step_func_obj.generate_shop_vectors(self.PLAYERS)
-        for i in range(config.NUM_PLAYERS):
-            if self.PLAYERS[i]:
-                self.PLAYERS[i].start_round(self.current_round)
+        for player in self.PLAYERS.values():
+            if player:
+                player.start_round(self.current_round)
 
         # TO DO
         # Change this so it isn't tied to a player and can log as time proceeds
 
     def round_1(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 # first carousel
                 ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
@@ -210,20 +210,9 @@ class Game_Round:
                 player.add_to_bench(ran_cost_1)
                 log_to_file(player)
 
-        # local_time = time.time_ns()
-        # processes = []
-        # for player in self.PLAYERS:
-        #     p = multiprocessing.Process(target=minion.minion_round, args=(player, 0, self.PLAYERS))
-        #     p.start()
-        #     processes.append(p)
-        #
-        # for process in processes:
-        #     process.join()
-
-        for player in self.PLAYERS:
-            minion.minion_round(player, 0, self.PLAYERS)
-
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
+            minion.minion_round(player, 0, self.PLAYERS.values())
+        for player in self.PLAYERS.values():
             if player:
                 player.start_round(1)
         # False stands for no one died
@@ -231,25 +220,25 @@ class Game_Round:
 
     # r for minion round
     def minion_round(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 log_to_file(player)
         log_end_turn(self.current_round)
 
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
-                minion.minion_round(player, self.current_round, self.PLAYERS)
+                minion.minion_round(player, self.current_round, self.PLAYERS.values())
         self.start_round()
         return False
 
     # r stands for round or game_round but round is a keyword so using r instead
     def combat_round(self):
-        for i in range(config.NUM_PLAYERS):
-            if self.PLAYERS[i]:
-                log_to_file(self.PLAYERS[i])
+        for player in self.PLAYERS.values():
+            if player:
+                log_to_file(player)
         log_end_turn(self.current_round)
 
-        self.combat_phase(self.PLAYERS, self.current_round)
+        self.combat_phase(list(self.PLAYERS.values()), self.current_round)
         # Will implement check dead later
         # if self.check_dead(agent, buffer, game_episode):
         #     return True
@@ -259,7 +248,7 @@ class Game_Round:
         return False
 
     def carousel2_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
             ran_cost_3 = champion.champion(ran_cost_3,
                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
@@ -267,7 +256,7 @@ class Game_Round:
             player.add_to_bench(ran_cost_3)
 
     def carousel3_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
                 ran_cost_3 = champion.champion(ran_cost_3,
@@ -276,7 +265,7 @@ class Game_Round:
                 player.add_to_bench(ran_cost_3)
 
     def carousel4_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_4 = list(pool_stats.COST_4.items())[random.randint(0, len(pool_stats.COST_4) - 1)][0]
                 ran_cost_4 = champion.champion(ran_cost_4,
@@ -285,7 +274,7 @@ class Game_Round:
                 player.add_to_bench(ran_cost_4)
 
     def carousel5_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
@@ -294,7 +283,7 @@ class Game_Round:
                 player.add_to_bench(ran_cost_5)
 
     def carousel6_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
@@ -303,7 +292,7 @@ class Game_Round:
                 player.add_to_bench(ran_cost_5)
 
     def carousel7_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
@@ -312,7 +301,7 @@ class Game_Round:
                 player.add_to_bench(ran_cost_5)
 
     def carousel8_4(self):
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
                 item_list = list(full_items.keys())
@@ -322,7 +311,7 @@ class Game_Round:
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")
-        for player in self.PLAYERS:
+        for player in self.PLAYERS.values():
             if player:
                 print(player.health)
         return False
