@@ -140,6 +140,7 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(1)
 
+        ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
