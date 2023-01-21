@@ -22,8 +22,16 @@ cdef class MinMaxStatsList:
     def set_delta(self, float value_delta_max):
         self.cmin_max_stats_lst[0].set_delta(value_delta_max)
 
+    def get_max(self, int num):
+        return self.cmin_max_stats_lst[0].get_max(num)
+
+    def get_min(self, int num):
+        return self.cmin_max_stats_lst[0].get_min(num)
+        
     def __dealloc__(self):
         del self.cmin_max_stats_lst
+
+    
 
 
 cdef class ResultsWrapper:

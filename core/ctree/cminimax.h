@@ -20,11 +20,14 @@ namespace tools {
             void update(float value);
             void clear();
             float normalize(float value);
+
+            float get_max();
+            float get_min();
     };
 
     class CMinMaxStatsList {
         public:
-            int num;
+            int num, index;
             std::vector<CMinMaxStats> stats_lst;
 
             CMinMaxStatsList();
@@ -32,6 +35,9 @@ namespace tools {
             ~CMinMaxStatsList();
 
             void set_delta(float value_delta_max);
+
+            float get_max(int index);
+            float get_min(int index);
     };
 }
 

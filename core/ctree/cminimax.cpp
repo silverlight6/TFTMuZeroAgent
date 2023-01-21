@@ -42,6 +42,18 @@ namespace tools{
         return norm_value;
     }
 
+    float CMinMaxStats::get_max(){
+        float ans;
+        ans = this->maximum;
+        return ans; 
+    }
+
+    float CMinMaxStats::get_min(){
+        float ans;
+        ans = this->minimum;
+        return ans;
+    }
+
     //*********************************************************
 
     CMinMaxStatsList::CMinMaxStatsList(){
@@ -61,6 +73,18 @@ namespace tools{
         for(int i = 0; i < this->num; ++i){
             this->stats_lst[i].set_delta(value_delta_max);
         }
+    }
+
+    float CMinMaxStatsList::get_max(int index){
+        float max;
+        max = this->stats_lst[index].get_max();
+        return max;
+    }
+
+    float CMinMaxStatsList::get_min(int index){
+        float min;
+        min = this->stats_lst[index].get_min();
+        return min;
     }
 
 }

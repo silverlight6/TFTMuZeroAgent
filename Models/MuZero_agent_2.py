@@ -595,11 +595,11 @@ class MCTS(MCTSAgent):
         super().__init__(network, 0)
         self.times = [0]*6
 
-    def run_batch_mcts(self, roots, action):
+    def run_batch_mcts(self, roots, action, roots_cpp):
         #with torch.no_grad():
 
         # preparation
-        num = len(roots)
+        num = config.NUM_PLAYERS
         print("num:", num)
         discount = config.DISCOUNT  # we have these 
         # the data storage of hidden states: storing the states of all the tree nodes
@@ -611,7 +611,7 @@ class MCTS(MCTSAgent):
         hidden_state_index_x = 0
         # minimax value storage
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
-        min_max_stats_lst = tree.MinMaxStatsList(num)
+        min_max_stats_lst = tree.MinMaxStatsList(config.NUM_PLAYERS)
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
         horizons = 1  # self.config.lstm_horizon_len
 
@@ -625,7 +625,13 @@ class MCTS(MCTSAgent):
             history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
             node = roots
             search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
-            
+            print("got here")
+            for i in range(len(min_max_stats)):
+                min_max_stats[i].update(min_max_stats_lst.get_max(i))
+                min_max_stats[i].update(min_max_stats_lst.get_min(i))
+            print("updated")
+            a,b,c = tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
+            print("traversed")
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
@@ -638,7 +644,7 @@ class MCTS(MCTSAgent):
                     search_path[i].append(node[i])
                     search_len += 1
                 search_lens.append(search_len)
-
+            print("search len stuff")
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
@@ -650,7 +656,7 @@ class MCTS(MCTSAgent):
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
-
+            print("got output")
 
             # reset 0
             # reset the hidden states in LSTM every horizon steps in search
@@ -673,15 +679,14 @@ class MCTS(MCTSAgent):
     
     def batch_policy(self, observation, prev_action):
         root = [Node(0) for _ in range(config.NUM_PLAYERS)]
+        roots_cpp = tree.Roots(config.NUM_PLAYERS, 10, config.NUM_SIMULATIONS) # (batchsize or num_players or num_players*batch_size?, action size, num simulations) 
         network_output = self.network.initial_inference(observation) #2.1 seconds
         
         for i in range(config.NUM_PLAYERS):
             self.batch_expand_node(root[i], i, network_output) #0.39 seconds 
-            
-            
             self.add_exploration_noise(root[i])
         t =time.time_ns()   
-        self.run_batch_mcts(root, prev_action) #24.3 s (3 seconds not in that)
+        self.run_batch_mcts(root, prev_action, roots_cpp) #24.3 s (3 seconds not in that)
         print(time.time_ns()-t)
         action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
         
