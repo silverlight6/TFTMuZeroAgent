@@ -4,8 +4,10 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
+
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items, uncraftable_items
+
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -117,7 +119,9 @@ class player:
         self.kayn_transformed = False
         self.kayn_form = None
 
+
         self.thieves_gloves_loc = []
+
         self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
         self.current_action = 0
         self.action_complete = False
@@ -871,10 +875,12 @@ class player:
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
+
                 # thieves_gloves_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thieves_gloves':
                     self.thieves_gloves_loc.remove([x, -1])
-                    self.items = ['thieves_gloves']
+                    self.bench[x].items = ['thieves_gloves']
+
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
