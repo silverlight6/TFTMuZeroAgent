@@ -67,23 +67,6 @@ class DataWorker(object):
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
-    def test_collect_gameplay_experience(self, env, agent, buffers):
-        observation, info = env.reset()
-        terminated = False
-        while not terminated:
-            # agent policy that uses the observation and info
-            action, policy = agent.batch_policy(observation, self.prev_actions)
-            self.prev_actions = action
-            observation_list, rewards, terminated, _, info = env.step(np.asarray(action))
-            for i in range(config.NUM_PLAYERS):
-                if info["players"][i]:
-                    local_reward = rewards[info["players"][i].player_num] - \
-                                   self.prev_reward[info["players"][i].player_num]
-                    buffers[info["players"][i].player_num]. \
-                        store_replay_buffer(observation_list[info["players"][i].player_num],
-                                            action[info["players"][i].player_num], local_reward,
-                                            policy[info["players"][i].player_num])
-                    self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
 
     def getStepActions(self, terminated, actions):
         step_actions = {}
@@ -154,33 +137,6 @@ class AIInterface:
                 if train_step % 100 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
-
-    def test_train_model(self, max_episodes=10000):
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-        global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer.remote()
-        trainer = MuZero_trainer.Trainer()
-        train_step = 0
-        # global_agent.load_model(0)
-        env = parallel_env()
-        dataWorker = DataWorker().remote()
-
-        for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
-            buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            dataWorker.test_collect_gameplay_experience(env, agent, buffers)
-
-            for i in range(config.NUM_PLAYERS):
-                buffers[i].store_global_buffer()
-            while global_buffer.available_batch():
-                gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                train_step += 1
-            global_agent.save_model(episode_cnt)
-            print("Episode " + str(episode_cnt) + " Completed")
 
     def collect_dummy_data(self):
         dataWorker = DataWorker()

@@ -42,52 +42,47 @@ def verifyShopDropRate():
         total_5_cost = 0
         
         #loop though each cost 1 champion
-        for j in range(len(costs[0])):
-            print(str(list(costs[0])[j]) + ": " + str(costs[0][list(costs[0])[j]]/100000))
-            total_1_cost += costs[0][list(costs[0])[j]]
+        for i in range(len(costs[0])):
+            print(str(list(costs[0])[i]) + ": " + str(costs[0][list(costs[0])[i]]/100000))
+            total_1_cost += costs[0][list(costs[0])[i]]
 
         #loop though each cost 2 champion
-        for j in range(len(costs[1])):
-            print(str(list(costs[1])[j]) + ": " + str(costs[1][list(costs[1])[j]]/100000))
-            total_2_cost += costs[1][list(costs[1])[j]]
+        for i in range(len(costs[1])):
+            print(str(list(costs[1])[i]) + ": " + str(costs[1][list(costs[1])[i]]/100000))
+            total_2_cost += costs[1][list(costs[1])[i]]
 
         #loop though each cost 3 champion
-        for j in range(len(costs[2])):
-            print(str(list(costs[2])[j]) + ": " + str(costs[2][list(costs[2])[j]]/100000))
-            total_3_cost += costs[2][list(costs[2])[j]]
+        for i in range(len(costs[2])):
+            print(str(list(costs[2])[i]) + ": " + str(costs[2][list(costs[2])[i]]/100000))
+            total_3_cost += costs[2][list(costs[2])[i]]
 
         #loop though each cost 4 champion
-        for j in range(len(costs[3])):
-            print(str(list(costs[3])[j]) + ": " + str(costs[3][list(costs[3])[j]]/100000))
-            total_4_cost += costs[3][list(costs[3])[j]]
+        for i in range(len(costs[3])):
+            print(str(list(costs[3])[i]) + ": " + str(costs[3][list(costs[3])[i]]/100000))
+            total_4_cost += costs[3][list(costs[3])[i]]
 
         #loop though each cost 5 champion
-        for j in range(len(costs[4])):
-            print(str(list(costs[4])[j]) + ": " + str(costs[4][list(costs[4])[j]]/100000))
-            total_5_cost += costs[4][list(costs[4])[j]]
+        for i in range(len(costs[4])):
+            print(str(list(costs[4])[i]) + ": " + str(costs[4][list(costs[4])[i]]/100000))
+            total_5_cost += costs[4][list(costs[4])[i]]
         
         # need to add proper statistical one way ANOVA to be extra sure, right now error is arbitrary (variance of 1%)
-        print("Drop rate 1 cost champion  : " + str(total_1_cost/100000))
         assert (CORRECT_DROP_RATES[level - 1][0] - 0.01) <= total_1_cost/100000 and \
             (CORRECT_DROP_RATES[level - 1][0] + 0.01) >= total_1_cost/100000, \
                 f"1 Cost Champion drop rate at level {level} is significantly incorrect! Control: {CORRECT_DROP_RATES[level - 1][0]} Sample: {total_1_cost/100000}"
 
-        print("Drop rate 2 cost champion  : " + str(total_2_cost/100000))
         assert (CORRECT_DROP_RATES[level - 1][1] - 0.01) <= total_2_cost/100000 and \
             (CORRECT_DROP_RATES[level - 1][1] + 0.01) >= total_2_cost/100000, \
                 f"2 Cost Champion drop rate at level {level} is significantly incorrect! Control: {CORRECT_DROP_RATES[level - 1][1]} Sample: {total_2_cost/100000}"
 
-        print("Drop rate 3 cost champion  : " + str(total_3_cost/100000))
         assert (CORRECT_DROP_RATES[level - 1][2] - 0.01) <= total_3_cost/100000 and \
             (CORRECT_DROP_RATES[level - 1][2] + 0.01) >= total_3_cost/100000, \
                 f"3 Cost Champion drop rate at level {level} is significantly incorrect! Control: {CORRECT_DROP_RATES[level - 1][2]} Sample: {total_3_cost/100000}"
 
-        print("Drop rate 4 cost champion  : " + str(total_4_cost/100000))
         assert (CORRECT_DROP_RATES[level - 1][3] - 0.01) <= total_4_cost/100000 and \
             (CORRECT_DROP_RATES[level - 1][3] + 0.01) >= total_4_cost/100000, \
                 f"4 Cost Champion drop rate at level {level} is significantly incorrect! Control: {CORRECT_DROP_RATES[level - 1][3]} Sample: {total_4_cost/100000}"
 
-        print("Drop rate 5 cost champion  : " + str(total_5_cost/100000))
         assert (CORRECT_DROP_RATES[level - 1][4] - 0.01) <= total_5_cost/100000 and \
             (CORRECT_DROP_RATES[level - 1][4] + 0.01) >= total_5_cost/100000, \
                 f"5 Cost Champion drop rate at level {level} is significantly incorrect! Control: {CORRECT_DROP_RATES[level - 1][4]} Sample: {total_5_cost/100000}"
@@ -133,7 +128,7 @@ def verify(_pool, _player):
             else:
                 cost_5[shop[i]] = 1
         else:
-            print("ERROR: Champion not found in any cost")
+            pass
 
 
     return cost_1, cost_2, cost_3, cost_4, cost_5
