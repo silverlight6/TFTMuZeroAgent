@@ -15,56 +15,55 @@ item_list = list(full_items.keys())
 
 class LootOrb(Enum):
     COMMON = {
-        'three_gold': .2,
+        'three_gold': .4,
         'three_cost': .2,
         'two_cost_one_gold': .2,
-        'three_one_costs': .2,
-        'champion_duplicator_one_gold': .2
+        'three_one_costs': .15,
+        'champion_duplicator_one_gold': .05
     }
     UNCOMMON = {
-        'six_gold': .25,
-        'two_three_costs': .25,
-        'three_two_costs': .25,
-        'one_item': .25
+        'six_gold': .1,
+        'two_three_costs': .1,
+        'three_two_costs': .1,
+        'one_item': .7
     }
     RARE = {
-        'ten_gold': .05,
-        'two_five_costs': .05,
+        'ten_gold': .1,
+        'two_five_costs': .1,
         'spatula': .80,
-        'full_item': .10
     }
 
 # Implementation of the loot that can be given to the player
 # The rewards are pretty self explanatory; 'three_one_costs' gives three random one cost champions, 'one_item' gives one random item, etc.
 def give_loot(player, reward):
     # I would use a match here but we're on python 3.8
-    if reward is 'three_gold':
+    if reward == 'three_gold':
         player.gold += 3
-    if reward is 'six_gold':
+    if reward == 'six_gold':
         player.gold += 6
-    if reward is 'ten_gold':
+    if reward == 'ten_gold':
         player.gold += 10
-    if reward is 'three_one_costs':
+    if reward == 'three_one_costs':
         give_champions(player, pool_stats.COST_1, count=3)
-    if reward is 'two_cost_one_gold':
+    if reward == 'two_cost_one_gold':
         give_champions(player, pool_stats.COST_2)
         player.gold += 1
-    if reward is 'three_cost':
+    if reward == 'three_cost':
         give_champions(player, pool_stats.COST_3)
-    if reward is 'three_two_costs':
+    if reward == 'three_two_costs':
         give_champions(player, pool_stats.COST_2, count=3)
-    if reward is 'two_three_costs':
+    if reward == 'two_three_costs':
         give_champions(player, pool_stats.COST_3, count=2)
-    if reward is 'two_five_costs':
+    if reward == 'two_five_costs':
         give_champions(player, pool_stats.COST_5, count=2)
-    if reward is 'one_item':
+    if reward == 'one_item':
         give_random_item(player)
-    if reward is 'full_item':
+    if reward == 'full_item':
         give_random_full_item(player)
-    if reward is 'champion_duplicator_one_gold':
+    if reward == 'champion_duplicator_one_gold':
         player.gold += 1
         player.add_to_item_bench('champion_duplicator')
-    if reward is 'spatula':
+    if reward == 'spatula':
         player.add_to_item_bench('spatula')
 
 
@@ -78,15 +77,14 @@ def give_champions(player, cost, count=1):
 def give_champion(player, cost):
     # Give gold if bench is full
     if player.bench_full():
-        match cost:
-            case pool_stats.COST_1:
-                player.gold += 1
-            case pool_stats.COST_2:
-                player.gold += 2
-            case pool_stats.COST_3:
-                player.gold += 3
-            case pool_stats.COST_5:
-                player.gold += 5
+        if cost is pool_stats.COST_1:
+            player.gold += 1
+        if cost is pool_stats.COST_2:
+            player.gold += 2
+        if cost is pool_stats.COST_3:
+            player.gold += 3
+        if cost is pool_stats.COST_5:
+            player.gold += 5
     else:
         name = list(cost.items())[random.randint(0, len(cost) - 1)][0]
         random_champion = champion.champion(name)
@@ -120,6 +118,7 @@ def gen_orb_reward(loot_orb: LootOrb):
     probabilities = list(loot_orb.value.values())
 
     reward = np.random.choice(choices, p=probabilities)
+    print(reward)
 
     return reward
 

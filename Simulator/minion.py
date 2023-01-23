@@ -1,5 +1,4 @@
 import config
-from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, give_loot
 
@@ -27,9 +26,9 @@ class FirstMinion(Minion):
         self.board[2][1] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('meleeminion')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
-        probabilities = [.8, .2]
+        probabilities = [.85, .15]
         count = 1
         return gen_loot(choices, probabilities, count)
 
@@ -42,9 +41,9 @@ class SecondMinion(Minion):
         self.board[1][2] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('rangedminion')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
-        probabilities = [.8, .2]
+        probabilities = [.85, .15]
         count = 1
         return gen_loot(choices, probabilities, count)
 
@@ -58,9 +57,9 @@ class ThirdMinion(Minion):
         self.board[5][1] = champion.champion('rangedminion')
         self.board[1][1] = champion.champion('rangedminion')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
-        probabilities = [.8, .2]
+        probabilities = [.85, .15]
         count = 1
         return gen_loot(choices, probabilities, count)
 
@@ -73,7 +72,7 @@ class Krug(Minion):
         self.board[6][3] = champion.champion('krug')
         self.board[5][1] = champion.champion('krug')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
         probabilities = [.7, .2, .05, .05]
         count = 3
@@ -90,7 +89,7 @@ class Wolf(Minion):
         self.board[5][0] = champion.champion('lesserwolf')
         self.board[3][2] = champion.champion('wolf')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
         probabilities = [.6, .2, .05, .15]
         count = 5
@@ -107,7 +106,7 @@ class Raptor(Minion):
         self.board[5][1] = champion.champion('raptor')
         self.board[5][2] = champion.champion('raptor')
 
-    def drop_loot():
+    def drop_loot(self):
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
         probabilities = [.5, .3, .05, .15]
         count = 5
@@ -120,7 +119,7 @@ class Nexus(Minion):
         super().__init__()
         self.board[3][1] = champion.champion('nexusminion')
 
-    def drop_loot():
+    def drop_loot(self):
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
@@ -137,7 +136,7 @@ class Herald(Minion):
         super().__init__()
         self.board[3][1] = champion.champion('riftherald')
     
-    def drop_loot():
+    def drop_loot(self):
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
