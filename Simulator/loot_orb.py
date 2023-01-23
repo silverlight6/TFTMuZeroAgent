@@ -93,7 +93,8 @@ def give_champion(player, cost):
 
 ## Random Items
 def give_random_item(player):
-    player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
+    item = player.random_item_from_pool()
+    player.add_to_item_bench(item)
 
 def give_random_full_item(player):
     player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
