@@ -595,7 +595,7 @@ class MCTS(MCTSAgent):
         super().__init__(network, 0)
         self.times = [0]*6
 
-    def run_batch_mcts(self, roots, action, roots_cpp):
+    def run_batch_mcts(self, roots, action, roots_cpp, hidden_state_pool):
         #with torch.no_grad():
 
         # preparation
@@ -610,7 +610,6 @@ class MCTS(MCTSAgent):
         pb_c_base = config.PB_C_BASE
         hidden_state_index_x = 0
         # minimax value storage
-        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         min_max_stats_lst = tree.MinMaxStatsList(config.NUM_PLAYERS)
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
         horizons = 1  # self.config.lstm_horizon_len
@@ -619,40 +618,30 @@ class MCTS(MCTSAgent):
             # prepare a result wrapper to transport results between python and c++ parts
             results = tree.ResultsWrapper(num)
             print("results", results)
-            search_lens = results.get_search_len()
 
             # evaluation for leaf nodes
-            history = [ActionHistory(action[i]) for i in range(config.NUM_PLAYERS)]
-            node = roots
-            search_path = [[node[i]] for i in range(config.NUM_PLAYERS)]
-            print("got here")
-            for i in range(len(min_max_stats)):
-                min_max_stats[i].update(min_max_stats_lst.get_max(i))
-                min_max_stats[i].update(min_max_stats_lst.get_min(i))
             print("updated")
-            a,b,c = tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
+            hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
             print("traversed")
+            search_lens = results.get_search_len()
+
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
-            search_lens = [] 
-            for i in range(config.NUM_PLAYERS):
-                search_len = 0 
-                while node[i].expanded():
-                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
-                    history[i].add_action(action[i])
-                    search_path[i].append(node[i])
-                    search_len += 1
-                search_lens.append(search_len)
-            print("search len stuff")
+            # obtain the states for leaf nodes
+            hidden_states = [] 
+            for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
+                hidden_states.append(hidden_state_pool[ix][iy])
+            
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
-            parent = [search_path[i][-2] for i in range(config.NUM_PLAYERS)]
-            hidden_state = np.asarray([parent[i].hidden_state for i in range(config.NUM_PLAYERS)])
-            last_action = np.asarray([history[i].last_action() for i in range(config.NUM_PLAYERS)])               
-            
-            network_output = self.network.recurrent_inference(hidden_state, last_action) #11.05s 
+
+            hidden_states = np.asarray(hidden_states)
+            last_action = np.asarray(last_action)
+
+            print(last_action)            
+            network_output = self.network.recurrent_inference(hidden_states, last_action) #11.05s 
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
@@ -681,12 +670,20 @@ class MCTS(MCTSAgent):
         root = [Node(0) for _ in range(config.NUM_PLAYERS)]
         roots_cpp = tree.Roots(config.NUM_PLAYERS, 10, config.NUM_SIMULATIONS) # (batchsize or num_players or num_players*batch_size?, action size, num simulations) 
         network_output = self.network.initial_inference(observation) #2.1 seconds
+
+        value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
+        policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
+
+        noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * config.ACTION_DIM).astype(np.float32).tolist() for _ in range(config.NUM_PLAYERS)]
+        roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
         
+        hidden_state_pool = network_output["hidden_state"]
+
         for i in range(config.NUM_PLAYERS):
             self.batch_expand_node(root[i], i, network_output) #0.39 seconds 
             self.add_exploration_noise(root[i])
         t =time.time_ns()   
-        self.run_batch_mcts(root, prev_action, roots_cpp) #24.3 s (3 seconds not in that)
+        self.run_batch_mcts(root, prev_action, roots_cpp, hidden_state_pool) #24.3 s (3 seconds not in that)
         print(time.time_ns()-t)
         action = [int(self.select_action(root[i])) for i in range(config.NUM_PLAYERS)]
         
