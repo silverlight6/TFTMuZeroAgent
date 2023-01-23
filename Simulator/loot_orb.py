@@ -22,10 +22,10 @@ class LootOrb(Enum):
         'champion_duplicator_one_gold': .05
     }
     UNCOMMON = {
-        'six_gold': .1,
+        'six_gold': .05,
         'two_three_costs': .1,
-        'three_two_costs': .1,
-        'one_item': .7
+        'three_two_costs': .05,
+        'one_item': .8
     }
     RARE = {
         'ten_gold': .1,
