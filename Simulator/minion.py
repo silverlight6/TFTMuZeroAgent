@@ -1,16 +1,13 @@
 import config
 from Simulator.item_stats import item_builds as full_items, basic_items, starting_items
-from Simulator import champion, pool, pool_stats
-import random
-
-item_list = list(full_items.keys())
+from Simulator import champion
+from Simulator.loot_orb import LootOrb, gen_loot, give_loot
 
 # TODO
 # add better randomness to drops
 # add check for champion existing in the pool before being removed
 # add "abilities" for each class of minions (krugs gain 1200 hp when another krug dies, etc)
 # this would probably be handled with an origin for each type of minion
-
 
 # Objects representing board configs for each minion round
 # These should function similar to player objects except simplified for minion combat
@@ -23,13 +20,21 @@ class Minion:
         self.opponent = None
 
 
+# Drops either 1 blue orb or 2 gray orbs
 class FirstMinion(Minion):
     def __init__(self):
         super().__init__()
         self.board[2][1] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('meleeminion')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
+        probabilities = [.8, .2]
+        count = 1
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops either 1 blue orb or 2 gray orbs
 class SecondMinion(Minion):
     def __init__(self):
         super().__init__()
@@ -37,7 +42,14 @@ class SecondMinion(Minion):
         self.board[1][2] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('rangedminion')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
+        probabilities = [.8, .2]
+        count = 1
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops either 1 blue orb or 2 gray orbs
 class ThirdMinion(Minion):
     def __init__(self):
         super().__init__()
@@ -46,7 +58,14 @@ class ThirdMinion(Minion):
         self.board[5][1] = champion.champion('rangedminion')
         self.board[1][1] = champion.champion('rangedminion')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, [LootOrb.COMMON, LootOrb.COMMON]]
+        probabilities = [.8, .2]
+        count = 1
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops up to 3 orbs, on rare occasions krugs don't drop anything
 class Krug(Minion):
     def __init__(self):
         super().__init__()
@@ -54,7 +73,14 @@ class Krug(Minion):
         self.board[6][3] = champion.champion('krug')
         self.board[5][1] = champion.champion('krug')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        probabilities = [.7, .2, .05, .05]
+        count = 3
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops up to 5 orbs, sometimes wolves don't drop anything
 class Wolf(Minion):
     def __init__(self):
         super().__init__()
@@ -64,7 +90,14 @@ class Wolf(Minion):
         self.board[5][0] = champion.champion('lesserwolf')
         self.board[3][2] = champion.champion('wolf')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        probabilities = [.6, .2, .05, .15]
+        count = 5
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops up to 5 orbs, sometimes raptors don't drop anything
 class Raptor(Minion):
     def __init__(self):
         super().__init__()
@@ -74,17 +107,46 @@ class Raptor(Minion):
         self.board[5][1] = champion.champion('raptor')
         self.board[5][2] = champion.champion('raptor')
 
+    def drop_loot():
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        probabilities = [.5, .3, .05, .15]
+        count = 5
+        return gen_loot(choices, probabilities, count)
 
+
+# Drops 1 random full item and a random orb
 class Nexus(Minion):
     def __init__(self):
         super().__init__()
         self.board[3][1] = champion.champion('nexusminion')
 
+    def drop_loot():
+        loot = ['full_item']
 
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
+        probabilities = [.7, .2, .1]
+        count = 1
+
+        loot.extend(gen_loot(choices, probabilities, count))
+
+        return loot
+
+# Drops 1 random full item and a random orb
 class Herald(Minion):
     def __init__(self):
         super().__init__()
         self.board[3][1] = champion.champion('riftherald')
+    
+    def drop_loot():
+        loot = ['full_item']
+
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
+        probabilities = [.4, .5, .1]
+        count = 2
+
+        loot.extend(gen_loot(choices, probabilities, count))
+
+        return loot
 
 
 def minion_round(player, round, others):
@@ -161,7 +223,9 @@ def minion_combat(player, enemy, round, others):
         player.health -= damage
     # player wins!
     if index_won == 1:
-        lootDrop(player, round, player.pool_obj)
+        loot = enemy.drop_loot()
+        for reward in loot:
+            give_loot(player, reward)
     # minions win! (yikes)
     if index_won == 2:
         player.loss_round(damage)
@@ -169,56 +233,3 @@ def minion_combat(player, enemy, round, others):
             for p in alive:
                 p.won_ghost(damage/len(alive))
         player.health -= damage
-
-
-# decide the loot the player is owed after winning combat against minions
-def lootDrop(player, round, pool_obj):
-    # 2 melee minions - give 1 item component
-    if round == 0:
-        player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-
-    # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
-    elif round == 1:
-        player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-        ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-        ran_cost_3 = champion.champion(ran_cost_3)
-        pool_obj.update_pool(ran_cost_3, -1)
-        player.add_to_bench(ran_cost_3)
-
-    # 2 melee minions and 2 ranged minions - give 3 gold and 1 item component
-    elif round == 2:
-        player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-        player.gold += 3
-
-    # 3 Krugs - give 3 gold and 3 item components
-    elif round == 8:
-        player.gold += 3
-        for _ in range(0, 3):
-            player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-
-    # 1 Greater Murk Wolf and 4 Murk Wolves - give 3 gold and 3 item components
-    elif round == 14:
-        player.gold += 3
-        for _ in range(0, 3):
-            player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-
-    # 1 Crimson Raptor and 4 Raptors - give 6 gold and 4 item components
-    elif round == 20:
-        player.gold += 6
-        for _ in range(0, 4):
-            player.add_to_item_bench(starting_items[random.randint(0, len(starting_items) - 1)])
-
-    # 1 Nexus Minion - give 6 gold and a full item
-    elif round == 26:
-        player.gold += 6
-        player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
-
-    # Rift Herald - give 6 gold and a full item
-    elif round >= 33:
-        player.gold += 6
-        player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
-
-    # invalid round! Do nothing
-    else:
-        return
-
