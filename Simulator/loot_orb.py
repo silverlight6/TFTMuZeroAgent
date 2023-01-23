@@ -101,9 +101,9 @@ def give_random_full_item(player):
 # Helper functions for getting orbs after minion rounds
 def gen_orbs(choices, probabilities, count):
     orbs = []
+    choices = np.array(choices, dtype=object)
 
     for _ in range(count):
-
         orb = np.random.choice(choices, p=probabilities)
         if type(orb) is list:
             orbs.extend(orb)
