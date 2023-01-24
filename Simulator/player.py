@@ -134,6 +134,9 @@ class player:
         self.refill_item_pool()
         self.refill_item_pool()
 
+        # Context For Loot Orbs
+        self.orb_history = []
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import

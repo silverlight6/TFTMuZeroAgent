@@ -15,22 +15,24 @@ item_list = list(full_items.keys())
 
 class LootOrb(Enum):
     COMMON = {
-        'three_gold': .4,
-        'three_cost': .2,
-        'two_cost_one_gold': .2,
-        'three_one_costs': .15,
+        'three_gold': .2,
+        'three_cost': .25,
+        'two_cost_one_gold': .25,
+        'three_one_costs': .25,
         'champion_duplicator_one_gold': .05
     }
     UNCOMMON = {
         'six_gold': .05,
-        'two_three_costs': .1,
-        'three_two_costs': .05,
-        'one_item': .8
+        'two_three_costs': .15,
+        'three_two_costs': .15,
+        'one_item': .6,
+        'champion_duplicator_one_gold_two_cost': .05
     }
     RARE = {
         'ten_gold': .1,
         'two_five_costs': .1,
-        'spatula': .80,
+        'champion_duplicator_five_gold': .1,
+        'spatula': .70,
     }
 
 # Implementation of the loot that can be given to the player
@@ -62,6 +64,13 @@ def give_loot(player, reward):
         give_random_full_item(player)
     if reward == 'champion_duplicator_one_gold':
         player.gold += 1
+        player.add_to_item_bench('champion_duplicator')
+    if reward == 'champion_duplicator_one_gold_two_cost':
+        player.gold += 1
+        give_champions(player, pool_stats.COST_2)
+        player.add_to_item_bench('champion_duplicator')
+    if reward == 'champion_duplicator_five_gold':
+        player.gold += 5
         player.add_to_item_bench('champion_duplicator')
     if reward == 'spatula':
         player.add_to_item_bench('spatula')
@@ -119,18 +128,18 @@ def gen_orb_reward(loot_orb: LootOrb):
     probabilities = list(loot_orb.value.values())
 
     reward = np.random.choice(choices, p=probabilities)
-    print(reward)
 
     return reward
 
 # Combines `gen_orbs` and `gen_orb_reward` to directly give you the rewards from loot orbs
 # e.g after raptors you might get ['one_item', 'one_item', 'one_item', 'three_gold', 'two_three_costs']
-def gen_loot(choices, probabilities, count):
+def gen_loot(choices, probabilities, count, history):
     loot = []
 
     orbs = gen_orbs(choices, probabilities, count)
 
     for orb in orbs:
+        history.append(orb)
         loot.append(gen_orb_reward(orb))
 
     return loot
