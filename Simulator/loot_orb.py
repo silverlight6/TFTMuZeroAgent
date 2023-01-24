@@ -128,7 +128,6 @@ def gen_orb_reward(loot_orb: LootOrb):
     probabilities = list(loot_orb.value.values())
 
     reward = np.random.choice(choices, p=probabilities)
-    print(reward)
 
     return reward
 

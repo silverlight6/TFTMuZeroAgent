@@ -31,7 +31,6 @@ class FirstMinion(Minion):
         self.board[5][1] = champion.champion('meleeminion')
 
     def drop_loot(self, history):
-        print('FirstMinion')
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.COMMON), (LootOrb.COMMON, LootOrb.UNCOMMON)]
         probabilities = [.45, .25, .15, .15]
         count = 1
@@ -47,7 +46,6 @@ class SecondMinion(Minion):
         self.board[5][1] = champion.champion('rangedminion')
 
     def drop_loot(self, history):
-        print('SecondMinion')
         choices = []
         probabilities = []
 
@@ -84,7 +82,6 @@ class ThirdMinion(Minion):
         self.board[1][1] = champion.champion('rangedminion')
 
     def drop_loot(self, history):
-        print('ThirdMinion')
         orbs = []
 
         common = history.count(LootOrb.COMMON)
@@ -122,7 +119,6 @@ class Krug(Minion):
         self.board[5][1] = champion.champion('krug')
 
     def drop_loot(self, history):
-        print('Krugs')
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.7, .2, .05, .05]
         count = 3
@@ -140,7 +136,6 @@ class Wolf(Minion):
         self.board[3][2] = champion.champion('wolf')
 
     def drop_loot(self, history):
-        print('Wolf')
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.6, .2, .05, .15]
         count = 5
@@ -158,7 +153,6 @@ class Raptor(Minion):
         self.board[5][2] = champion.champion('raptor')
 
     def drop_loot(self, history):
-        print('Raptor')
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.5, .3, .05, .15]
         count = 5
@@ -172,7 +166,6 @@ class Nexus(Minion):
         self.board[3][1] = champion.champion('nexusminion')
 
     def drop_loot(self, history):
-        print('Nexus')
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
@@ -190,7 +183,6 @@ class Herald(Minion):
         self.board[3][1] = champion.champion('riftherald')
     
     def drop_loot(self, history):
-        print('Herald')
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
