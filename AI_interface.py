@@ -24,7 +24,6 @@ from pettingzoo.test import parallel_api_test, api_test
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
-        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
         self.rank = rank
 
     # This is the main overarching gameplay method.
@@ -33,7 +32,6 @@ class DataWorker(object):
 
         self.agent_network.set_weights(weights)
         agent = MCTS(self.agent_network)
-        print("agent init")
         while True:
             # Reset the environment
             player_observation = env.reset()
@@ -41,13 +39,11 @@ class DataWorker(object):
             player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
-            # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+                actions, policy = agent.batch_policy(player_observation)
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -58,7 +54,6 @@ class DataWorker(object):
                     buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
-                self.prev_actions = actions
 
             buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
@@ -74,7 +69,6 @@ class DataWorker(object):
         while not terminated:
             # agent policy that uses the observation and info
             action, policy = agent.batch_policy(observation, self.prev_actions)
-            self.prev_actions = action
             observation_list, rewards, terminated, _, info = env.step(np.asarray(action))
             for i in range(config.NUM_PLAYERS):
                 if info["players"][i]:

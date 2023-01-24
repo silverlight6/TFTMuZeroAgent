@@ -1,4 +1,5 @@
 import torch
+import config
 
 import numpy as np
 import core.ctree.cytree as tree

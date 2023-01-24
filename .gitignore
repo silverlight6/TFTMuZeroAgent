@@ -11,3 +11,6 @@ log.txt
 /SavedModels
 libdevice.10.bc
 /Checkpoints
+/core/build
+/core/ctree/cytree.cpython-38-x86_64-linux-gnu.so
+/core/ctree/cytree.cpp
