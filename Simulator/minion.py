@@ -1,6 +1,7 @@
 import config
+import numpy as np
 from Simulator import champion
-from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, give_loot
+from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
 
 # TODO
 # add better randomness to drops
@@ -30,8 +31,9 @@ class FirstMinion(Minion):
         self.board[5][1] = champion.champion('meleeminion')
 
     def drop_loot(self, history):
-        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, [LootOrb.COMMON, LootOrb.COMMON], [LootOrb.COMMON, LootOrb.UNCOMMON]]
-        probabilities = [.35, .25, .15, .15]
+        print('FirstMinion')
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.COMMON), (LootOrb.COMMON, LootOrb.UNCOMMON)]
+        probabilities = [.45, .25, .15, .15]
         count = 1
         return gen_loot(choices, probabilities, count, history)
 
@@ -45,7 +47,9 @@ class SecondMinion(Minion):
         self.board[5][1] = champion.champion('rangedminion')
 
     def drop_loot(self, history):
-        choices, probabilities
+        print('SecondMinion')
+        choices = []
+        probabilities = []
 
         common = history.count(LootOrb.COMMON)
         uncommon = history.count(LootOrb.UNCOMMON)
@@ -58,12 +62,12 @@ class SecondMinion(Minion):
         elif common == 2:
             choices = [LootOrb.UNCOMMON]
             probabilities = [1]
-        if common == 1:
-            choices = [LootOrb.UNCOMMON, LootOrb.COMMON, [LootOrb.COMMON, LootOrb.UNCOMMON]]
+        elif common == 1:
+            choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.UNCOMMON)]
             probabilities = [.45, .35, .2]
         else:
             # uncommon == 1
-            choices = [LootOrb.UNCOMMON, LootOrb.COMMON, [LootOrb.COMMON, LootOrb.COMMON]]
+            choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.COMMON)]
             probabilities = [.45, .35, .2]
 
         count = 1
@@ -80,7 +84,8 @@ class ThirdMinion(Minion):
         self.board[1][1] = champion.champion('rangedminion')
 
     def drop_loot(self, history):
-        choices, probabilities
+        print('ThirdMinion')
+        orbs = []
 
         common = history.count(LootOrb.COMMON)
         uncommon = history.count(LootOrb.UNCOMMON)
@@ -88,19 +93,24 @@ class ThirdMinion(Minion):
         # TODO change this with a more elegant solution
         # Ensures that round 1 gives at least 2 blue orbs
         if uncommon == 1 and common == 1:
-            choices = [[LootOrb.UNCOMMON, LootOrb.COMMON]]
+            orbs += [LootOrb.UNCOMMON, LootOrb.COMMON]
         elif uncommon == 2:
-            choices = [[LootOrb.COMMON, LootOrb.COMMON]]
+            # Can either be 2 common orbs or 1 uncommon orb
+            orbs += gen_orbs([(LootOrb.COMMON, LootOrb.COMMON), LootOrb.UNCOMMON], p=[.5,.5], count=1)
         elif common == 2 and uncommon == 1:
-            choices = [LootOrb.UNCOMMON]
+            orbs += [LootOrb.UNCOMMON]
         else:
             # common == 2
-            choices = [[LootOrb.UNCOMMON, LootOrb.UNCOMMON]]
+            orbs += [LootOrb.COMMON, LootOrb.UNCOMMON]
+        
 
-        probabilities = [1]
-        count = 1
+        history += orbs
 
-        return gen_loot(choices, probabilities, count, history)
+        loot = []
+        for orb in orbs:
+            loot.append(gen_orb_reward(orb))
+
+        return loot
 
 
 # Drops up to 3 orbs, on rare occasions krugs don't drop anything
@@ -112,7 +122,8 @@ class Krug(Minion):
         self.board[5][1] = champion.champion('krug')
 
     def drop_loot(self, history):
-        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        print('Krugs')
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.7, .2, .05, .05]
         count = 3
         return gen_loot(choices, probabilities, count, history)
@@ -129,7 +140,8 @@ class Wolf(Minion):
         self.board[3][2] = champion.champion('wolf')
 
     def drop_loot(self, history):
-        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        print('Wolf')
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.6, .2, .05, .15]
         count = 5
         return gen_loot(choices, probabilities, count, history)
@@ -146,7 +158,8 @@ class Raptor(Minion):
         self.board[5][2] = champion.champion('raptor')
 
     def drop_loot(self, history):
-        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, []]
+        print('Raptor')
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
         probabilities = [.5, .3, .05, .15]
         count = 5
         return gen_loot(choices, probabilities, count, history)
@@ -159,13 +172,14 @@ class Nexus(Minion):
         self.board[3][1] = champion.champion('nexusminion')
 
     def drop_loot(self, history):
+        print('Nexus')
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
         probabilities = [.7, .2, .1]
         count = 1
 
-        loot.extend(gen_loot(choices, probabilities, count, history))
+        loot += gen_loot(choices, probabilities, count, history)
 
         return loot
 
@@ -176,13 +190,14 @@ class Herald(Minion):
         self.board[3][1] = champion.champion('riftherald')
     
     def drop_loot(self, history):
+        print('Herald')
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
         probabilities = [.4, .5, .1]
         count = 2
 
-        loot.extend(gen_loot(choices, probabilities, count, history))
+        loot += gen_loot(choices, probabilities, count, history)
 
         return loot
 

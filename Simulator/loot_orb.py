@@ -29,10 +29,10 @@ class LootOrb(Enum):
         'champion_duplicator_one_gold_two_cost': .05
     }
     RARE = {
-        'ten_gold': .1,
-        'two_five_costs': .1,
+        'ten_gold': .15,
+        # 'two_five_costs': .1,
         'champion_duplicator_five_gold': .1,
-        'spatula': .70,
+        'spatula': .75,
     }
 
 # Implementation of the loot that can be given to the player
@@ -109,13 +109,13 @@ def give_random_full_item(player):
     player.add_to_item_bench(item_list[random.randint(0, len(item_list) - 1)])
 
 # Helper functions for getting orbs after minion rounds
-def gen_orbs(choices, probabilities, count):
+def gen_orbs(choices, p, count):
     orbs = []
     choices = np.array(choices, dtype=object)
 
     for _ in range(count):
-        orb = np.random.choice(choices, p=probabilities)
-        if type(orb) is list:
+        orb = np.random.choice(choices, p=p)
+        if type(orb) is tuple:
             orbs.extend(orb)
         else:
             orbs.append(orb)
@@ -128,17 +128,21 @@ def gen_orb_reward(loot_orb: LootOrb):
     probabilities = list(loot_orb.value.values())
 
     reward = np.random.choice(choices, p=probabilities)
+    print(reward)
 
     return reward
 
 # Combines `gen_orbs` and `gen_orb_reward` to directly give you the rewards from loot orbs
 # e.g after raptors you might get ['one_item', 'one_item', 'one_item', 'three_gold', 'two_three_costs']
-def gen_loot(choices, probabilities, count, history):
+def gen_loot(choices, p, count, history):
     loot = []
 
-    orbs = gen_orbs(choices, probabilities, count)
+    orbs = gen_orbs(choices, p, count)
 
     for orb in orbs:
+        if orb is None:
+            continue
+
         history.append(orb)
         loot.append(gen_orb_reward(orb))
 
