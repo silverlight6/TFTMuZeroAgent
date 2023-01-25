@@ -137,7 +137,7 @@ class Wolf(Minion):
 
     def drop_loot(self, history):
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
-        probabilities = [.6, .2, .05, .15]
+        probabilities = [.6, .25, .05, .1]
         count = 5
         return gen_loot(choices, probabilities, count, history)
 
@@ -154,7 +154,7 @@ class Raptor(Minion):
 
     def drop_loot(self, history):
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE, None]
-        probabilities = [.5, .3, .05, .15]
+        probabilities = [.55, .3, .05, .1]
         count = 5
         return gen_loot(choices, probabilities, count, history)
 
@@ -169,14 +169,14 @@ class Nexus(Minion):
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
-        probabilities = [.7, .2, .1]
+        probabilities = [.3, .6, .1]
         count = 1
 
         loot += gen_loot(choices, probabilities, count, history)
 
         return loot
 
-# Drops 1 random full item and a random orb
+# Drops 1 random full item and 2 random orbs
 class Herald(Minion):
     def __init__(self):
         super().__init__()
@@ -186,7 +186,7 @@ class Herald(Minion):
         loot = ['full_item']
 
         choices = [LootOrb.UNCOMMON, LootOrb.COMMON, LootOrb.RARE]
-        probabilities = [.4, .5, .1]
+        probabilities = [.3, .6, .1]
         count = 2
 
         loot += gen_loot(choices, probabilities, count, history)

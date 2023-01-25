@@ -2,9 +2,10 @@ from enum import Enum
 import random
 import numpy as np
 from Simulator import champion,  pool_stats
-from Simulator.item_stats import item_builds as full_items, starting_items
+from Simulator.item_stats import thieves_gloves_items
 
-item_list = list(full_items.keys())
+# Theives gloves items includes all full items except emblems
+item_list = thieves_gloves_items
 
 # Loot Orbs
 # There are 3 types of orbs:
@@ -84,21 +85,16 @@ def give_champions(player, cost, count=1):
         give_champion(player, cost)
 
 def give_champion(player, cost):
-    # Give gold if bench is full
-    if player.bench_full():
-        if cost is pool_stats.COST_1:
-            player.gold += 1
-        if cost is pool_stats.COST_2:
-            player.gold += 2
-        if cost is pool_stats.COST_3:
-            player.gold += 3
-        if cost is pool_stats.COST_5:
-            player.gold += 5
+    # Get random champion of cost
+    name = list(cost.items())[random.randint(0, len(cost) - 1)][0]
+    random_champion = champion.champion(name)
+
+    # Give gold if bench is full or there are no more of this unit available
+    if player.bench_full() or cost[name] == 0:
+        player.gold += random_champion.cost
     else:
-        name = list(cost.items())[random.randint(0, len(cost) - 1)][0]
-        random_champion = champion.champion(name)
-        player.pool_obj.update_pool(random_champion, -1)
         player.add_to_bench(random_champion)
+        player.pool_obj.update_pool(random_champion, -1)
 
 ## Random Items
 def give_random_item(player):
@@ -119,7 +115,7 @@ def gen_orbs(choices, p, count):
             orbs.extend(orb)
         else:
             orbs.append(orb)
-
+            
     return orbs
 
 # Gets a random reward based on the loot table (dictionary) defined in the LootOrb enum
