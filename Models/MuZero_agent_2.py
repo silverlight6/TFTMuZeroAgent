@@ -596,6 +596,11 @@ class MCTS(MCTSAgent):
         super().__init__(network, 0)
         self.times = [0]*6
 
+    
+    def __init__(self, network: Network) -> None:
+        super().__init__(network, 0)
+        self.NUM_ALIVE = config.NUM_PLAYERS
+    
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
         num = config.NUM_PLAYERS
@@ -608,7 +613,7 @@ class MCTS(MCTSAgent):
         pb_c_base = config.PB_C_BASE
         hidden_state_index_x = 0
         # minimax value storage
-        min_max_stats_lst = tree.MinMaxStatsList(config.NUM_PLAYERS)
+        min_max_stats_lst = tree.MinMaxStatsList(config.NUM_PLAYERS) # Seems like should stay as NUM_PLAYERS not NUM_ALIVE
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
         horizons = 1  # self.config.lstm_horizon_len
 
@@ -654,14 +659,15 @@ class MCTS(MCTSAgent):
     
     def batch_policy(self, observation):
         # (batch size or num_players or num_players*batch_size?, action size, num simulations)
-        roots_cpp = tree.Roots(config.NUM_PLAYERS, 10, config.NUM_SIMULATIONS)
+        self.NUM_ALIVE = observation.shape[0]
+        roots_cpp = tree.Roots(self.NUM_ALIVE, 10, config.NUM_SIMULATIONS)
         network_output = self.network.initial_inference(observation)  # 2.1 seconds
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
         policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
 
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * config.ACTION_DIM).astype(np.float32).tolist()
-                  for _ in range(config.NUM_PLAYERS)]
+                  for _ in range(self.NUM_ALIVE)]
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
         
         hidden_state_pool = network_output["hidden_state"]
@@ -672,7 +678,7 @@ class MCTS(MCTSAgent):
         roots_values = roots_cpp.get_values()
         start_training = False
         temp = self.visit_softmax_temperature()
-        for i in range(config.NUM_PLAYERS):
+        for i in range(self.NUM_ALIVE):
             deterministic = False 
             if start_training:
                 distributions = roots_distributions[i]
