@@ -6,7 +6,6 @@ from typing import Dict, List
 from numba import jit, cuda, typed
 
 import core.ctree.cytree as tree
-from core.utils import select_action
 
 import collections
 import math
@@ -14,6 +13,8 @@ import config
 import numpy as np
 import tensorflow as tf
 import time
+from scipy.stats import entropy
+
 
 ##########################
 ####### Helpers ##########
@@ -588,7 +589,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return .1
+        return 1
 
 
 class MCTS(MCTSAgent):
@@ -612,9 +613,10 @@ class MCTS(MCTSAgent):
         min_max_stats_lst = tree.MinMaxStatsList(num) # Seems like should stay as NUM_PLAYERS not NUM_ALIVE
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
         horizons = 1  # self.config.lstm_horizon_len
-
+        hidden_state_pool = [hidden_state_pool]
         for _ in range(config.NUM_SIMULATIONS):
             # prepare a result wrapper to transport results between python and c++ parts
+            hidden_states = [] 
             results = tree.ResultsWrapper(num)
 
             # evaluation for leaf nodes
@@ -626,13 +628,14 @@ class MCTS(MCTSAgent):
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
             # obtain the states for leaf nodes
-
+            for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
+                hidden_states.append(hidden_state_pool[ix][iy])
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
 
             last_action = np.asarray(last_action)
 
-            network_output = self.network.recurrent_inference(hidden_state_pool, last_action)  # 11.05s
+            network_output = self.network.recurrent_inference(hidden_states, last_action)  # 11.05s
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
@@ -676,7 +679,8 @@ class MCTS(MCTSAgent):
                   for _ in range(self.NUM_ALIVE)]
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
         
-        hidden_state_pool = network_output["hidden_state"]
+        # Output for root node
+        hidden_state_pool = network_output["hidden_state"] 
 
         self.run_batch_mcts(roots_cpp, hidden_state_pool)  # 24.3 s (3 seconds not in that)
         roots_distributions = roots_cpp.get_distributions()
@@ -684,13 +688,13 @@ class MCTS(MCTSAgent):
         start_training = False
         temp = self.visit_softmax_temperature()
         for i in range(self.NUM_ALIVE):
-            deterministic = False #False = sample distribution, True = argmax 
+            deterministic = False # False = sample distribution, True = argmax 
             if start_training:
                 distributions = roots_distributions[i]
             else:
                 #random distributions if training has just started 
-                distributions = np.ones(config.ACTION_DIM )
-            action, entropy = select_action(distributions,temperature=temp,deterministic=deterministic)
+                distributions = np.ones(config.ACTION_DIM)
+            action, entropy = self.select_action(distributions,temperature=temp,deterministic=deterministic)
             actions.append(action)
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
@@ -700,27 +704,30 @@ class MCTS(MCTSAgent):
         self.num_actions += 1
        
         return action, network_output["policy_logits"]
+    
+    @staticmethod
+    def select_action(visit_counts, temperature=1, deterministic=True):
+        """select action from the root visit counts.
+        Parameters
+        ----------
+        temperature: float
+            the temperature for the distribution
+        deterministic: bool
+            True -> select the argmax
+            False -> sample from the distribution
+        """
+        action_probs = [visit_count_i ** (1 / temperature) for visit_count_i in visit_counts]
+        total_count = sum(action_probs)
+        action_probs = [x / total_count for x in action_probs]
+        if deterministic:
+            # best_actions = np.argwhere(visit_counts == np.amax(visit_counts)).flatten()
+            # action_pos = np.random.choice(best_actions)
+            action_pos = np.argmax([v for v in visit_counts])
+        else:
+            action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
-    def batch_expand_node(self, node: Node, to_play: int, network_output):
-        node.to_play = to_play
-        node.hidden_state = network_output["hidden_state"][to_play]
-        node.reward = network_output["reward"][to_play]
-
-        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
-        policy_probs = network_output["policy_logits"][to_play].numpy()
-
-        # convert dictionary to single list for JIT function by looping through dictionary and
-        # converting items to numpy then adding to list
-        # self.action_dim hardcoded because it changes type randomly.
-        
-        try:  # if we get an error, just fall back to previous implementation
-            policy = expand_node2(policy_probs, 10)
-            # This policy sum is not in the Google's implementation. Not sure if required.
-            policy_sum = sum(policy[0].values())
-            for action, p in policy[0].items():
-                node.children[action] = Node(p / policy_sum)
-        except:
-            self.expand_node_old(node, network_output)
+        count_entropy = entropy(action_probs, base=2)
+        return action_pos, count_entropy
 
 
 class Batch_MCTSAgent(MCTSAgent):
