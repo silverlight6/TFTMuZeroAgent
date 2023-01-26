@@ -4,8 +4,9 @@ from __future__ import print_function
 
 from typing import Dict, List
 from numba import jit, cuda, typed
-import core.ctree.cytree as tree
 
+import core.ctree.cytree as tree
+from core.utils import select_action
 
 import collections
 import math
@@ -666,9 +667,19 @@ class MCTS(MCTSAgent):
         hidden_state_pool = network_output["hidden_state"]
 
         self.run_batch_mcts(roots_cpp, hidden_state_pool)  # 24.3 s (3 seconds not in that)
-        print(roots_cpp.get_values())
-        action = [int(self.select_action(roots_cpp[i])) for i in range(config.NUM_PLAYERS)]
-        
+        roots_distributions = roots_cpp.get_distributions()
+        actions = [] 
+        roots_values = roots_cpp.get_values()
+        start_training = False
+        temp = self.visit_softmax_temperature()
+        for i in range(config.NUM_PLAYERS):
+            deterministic = False 
+            if start_training:
+                distributions = roots_distributions[i]
+            else:
+                distributions = np.ones(config.ACTION_DIM )
+            action, entropy = select_action(distributions,temperature=temp,deterministic=deterministic)
+            actions.append(action)
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
         # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
