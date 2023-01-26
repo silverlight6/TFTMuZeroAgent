@@ -603,17 +603,13 @@ class MCTS(MCTSAgent):
     
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
-        num = config.NUM_PLAYERS
-        discount = config.DISCOUNT  # we have these 
-        # the data storage of hidden states: storing the states of all the tree nodes
-        # 1 x batch x 64
-        # the data storage of value prefix hidden states in LSTM
-        # the index of each layer in the tree
+        num = roots_cpp.num
+        discount = config.DISCOUNT  
         pb_c_init = config.PB_C_INIT
         pb_c_base = config.PB_C_BASE
         hidden_state_index_x = 0
         # minimax value storage
-        min_max_stats_lst = tree.MinMaxStatsList(config.NUM_PLAYERS) # Seems like should stay as NUM_PLAYERS not NUM_ALIVE
+        min_max_stats_lst = tree.MinMaxStatsList(num) # Seems like should stay as NUM_PLAYERS not NUM_ALIVE
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
         horizons = 1  # self.config.lstm_horizon_len
 
@@ -640,6 +636,16 @@ class MCTS(MCTSAgent):
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
+
+            # CHECK THIS 
+            # I
+            # I 
+            # V
+            hidden_states_nodes = network_output["hidden_state"]
+            hidden_state_pool.append(hidden_states_nodes)
+            # ^
+            # I 
+            # I
 
             # reset 0
             # reset the hidden states in LSTM every horizon steps in search
@@ -675,14 +681,14 @@ class MCTS(MCTSAgent):
         self.run_batch_mcts(roots_cpp, hidden_state_pool)  # 24.3 s (3 seconds not in that)
         roots_distributions = roots_cpp.get_distributions()
         actions = [] 
-        roots_values = roots_cpp.get_values()
         start_training = False
         temp = self.visit_softmax_temperature()
         for i in range(self.NUM_ALIVE):
-            deterministic = False 
+            deterministic = False #False = sample distribution, True = argmax 
             if start_training:
                 distributions = roots_distributions[i]
             else:
+                #random distributions if training has just started 
                 distributions = np.ones(config.ACTION_DIM )
             action, entropy = select_action(distributions,temperature=temp,deterministic=deterministic)
             actions.append(action)
