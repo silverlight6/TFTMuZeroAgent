@@ -28,6 +28,8 @@ class player:
     MAX_CHAMPION_IN_SET = 58
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
+    CHAMPION_ONE_HOT_ENCODING = np.eye(MAX_CHAMPION_IN_SET)
+    BASIC_ITEMS_ONE_HOT_ENCODING = np.eye(9) #Amount of basic items a champ can hold
 
     def __init__(self, pool_pointer, player_num):
 
@@ -81,6 +83,8 @@ class player:
         self.board_occupation_vector = np.zeros(self.BOARD_SIZE)  # 28 hex * 3 - (x, y, Occupied State)
         self.bench_occupation_vector = np.zeros(self.BENCH_SIZE)
         self.champions_owned_vector = np.zeros(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+        # +8 means 1 for stars, 1 for chosen, 6 for items
+        # self.board_observation_vector = np.zeros(self.BOARD_SIZE * self.MAX_CHAMPION_IN_SET + 8)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -1158,3 +1162,71 @@ class player:
     def won_ghost(self, damage):
         self.reward += 0.02 * damage
         self.print(str(0.02 * damage) + " reward for someone losing to ghost")
+
+    #TODO Save elements when not updated, to save computations and just return the elements
+    
+    def public_observation(self):
+        hp = self.health
+        income = min(floor(self.gold / 10), 5)
+        streak_lvl = 0
+        if self.win_streak > 2 and self.win_streak < 4:
+            streak_lvl = 1
+        elif self.win_streak == 4:
+            streak_lvl = 2
+        elif self.win_streak >= 5:
+            streak_lvl = 3
+
+        board = []
+        for x in range(0, 7):
+            for y in range(0, 4):
+                champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item)
+                if self.board[x][y]:
+                    curr_champ = self.board[x][y]
+                    c_index = list(COST.keys()).index(curr_champ.name) + 1
+                    champion_info_array[0:6] = self.champ_binary_encode(c_index)
+                    champion_info_array[6] = curr_champ.stars / 3
+                    champion_info_array[7] = curr_champ.cost / 5
+                    for ind, item in enumerate(curr_champ.items):
+                        start = (ind * 6) + 8
+                        finish = start + 6
+                        if item in uncraftable_items.keys():
+                            i_index = list(uncraftable_items.keys()).index(item) + 1
+                        else:
+                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items.keys())
+                        champion_info_array[start:finish] = self.item_binary_encode(i_index)
+
+                board.append(champion_info_array)
+
+        items_bench = []
+        for ind, item in enumerate(self.item_bench):
+            item_info = np.zeros(6)
+            if item in uncraftable_items.keys():
+                item_info = self.item_binary_encode(list(uncraftable_items.keys()).index(item) + 1)
+            else:
+                i_index = self.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items.keys()))
+            items_bench.append(item_info)
+        
+        return [hp, income, streak_lvl] + board + items_bench
+
+    def private_observation(self):
+        exp_to_level = 0
+        if self.level < self.max_level:
+            exp_to_level = self.level_costs[self.level] - self.exp
+        
+        curr_gold = self.gold
+        streak = max(self.win_streak, self.loss_streak)
+        return [exp_to_level, curr_gold, streak]
+
+    def champ_binary_encode(self, n):
+        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
+
+    def item_binary_encode(self, n):
+        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
+    
+    def champ_one_hot_encode(self, n):
+        return self.CHAMPION_ONE_HOT_ENCODING[n]
+    
+    def item_one_hot_encode(self, n):
+        return self.BASIC_ITEMS_ONE_HOT_ENCODING[n]
+
+        

@@ -589,13 +589,14 @@ class Step_Function:
             return
 
     def dcord_to_2dcord(dcord):
+        # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
         x = dcord % 7
         y = (dcord - y ) // 7
         return x,y
 
     def single_step_action_controller(self, action, player, players, key, game_observations):
         if player:
-            # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [44] sell "location", 44:54 (item_loc_target)
+            # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
             # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector) and 27 (board / bench division wrt target vector)
             action_selector = np.argmax(action[0:6])
             match action_selector:
@@ -611,23 +612,23 @@ class Step_Function:
                     self.batch_shop(champ_shop_target, player, game_observations[key])
                 case 2:
                     # Swap champ place
-                    target_1 = np.argmax(action[6:44])
+                    target_1 = np.argmax(action[6:43])
                     action[target_1] = 0
-                    target_2 = np.argmax(action[6:45])
+                    target_2 = np.argmax(action[6:44])
                     swap_loc_from = min(target_1, target_2)
                     swap_loc_to = max(target_1, target_2)
-                    if swap_loc_to == 36:
+                    if swap_loc_to == 32:
                         # Sell Champ
-                        if swap_loc_from < 27:
+                        if swap_loc_from < 28:
                             x,y = self.dcord_to_2dcord(swap_loc_from)
                             if player.board[x][y]:
                                 player.sell_champion(player.board[x][y], field=True):
                         else:
-                            player.sell_from_bench(swap_loc_from - 27)
+                            player.sell_from_bench(swap_loc_from - 28)
                     else:
                         # Swap from swap_loc_from to swap_loc_to
-                        if swap_loc_from < 27:
-                            if swap_loc_to < 27:
+                        if swap_loc_from < 28:
+                            if swap_loc_to < 28:
                                 x1,y1 = self.dcord_to_2dcord(swap_loc_from)
                                 x2,y2 = self.dcord_to_2dcord(swap_loc_to)
                                 if player.board[x1][y1]:
@@ -636,7 +637,7 @@ class Step_Function:
                                     player.move_board_to_board(x2, y2, x1, y1)
                             else:
                                 x1,y1 = self.dcord_to_2dcord(swap_loc_from)
-                                bench_loc = swap_loc_to - 27
+                                bench_loc = swap_loc_to - 28
                                 if player.bench[bench_loc]:
                                     player.move_bench_to_board(bench_loc, x1, y1)
                                 else:
@@ -645,8 +646,8 @@ class Step_Function:
                     # Place item on champ
                     item_selector = np.argmax(action[45:55])
                     move_loc = np.argmax(action[6:44])
-                    if move_loc >= 27:
-                        move_loc -= 27
+                    if move_loc >= 28:
+                        move_loc -= 28
                         player.move_item_to_bench(item_selector, move_loc)
                     else:
                         x = move_loc % 7
@@ -659,7 +660,6 @@ class Step_Function:
                 case 5:
                     # Pass action
                     pass
-            # game_observations[key].generate_game_comps_vector()
-            game_observations[key].generate_other_player_vectors(player, players)
+            game_observations[key].get_lobo_observation(player, self.shops[player.player_num], players)
             return player.reward
         return 0

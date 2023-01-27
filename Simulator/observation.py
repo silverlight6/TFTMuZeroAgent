@@ -147,3 +147,55 @@ class Observation:
                     i_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
         self.shop_vector = output_array
+
+    
+    #TODO Save elements when not updated, to save computations and just return the elements
+
+    def get_lobo_observation(self, curr_player, curr_shop, players): #NAME WIP
+        other_players_obs = []
+        for player_id in players.keys():
+            other_player = players[player_id]
+            if other_player and other_player != curr_player:
+                other_players_obs += self.get_lobo_public_observation(other_player)
+        return np.concatenate([
+            self.get_lobo_public_observation(curr_player),
+            self.get_lobo_private_observation(curr_player, curr_shop),
+            other_players_obs            
+         ], axis=-1)
+
+    def get_lobo_public_observation(self, player):
+        return player.public_observation()
+
+    def get_lobo_private_observation(self, player, shop):
+        return np.concatenate([
+            player.private_observation(),
+            self.get_shop_vector_obs(shop)            
+         ], axis=-1)
+
+    def get_shop_vector_obs(self, shop):
+        # each champion has 6 bit for the name, 1 bit for the chosen.
+        # 5 of them makes it 35.
+        output_array = []
+        for x in range(0, len(shop)):
+            input_array = np.zeros(7)
+            if shop[x]:
+                name = shop[x]
+                if name.endswith("_c"):
+                    name = name.split('_')[0]
+                    input_array[7] = 1
+                c_index = list(COST.keys()).index(name) + 1
+                input_array[0:6] = self.champ_binary_encode(c_index)
+            output_array += input_array
+        return output_array
+
+    def champ_binary_encode(self, n):
+        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
+
+    def item_binary_encode(self, n):
+        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
+    
+    def champ_one_hot_encode(self, n):
+        return self.CHAMPION_ONE_HOT_ENCODING[n]
+    
+    def item_one_hot_encode(self, n):
+        return self.BASIC_ITEMS_ONE_HOT_ENCODING[n]
