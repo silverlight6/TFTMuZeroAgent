@@ -39,23 +39,28 @@ def carousel(players, round, pool_obj):
         pool_obj.update(current, -1)
 
 # this will handle champion generation based on the current round
-def generateChampions(round, pool_obj):
-    oneCosts = list(pool_stats.COST_1.items())
-    twoCosts = list(pool_stats.COST_2.items())
-    threeCosts = list(pool_stats.COST_3.items())
-    fourCosts = list(pool_stats.COST_4.items())
-    fiveCosts = list(pool_stats.COST_5.items())
+def generateChampions(sampleplayer, round, pool_obj):
+    oneCosts = pool_obj.COST_1.items()
+    twoCosts = pool_obj.COST_2.items()
+    threeCosts = pool_obj.COST_3.items()
+    fourCosts = pool_obj.COST_4.items()
+    fiveCosts = pool_obj.COST_5.items()
     # remove champions from the list that have been exhausted from the pool (checking COST_1, COST_2, etc)
-    for i in oneCosts:
-        pass
-    for i in twoCosts:
-        pass
-    for i in threeCosts:
-        pass
-    for i in fourCosts:
-        pass
-    for i in fiveCosts:
-        pass
+    for champ, count  in oneCosts:
+        if count <= 0:
+            oneCosts.pop(champ)
+    for champ, count in twoCosts:
+        if count <= 0:
+            twoCosts.pop(champ)
+    for champ, count in threeCosts:
+        if count <= 0:
+            threeCosts.pop(champ)
+    for champ, count in fourCosts:
+        if count <= 0:
+            fourCosts.pop(champ)
+    for champ, count in fiveCosts:
+        if count <= 0:
+            fiveCosts.pop(champ)
     carouselChamps = []
     # first carousel - all 1 costs
     if round == 0:
@@ -65,6 +70,10 @@ def generateChampions(round, pool_obj):
     # second carousel - 1 one cost, 4 two costs, 4 three costs
     elif round == 6:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+        for _ in range(4):
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+        for _ in range(4):
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
     elif round == 12:
         pass
     elif round == 18:
