@@ -80,6 +80,7 @@ class pool:
 	# TO DO: Implement the chosen mechanic and ensure the doubling of the right stat
 	# Chosen is implemented as a string with the class being the possible one.
 	def sample(self, player, num, idx=-1):
+		# If player is None, for example they died, return an empty shop
 		if player is None:
 			return [" " for _ in range(num)]
 		ranInt = [0 for _ in range(num)]
@@ -108,14 +109,22 @@ class pool:
 
 			# cost 1
 			if index == 0:
+				# Get a list of all the champions in the pool
 				cost_1 = list(COST_1.values())
+				# Pick a random number to look for the position of that champion
 				ranPoolInt = random.randint(0, self.num_cost_1 - 1)
+				# Until the counter is greater than the number of champions checked
 				while counter < ranPoolInt:
+					# Increment counter to the next champion
 					counter += cost_1[counterIndex]
+					# Increment the champion index
 					counterIndex += 1
+					# If we sample the last champion in the list
 					if counterIndex == len(cost_1):
 						break
+				# Get a list of the champion names
 				keys_list = list(COST_1)
+				# Set the option to be the champion name of choice
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 2

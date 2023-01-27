@@ -67,23 +67,6 @@ class DataWorker(object):
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
-    def test_collect_gameplay_experience(self, env, agent, buffers):
-        observation, info = env.reset()
-        terminated = False
-        while not terminated:
-            # agent policy that uses the observation and info
-            action, policy = agent.batch_policy(observation, self.prev_actions)
-            self.prev_actions = action
-            observation_list, rewards, terminated, _, info = env.step(np.asarray(action))
-            for i in range(config.NUM_PLAYERS):
-                if info["players"][i]:
-                    local_reward = rewards[info["players"][i].player_num] - \
-                                   self.prev_reward[info["players"][i].player_num]
-                    buffers[info["players"][i].player_num]. \
-                        store_replay_buffer(observation_list[info["players"][i].player_num],
-                                            action[info["players"][i].player_num], local_reward,
-                                            policy[info["players"][i].player_num])
-                    self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
 
     def getStepActions(self, terminated, actions):
         step_actions = {}
@@ -113,7 +96,7 @@ class AIInterface:
     def __init__(self):
         ...
 
-    def train_model(self):
+    def train_model(self, starting_train_step = 0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
@@ -121,7 +104,7 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-        train_step = 200
+        train_step = starting_train_step
 
         global_buffer = GlobalBuffer.remote()
 
@@ -140,6 +123,7 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(1)
 
+        ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
@@ -153,33 +137,6 @@ class AIInterface:
                 if train_step % 100 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
-
-    def test_train_model(self, max_episodes=10000):
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-        global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer()
-        trainer = MuZero_trainer.Trainer()
-        train_step = 0
-        # global_agent.load_model(0)
-        env = gym.make("TFT_Set4-v0")
-        dataWorker = DataWorker()
-
-        for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
-            buffers = [ReplayBuffer(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            dataWorker.test_collect_gameplay_experience(env, agent, buffers)
-
-            for i in range(config.NUM_PLAYERS):
-                buffers[i].store_global_buffer()
-            while global_buffer.available_batch():
-                gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                train_step += 1
-            global_agent.save_model(episode_cnt)
-            print("Episode " + str(episode_cnt) + " Completed")
 
     def collect_dummy_data(self):
         dataWorker = DataWorker()

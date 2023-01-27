@@ -6,7 +6,8 @@ from Models.MuZero_agent_2 import TFTNetwork
 class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()
-        # self.target_model.tft_load_model(episode)
+        if episode > 0:
+            self.target_model.tft_load_model(episode)
         self.model = self.target_model
         self.episode_played = 0
 
