@@ -54,6 +54,39 @@ class Observation:
         total_observation = np.concatenate((cur_player_observation, other_player_observation))
         return total_observation
 
+    def single_step_observation(self, player_id, player, action_vector):
+        shop_vector = self.shop_vector
+        complete_game_state_vector = np.concatenate([shop_vector,
+                                                     player.board_occupation_vector,
+                                                     player.bench_occupation_vector,
+                                                     player.champions_owned_vector,
+                                                     player.chosen_vector,
+                                                     player.item_vector,
+                                                     player.player_vector], axis=-1)
+
+        # initially fill the queue with duplicates of first observation
+        # so we can still sample when there aren't enough time steps yet
+        maxLen = config.OBSERVATION_TIME_STEPS * config.OBSERVATION_TIME_STEP_INTERVAL
+        if len(self.cur_player_observations) == 0:
+            for _ in range(maxLen):
+                self.cur_player_observations.append(complete_game_state_vector)
+
+        # enqueue the latest observation and pop the oldest (performed automatically by deque with maxLen configured)
+        self.cur_player_observations.append(complete_game_state_vector)
+
+        # sample every N time steps at M intervals, where maxLen of queue = M*N
+        cur_player_observation = np.array([self.cur_player_observations[i]
+                                           for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
+
+        other_player_observation_list = []
+        for k, v in self.other_player_observations.items():
+            if k != player_id:
+                other_player_observation_list.append(v)
+        other_player_observation = np.array(other_player_observation_list).flatten()
+
+        total_observation = np.concatenate((cur_player_observation, other_player_observation))
+        return total_observation
+
     def generate_other_player_vectors(self, cur_player, players):
         for player_id in players:
             other_player = players[player_id]

@@ -169,7 +169,9 @@ class TFT_Simulator(AECEnv):
             return
         action = np.asarray(action)
         if action.ndim == 0:
-            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+            # self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+            #                                      self.agent_selection, self.game_observations)
+            self.step_function.single_step_action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                  self.agent_selection, self.game_observations)
         elif action.ndim == 1:
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
@@ -177,12 +179,12 @@ class TFT_Simulator(AECEnv):
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
-        self._clear_rewards()
-        self.rewards[self.agent_selection] = \
-            self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
-        self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
-        self._cumulative_rewards[self.agent_selection] = \
-            self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
+        # self._clear_rewards()
+        # self.rewards[self.agent_selection] = \
+        #     self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
+        # self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
+        # self._cumulative_rewards[self.agent_selection] = \
+        #     self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
@@ -210,6 +212,7 @@ class TFT_Simulator(AECEnv):
             for k in self.kill_list:
                 self.terminations[k] = True
                 self.agents.remove(k)
+                self.rewards[k] = 3 - len(self.agents)
 
             self.kill_list = []
             self._agent_selector.reinit(self.agents)
