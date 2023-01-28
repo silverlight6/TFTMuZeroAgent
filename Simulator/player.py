@@ -4,6 +4,7 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
+import Simulator.utils as utils
 
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items, uncraftable_items
@@ -26,6 +27,7 @@ class player:
     MAX_CHAMPION_IN_SET = 58
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
+    CHAMP_ENCODING_SIZE = 26
 
     def __init__(self, pool_pointer, player_num):
 
@@ -67,18 +69,18 @@ class player:
         self.max_level = 9
 
         # 2 spot for each item(2 component) 10 slots
-        self.item_vector = np.zeros(20)
+        self.item_vector = np.zeros(self.MAX_BENCH_SPACE * 6)
 
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
 
         # gold, exp, level, round_number, max_units, num_in_play / max in the range between 0 and 1
         # As well as a 1 for win, 0 for a loss or draw in the last 3 rounds
-        self.player_vector = np.zeros(9)
+        self.player_public_vector = np.zeros(7)
+        self.player_private_vector = np.zeros(9)
 
-        self.board_occupation_vector = np.zeros(self.BOARD_SIZE)  # 28 hex * 3 - (x, y, Occupied State)
-        self.bench_occupation_vector = np.zeros(self.BENCH_SIZE)
-        self.champions_owned_vector = np.zeros(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+        self.board_image = np.zeros((7*7, 4*4)) # 7x4 board, with 7x4 encoding
+        self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -300,105 +302,49 @@ class player:
         return False
 
     def generate_board_vector(self):
-        output_array = np.zeros(28)
-        # Loop through champion vector and update occupation state
-        hex_count = 0
+        output_array = np.zeros((7*7,4*4))
         for x in range(0, 7):
             for y in range(0, 4):
+                champion_info_array = np.zeros(28) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 if self.board[x][y]:
-                    occupation_state = 1
-                else:
-                    occupation_state = 0
-                # Can use another conditional to indicate that the unit should be sold
-                output_array[hex_count] = occupation_state
-                hex_count += 1
-        self.board_occupation_vector = output_array
-        self.generate_player_vector()
-        self.generate_champion_vectors()
+                    curr_champ = self.board[x][y]
+                    c_index = list(COST.keys()).index(curr_champ.name)
+                    champion_info_array[0:6] = utils.champ_binary_encode(c_index)
+                    champion_info_array[6] = curr_champ.stars / 3
+                    champion_info_array[7] = curr_champ.cost / 5
+                    for ind, item in enumerate(curr_champ.items):
+                        start = (ind * 6) + 8
+                        finish = start + 6
+                        if item in uncraftable_items:
+                            i_index = list(uncraftable_items).index(item) + 1
+                        elif item in item_builds.keys():
+                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                        champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
-    def generate_champion_vectors(self):
-        """
-        Helps to generate the vectors containing all the champions information. Including both Board and Bench
-        :return:
-        """
-
-        output_array = np.zeros((self.MAX_CHAMPION, self.CHAMPION_INFORMATION))  # 19 * 11 = 209
-
-        # Check champion on bench from self.bench
-        curr_bench_count = 0
-        for x in range(0, 9):
-            champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
-            if self.bench[x]:
-                self.generate_single_champion_vector(self.bench[x], champion_info_array)
-                output_array[curr_bench_count] = champion_info_array
-
-        # Check champion on board from self.board
-        curr_board_count = 9 # Starts at 9, skipping the 9 spot on bench
-        for x in range(0, 7):
-            for y in range(0, 4):
-                champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
-                if self.board[x][y]:
-                    self.generate_single_champion_vector(self.board[x][y], champion_info_array)
-                    output_array[curr_board_count] = champion_info_array
-                    curr_board_count += 1
-        self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
-
-    def generate_single_champion_vector(self, curr_champ, champion_info_array):
-        """
-        Helps to generate a vector of length CHAMPION_INFO
-        champion number (1 spot), champion star level(1 spot), champion cost (1 spot),
-        chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
-
-        :param curr_champ: Object champion
-        :param champion_info_array: The array to update the information in
-        :return:
-        """
-
-        # start with champion name
-        # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
-        c_index = list(COST.keys()).index(curr_champ.name) + 1
-
-        # This should update the champion name section of the vector
-        champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
-        champion_info_array[1] = curr_champ.stars / 3
-        champion_info_array[2] = curr_champ.cost / 5
-
-        if curr_champ.chosen:
-            champion_info_array[3] = 1
-        if curr_champ.survive_combat:
-            champion_info_array[4] = 1
-        elif curr_champ.participated_in_combat:  # Did not survive combat
-            champion_info_array[4] = 0.5
-        # else 0 , 0 implies that did not participate in combat
-
-        item_arr = np.zeros(6)
-        for ind, item in enumerate(curr_champ.items):
-            if ind <= 2:
-                if item in item_builds.keys():
-                    component1, component2 = item_builds[item]
-                    # Avoiding index 0 as index 0 is reserved for no items
-                    component1_index = uncraftable_items.index(component1) + 1
-                    component2_index = uncraftable_items.index(component2) + 1
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
-                else:
-                    component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-            else:
-                print("This champion got more than 2 items")
-        champion_info_array[6:] = item_arr
+                output_array[x*7:x*7 + 7, y*4:y*4 + 4] = np.reshape(champion_info_array, (7,4))
+        self.board_image = output_array
 
     def generate_bench_vector(self):
-        output_array = np.zeros(9)
-        for x in range(0, 9):
-            if self.bench[x]:
-                occupation_state = 1
-            else:
-                occupation_state = 0
-            output_array[x] = occupation_state
-        self.bench_occupation_vector = output_array
-        self.generate_champion_vectors()
+        bench = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        for x_bench in range(len(self.bench)):
+            champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+            if self.bench[x_bench]:
+                curr_champ = self.bench[x_bench]
+                c_index = list(COST.keys()).index(curr_champ.name)
+                champion_info_array[0:6] = utils.champ_binary_encode(c_index)
+                champion_info_array[6] = curr_champ.stars / 3
+                champion_info_array[7] = curr_champ.cost / 5
+                for ind, item in enumerate(curr_champ.items):
+                    start = (ind * 6) + 8
+                    finish = start + 6
+                    if item in uncraftable_items:
+                        i_index = list(uncraftable_items).index(item) + 1
+                    elif item in item_builds.keys():
+                        i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                    champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+            bench[x_bench*self.CHAMP_ENCODING_SIZE:
+                    x_bench*self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
+        self.bench_vector = bench
 
     def generate_chosen_vector(self):
         output_array = np.zeros(5)
@@ -413,32 +359,45 @@ class player:
 
     # return output_array
     def generate_item_vector(self):
-        item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
+        item_arr = np.zeros(self.MAX_BENCH_SPACE * 6)
         for ind, item in enumerate(self.item_bench):
-            if item:
-                if item in item_builds.keys():
-                    component1, component2 = item_builds[item]
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
-                else:
-                    component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+            item_info = np.zeros(6)
+            if item in uncraftable_items:
+                item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+            elif item in item_builds.keys():
+                item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+            item_arr[ind*6:ind*6 + 6]
         self.item_vector = item_arr
 
-    def generate_player_vector(self):
-        self.player_vector[0] = self.gold / 100
-        self.player_vector[1] = self.exp / 100
-        self.player_vector[2] = self.level / 10
-        self.player_vector[3] = self.round / 30
-        self.player_vector[4] = self.max_units / 10
-        self.player_vector[5] = self.num_units_in_play / self.max_units
+    def generate_private_player_vector(self):
+        self.player_private_vector[0] = self.gold / 100
+        self.player_private_vector[1] = self.exp / 100
+        self.player_private_vector[2] = self.round / 30
+        
+        exp_to_level = 0
+        if self.level < self.max_level:
+            exp_to_level = self.level_costs[self.level] - self.exp
+        self.player_private_vector[4] = exp_to_level
+        self.player_private_vector[5] = max(self.win_streak, self.loss_streak)
         if len(self.match_history) > 2:
-            self.player_vector[6] = self.match_history[-3]
-            self.player_vector[7] = self.match_history[-2]
-            self.player_vector[8] = self.match_history[-1]
+            self.player_private_vector[6] = self.match_history[-3]
+            self.player_private_vector[7] = self.match_history[-2]
+            self.player_private_vector[8] = self.match_history[-1]
+
+    def generate_public_player_vector(self):
+        self.player_private_vector[0] = self.health / 100
+        self.player_public_vector[1] = self.level / 10
+        self.player_public_vector[2] = self.max_units / 10
+        self.player_private_vector[3] = self.max_units / 10
+        self.player_public_vector[4] = self.num_units_in_play / self.max_units
+        self.player_public_vector[5] = min(floor(self.gold / 10), 5) / 5.0
+        streak_lvl = 0
+        if self.win_streak == 4:
+            streak_lvl = 0.5
+        elif self.win_streak >= 5:
+            streak_lvl = 1
+        self.player_private_vector[6] = streak_lvl
+        
 
     # This takes every occurrence of a champion at a given level and returns 1 of a higher level.
     # Transfers items over. The way I have it would mean it would require bench space.
@@ -1133,7 +1092,8 @@ class player:
         self.reward += self.num_units_in_play * self.minion_count_reward
         # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
         self.gold_income(self.round)
-        self.generate_player_vector()
+        self.generate_public_player_vector()
+        self.generate_private_player_vector()
         if self.kayn_check():
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
