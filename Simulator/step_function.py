@@ -573,84 +573,17 @@ class Step_Function:
         if shop_action > 4:
             shop_action = int(np.floor(np.random.rand(1, 1) * 5))
 
-        if shop_action == 0:
-            if self.shops[player.player_num][0] == " ":
-                player.reward += player.mistake_reward
-                return
-            if self.shops[player.player_num][0].endswith("_c"):
-                c_shop = self.shops[player.player_num][0].split('_')
-                a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            else:
-                a_champion = champion.champion(self.shops[player.player_num][0])
-            success = player.buy_champion(a_champion)
-            if success:
-                self.shops[player.player_num][0] = " "
-                game_observation.generate_shop_vector(self.shops[player.player_num])
-            else:
-                return
-
-        elif shop_action == 1:
-            if self.shops[player.player_num][1] == " ":
-                player.reward += player.mistake_reward
-                return
-            if self.shops[player.player_num][1].endswith("_c"):
-                c_shop = self.shops[player.player_num][1].split('_')
-                a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            else:
-                a_champion = champion.champion(self.shops[player.player_num][1])
-            success = player.buy_champion(a_champion)
-            if success:
-                self.shops[player.player_num][1] = " "
-                game_observation.generate_shop_vector(self.shops[player.player_num])
-            else:
-                return
-
-        elif shop_action == 2:
-            if self.shops[player.player_num][2] == " ":
-                player.reward += player.mistake_reward
-                return
-            if self.shops[player.player_num][2].endswith("_c"):
-                c_shop = self.shops[player.player_num][2].split('_')
-                a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            else:
-                a_champion = champion.champion(self.shops[player.player_num][2])
-            success = player.buy_champion(a_champion)
-            if success:
-                self.shops[player.player_num][2] = " "
-                game_observation.generate_shop_vector(self.shops[player.player_num])
-            else:
-                return
-
-        elif shop_action == 3:
-            if self.shops[player.player_num][3] == " ":
-                player.reward += player.mistake_reward
-                return
-            if self.shops[player.player_num][3].endswith("_c"):
-                c_shop = self.shops[player.player_num][3].split('_')
-                a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            else:
-                a_champion = champion.champion(self.shops[player.player_num][3])
-
-            success = player.buy_champion(a_champion)
-            if success:
-                self.shops[player.player_num][3] = " "
-                game_observation.generate_shop_vector(self.shops[player.player_num])
-            else:
-                return
-
-        elif shop_action == 4:
-            if self.shops[player.player_num][4] == " ":
-                player.reward += player.mistake_reward
-                return
-            if self.shops[player.player_num][4].endswith("_c"):
-                c_shop = self.shops[player.player_num][4].split('_')
-                a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-            else:
-                a_champion = champion.champion(self.shops[player.player_num][4])
-
-            success = player.buy_champion(a_champion)
-            if success:
-                self.shops[player.player_num][4] = " "
-                game_observation.generate_shop_vector(self.shops[player.player_num])
-            else:
-                return
+        if self.shops[player.player_num][shop_action] == " ":
+            player.reward += player.mistake_reward
+            return
+        if self.shops[player.player_num][shop_action].endswith("_c"):
+            c_shop = self.shops[player.player_num][shop_action].split('_')
+            a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
+        else:
+            a_champion = champion.champion(self.shops[player.player_num][shop_action])
+        success = player.buy_champion(a_champion)
+        if success:
+            self.shops[player.player_num][shop_action] = " "
+            game_observation.generate_shop_vector(self.shops[player.player_num])
+        else:
+            return
