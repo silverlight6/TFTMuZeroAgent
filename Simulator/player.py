@@ -4,6 +4,7 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
+import utils
 
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items, uncraftable_items
@@ -1179,32 +1180,50 @@ class player:
         board = []
         for x in range(0, 7):
             for y in range(0, 4):
-                champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item)
+                champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 if self.board[x][y]:
                     curr_champ = self.board[x][y]
-                    c_index = list(COST.keys()).index(curr_champ.name) + 1
-                    champion_info_array[0:6] = self.champ_binary_encode(c_index)
+                    c_index = list(COST.keys()).index(curr_champ.name)
+                    champion_info_array[0:6] = utils.champ_binary_encode(c_index)
                     champion_info_array[6] = curr_champ.stars / 3
                     champion_info_array[7] = curr_champ.cost / 5
                     for ind, item in enumerate(curr_champ.items):
                         start = (ind * 6) + 8
                         finish = start + 6
-                        if item in uncraftable_items.keys():
-                            i_index = list(uncraftable_items.keys()).index(item) + 1
-                        else:
-                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items.keys())
-                        champion_info_array[start:finish] = self.item_binary_encode(i_index)
+                        if item in uncraftable_items:
+                            i_index = list(uncraftable_items).index(item) + 1
+                        elif item in item_builds.keys():
+                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                        champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
-                board.append(champion_info_array)
+                board += list(champion_info_array)
+
+        for x_bench in range(len(self.bench)):
+            champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+            if self.bench[x_bench]:
+                curr_champ = self.bench[x_bench]
+                c_index = list(COST.keys()).index(curr_champ.name)
+                champion_info_array[0:6] = utils.champ_binary_encode(c_index)
+                champion_info_array[6] = curr_champ.stars / 3
+                champion_info_array[7] = curr_champ.cost / 5
+                for ind, item in enumerate(curr_champ.items):
+                    start = (ind * 6) + 8
+                    finish = start + 6
+                    if item in uncraftable_items:
+                        i_index = list(uncraftable_items).index(item) + 1
+                    elif item in item_builds.keys():
+                        i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                    champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+            board += list(champion_info_array)
 
         items_bench = []
         for ind, item in enumerate(self.item_bench):
             item_info = np.zeros(6)
-            if item in uncraftable_items.keys():
-                item_info = self.item_binary_encode(list(uncraftable_items.keys()).index(item) + 1)
-            else:
-                i_index = self.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items.keys()))
-            items_bench.append(item_info)
+            if item in uncraftable_items:
+                item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+            elif item in item_builds.keys():
+                i_index = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+            items_bench += list(item_info)
         
         return [hp, income, streak_lvl] + board + items_bench
 
@@ -1216,17 +1235,4 @@ class player:
         curr_gold = self.gold
         streak = max(self.win_streak, self.loss_streak)
         return [exp_to_level, curr_gold, streak]
-
-    def champ_binary_encode(self, n):
-        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
-
-    def item_binary_encode(self, n):
-        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
-    
-    def champ_one_hot_encode(self, n):
-        return self.CHAMPION_ONE_HOT_ENCODING[n]
-    
-    def item_one_hot_encode(self, n):
-        return self.BASIC_ITEMS_ONE_HOT_ENCODING[n]
-
         

@@ -270,10 +270,13 @@ class TFTNetwork(Network):
         x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
         value_output = tf.keras.layers.Softmax()(x)
-        policy_output = tf.keras.layers.Dense(config.ACTION_DIM, activation='softmax', name='shop_layer')(x)
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='softmax', name='action_layer')(x)
+        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='softmax', name='target_layer')(x)
+        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='softmax', name='item_layer')(x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
-                                                          outputs=[value_output, policy_output],
+                                                          outputs=[value_output, 
+                                                          [policy_output_action, policy_output_target, policy_output_item]],
                                                           name='prediction')
 
         super().__init__(representation=representation_model,
@@ -408,6 +411,7 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 
 def expand_node2(network_output, action_dim):
+    # print("SHAPE", network_output.shape, action_dim)
     policy = [{b: math.exp(network_output[b]) for b in range(action_dim)}]
     return policy
 
@@ -447,7 +451,7 @@ class MCTSAgent:
         # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
         policy_probs = network_output["policy_logits"].numpy()[0]
 
-        policy = expand_node2(policy_probs, 10)
+        policy = expand_node2(policy_probs, config.ACTION_DIM)
         # This policy sum is not in the Google's implementation. Not sure if required.
         policy_sum = sum(policy[0].values())
         for action, p in policy[0].items():
@@ -632,6 +636,7 @@ class Batch_MCTSAgent(MCTSAgent):
                 self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
                 
     def batch_policy(self, observation, prev_action):
+        # print(observation.shape) # (8, 8238)
         self.NUM_ALIVE = observation.shape[0]
         root = [Node(0) for _ in range(self.NUM_ALIVE)]
         network_output = self.network.initial_inference(observation)  # 2.1 seconds
@@ -659,11 +664,20 @@ class Batch_MCTSAgent(MCTSAgent):
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
 
-        policy_probs = network_output["policy_logits"][to_play].numpy()
+        policy_action_probs = network_output["policy_logits"][0][to_play].numpy()
+        policy_target_probs = network_output["policy_logits"][1][to_play].numpy()
+        policy_item_probs = network_output["policy_logits"][2][to_play].numpy()
 
-        policy = expand_node2(policy_probs, 10)
+        policy_action = expand_node2(policy_action_probs, config.ACTION_DIM[0])
+        policy_target = expand_node2(policy_target_probs, config.ACTION_DIM[1])
+        policy_item = expand_node2(policy_item_probs, config.ACTION_DIM[2])
         # This policy sum is not in the Google's implementation. Not sure if required.
-        policy_sum = sum(policy[0].values())
+        policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+        action = np.concatenate([
+            policy_action,
+            policy_target,
+            policy_item
+         ], axis=-1)
         for action, p in policy[0].items():
             node.children[action] = Node(p / policy_sum)
 

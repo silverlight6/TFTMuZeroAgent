@@ -68,14 +68,6 @@ class TFT_Simulator(AECEnv):
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
 
-        # For MuZero
-        # self.observation_spaces: Dict = dict(
-        #     zip(self.agents,
-        #         [Box(low=(-5.0), high=5.0, shape=(config.NUM_PLAYERS, config.OBSERVATION_SIZE,),
-        #              dtype=np.float32) for _ in self.possible_agents])
-        # )
-
-        # For PPO
         self.observation_spaces = dict(
             zip(
                 self.agents,
@@ -86,11 +78,6 @@ class TFT_Simulator(AECEnv):
             )
         )
 
-        # For MuZero
-        # self.action_spaces = {agent: MultiDiscrete([config.ACTION_DIM for _ in range(config.NUM_PLAYERS)])
-        #                       for agent in self.agents}
-
-        # For PPO
         self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
                               for agent in self.agents}
         super().__init__()
@@ -148,8 +135,8 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
-        self.observations = {agent: self.game_observations[agent].observation(agent,
-            self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
+        self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent], 
+                            self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS) for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -169,13 +156,13 @@ class TFT_Simulator(AECEnv):
             return
         action = np.asarray(action)
         if action.ndim == 0:
-            # self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
-            #                                      self.agent_selection, self.game_observations)
-            self.step_function.single_step_action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                  self.agent_selection, self.game_observations)
         elif action.ndim == 1:
-            self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
-                                                   self.agent_selection, self.game_observations, self.PLAYERS)
+            reward, self.observation = self.step_function.single_step_action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+                                                 self.agent_selection, self.game_observations)
+            # self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+            #                                        self.agent_selection, self.game_observations, self.PLAYERS)
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
@@ -225,4 +212,5 @@ class TFT_Simulator(AECEnv):
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()
-        return self.observations, self.rewards, self.terminations, self.truncations, self.infos
+        print("OBSERVATIONS", len(self.observation))
+        return self.observation, self.rewards, self.terminations, self.truncations, self.infos

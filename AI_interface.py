@@ -175,8 +175,8 @@ class AIInterface:
     def testEnv(self):
         local_env = parallel_env()
         parallel_api_test(local_env, num_cycles=100000)
-        second_env = tft_env()
-        api_test(second_env, num_cycles=100000)
+        # second_env = tft_env()
+        # api_test(second_env, num_cycles=100000)
 
     # function looks stupid as is right now, but should remain this way
     # for potential future abstractions

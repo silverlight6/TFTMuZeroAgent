@@ -152,11 +152,15 @@ class Observation:
     #TODO Save elements when not updated, to save computations and just return the elements
 
     def get_lobo_observation(self, curr_player, curr_shop, players): #NAME WIP
+        #Return observation of size 8238
         other_players_obs = []
         for player_id in players.keys():
             other_player = players[player_id]
-            if other_player and other_player != curr_player:
-                other_players_obs += self.get_lobo_public_observation(other_player)
+            other_player_obs = np.zeros((1025,))
+            if other_player != curr_player:
+                if other_player:
+                    other_player_obs = self.get_lobo_public_observation(other_player)
+                other_players_obs += other_player_obs
         return np.concatenate([
             self.get_lobo_public_observation(curr_player),
             self.get_lobo_private_observation(curr_player, curr_shop),
@@ -182,10 +186,10 @@ class Observation:
                 name = shop[x]
                 if name.endswith("_c"):
                     name = name.split('_')[0]
-                    input_array[7] = 1
-                c_index = list(COST.keys()).index(name) + 1
+                    input_array[6] = 1
+                c_index = list(COST.keys()).index(name)
                 input_array[0:6] = self.champ_binary_encode(c_index)
-            output_array += input_array
+            output_array += list(input_array)
         return output_array
 
     def champ_binary_encode(self, n):
