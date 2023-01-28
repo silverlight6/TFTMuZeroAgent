@@ -40,7 +40,7 @@ class ReplayBuffer:
 
     def get_reward_sequence(self):
         return self.rewards
-    
+
     def set_reward_sequence(self, rewards):
         self.rewards = rewards
 
@@ -112,4 +112,4 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[0])
                 sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                               policy_mask_set, value_set, reward_set, policy_set]
-                self.g_buffer.store_replay_sequence.remote(sample_set)
+                self.g_buffer.store_replay_sequence(sample_set)
