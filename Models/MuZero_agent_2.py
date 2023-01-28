@@ -605,28 +605,28 @@ class MCTS(MCTSAgent):
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
         num = roots_cpp.num
+        # config variables
         discount = config.DISCOUNT  
         pb_c_init = config.PB_C_INIT
         pb_c_base = config.PB_C_BASE
         hidden_state_index_x = 0
-        # minimax value storage
-        min_max_stats_lst = tree.MinMaxStatsList(num) # Seems like should stay as NUM_PLAYERS not NUM_ALIVE
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 (double check)
-        horizons = 1  # self.config.lstm_horizon_len
+
+
+        # minimax value storage data structure 
+        min_max_stats_lst = tree.MinMaxStatsList(num)
+        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 
+        horizons = 1  # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future 
         hidden_state_pool = [hidden_state_pool]
-        for _ in range(config.NUM_SIMULATIONS):
+        for _ in range(config.NUM_SIMULATIONS): # go through the tree NUM_SIMULATIONS times 
             # prepare a result wrapper to transport results between python and c++ parts
             hidden_states = [] 
             results = tree.ResultsWrapper(num)
 
-            # evaluation for leaf nodes
+            # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
             search_lens = results.get_search_len()
 
-            # There is a chance I am supposed to check if the tree for the non-main-branch
-            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
-            # main decision axis.
             # obtain the states for leaf nodes
             for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
                 hidden_states.append(hidden_state_pool[ix][iy])
@@ -634,21 +634,14 @@ class MCTS(MCTSAgent):
             # hidden state given an action and the previous hidden state.
 
             last_action = np.asarray(last_action)
-
-            network_output = self.network.recurrent_inference(hidden_states, last_action)  # 11.05s
+            network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)   
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
 
-            # CHECK THIS 
-            # I
-            # I 
-            # V
+            # add nodes to the pool after each search 
             hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
-            # ^
-            # I 
-            # I
 
             # reset 0
             # reset the hidden states in LSTM every horizon steps in search
@@ -667,14 +660,15 @@ class MCTS(MCTSAgent):
                                       min_max_stats_lst, results, is_reset_lst)
     
     def batch_policy(self, observation):
-        # (batch size or num_players or num_players*batch_size?, action size, num simulations)
-        self.NUM_ALIVE = observation.shape[0]
-        roots_cpp = tree.Roots(self.NUM_ALIVE, 10, config.NUM_SIMULATIONS)
-        network_output = self.network.initial_inference(observation)  # 2.1 seconds
+        self.NUM_ALIVE = observation.shape[0] 
+        # Setup specialised roots datastruction, format: env_nums, action_space_size, num_simulations
+        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_DIM, config.NUM_SIMULATIONS) 
+        network_output = self.network.initial_inference(observation)  
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
         policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
 
+        # prepare the nodes to feed them into batch_mcts
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * config.ACTION_DIM).astype(np.float32).tolist()
                   for _ in range(self.NUM_ALIVE)]
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
@@ -682,11 +676,12 @@ class MCTS(MCTSAgent):
         # Output for root node
         hidden_state_pool = network_output["hidden_state"] 
 
-        self.run_batch_mcts(roots_cpp, hidden_state_pool)  # 24.3 s (3 seconds not in that)
+        self.run_batch_mcts(roots_cpp, hidden_state_pool)  # set up nodes to be able to find and select actions 
         roots_distributions = roots_cpp.get_distributions()
         actions = [] 
-        start_training = False
-        temp = self.visit_softmax_temperature()
+        # This variable controls if distributions is randomly created, such as during the very first loop, however it doesnt look like it always being True impacts anything 
+        start_training = True 
+        temp = self.visit_softmax_temperature() # controls the way actions are chosen
         for i in range(self.NUM_ALIVE):
             deterministic = False # False = sample distribution, True = argmax 
             if start_training:
@@ -694,16 +689,13 @@ class MCTS(MCTSAgent):
             else:
                 #random distributions if training has just started 
                 distributions = np.ones(config.ACTION_DIM)
-            action, entropy = self.select_action(distributions,temperature=temp,deterministic=deterministic)
+            action, entropy = self.select_action(distributions,temperature=temp,deterministic=deterministic) 
             actions.append(action)
-        # Masking only if training is based on the actions taken in the environment.
-        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
-        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
        
-        return action, network_output["policy_logits"]
+        return actions, network_output["policy_logits"]
     
     @staticmethod
     def select_action(visit_counts, temperature=1, deterministic=True):
@@ -720,8 +712,6 @@ class MCTS(MCTSAgent):
         total_count = sum(action_probs)
         action_probs = [x / total_count for x in action_probs]
         if deterministic:
-            # best_actions = np.argwhere(visit_counts == np.amax(visit_counts)).flatten()
-            # action_pos = np.random.choice(best_actions)
             action_pos = np.argmax([v for v in visit_counts])
         else:
             action_pos = np.random.choice(len(visit_counts), p=action_probs)
@@ -729,86 +719,6 @@ class MCTS(MCTSAgent):
         count_entropy = entropy(action_probs, base=2)
         return action_pos, count_entropy
 
-
-class Batch_MCTSAgent(MCTSAgent):
-    """
-    Use Monte-Carlo Tree-Search to select moves.
-    """
-
-    def __init__(self, network: Network) -> None:
-        super().__init__(network, 0)
-        self.NUM_ALIVE = config.NUM_PLAYERS
-
-    # Core Monte Carlo Tree Search algorithm.
-    # To decide on an action, we run N simulations, always starting at the root of
-    # the search tree and traversing the tree according to the UCB formula until we
-    # reach a leaf node.
-    def run_batch_mcts(self, root: list, action: List):
-        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
-        
-        for _ in range(config.NUM_SIMULATIONS):
-            history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
-            node = root
-            search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
-            
-            # There is a chance I am supposed to check if the tree for the non-main-branch
-            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
-            # main decision axis.
-            for i in range(self.NUM_ALIVE):
-                while node[i].expanded():
-                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
-                    history[i].add_action(action[i])
-                    search_path[i].append(node[i])
-            
-            # Inside the search tree we use the dynamics function to obtain the next
-            # hidden state given an action and the previous hidden state.
-            parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
-            hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
-            last_action = np.asarray([history[i].last_action() for i in range(self.NUM_ALIVE)])
-
-            network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
-            for i in range(self.NUM_ALIVE):
-                
-                self.batch_expand_node(node[i], node[i].to_play, network_output)  # 7s
-                
-                # print("value {}".format(network_output["value"]))
-                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
-                
-    def batch_policy(self, observation, prev_action):
-        self.NUM_ALIVE = observation.shape[0]
-        root = [Node(0) for _ in range(self.NUM_ALIVE)]
-        network_output = self.network.initial_inference(observation)  # 2.1 seconds
-        
-        for i in range(self.NUM_ALIVE):
-            self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
-
-            self.add_exploration_noise(root[i])
-            
-        self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
-        
-        action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
-        
-        # Masking only if training is based on the actions taken in the environment.
-        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
-        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
-
-        # Notes on possibilities for other dimensions at the bottom
-        self.num_actions += 1
-       
-        return action, network_output["policy_logits"]
-
-    def batch_expand_node(self, node: Node, to_play: int, network_output):
-        node.to_play = to_play
-        node.hidden_state = network_output["hidden_state"][to_play]
-        node.reward = network_output["reward"][to_play]
-
-        policy_probs = network_output["policy_logits"][to_play].numpy()
-
-        policy = expand_node2(policy_probs, 10)
-        # This policy sum is not in the Google's implementation. Not sure if required.
-        policy_sum = sum(policy[0].values())
-        for action, p in policy[0].items():
-            node.children[action] = Node(p / policy_sum)
 
 
 def masked_distribution(x, use_exp, mask=None):

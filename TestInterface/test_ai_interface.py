@@ -7,7 +7,7 @@ from TestInterface.test_global_buffer import GlobalBuffer
 from Simulator.tft_simulator import parallel_env
 from Models import MuZero_trainer
 from TestInterface.test_replay_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
+from Models.MuZero_agent_2 import MCTS, TFTNetwork
 
 
 class DataWorker(object):
@@ -21,20 +21,18 @@ class DataWorker(object):
     def collect_gameplay_experience(self, env, buffers, storage, weights):
 
         self.agent_network.set_weights(weights)
-        agent = Batch_MCTSAgent(self.agent_network)
+        agent = MCTS(self.agent_network)
         # Reset the environment
         player_observation = env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = np.asarray(list(player_observation.values()))
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in env.possible_agents}
-        # Current action to help with MuZero
-        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
 
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+            actions, policy = agent.batch_policy(player_observation)
             step_actions = self.getStepActions(terminated, actions)
 
             # Take that action within the environment and return all of our information for the next player
@@ -45,7 +43,6 @@ class DataWorker(object):
                 buffers.store_replay_buffer(key, player_observation[i], actions[i], reward[key], policy[i])
             # Set up the observation for the next action
             player_observation = np.asarray(list(next_observation.values()))
-            self.prev_actions = actions
 
         buffers.rewardNorm()
         buffers.store_global_buffer()
