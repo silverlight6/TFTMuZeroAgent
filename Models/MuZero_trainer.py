@@ -27,6 +27,7 @@ class Trainer(object):
         with tf.GradientTape() as tape:
             loss = self.compute_loss(agent, observation, history, value_mask,
                                      reward_mask, policy_mask, value, reward, policy, train_step, summary_writer)
+        print(loss)
 
         grads = tape.gradient(loss, agent.get_rl_training_variables())
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
@@ -176,6 +177,9 @@ class Trainer(object):
             return tf.reduce_mean(sum_accs[k] / sum_masks[name_to_mask(k)])
 
         with summary_writer.as_default():
+            # TODO(lobotuerk): Find a better way of logging difference between predictions and targets
+            # Just the mean does not tell you a lot of information, you dont really know if you had outliers
+            # or if you were off in all predictions. Properties (sd, variance) would be better
             tf.summary.scalar('prediction/value', get_mean('value'), step=train_step)
             tf.summary.scalar('prediction/reward', get_mean('reward'), step=train_step)
 
@@ -189,7 +193,10 @@ class Trainer(object):
             tf.summary.scalar('losses/l2', l2_loss, step=train_step)
 
             tf.summary.scalar('accuracy/value', -get_mean('value_diff'), step=train_step)
-            tf.summary.scalar('accuracy/value', -get_mean('reward_diff'), step=train_step)
+            tf.summary.scalar('accuracy/reward', -get_mean('reward_diff'), step=train_step)
+
+            tf.summary.scalar('episode_max/reward', tf.reduce_max(target_reward), step=train_step)
+            tf.summary.scalar('episode_max/value', tf.reduce_max(target_value), step=train_step)
 
         return mean_loss
 

@@ -1,17 +1,16 @@
 import numpy as np
 import config
-import ray
-from Models.replay_muzero_buffer import ReplayBuffer
+from TestInterface.test_replay_muzero_buffer import ReplayBuffer
 from sklearn import preprocessing
 
-@ray.remote
+
 class BufferWrapper:
     def __init__(self, global_buffer):
         self.buffers = {"player_" + str(i): ReplayBuffer(global_buffer) for i in range(config.NUM_PLAYERS)}
-    
+
     def store_replay_buffer(self, key, *args):
         self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3])
-    
+
     def store_observation(self, key, *args):
         self.buffers[key].store_observation(args[0])
 
@@ -23,10 +22,10 @@ class BufferWrapper:
 
     def get_prev_action(self, key):
         self.buffers[key].get_prev_action()
-    
+
     def get_reward_sequence(self, key):
         self.buffers[key].get_reward_sequence()
-    
+
     def set_reward_sequence(self, key, *args):
         self.buffers[key].set_reward_sequence(args[0])
 
@@ -53,8 +52,7 @@ class BufferWrapper:
         for i, b in enumerate(self.buffers.values()):
             b.set_reward_sequence(reward_dat[index: index + rewardLens[i]])
             index += rewardLens[i]
-    
+
     def store_global_buffer(self):
         for b in self.buffers.values():
             b.store_global_buffer()
-    

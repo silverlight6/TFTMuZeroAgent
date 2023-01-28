@@ -1,8 +1,6 @@
-import ray
 from Models.MuZero_agent_2 import TFTNetwork
 
 
-@ray.remote
 class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()
