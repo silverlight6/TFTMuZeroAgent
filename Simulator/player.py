@@ -397,6 +397,10 @@ class player:
         elif self.win_streak >= 5:
             streak_lvl = 1
         self.player_private_vector[6] = streak_lvl
+
+    def generate_player_vector(self):
+        self.generate_public_player_vector()
+        self.generate_private_player_vector()
         
 
     # This takes every occurrence of a champion at a given level and returns 1 of a higher level.
@@ -1092,8 +1096,7 @@ class player:
         self.reward += self.num_units_in_play * self.minion_count_reward
         # self.print(str(self.num_units_in_play * self.minion_count_reward) + " reward for minions in play")
         self.gold_income(self.round)
-        self.generate_public_player_vector()
-        self.generate_private_player_vector()
+        self.generate_player_vector()
         if self.kayn_check():
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
