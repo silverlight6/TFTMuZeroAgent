@@ -8,8 +8,7 @@ import gymnasium as gym
 import numpy as np
 from storage import Storage
 from global_buffer import GlobalBuffer
-from Models.replay_muzero_buffer import ReplayBuffer
-from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
+from Simulator.tft_simulator import TFT_Simulator, parallel_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
@@ -89,16 +88,14 @@ class DataWorker(object):
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def evaluate_agents(self, env, storage):
-        agents = {
-            "player_0": Batch_MCTSAgent(self.agent_network.tft_load_model(0)),
-            "player_1": Batch_MCTSAgent(self.agent_network.tft_load_model(1000)),
-            "player_2": Batch_MCTSAgent(self.agent_network.tft_load_model(2000)),
-            "player_3": Batch_MCTSAgent(self.agent_network.tft_load_model(3000)),
-            "player_4": Batch_MCTSAgent(self.agent_network.tft_load_model(4000)),
-            "player_5": Batch_MCTSAgent(self.agent_network.tft_load_model(5000)),
-            "player_6": Batch_MCTSAgent(self.agent_network.tft_load_model(6000)),
-            "player_7": Batch_MCTSAgent(self.agent_network.tft_load_model(7000)),
-        }
+        agents = {"player_" + str(r): Batch_MCTSAgent(TFTNetwork()) for r in range(config.NUM_PLAYERS)}
+        agents["player_1"].network.tft_load_model(1000)
+        agents["player_2"].network.tft_load_model(2000)
+        agents["player_3"].network.tft_load_model(3000)
+        agents["player_4"].network.tft_load_model(4000)
+        agents["player_5"].network.tft_load_model(5000)
+        agents["player_6"].network.tft_load_model(6000)
+        agents["player_7"].network.tft_load_model(7000)
 
         while True:
             # Reset the environment
@@ -109,16 +106,21 @@ class DataWorker(object):
             terminated = {player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
             self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+            placements = {player_id: 0 for player_id in env.possible_agents}
+            current_position = 7
+            info = {player_id: {"player_won": False} for player_id in env.possible_agents}
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
                 actions = {agent: 0 for agent in agents.keys()}
-                for key, agent in agents.items():
-                    action, _ = agent.batch_policy(player_observation, list(self.prev_actions))
+                for i, [key, agent] in enumerate(agents.items()):
+                    action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0),
+                                                   list(self.prev_actions)[i])
                     actions[key] = action
 
                 # step_actions = self.getStepActions(terminated, np.asarray(actions))
+                # print(actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(actions)
@@ -127,6 +129,16 @@ class DataWorker(object):
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions.values()
 
+                for key, terminate in terminated.items():
+                    if terminate:
+                        placements[key] = current_position
+                        current_position -= 1
+
+            for key, value in info.items():
+                if value["player_won"]:
+                    placements[key] = 0
+            storage.record_placements.remote(placements)
+            print("recorded places {}".format(placements))
             self.rank += config.CONCURRENT_GAMES
 
 
@@ -233,8 +245,12 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.evaluate.remote(env, storage))
+            workers.append(worker.evaluate_agents.remote(env, storage))
             time.sleep(1)
+
+        while True:
+            time.sleep(10000)
+            print("good luck getting past this")
 
     def testEnv(self):
         local_env = parallel_env()
