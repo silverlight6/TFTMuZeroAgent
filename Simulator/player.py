@@ -159,6 +159,7 @@ class player:
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
         if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
+            self.thieves_gloves(bench_loc, -1)
         self.generate_bench_vector()
         return True
 
@@ -386,7 +387,7 @@ class player:
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
             else:
                 print("This champion got more than 2 items")
-        champion_info_array[5:] = item_arr
+        champion_info_array[6:] = item_arr
 
     def generate_bench_vector(self):
         output_array = np.zeros(9)
@@ -1137,8 +1138,8 @@ class player:
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
-        for x in range(len(self.thieves_gloves_loc)):
-            self.thieves_gloves(self.thieves_gloves_loc[x][0], self.thieves_gloves_loc[x][1])
+        for x in self.thieves_gloves_loc:
+            self.thieves_gloves(x[0], x[1])
 
     def won_game(self):
         self.reward += self.won_game_reward

@@ -1094,7 +1094,7 @@ def leesin(champion):
         line_to_wall_behind_target = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y,
                                                                                          champion.target.x)
         # print("LEE SIN ABILITY")
-        print(line_to_wall_behind_target)
+        # print(line_to_wall_behind_target)
         end_point = line_to_wall_behind_target[0][-1]
 
         # find the closest corner to the line's end point

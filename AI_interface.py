@@ -178,8 +178,22 @@ class AIInterface:
                     global_agent.tft_save_model(train_step)
 
     def collect_dummy_data(self):
-        dataWorker = DataWorker()
-        dataWorker.collect_dummy_data()
+        env = parallel_env()
+        while True:
+            _ = env.reset()
+            terminated = {player_id: False for player_id in env.possible_agents}
+            t = time.time_ns()
+            while not all(terminated.values()):
+                # agent policy that uses the observation and info
+                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                step_actions = {}
+                i = 0
+                for player_id, terminate in terminated.items():
+                    if not terminate:
+                        step_actions[player_id] = action[i]
+                        i += 1
+                observation_list, rewards, terminated, truncated, info = env.step(step_actions)
+            print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
         # register our environment, we have no config parameters
