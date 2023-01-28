@@ -305,8 +305,9 @@ def die(champion):
                     c.target = None
             field.coordinates[u.y][u.x] = None
             if u.name == 'aphelios_turret' or (u.name == 'sandguard' and u.health >= 0):
-                champion.own_team().remove(u)
-                champion.print(' {:<15}'.format(u.name) + ' dies ')
+                if u in champion.own_team():
+                    champion.own_team().remove(u)
+                    champion.print(' {:<15}'.format(u.name) + ' dies ')
 
     # if the champion has zilean orb or guardian angel equipped
     else:
