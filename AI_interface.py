@@ -30,7 +30,6 @@ class DataWorker(object):
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
-
         self.agent_network.set_weights(weights)
         agent = Batch_MCTSAgent(self.agent_network)
         while True:
@@ -67,24 +66,6 @@ class DataWorker(object):
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
-    def test_collect_gameplay_experience(self, env, agent, buffers):
-        observation, info = env.reset()
-        terminated = False
-        while not terminated:
-            # agent policy that uses the observation and info
-            action, policy = agent.batch_policy(observation, self.prev_actions)
-            self.prev_actions = action
-            observation_list, rewards, terminated, _, info = env.step(np.asarray(action))
-            for i in range(config.NUM_PLAYERS):
-                if info["players"][i]:
-                    local_reward = rewards[info["players"][i].player_num] - \
-                                   self.prev_reward[info["players"][i].player_num]
-                    buffers[info["players"][i].player_num]. \
-                        store_replay_buffer(observation_list[info["players"][i].player_num],
-                                            action[info["players"][i].player_num], local_reward,
-                                            policy[info["players"][i].player_num])
-                    self.prev_reward[info["players"][i].player_num] = info["players"][i].reward
-
     def getStepActions(self, terminated, actions):
         step_actions = {}
         i = 0
@@ -107,13 +88,54 @@ class DataWorker(object):
                 observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
+    def evaluate_agents(self, env, storage):
+        agents = {
+            "player_0": Batch_MCTSAgent(self.agent_network.tft_load_model(0)),
+            "player_1": Batch_MCTSAgent(self.agent_network.tft_load_model(1000)),
+            "player_2": Batch_MCTSAgent(self.agent_network.tft_load_model(2000)),
+            "player_3": Batch_MCTSAgent(self.agent_network.tft_load_model(3000)),
+            "player_4": Batch_MCTSAgent(self.agent_network.tft_load_model(4000)),
+            "player_5": Batch_MCTSAgent(self.agent_network.tft_load_model(5000)),
+            "player_6": Batch_MCTSAgent(self.agent_network.tft_load_model(6000)),
+            "player_7": Batch_MCTSAgent(self.agent_network.tft_load_model(7000)),
+        }
+
+        while True:
+            # Reset the environment
+            player_observation = env.reset()
+            # This is here to make the input (1, observation_size) for initial_inference
+            player_observation = np.asarray(list(player_observation.values()))
+            # Used to know when players die and which agent is currently acting
+            terminated = {player_id: False for player_id in env.possible_agents}
+            # Current action to help with MuZero
+            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+
+            # While the game is still going on.
+            while not all(terminated.values()):
+                # Ask our model for an action and policy
+                actions = {agent: 0 for agent in agents.keys()}
+                for key, agent in agents.items():
+                    action, _ = agent.batch_policy(player_observation, list(self.prev_actions))
+                    actions[key] = action
+
+                # step_actions = self.getStepActions(terminated, np.asarray(actions))
+
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.step(actions)
+
+                # Set up the observation for the next action
+                player_observation = np.asarray(list(next_observation.values()))
+                self.prev_actions = actions.values()
+
+            self.rank += config.CONCURRENT_GAMES
+
 
 class AIInterface:
 
     def __init__(self):
         ...
 
-    def train_model(self, starting_train_step = 0):
+    def train_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
@@ -140,6 +162,7 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(1)
 
+        ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
@@ -153,33 +176,6 @@ class AIInterface:
                 if train_step % 100 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
-
-    def test_train_model(self, max_episodes=10000):
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-        global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer.remote()
-        trainer = MuZero_trainer.Trainer()
-        train_step = 0
-        # global_agent.load_model(0)
-        env = parallel_env()
-        dataWorker = DataWorker().remote()
-
-        for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
-            buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            dataWorker.test_collect_gameplay_experience(env, agent, buffers)
-
-            for i in range(config.NUM_PLAYERS):
-                buffers[i].store_global_buffer()
-            while global_buffer.available_batch():
-                gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                train_step += 1
-            global_agent.save_model(episode_cnt)
-            print("Episode " + str(episode_cnt) + " Completed")
 
     def collect_dummy_data(self):
         dataWorker = DataWorker()
@@ -212,14 +208,25 @@ class AIInterface:
 
         algo.evaluate()  # 4. and evaluate it.
 
-    def evaluate(self, agent):
-        return 0
+    def evaluate(self):
+        os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+        gpus = tf.config.list_physical_devices('GPU')
+        ray.init(num_gpus=len(gpus), num_cpus=16)
+        storage = Storage.remote(0)
+
+        env = parallel_env()
+
+        workers = []
+        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        for i, worker in enumerate(data_workers):
+            workers.append(worker.evaluate.remote(env, storage))
+            time.sleep(1)
 
     def testEnv(self):
         local_env = parallel_env()
         parallel_api_test(local_env, num_cycles=100000)
-        second_env = tft_env()
-        api_test(second_env, num_cycles=100000)
+        # second_env = tft_env()
+        # api_test(second_env, num_cycles=100000)
 
     # function looks stupid as is right now, but should remain this way
     # for potential future abstractions

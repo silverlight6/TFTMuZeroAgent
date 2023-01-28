@@ -127,6 +127,14 @@ class player:
         self.action_complete = False
         self.action_values = []
 
+        # Start with two copies of each item in your item pool
+        self.item_pool = []
+        self.refill_item_pool()
+        self.refill_item_pool()
+
+        # Context For Loot Orbs
+        self.orb_history = []
+
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
@@ -1157,3 +1165,15 @@ class player:
     def won_ghost(self, damage):
         self.reward += 0.02 * damage
         self.print(str(0.02 * damage) + " reward for someone losing to ghost")
+
+    # Item pool mechanic utilities
+    def refill_item_pool(self):
+        self.item_pool.extend(starting_items)
+    
+    def remove_from_pool(self, item):
+        self.item_pool.remove(item)
+
+    def random_item_from_pool(self):
+        item = random.choice(self.item_pool)
+        self.remove_from_pool(item)
+        return item

@@ -27,6 +27,7 @@ class Trainer(object):
         with tf.GradientTape() as tape:
             loss = self.compute_loss(agent, observation, history, value_mask,
                                      reward_mask, policy_mask, value, reward, policy, train_step, summary_writer)
+        print(loss)
 
         grads = tape.gradient(loss, agent.get_rl_training_variables())
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
