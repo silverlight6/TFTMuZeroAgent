@@ -537,7 +537,6 @@ class MCTSAgent:
 
     def policy(self, observation, previous_action):
         root = Node(0)
-
         network_output = self.network.initial_inference(observation)
         self.expand_node(root, network_output)
         self.add_exploration_noise(root)
@@ -602,7 +601,6 @@ class Batch_MCTSAgent(MCTSAgent):
     # reach a leaf node.
     def run_batch_mcts(self, root: list, action: List):
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
-        
         for _ in range(config.NUM_SIMULATIONS):
             history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
             node = root
@@ -640,9 +638,9 @@ class Batch_MCTSAgent(MCTSAgent):
             self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
 
             self.add_exploration_noise(root[i])
-            
+
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
-        
+
         action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
         
         # Masking only if training is based on the actions taken in the environment.

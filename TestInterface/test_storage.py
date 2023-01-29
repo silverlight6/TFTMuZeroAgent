@@ -1,10 +1,6 @@
-import ray
-
-import config
 from Models.MuZero_agent_2 import TFTNetwork
 
 
-@ray.remote
 class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()
@@ -12,8 +8,6 @@ class Storage:
             self.target_model.tft_load_model(episode)
         self.model = self.target_model
         self.episode_played = 0
-        self.placements = {"player_" + str(r): [0 for _ in range(config.NUM_PLAYERS)]
-                           for r in range(config.NUM_PLAYERS)}
 
     def get_model(self):
         return self.model.get_weights()
@@ -37,8 +31,3 @@ class Storage:
     def increment_episode_played(self):
         self.episode_played += 1
 
-    def record_placements(self, placement):
-        print(placement)
-        for key in self.placements.keys():
-            # Increment which position each model got.
-            self.placements[key][placement[key]] += 1
