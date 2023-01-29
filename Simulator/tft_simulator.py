@@ -116,6 +116,7 @@ class TFT_Simulator(AECEnv):
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
+                    print("{} died".format(key))
                     self.kill_list.append(key)
                 else:
                     num_alive += 1
@@ -204,6 +205,7 @@ class TFT_Simulator(AECEnv):
                     for player_id in self.agents:
                         if self.PLAYERS[player_id]:
                             self.PLAYERS[player_id].won_game()
+                            self.infos[player_id] = {"player_won": True}
 
                     self.terminations = {a: True for a in self.agents}
 

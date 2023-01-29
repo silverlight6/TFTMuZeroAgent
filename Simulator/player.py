@@ -8,7 +8,6 @@ from Simulator import champion, origin_class
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items, uncraftable_items
 
-
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -19,10 +18,9 @@ from math import floor
 # Stores all values relevant to an individual player in the game
 class player:
 
-    MAX_CHAMPION = 19  # 10 on board, 9 on bench
-    # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
-    # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
-    CHAMPION_INFORMATION = 11
+    MAX_CHAMPION = 19 # 10 on board, 9 on bench
+    # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
+    CHAMPION_INFORMATION = 12
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
@@ -161,6 +159,7 @@ class player:
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
         if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
+            self.thieves_gloves(bench_loc, -1)
         self.generate_bench_vector()
         return True
 
@@ -388,7 +387,7 @@ class player:
                     item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
             else:
                 print("This champion got more than 2 items")
-        champion_info_array[5:] = item_arr
+        champion_info_array[6:] = item_arr
 
     def generate_bench_vector(self):
         output_array = np.zeros(9)
@@ -889,7 +888,7 @@ class player:
                 # thieves_gloves_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thieves_gloves':
                     self.thieves_gloves_loc.remove([x, -1])
-                    self.items = ['thieves_gloves']
+                    self.bench[x].items = ['thieves_gloves']
 
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
@@ -915,6 +914,7 @@ class player:
                 # thieves_gloves_location needs to be removed whether there's room on the bench or not
                 if a_champion.items[0] == 'thieves_gloves':
                     self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
+                    a_champion.items = ['thieves_gloves']
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
@@ -1138,8 +1138,8 @@ class player:
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
-        for x in range(len(self.thieves_gloves_loc)):
-            self.thieves_gloves(self.thieves_gloves_loc[x][0], self.thieves_gloves_loc[x][1])
+        for x in self.thieves_gloves_loc:
+            self.thieves_gloves(x[0], x[1])
 
     def won_game(self):
         self.reward += self.won_game_reward
@@ -1162,7 +1162,7 @@ class player:
                     return
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
-    
+
     def won_ghost(self, damage):
         self.reward += 0.02 * damage
         self.print(str(0.02 * damage) + " reward for someone losing to ghost")
