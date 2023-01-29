@@ -13,7 +13,7 @@ from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork, MCTS
+from Models.MuZero_agent_2 import TFTNetwork, MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
@@ -42,7 +42,7 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(player_observation)
+                actions, policy = agent.policy(player_observation)
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -86,14 +86,14 @@ class DataWorker(object):
 
     def evaluate_agents(self, env, storage):
         agents = {
-            "player_0": Batch_MCTSAgent(self.agent_network.tft_load_model(0)),
-            "player_1": Batch_MCTSAgent(self.agent_network.tft_load_model(1000)),
-            "player_2": Batch_MCTSAgent(self.agent_network.tft_load_model(2000)),
-            "player_3": Batch_MCTSAgent(self.agent_network.tft_load_model(3000)),
-            "player_4": Batch_MCTSAgent(self.agent_network.tft_load_model(4000)),
-            "player_5": Batch_MCTSAgent(self.agent_network.tft_load_model(5000)),
-            "player_6": Batch_MCTSAgent(self.agent_network.tft_load_model(6000)),
-            "player_7": Batch_MCTSAgent(self.agent_network.tft_load_model(7000)),
+            "player_0": MCTS(self.agent_network.tft_load_model(0)),
+            "player_1": MCTS(self.agent_network.tft_load_model(1000)),
+            "player_2": MCTS(self.agent_network.tft_load_model(2000)),
+            "player_3": MCTS(self.agent_network.tft_load_model(3000)),
+            "player_4": MCTS(self.agent_network.tft_load_model(4000)),
+            "player_5": MCTS(self.agent_network.tft_load_model(5000)),
+            "player_6": MCTS(self.agent_network.tft_load_model(6000)),
+            "player_7": MCTS(self.agent_network.tft_load_model(7000)),
         }
 
         while True:
@@ -103,15 +103,13 @@ class DataWorker(object):
             player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
-            # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
                 actions = {agent: 0 for agent in agents.keys()}
                 for key, agent in agents.items():
-                    action, _ = agent.batch_policy(player_observation, list(self.prev_actions))
+                    action, _ = agent.policy(player_observation)
                     actions[key] = action
 
                 # step_actions = self.getStepActions(terminated, np.asarray(actions))
@@ -154,8 +152,8 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(ray.get(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights)))
+            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                     storage, weights))
             time.sleep(1)
 
         ray.get(workers)

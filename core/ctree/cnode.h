@@ -9,7 +9,7 @@
 #include <time.h>
 #include <cmath>
 #include <sys/timeb.h>
-//#include <sys/time.h>
+#include <sys/time.h>
 
 const int DEBUG_MODE = 0;
 
@@ -29,7 +29,6 @@ namespace tree {
             void expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix, const std::vector<float> &policy_logits);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
             float get_mean_q(int isRoot, float parent_q, float discount);
-            void print_out();
 
             int expanded();
 

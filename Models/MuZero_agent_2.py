@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 
 from typing import Dict, List
-from numba import jit, cuda, typed
 
 import core.ctree.cytree as tree
 
@@ -438,7 +437,6 @@ class MCTSAgent:
                  agent_id: int
                  ) -> None:
         self.network: Network = network
-        self.agent_id = agent_id
 
         self.action_dim = 10
         self.num_actions = 0
@@ -511,7 +509,7 @@ class MCTSAgent:
     def run_mcts(self, root: Node, action: List, player_num: int):
         min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
 
-        for _ in range(config.NUM_SIMULATIONS): 
+        for _ in range(config.NUM_SIMULATIONS):
             history = ActionHistory(action)
             node = root
             search_path = [node]
@@ -594,12 +592,8 @@ class MCTSAgent:
 
 class MCTS(MCTSAgent):
     def __init__(self, network):
-        super().__init__(network, 0)
+        super().__init__(network)
         self.times = [0]*6
-
-    
-    def __init__(self, network: Network) -> None:
-        super().__init__(network, 0)
         self.NUM_ALIVE = config.NUM_PLAYERS
     
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
@@ -615,9 +609,11 @@ class MCTS(MCTSAgent):
         # minimax value storage data structure 
         min_max_stats_lst = tree.MinMaxStatsList(num)
         min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 
-        horizons = 1  # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future 
+        # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future 
+        horizons = 1  
         hidden_state_pool = [hidden_state_pool]
-        for _ in range(config.NUM_SIMULATIONS): # go through the tree NUM_SIMULATIONS times 
+        # go through the tree NUM_SIMULATIONS times 
+        for _ in range(config.NUM_SIMULATIONS): 
             # prepare a result wrapper to transport results between python and c++ parts
             hidden_states = [] 
             results = tree.ResultsWrapper(num)
@@ -643,9 +639,7 @@ class MCTS(MCTSAgent):
             hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
 
-            # reset 0
-            # reset the hidden states in LSTM every horizon steps in search
-            # only need to predict the value prefix in a range (eg: s0 -> s5)
+
             assert horizons > 0
             reset_idx = (np.array(search_lens) % horizons == 0)
             assert len(reset_idx) == num
@@ -659,7 +653,7 @@ class MCTS(MCTSAgent):
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits_pool,
                                       min_max_stats_lst, results, is_reset_lst)
     
-    def batch_policy(self, observation):
+    def policy(self, observation):
         self.NUM_ALIVE = observation.shape[0] 
         # Setup specialised roots datastruction, format: env_nums, action_space_size, num_simulations
         roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_DIM, config.NUM_SIMULATIONS) 
@@ -676,19 +670,21 @@ class MCTS(MCTSAgent):
         # Output for root node
         hidden_state_pool = network_output["hidden_state"] 
 
-        self.run_batch_mcts(roots_cpp, hidden_state_pool)  # set up nodes to be able to find and select actions 
+        # set up nodes to be able to find and select actions
+        self.run_batch_mcts(roots_cpp, hidden_state_pool)   
         roots_distributions = roots_cpp.get_distributions()
         actions = [] 
         # This variable controls if distributions is randomly created, such as during the very first loop, however it doesnt look like it always being True impacts anything 
-        start_training = True 
+        # start_training = True 
         temp = self.visit_softmax_temperature() # controls the way actions are chosen
         for i in range(self.NUM_ALIVE):
             deterministic = False # False = sample distribution, True = argmax 
-            if start_training:
-                distributions = roots_distributions[i]
-            else:
-                #random distributions if training has just started 
-                distributions = np.ones(config.ACTION_DIM)
+            # if start_training:
+            #     distributions = roots_distributions[i]
+            # else:
+            #     #random distributions if training has just started 
+            #     distributions = np.ones(config.ACTION_DIM)
+            distributions = roots_distributions[i]
             action, entropy = self.select_action(distributions,temperature=temp,deterministic=deterministic) 
             actions.append(action)
 

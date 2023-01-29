@@ -32,7 +32,7 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy = agent.batch_policy(player_observation)
+            actions, policy = agent.policy(player_observation)
             step_actions = self.getStepActions(terminated, actions)
 
             # Take that action within the environment and return all of our information for the next player
