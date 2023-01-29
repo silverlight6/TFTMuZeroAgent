@@ -39,7 +39,7 @@ def carousel(players, round, pool_obj):
         pool_obj.update(current, -1)
 
 # this will handle champion generation based on the current round
-def generateChampions(sampleplayer, round, pool_obj):
+def generateChampions(round, pool_obj):
     oneCosts = pool_obj.COST_1.items()
     twoCosts = pool_obj.COST_2.items()
     threeCosts = pool_obj.COST_3.items()
@@ -66,7 +66,6 @@ def generateChampions(sampleplayer, round, pool_obj):
     if round == 0:
         for _ in range(9):
             carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
-        return carouselChamps
     # second carousel - 1 one cost, 4 two costs, 4 three costs
     elif round == 6:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
@@ -74,15 +73,27 @@ def generateChampions(sampleplayer, round, pool_obj):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
         for _ in range(4):
             carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+    # third carousel - 1 one cost, 2 two costs, 3 three costs, 3 four costs
     elif round == 12:
-        pass
-    elif round == 18:
-        pass
-    elif round == 24:
-        pass
-    elif round >= 30:
-        pass
-    pass
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+        for _ in range(2):
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+        for _ in range(3):
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+        for _ in range(3):
+            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))))
+    # fourth carousel and beyond - 1 one cost, 2 two costs, 2 three costs, 2 four costs, 2 five costs
+    elif round >= 18:
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+        for _ in range(2):
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+        for _ in range(2):
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+        for _ in range(2):
+            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))))
+        for _ in range(2):
+            carouselChamps.append(champion(fiveCosts.pop(random.randint(0, len(fiveCosts) - 1))))
+    return carouselChamps
 
 # handles the item generation based on the current round
 # also chooses what kind of item set to generate (e.g. offensive components only, defensive, utility, etc.)
