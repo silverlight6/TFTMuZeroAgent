@@ -207,8 +207,8 @@ class TFT_Simulator(AECEnv):
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
         if len(self.agents) != 0:
             self.agent_selection = self._agent_selector.next()
-            self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(self.agent_selection,
-                self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
+            # self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(self.agent_selection,
+            #     self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()
