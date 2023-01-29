@@ -599,7 +599,6 @@ class Step_Function:
             # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
             # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector) and 27 (board / bench division wrt target vector)
             action_selector = np.argmax(action[0:6])
-            print("CHOSEN ACTION", action_selector)
             if action_selector == 5:
                 # Refresh shop
                 # TODO(lobotuerk): proper responsability, gold should not be taken by player, but by the env
@@ -613,11 +612,11 @@ class Step_Function:
             elif action_selector == 2:
                 # Swap champ place
                 target_1 = np.argmax(action[6:43])
-                action[target_1] = 0
+                action[target_1 + 6] = 0
                 target_2 = np.argmax(action[6:44])
                 swap_loc_from = min(target_1, target_2)
                 swap_loc_to = max(target_1, target_2)
-                if swap_loc_to == 32:
+                if swap_loc_to == 37:
                     # Sell Champ
                     if swap_loc_from < 28:
                         x,y = self.dcord_to_2dcord(swap_loc_from)

@@ -100,9 +100,9 @@ class DataWorker(object):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
         element_list = [0,0,0]
-        for i in range(num_items):
+        for i in range(num_items+1):
             element_list[i] = int(split_action[i])
-
+        
         decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
         decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
         
@@ -112,7 +112,7 @@ class DataWorker(object):
         if element_list[0] == 2:
             decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + utils.one_hot_encode_number(element_list[2], 38)
         
-        if element_list[0] == 2:
+        if element_list[0] == 3:
             decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
             decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
         return decoded_action

@@ -177,7 +177,7 @@ class Network(tf.keras.Model):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
         element_list = [0,0,0]
-        for i in range(num_items):
+        for i in range(num_items+1):
             element_list[i] = int(split_action[i])
         return np.asarray(element_list)
 
@@ -603,7 +603,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return .1
+        return .9
 
 
 class Batch_MCTSAgent(MCTSAgent):
@@ -702,7 +702,7 @@ class Batch_MCTSAgent(MCTSAgent):
             for b in range(38):
                 if a == b:
                     continue
-                actions.append((f"2_{a}_{b}",action[0][2] * target[a] / sum(target[0:37] * target[b] / sum(target[0:38] - target[a]))))
+                actions.append((f"2_{a}_{b}",action[0][2] * target[a] / sum(target[0:37] * target[b] / (sum(target[0:38])  - target[a]))))
         for a in range(37):
             for b in range(10):
                 actions.append((f"3_{a}_{b}",action[0][3] * target[a] / sum(target[0:37]) * item[b] / sum(item)))
