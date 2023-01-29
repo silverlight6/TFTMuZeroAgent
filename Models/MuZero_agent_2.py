@@ -663,7 +663,7 @@ class Batch_MCTSAgent(MCTSAgent):
             
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
         
-        action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
+        action = [(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
         
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
@@ -689,15 +689,15 @@ class Batch_MCTSAgent(MCTSAgent):
         # This policy sum is not in the Google's implementation. Not sure if required.
         policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
 
-        actions_p = self.maskAction(policy_action, policy_target_probs, policy_item_probs)
+        actions_p = self.encode_action_to_str(policy_action, policy_target_probs, policy_item_probs)
         for action, p in actions_p:
             node.children[action] = Node(p / policy_sum)
 
-    def maskAction(self, action, target, item):
+    def encode_action_to_str(self, action, target, item):
         actions = []
         actions.append(("0",action[0][0]))
-        for i in range(6):
-            actions.append((f"1_{i}",action[0][1] * target[i] / sum(target[0:6])))
+        for i in range(5):
+            actions.append((f"1_{i}",action[0][1] * target[i] / sum(target[0:5])))
         for a in range(37):
             for b in range(38):
                 if a == b:

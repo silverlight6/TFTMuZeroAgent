@@ -588,10 +588,10 @@ class Step_Function:
         else:
             return
 
-    def dcord_to_2dcord(dcord):
+    def dcord_to_2dcord(self, dcord):
         # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
         x = dcord % 7
-        y = (dcord - y ) // 7
+        y = (dcord - x ) // 7
         return x,y
 
     def single_step_action_controller(self, action, player, players, key, game_observations):
@@ -599,6 +599,7 @@ class Step_Function:
             # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
             # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector) and 27 (board / bench division wrt target vector)
             action_selector = np.argmax(action[0:6])
+            print("CHOSEN ACTION", action_selector)
             if action_selector == 5:
                 # Refresh shop
                 # TODO(lobotuerk): proper responsability, gold should not be taken by player, but by the env
@@ -649,8 +650,7 @@ class Step_Function:
                     move_loc -= 28
                     player.move_item_to_bench(item_selector, move_loc)
                 else:
-                    x = move_loc % 7
-                    y = (move_loc - y ) // 7
+                    x,y = self.dcord_to_2dcord(move_loc)
                     player.move_item_to_board(item_selector, x, y)
             elif action_selector == 4:
                 # Buy EXP
@@ -659,8 +659,8 @@ class Step_Function:
             elif action_selector == 0:
                 # Pass action
                 pass
-            observations = {player.player_id: game_observations[player.player_id].get_lobo_observation(players[player.player_id], 
-                            self.shops[player.player_id], players) for player in players}
 
+            
+            observations = game_observations[key].get_lobo_observation(players[key], self.shops[key], players)
             return player.reward, observations
         return 0

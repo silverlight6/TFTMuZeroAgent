@@ -29,8 +29,6 @@ class player:
     MAX_CHAMPION_IN_SET = 58
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
-    CHAMPION_ONE_HOT_ENCODING = np.eye(MAX_CHAMPION_IN_SET)
-    BASIC_ITEMS_ONE_HOT_ENCODING = np.eye(9) #Amount of basic items a champ can hold
 
     def __init__(self, pool_pointer, player_num):
 

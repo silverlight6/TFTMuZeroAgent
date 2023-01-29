@@ -17,6 +17,7 @@ from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
+import Simulator.utils as utils
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
@@ -41,7 +42,7 @@ class DataWorker(object):
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
-            self.prev_actions = [np.zeros(config.ACTION_DIM) for _ in range(config.NUM_PLAYERS)]
+            self.prev_actions = ["0" for _ in range(config.NUM_PLAYERS)]
 
             # While the game is still going on.
             while not all(terminated.values()):
@@ -78,7 +79,7 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = actions[i]
+                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
                 i += 1
         return step_actions
 
@@ -95,6 +96,26 @@ class DataWorker(object):
                 observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
+    def decode_action_to_one_hot(self, str_action):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0,0,0]
+        for i in range(num_items):
+            element_list[i] = int(split_action[i])
+
+        decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
+        decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
+        
+        if element_list[0] == 1:
+            decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
+
+        if element_list[0] == 2:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + utils.one_hot_encode_number(element_list[2], 38)
+        
+        if element_list[0] == 2:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
+            decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+        return decoded_action
 
 class AIInterface:
 
