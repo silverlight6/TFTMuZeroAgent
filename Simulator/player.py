@@ -4,7 +4,7 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
-import utils
+import Simulator.utils as utils
 
 from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
                                                                     starting_items, trait_items, uncraftable_items

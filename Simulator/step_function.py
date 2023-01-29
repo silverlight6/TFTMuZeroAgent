@@ -599,7 +599,7 @@ class Step_Function:
             # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
             # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector) and 27 (board / bench division wrt target vector)
             action_selector = np.argmax(action[0:6])
-            if action_selector == 0:
+            if action_selector == 5:
                 # Refresh shop
                 # TODO(lobotuerk): proper responsability, gold should not be taken by player, but by the env
                 if player.refresh():
@@ -643,8 +643,8 @@ class Step_Function:
                                 player.move_board_to_bench(x1, y1)
             elif action_selector == 3:
                 # Place item on champ
-                item_selector = np.argmax(action[45:55])
-                move_loc = np.argmax(action[6:44])
+                item_selector = np.argmax(action[44:54])
+                move_loc = np.argmax(action[6:43])
                 if move_loc >= 28:
                     move_loc -= 28
                     player.move_item_to_bench(item_selector, move_loc)
@@ -656,7 +656,7 @@ class Step_Function:
                 # Buy EXP
                 player.buy_exp()
                 pass
-            elif action_selector == 5:
+            elif action_selector == 0:
                 # Pass action
                 pass
             observations = {player.player_id: game_observations[player.player_id].get_lobo_observation(players[player.player_id], 

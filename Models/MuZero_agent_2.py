@@ -173,11 +173,27 @@ class Network(tf.keras.Model):
                               outputs=[new_hidden_state, reward, value, policy_logits],
                               name='recurrent_inference')
 
+    def decode_action(self, str_action):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0,0,0]
+        for i in range(num_items):
+            element_list[i] = int(split_action[i])
+        return np.asarray(element_list)
+
     # Apply the recurrent inference model to the given hidden state
-    def recurrent_inference(self, hidden_state, action) -> dict:
-        one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
+    def recurrent_inference(self, hidden_state, action) -> dict: #CHECKPOINT
+        action_list = [self.decode_action(action[i]) for i in range(len(action))]
+        action_batch = np.asarray(action_list)
+
+        one_hot_action = tf.one_hot(action_batch[:,0], config.ACTION_DIM[0], 1., 0., axis=-1)
+        one_hot_target_a = tf.one_hot(action_batch[:,1], config.ACTION_DIM[1], 1., 0., axis=-1)
+        one_hot_target_b = tf.one_hot(action_batch[:,2], config.ACTION_DIM[1] - 1, 1., 0., axis=-1)
+
+        final_action = tf.concat([one_hot_action, one_hot_target_a, one_hot_target_b], axis=-1)
+        
         hidden_state, reward_logits, value_logits, policy_logits = \
-            self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
+            self.recurrent_inference_model((hidden_state, final_action), training=False)
 
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
@@ -411,7 +427,6 @@ def inverse_contractive_mapping(x, eps=0.001):
 
 
 def expand_node2(network_output, action_dim):
-    # print("SHAPE", network_output.shape, action_dim)
     policy = [{b: math.exp(network_output[b]) for b in range(action_dim)}]
     return policy
 
@@ -625,7 +640,7 @@ class Batch_MCTSAgent(MCTSAgent):
             # hidden state given an action and the previous hidden state.
             parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
             hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
-            last_action = np.asarray([history[i].last_action() for i in range(self.NUM_ALIVE)])
+            last_action = [history[i].last_action() for i in range(self.NUM_ALIVE)]
 
             network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
             for i in range(self.NUM_ALIVE):
@@ -673,14 +688,27 @@ class Batch_MCTSAgent(MCTSAgent):
         policy_item = expand_node2(policy_item_probs, config.ACTION_DIM[2])
         # This policy sum is not in the Google's implementation. Not sure if required.
         policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
-        action = np.concatenate([
-            policy_action,
-            policy_target,
-            policy_item
-         ], axis=-1)
-        for action, p in policy[0].items():
+
+        actions_p = self.maskAction(policy_action, policy_target_probs, policy_item_probs)
+        for action, p in actions_p:
             node.children[action] = Node(p / policy_sum)
 
+    def maskAction(self, action, target, item):
+        actions = []
+        actions.append(("0",action[0][0]))
+        for i in range(6):
+            actions.append((f"1_{i}",action[0][1] * target[i] / sum(target[0:6])))
+        for a in range(37):
+            for b in range(38):
+                if a == b:
+                    continue
+                actions.append((f"2_{a}_{b}",action[0][2] * target[a] / sum(target[0:37] * target[b] / sum(target[0:38] - target[a]))))
+        for a in range(37):
+            for b in range(10):
+                actions.append((f"3_{a}_{b}",action[0][3] * target[a] / sum(target[0:37]) * item[b] / sum(item)))
+        actions.append(("4",action[0][4]))
+        actions.append(("5",action[0][5]))
+        return actions
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:

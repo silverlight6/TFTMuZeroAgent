@@ -3,6 +3,7 @@ import numpy as np
 import config
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
+import Simulator.utils as utils
 
 
 # Includes the vector of the shop, bench, board, and item list.
@@ -188,18 +189,6 @@ class Observation:
                     name = name.split('_')[0]
                     input_array[6] = 1
                 c_index = list(COST.keys()).index(name)
-                input_array[0:6] = self.champ_binary_encode(c_index)
+                input_array[0:6] = utils.champ_binary_encode(c_index)
             output_array += list(input_array)
         return output_array
-
-    def champ_binary_encode(self, n):
-        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
-
-    def item_binary_encode(self, n):
-        return list(np.unpackbits(np.array([n],np.uint8))[2:8])
-    
-    def champ_one_hot_encode(self, n):
-        return self.CHAMPION_ONE_HOT_ENCODING[n]
-    
-    def item_one_hot_encode(self, n):
-        return self.BASIC_ITEMS_ONE_HOT_ENCODING[n]

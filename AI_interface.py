@@ -41,7 +41,7 @@ class DataWorker(object):
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+            self.prev_actions = [np.zeros(config.ACTION_DIM) for _ in range(config.NUM_PLAYERS)]
 
             # While the game is still going on.
             while not all(terminated.values()):
@@ -52,9 +52,14 @@ class DataWorker(object):
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
+                concat_policy = np.concatenate([
+                        policy[0],
+                        policy[1],
+                        policy[2]
+                    ], axis=-1)
                 for i, key in enumerate(terminated.keys()):
-                    # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
+                    # Store the information in a buffer to train on later.                    
+                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], concat_policy[i])
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions

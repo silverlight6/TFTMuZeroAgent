@@ -159,7 +159,7 @@ class TFT_Simulator(AECEnv):
             self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                  self.agent_selection, self.game_observations)
         elif action.ndim == 1:
-            reward, self.observation = self.step_function.single_step_action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
+            reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                  self.agent_selection, self.game_observations)
             # self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
             #                                        self.agent_selection, self.game_observations, self.PLAYERS)
@@ -212,5 +212,4 @@ class TFT_Simulator(AECEnv):
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()
-        print("OBSERVATIONS", len(self.observation))
-        return self.observation, self.rewards, self.terminations, self.truncations, self.infos
+        return self.observations, self.rewards, self.terminations, self.truncations, self.infos
