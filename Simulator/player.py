@@ -1220,7 +1220,7 @@ class player:
             if item in uncraftable_items:
                 item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
             elif item in item_builds.keys():
-                i_index = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+                item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
             items_bench += list(item_info)
         
         return [hp, income, streak_lvl] + board + items_bench
