@@ -12,7 +12,7 @@ from Simulator.tft_simulator import TFT_Simulator, parallel_env, env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
+from Models.MuZero_agent_2 import TFTNetwork, MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
@@ -23,30 +23,27 @@ from pettingzoo.test import parallel_api_test, api_test
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
-        self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
         self.rank = rank
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.set_weights(weights)
-        agent = Batch_MCTSAgent(self.agent_network)
+        agent = MCTS(self.agent_network)
         while True:
             # Reset the environment
             player_observation = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
-            terminated = {
-                player_id: False for player_id in env.possible_agents}
-            # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
+            terminated = {player_id: False for player_id in env.possible_agents}
+
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(
-                    player_observation, list(self.prev_actions))
+                actions, policy = agent.policy(player_observation)
+
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -58,9 +55,8 @@ class DataWorker(object):
                     buffers.store_replay_buffer.remote(
                         key, player_observation[i], actions[i], reward[key], policy[i])
                 # Set up the observation for the next action
-                player_observation = np.asarray(
-                    list(next_observation.values()))
-                self.prev_actions = actions
+                player_observation = np.asarray(list(next_observation.values()))
+
 
             buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
@@ -95,8 +91,9 @@ class DataWorker(object):
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def evaluate_agents(self, env, storage):
+
         def evaluate_agents(self, env, storage):
-            agents = {"player_" + str(r): Batch_MCTSAgent(TFTNetwork())
+            agents = {"player_" + str(r): MCTS(TFTNetwork())
                       for r in range(config.NUM_PLAYERS)}
             agents["player_1"].network.tft_load_model(1000)
             agents["player_2"].network.tft_load_model(2000)
@@ -116,7 +113,6 @@ class DataWorker(object):
                 terminated = {
                     player_id: False for player_id in env.possible_agents}
                 # Current action to help with MuZero
-                self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
                 placements = {
                     player_id: 0 for player_id in env.possible_agents}
                 current_position = 7
@@ -127,8 +123,7 @@ class DataWorker(object):
                     # Ask our model for an action and policy
                     actions = {agent: 0 for agent in agents.keys()}
                     for i, [key, agent] in enumerate(agents.items()):
-                        action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0),
-                                                 list(self.prev_actions)[i])
+                        action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
                         actions[key] = action
 
                     # step_actions = self.getStepActions(terminated, np.asarray(actions))
@@ -141,7 +136,6 @@ class DataWorker(object):
                     # Set up the observation for the next action
                     player_observation = np.asarray(
                         list(next_observation.values()))
-                    self.prev_actions = actions.values()
 
                     for key, terminate in terminated.items():
                         if terminate:
