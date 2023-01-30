@@ -186,7 +186,7 @@ class TFT_Simulator(AECEnv):
         # reset for
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
-        self.infos = {a: {} for a in self.agents}
+
         if self._agent_selector.is_last():
             self.actions_taken += 1
 
@@ -216,6 +216,7 @@ class TFT_Simulator(AECEnv):
                 self.previous_rewards[ag] = self.PLAYERS[ag].reward
                 self.observations[ag] = self.game_observations[ag].observation(
                     ag, self.PLAYERS[ag], self.PLAYERS[ag].action_vector)
+                self.infos = {a: {} for a in self.agents}
 
             # end of step stuff. remove dead, accumulate/reset reward
             for k in self.kill_list:

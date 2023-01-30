@@ -52,7 +52,6 @@ class DataWorker(object):
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(
                     step_actions)
-                print('TFT sucks')
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
