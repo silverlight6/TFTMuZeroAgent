@@ -27,3 +27,9 @@ Python version: ~ Python 3.8
 
 ```
 pip3 install -r requirements.txt # Install all libraries in requirements.txt
+```
+# Prerequisites
+Before starting training, you need to build the c++/cython style external packages. (GCC version 7.5+ is required.)
+```
+cd core/ctree
+bash make.sh
