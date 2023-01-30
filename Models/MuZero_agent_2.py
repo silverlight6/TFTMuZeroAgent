@@ -540,7 +540,6 @@ class MCTSAgent:
 
     def policy(self, observation, previous_action):
         root = Node(0)
-
         network_output = self.network.initial_inference(observation)
         self.expand_node(root, network_output)
         self.add_exploration_noise(root)
@@ -626,6 +625,7 @@ class MCTS(MCTSAgent):
             # obtain the states for leaf nodes
             for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
                 hidden_states.append(hidden_state_pool[ix][iy])
+
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
 
@@ -666,6 +666,7 @@ class MCTS(MCTSAgent):
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * config.ACTION_DIM).astype(np.float32).tolist()
                   for _ in range(self.NUM_ALIVE)]
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
+
         
         # Output for root node
         hidden_state_pool = network_output["hidden_state"] 

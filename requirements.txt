@@ -12,3 +12,4 @@ PettingZoo~=1.22.3
 gymnasium~=0.27.0
 cython==0.29.23
 GCC version 7.5 + 
+
