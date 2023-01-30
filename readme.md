@@ -25,10 +25,6 @@ Python version: ~ Python 3.8
 - Create a virtual env to use with the project & activate virtual env
 - Install all necessary libraries in codebase
 
-```
-pip3 install -r requirements.txt # Install all libraries in requirements.txt
-```
-# Prerequisites
 Before starting training, you need to build the c++/cython style external packages. (GCC version 7.5+ is required.)
 ```
 cd core/ctree
