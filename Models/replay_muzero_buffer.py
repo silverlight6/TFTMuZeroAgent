@@ -17,7 +17,7 @@ class ReplayBuffer:
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(observation)
-        self.action_history.append(int(action))
+        self.action_history.append(action)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
 

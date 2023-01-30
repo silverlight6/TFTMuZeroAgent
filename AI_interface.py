@@ -59,7 +59,7 @@ class DataWorker(object):
                         policy[2]
                     ], axis=-1)
                 for i, key in enumerate(terminated.keys()):
-                    # Store the information in a buffer to train on later.                    
+                    # Store the information in a buffer to train on later.
                     buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], concat_policy[i])
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
@@ -149,7 +149,7 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(1)
 
-        ray.get(workers)
+        # ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
@@ -160,7 +160,7 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
-                if train_step % 100 == 0:
+                if train_step % 10 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 

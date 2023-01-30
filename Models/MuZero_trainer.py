@@ -1,6 +1,7 @@
 import config
 import collections
 import tensorflow as tf
+import numpy as np
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -118,8 +119,15 @@ class Trainer(object):
                     gradient_scales['reward'][tstep]))
             # predictions.policy_logits is [64, [action_dims]]
             # target_policy is [64, 17, [action_dims]]
+            concat_policy = np.concatenate([
+                        prediction.policy_logits[0],
+                        prediction.policy_logits[1],
+                        prediction.policy_logits[2]
+                    ], axis=-1)
+            # print(len(prediction.policy_logits))
             # print(target_policy.shape)
-            policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction.policy_logits,
+            # print(prediction.policy_logits)
+            policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=concat_policy,
                                                                   labels=target_policy[:, tstep])
             # entropy_loss = -parametric_action_distribution.entropy(
             #     prediction.policy_logits) * config.policy_loss_entropy_regularizer
