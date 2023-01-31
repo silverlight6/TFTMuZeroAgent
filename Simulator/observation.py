@@ -153,11 +153,11 @@ class Observation:
     #TODO Save elements when not updated, to save computations and just return the elements
 
     def get_lobo_observation(self, curr_player, curr_shop, players): #NAME WIP
-        #Return observation of size 8238
+        #Return observation of size 8246
         other_players_obs = []
         for player_id in players.keys():
             other_player = players[player_id]
-            other_player_obs = list(np.zeros((1025,)))
+            other_player_obs = list(np.zeros((1026,)))
             if other_player != curr_player:
                 if other_player:
                     other_player_obs = self.get_lobo_public_observation(other_player)

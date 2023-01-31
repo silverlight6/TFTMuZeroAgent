@@ -10,6 +10,7 @@ class ReplayBuffer:
         self.policy_distributions = []
         self.observation_history = []
         self.action_history = []
+        self.action_mask = []
         self.g_buffer = g_buffer
 
     def store_replay_buffer(self, observation, action, reward, policy):
@@ -19,6 +20,7 @@ class ReplayBuffer:
         self.gameplay_experiences.append(observation)
         self.action_history.append(action)
         self.rewards.append(reward)
+        self.action_mask.append(self.generate_masking(action))
         self.policy_distributions.append(policy)
 
     def store_observation(self, observation):
@@ -63,6 +65,7 @@ class ReplayBuffer:
                 value_set = []
                 reward_set = []
                 policy_set = []
+                action_mask_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
                     #### POSSIBLE EXTENSION -- set up value_approximation storing
@@ -72,13 +75,16 @@ class ReplayBuffer:
                     for i, reward in enumerate(self.rewards[current_index:]):
                         value += reward * config.DISCOUNT ** i
 
-                    reward_mask = 1.0 if current_index > sample else 0.0
+                    # reward_mask = 1.0 if current_index > sample else 0.0
+                    reward_mask = 1.0
                     if current_index < num_steps - 1:
                         if current_index != sample:
                             action_set.append(np.asarray(self.action_history[current_index]))
+                            action_mask_set.append(np.asarray(self.action_mask[current_index]))
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0])
+                            action_mask_set.append(np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2]))
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -89,7 +95,8 @@ class ReplayBuffer:
 
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
-                        action_set.append(9)
+                        action_set.append(0)
+                        action_mask_set.append(np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2]))
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
@@ -103,6 +110,7 @@ class ReplayBuffer:
                     else:
                         # States past the end of games is treated as absorbing states.
                         action_set.append(0)
+                        action_mask_set.append(np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2]))
                         value_mask_set.append(1.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
@@ -110,5 +118,23 @@ class ReplayBuffer:
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
                 sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                              policy_mask_set, value_set, reward_set, policy_set]
+                              policy_mask_set, value_set, reward_set, policy_set, action_mask_set]
                 self.g_buffer.store_replay_sequence.remote(sample_set)
+
+    def generate_masking(self, action):
+        num_items = action.count("_")
+        split_action = action.split("_")
+        element_list = [0,0,0]
+        for i in range(num_items+1):
+            element_list[i] = int(split_action[i])
+        
+        mask = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
+
+        mask[0:6] = np.ones(6)
+        if element_list[0] == 1:
+            mask[6:11] = np.ones(5)
+        elif element_list[0] == 2:
+            mask[6:44] = np.ones(38)
+        elif element_list[0] == 3:
+            mask = np.ones(54)
+        return mask

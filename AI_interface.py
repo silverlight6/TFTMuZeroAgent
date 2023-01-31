@@ -65,7 +65,7 @@ class DataWorker(object):
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions
 
-            buffers.rewardNorm.remote()
+            # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
 

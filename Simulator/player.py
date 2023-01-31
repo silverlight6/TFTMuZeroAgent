@@ -1166,6 +1166,7 @@ class player:
     
     def public_observation(self):
         hp = self.health
+        lvl = self.level
         income = min(floor(self.gold / 10), 5)
         streak_lvl = 0
         if self.win_streak > 2 and self.win_streak < 4:
@@ -1223,7 +1224,7 @@ class player:
                 item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
             items_bench += list(item_info)
         
-        return [hp, income, streak_lvl] + board + items_bench
+        return [hp, lvl, income, streak_lvl] + board + items_bench
 
     def private_observation(self):
         exp_to_level = 0

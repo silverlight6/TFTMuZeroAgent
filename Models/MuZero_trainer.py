@@ -22,19 +22,19 @@ class Trainer(object):
         return optimizer, learning_rate_fn
 
     def train_network(self, batch, agent, train_step, summary_writer):
-        observation, history, value_mask, reward_mask, policy_mask, value, reward, policy = batch
+        observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, action_mask = batch
         # if i % config.checkpoint_interval == 0:
         #     storage.save_network(i, network)
         with tf.GradientTape() as tape:
             loss = self.compute_loss(agent, observation, history, value_mask,
-                                     reward_mask, policy_mask, value, reward, policy, train_step, summary_writer)
+                                     reward_mask, policy_mask, value, reward, policy, train_step, summary_writer, action_mask)
 
         grads = tape.gradient(loss, agent.get_rl_training_variables())
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
         # storage.save_network(config.training_steps, network)\
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
-                     target_value, target_reward, target_policy, train_step, summary_writer):
+                     target_value, target_reward, target_policy, train_step, summary_writer, action_mask):
         # initial step
         output = agent.initial_inference(observation)
 
@@ -124,11 +124,10 @@ class Trainer(object):
                         prediction.policy_logits[1],
                         prediction.policy_logits[2]
                     ], axis=-1)
-            # print(len(prediction.policy_logits))
-            # print(target_policy.shape)
-            # print(prediction.policy_logits)
-            policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=concat_policy,
-                                                                  labels=target_policy[:, tstep])
+            
+            # self.generate_masking(history[tstep])
+            policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=concat_policy * action_mask[:, tstep],
+                                                                  labels=target_policy[:, tstep] * action_mask[:, tstep])
             # entropy_loss = -parametric_action_distribution.entropy(
             #     prediction.policy_logits) * config.policy_loss_entropy_regularizer
             accs['policy_loss'].append(
