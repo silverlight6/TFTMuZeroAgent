@@ -247,15 +247,16 @@ class TFTNetwork(Network):
         dynamic_hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], name='hidden_state_input')
         rnn_state = self.flat_to_lstm_input(dynamic_hidden_state)
 
+        lstm_cell_size =  config.HIDDEN_STATE_SIZE / config.NUM_RNN_CELLS
         # Core of the model
         rnn_cell_cls = {
             'lstm': tf.keras.layers.LSTMCell,
         }['lstm']
         rnn_cells = [
             rnn_cell_cls(
-                config.HIDDEN_STATE_SIZE,
+                lstm_cell_size,
                 recurrent_activation='sigmoid',
-                name='cell_{}'.format(idx)) for idx in range(1)]
+                name='cell_{}'.format(idx)) for idx in range(config.NUM_RNN_CELLS)]
         core = tf.keras.layers.StackedRNNCells(rnn_cells, name='recurrent_core')
 
         rnn_output, next_rnn_state = core(action_embeddings, rnn_state)
