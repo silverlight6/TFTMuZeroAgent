@@ -651,7 +651,7 @@ class Batch_MCTSAgent(MCTSAgent):
                 self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
                 
     def batch_policy(self, observation, prev_action):
-        # print(observation.shape) # (8, 8246)
+        # observation.shape = (8, 8246)
         self.NUM_ALIVE = observation.shape[0]
         root = [Node(0) for _ in range(self.NUM_ALIVE)]
         network_output = self.network.initial_inference(observation)  # 2.1 seconds

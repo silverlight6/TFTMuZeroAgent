@@ -13,10 +13,10 @@ class Game_Round:
         # Amount of damage taken as a base per round. First number is max round, second is damage
         self.ROUND_DAMAGE = [
             [3, 0],
-            [9, 38],
-            [15, 38],
-            [21, 38],
-            [27, 38],
+            [9, 2],
+            [15, 3],
+            [21, 5],
+            [27, 8],
             [10000, 15]
         ]
         self.PLAYERS = game_players
