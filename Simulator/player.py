@@ -6,8 +6,8 @@ import random
 from Simulator import champion, origin_class
 import Simulator.utils as utils
 
-from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
-                                                                    starting_items, trait_items, uncraftable_items
+from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
+    starting_items, trait_items, uncraftable_items
 
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
@@ -20,7 +20,8 @@ from math import floor
 class player:
 
     MAX_CHAMPION = 19 # 10 on board, 9 on bench
-    # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
+    # hex number (1 spot), champion number (2 spot), champion star level(1 spot),
+    # past combat (1 spot), 3 items (6 spot), chosen (1 spot)
     CHAMPION_INFORMATION = 12
     BOARD_SIZE = 28
     BENCH_SIZE = 9
@@ -36,7 +37,6 @@ class player:
         self.exp = 0
         self.health = 100
         self.player_num = player_num
-        # print("player_num = " + str(self.player_num))
 
         self.win_streak = 0  # For purposes of gold generation at start of turn
         self.loss_streak = 0  # For purposes of gold generation at start of turn
@@ -74,12 +74,12 @@ class player:
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
 
-        # gold, exp, level, round_number, max_units, num_in_play / max in the range between 0 and 1
-        # As well as a 1 for win, 0 for a loss or draw in the last 3 rounds
+        # player related info split between what other players can see and what they can't see
         self.player_public_vector = np.zeros(7)
         self.player_private_vector = np.zeros(9)
 
-        self.board_image = np.zeros((7*7, 4*4)) # 7x4 board, with 7x4 encoding
+        # Encoding board as an image, so we can run convolutions on it.
+        self.board_image = np.zeros((7*7, 4*4))  # 7x4 board, with 7x4 encoding
         self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
 
         # Using this to track the reward gained by each player for the AI to train.
@@ -120,7 +120,6 @@ class player:
         self.kayn_turn_count = 0
         self.kayn_transformed = False
         self.kayn_form = None
-
 
         self.thieves_gloves_loc = []
 
@@ -366,7 +365,7 @@ class player:
                 item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
             elif item in item_builds.keys():
                 item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
-            item_arr[ind*6:ind*6 + 6]
+            item_arr[ind*6:ind*6 + 6] = item_info
         self.item_vector = item_arr
 
     def generate_private_player_vector(self):
@@ -401,7 +400,6 @@ class player:
     def generate_player_vector(self):
         self.generate_public_player_vector()
         self.generate_private_player_vector()
-        
 
     # This takes every occurrence of a champion at a given level and returns 1 of a higher level.
     # Transfers items over. The way I have it would mean it would require bench space.

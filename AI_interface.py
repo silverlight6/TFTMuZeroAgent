@@ -34,7 +34,7 @@ class DataWorker(object):
             # Reset the environment
             player_observation = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
-            player_observation = np.asarray(list(player_observation.values()))
+            player_observation = self.observation_to_input(player_observation)
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
 
@@ -46,16 +46,14 @@ class DataWorker(object):
                 step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
-                next_observation, reward, terminated, _, info = env.step(
-                    step_actions)
+                next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(
-                        key, player_observation[i], actions[i], reward[key], policy[i])
-                # Set up the observation for the next action
-                player_observation = np.asarray(list(next_observation.values()))
+                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
 
+                # Set up the observation for the next action
+                player_observation = self.observation_to_input(next_observation)
 
             buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
@@ -73,6 +71,15 @@ class DataWorker(object):
                 step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
+
+    def observation_to_input(self, observation):
+        tensors = []
+        images = []
+        for obs in observation.values():
+            tensors.append(obs[0])
+            images.append(obs[1])
+        return [np.asarray(tensors), np.asarray(images)]
+
 
     def collect_dummy_data(self):
         env = gym.make("TFT_Set4-v0", env_config={})
@@ -125,21 +132,18 @@ class DataWorker(object):
                         action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
                         actions[key] = action
 
-                    # step_actions = self.getStepActions(terminated, np.asarray(actions))
-                    # print(actions)
+                # step_actions = self.getStepActions(terminated, np.asarray(actions))
 
-                    # Take that action within the environment and return all of our information for the next player
-                    next_observation, reward, terminated, _, info = env.step(
-                        actions)
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.step(actions)
 
-                    # Set up the observation for the next action
-                    player_observation = np.asarray(
-                        list(next_observation.values()))
+                # Set up the observation for the next action
+                player_observation = np.asarray(list(next_observation.values()))
 
-                    for key, terminate in terminated.items():
-                        if terminate:
-                            placements[key] = current_position
-                            current_position -= 1
+                for key, terminate in terminated.items():
+                    if terminate:
+                        placements[key] = current_position
+                        current_position -= 1
 
                 for key, value in info.items():
                     if value["player_won"]:
@@ -177,8 +181,7 @@ class AIInterface:
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
-        data_workers = [DataWorker.remote(rank)
-                        for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
@@ -191,10 +194,8 @@ class AIInterface:
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
-                gameplay_experience_batch = ray.get(
-                    global_buffer.sample_batch.remote())
-                trainer.train_network(
-                    gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
+                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
                 if train_step % 100 == 0:
@@ -205,27 +206,23 @@ class AIInterface:
         env = parallel_env()
         while True:
             _ = env.reset()
-            terminated = {
-                player_id: False for player_id in env.possible_agents}
+            terminated = {player_id: False for player_id in env.possible_agents}
             t = time.time_ns()
             while not all(terminated.values()):
                 # agent policy that uses the observation and info
-                action = np.random.randint(
-                    low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
                 step_actions = {}
                 i = 0
                 for player_id, terminate in terminated.items():
                     if not terminate:
                         step_actions[player_id] = action[i]
                         i += 1
-                observation_list, rewards, terminated, truncated, info = env.step(
-                    step_actions)
+                observation_list, rewards, terminated, truncated, info = env.step(step_actions)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
         # register our environment, we have no config parameters
-        register_env(
-            'tft-set4-v0', lambda local_config: PettingZooEnv(self.env_creator(local_config)))
+        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(self.env_creator(local_config)))
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -233,8 +230,7 @@ class AIInterface:
                 # Env class to use (here: our gym.Env sub-class from above).
                 env='tft-set4-v0',
                 env_config={},
-                observation_space=gym.spaces.Box(
-                    low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
+                observation_space=gym.spaces.Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
                 action_space=gym.spaces.Discrete(config.ACTION_DIM)
             )
             .rollouts(num_rollout_workers=1)
@@ -260,8 +256,7 @@ class AIInterface:
         env = parallel_env()
 
         workers = []
-        data_workers = [DataWorker.remote(rank)
-                        for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
             workers.append(worker.evaluate_agents.remote(env, storage))
             time.sleep(1)
