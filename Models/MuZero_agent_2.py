@@ -212,11 +212,10 @@ class Network(tf.keras.Model):
         cur_idx = 0
         for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx:cur_idx + size])
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
             cur_idx += 2 * size
             tensors.append(states)
-            cur_idx = 0
-        # assert cur_idx == state.shape[-1]
+        assert cur_idx == state.shape[-1]
         return tensors
 
 
