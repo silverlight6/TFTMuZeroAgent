@@ -591,7 +591,7 @@ class MCTSAgent:
 
 class MCTS(MCTSAgent):
     def __init__(self, network):
-        super().__init__(network)
+        super().__init__(network, 0)
         self.times = [0]*6
         self.NUM_ALIVE = config.NUM_PLAYERS
     
