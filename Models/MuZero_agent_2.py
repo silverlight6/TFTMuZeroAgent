@@ -235,7 +235,7 @@ class TFTNetwork(Network):
         tensor_x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='rep_tensor')(tensor_x)
 
         rep_image_input = tf.keras.Input(shape=config.INPUT_IMAGE_SHAPE)
-        image_x = tf.keras.layers.Conv2D(filters=config.CONV_FILTERS, kernel_size=4, strides=(1, 1),
+        image_x = tf.keras.layers.Conv2D(filters=config.CONV_FILTERS, kernel_size=4, strides=(2, 2),
                                          padding='same', use_bias=False, name='conv_resize')(rep_image_input)
         image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
         image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
@@ -748,7 +748,7 @@ class MCTS(MCTSAgent):
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-       
+
         return actions, network_output["policy_logits"]
 
     @staticmethod

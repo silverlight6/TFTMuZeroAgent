@@ -41,7 +41,8 @@ class DataWorker(object):
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
-                buffers.store_replay_buffer(key, player_observation[i], actions[i], reward[key], policy[i])
+                buffers.store_replay_buffer(key, [player_observation[0][i], player_observation[1][i]],
+                                            actions[i], reward[key], policy[i])
             # Set up the observation for the next action
             player_observation = self.observation_to_input(next_observation)
 

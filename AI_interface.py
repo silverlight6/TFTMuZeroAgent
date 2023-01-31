@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 from storage import Storage
 from global_buffer import GlobalBuffer
-from Simulator.tft_simulator import TFT_Simulator, parallel_env, env
+from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
@@ -50,7 +50,8 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
+                    buffers.store_replay_buffer.remote(key, [player_observation[0][i], player_observation[1][i]],
+                                                       actions[i], reward[key], policy[i])
 
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
@@ -162,7 +163,7 @@ class AIInterface:
 
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=len(gpus), num_cpus=24)
+        ray.init(num_gpus=len(gpus), num_cpus=28)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -185,7 +186,7 @@ class AIInterface:
         for i, worker in enumerate(data_workers):
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
-            time.sleep(1)
+            time.sleep(2)
 
         ray.get(workers)
         global_agent = TFTNetwork()
@@ -266,7 +267,7 @@ class AIInterface:
             print("good luck getting past this")
 
     def testEnv(self):
-        raw_env = env()
+        raw_env = tft_env()
         api_test(raw_env, num_cycles=100000)
         local_env = parallel_env()
         parallel_api_test(local_env, num_cycles=100000)

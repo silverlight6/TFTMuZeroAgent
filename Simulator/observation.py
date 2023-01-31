@@ -15,7 +15,7 @@ class Observation:
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                                 config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): [np.zeros(280), np.zeros((49, 16))]
+        self.other_player_observations = {"player_" + str(player_id): [np.zeros(306), np.zeros((49, 16))]
                                           for player_id in range(config.NUM_PLAYERS)}
 
     def observation(self, player_id, player, action_vector=np.array([])):
