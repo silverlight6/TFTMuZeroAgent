@@ -210,7 +210,7 @@ class Network(tf.keras.Model):
         """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in [config.HIDDEN_STATE_SIZE]:
+        for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
                       state[Ellipsis, cur_idx:cur_idx + size])
             cur_idx += 2 * size
@@ -247,16 +247,15 @@ class TFTNetwork(Network):
         dynamic_hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], name='hidden_state_input')
         rnn_state = self.flat_to_lstm_input(dynamic_hidden_state)
 
-        lstm_cell_size =  config.HIDDEN_STATE_SIZE / config.NUM_RNN_CELLS
         # Core of the model
         rnn_cell_cls = {
             'lstm': tf.keras.layers.LSTMCell,
         }['lstm']
         rnn_cells = [
             rnn_cell_cls(
-                lstm_cell_size,
+                size,
                 recurrent_activation='sigmoid',
-                name='cell_{}'.format(idx)) for idx in range(config.NUM_RNN_CELLS)]
+                name='cell_{}'.format(idx)) for idx, size in enumerate(config.RNN_SIZES)]
         core = tf.keras.layers.StackedRNNCells(rnn_cells, name='recurrent_core')
 
         rnn_output, next_rnn_state = core(action_embeddings, rnn_state)
