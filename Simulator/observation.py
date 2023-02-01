@@ -78,7 +78,6 @@ class Observation:
                                                       other_player.item_vector,
                                                       other_player.player_public_vector], axis=-1)
                 other_player_game_state_image = other_player.board_image
-                print(other_player_vector.shape)
                 self.other_player_observations[player_id] = [other_player_vector, other_player_game_state_image]
 
     def generate_game_comps_vector(self):
