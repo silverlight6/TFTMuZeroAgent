@@ -150,7 +150,7 @@ class Network(tf.keras.Model):
     # Apply the initial inference model to the given hidden state
     def initial_inference(self, observation) -> dict:
         hidden_state, value_logits, policy_logits = \
-            self.initial_inference_model(observation, training=False)
+            self.initial_inference_model(observation, training=True)
         value = self.value_encoder.decode(value_logits)
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
@@ -183,7 +183,7 @@ class Network(tf.keras.Model):
     def recurrent_inference(self, hidden_state, action) -> dict:
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
         hidden_state, reward_logits, value_logits, policy_logits = \
-            self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
+            self.recurrent_inference_model((hidden_state, one_hot_action), training=True)
 
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
