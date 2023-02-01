@@ -492,8 +492,8 @@ class player:
         self.level_up()
         if t_round <= 4:
             starting_round_gold = [0, 2, 2, 3, 4]
-            self.gold += starting_round_gold[t_round]
             self.gold += floor(self.gold / 10)
+            self.gold += starting_round_gold[t_round]
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest

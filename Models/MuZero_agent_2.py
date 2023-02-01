@@ -165,7 +165,7 @@ class Network(tf.keras.Model):
 
     # Build the recurrent inference model (used to generate predictions for subsequent steps)
     def build_recurrent_inference_model(self) -> tf.keras.Model:
-        hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='hidden_state')
+        hidden_state = tf.keras.Input(shape=[config.LAYER_HIDDEN_SIZE], dtype=tf.float32, name='hidden_state')
         # state_space = tf.keras.Input(shape=[1, config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='state_space')
         action = tf.keras.Input(shape=([config.ACTION_CONCAT_SIZE]), dtype=tf.int32, name='action')
 
@@ -210,13 +210,12 @@ class Network(tf.keras.Model):
         """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in [config.HIDDEN_STATE_SIZE]:
+        for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx:cur_idx + size])
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
             cur_idx += 2 * size
             tensors.append(states)
-            cur_idx = 0
-        # assert cur_idx == state.shape[-1]
+        assert cur_idx == state.shape[-1]
         return tensors
 
 
@@ -230,21 +229,21 @@ class TFTNetwork(Network):
         # Representation model. Observation --> hidden state
         representation_model: tf.keras.Model = tf.keras.Sequential([
             tf.keras.Input(shape=config.INPUT_SHAPE),
-            Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE),
-            tf.keras.layers.Dense(2 * config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final'),
+            Mlp(hidden_size=config.HIDDEN_STATE_SIZE),
+            tf.keras.layers.Dense(config.LAYER_HIDDEN_SIZE, activation='sigmoid', name='final'),
             tf.keras.layers.Flatten()
         ], name='observation_encoding')
 
         # Dynamics Model. Hidden State --> next hidden state and reward
         # Action encoding
         encoded_state_action = tf.keras.Input(shape=[config.ACTION_CONCAT_SIZE])
-        action_embeddings = tf.keras.layers.Dense(units=2 * config.HIDDEN_STATE_SIZE, activation='relu',
+        action_embeddings = tf.keras.layers.Dense(units=config.LAYER_HIDDEN_SIZE, activation='relu',
                                                   kernel_regularizer=regularizer,
                                                   bias_regularizer=regularizer)(encoded_state_action)
         action_embeddings = tf.keras.layers.Flatten()(action_embeddings)
 
         # Hidden state input. [[1, 256], [1. 256]] Needs both the hidden state and lstm state
-        dynamic_hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], name='hidden_state_input')
+        dynamic_hidden_state = tf.keras.Input(shape=[config.LAYER_HIDDEN_SIZE], name='hidden_state_input')
         rnn_state = self.flat_to_lstm_input(dynamic_hidden_state)
 
         # Core of the model
@@ -253,9 +252,9 @@ class TFTNetwork(Network):
         }['lstm']
         rnn_cells = [
             rnn_cell_cls(
-                config.HIDDEN_STATE_SIZE,
+                size,
                 recurrent_activation='sigmoid',
-                name='cell_{}'.format(idx)) for idx in range(1)]
+                name='cell_{}'.format(idx)) for idx, size in enumerate(config.RNN_SIZES)]
         core = tf.keras.layers.StackedRNNCells(rnn_cells, name='recurrent_core')
 
         rnn_output, next_rnn_state = core(action_embeddings, rnn_state)
@@ -269,8 +268,8 @@ class TFTNetwork(Network):
             tf.keras.Model(inputs=[dynamic_hidden_state, encoded_state_action],
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
-        pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
-        x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(pred_hidden_state)
+        pred_hidden_state = tf.keras.Input(shape=np.array([config.LAYER_HIDDEN_SIZE]), name="prediction_input")
+        x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE)(pred_hidden_state)
         x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
         value_output = tf.keras.layers.Softmax()(x)
@@ -298,21 +297,24 @@ class TFTNetwork(Network):
 
 
 class Mlp(tf.keras.Model):
-    def __init__(self, hidden_size=256, mlp_dim=512):
+    def __init__(self, num_layers=2, hidden_size=512):
         super(Mlp, self).__init__()
-        self.fc1 = tf.keras.layers.Dense(mlp_dim, dtype=tf.float32)
-        self.fc2 = tf.keras.layers.Dense(hidden_size, dtype=tf.float32)
-        self.norm = tf.keras.layers.LayerNormalization()
-        self.norm2 = tf.keras.layers.LayerNormalization()
 
+        # Default input gives two layers: [1024, 512]
+        sizes = [hidden_size * layer for layer in range(num_layers, 0, -1)]
+        layers = []
+        
+        for size in sizes:
+            layers.extend([
+                tf.keras.layers.Dense(size, dtype=tf.float32),
+                tf.keras.layers.LayerNormalization(),
+                tf.keras.layers.ReLU()
+            ])
+            
+        self.net = tf.keras.Sequential(layers, name="mlp")
+        
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.norm(x)
-        x = tf.keras.activations.relu(x)
-        x = self.fc2(x)
-        x = self.norm2(x)
-        x = tf.keras.activations.relu(x)
-        return x
+        return self.net(x)
 
     def __call__(self, x, *args, **kwargs):
         out = self.forward(x)
