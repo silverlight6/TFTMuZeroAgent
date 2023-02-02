@@ -882,6 +882,7 @@ class player:
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
+                self.print("returning " + self.bench[x].items + " to the item bench")
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
             self.generate_item_vector()
@@ -913,9 +914,11 @@ class player:
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
+                self.print("returning " + a_champion.items + " to the item bench")
                 a_champion.items = []
                 a_champion.num_items = 0
                 self.generate_item_vector()
+
             return True
         return False
 
@@ -967,7 +970,7 @@ class player:
             self.board[s_champion.x][s_champion.y] = None
         if field:
             self.num_units_in_play -= 1
-        # self.print("selling champion " + s_champion.name)
+        self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars))
         return True
 
     def sell_from_bench(self, location, golden=False):
@@ -986,7 +989,8 @@ class player:
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
-            self.print("selling champion " + self.bench[location].name)
+            self.print("selling champion " + self.bench[location].name + "with stars = " +
+                       str(self.bench[location].stars))
             self.bench[location] = None
             self.generate_bench_vector()
             return return_champ
