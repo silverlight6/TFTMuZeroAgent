@@ -31,7 +31,7 @@ class DataWorker(object):
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
-
+        # collect_gameplay_experience took 1635.8837022781372 seconds to finish one episode
         self.agent_network.set_weights(weights)
         agent = Batch_MCTSAgent(self.agent_network)
         while True:
@@ -155,6 +155,7 @@ class AIInterface:
         global_agent.set_weights(global_agent_weights)
 
         while True:
+            ray.wait(workers)
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)

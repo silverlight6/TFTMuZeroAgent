@@ -2,6 +2,7 @@ import numpy as np
 import config
 import random
 from global_buffer import GlobalBuffer
+import Simulator.utils as utils
 
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
@@ -20,7 +21,7 @@ class ReplayBuffer:
         self.gameplay_experiences.append(observation)
         self.action_history.append(action)
         self.rewards.append(reward)
-        self.action_mask.append(self.generate_masking(action))
+        self.action_mask.append(utils.generate_masking(action))
         self.policy_distributions.append(policy)
 
     def store_observation(self, observation):
@@ -121,20 +122,4 @@ class ReplayBuffer:
                               policy_mask_set, value_set, reward_set, policy_set, action_mask_set]
                 self.g_buffer.store_replay_sequence.remote(sample_set)
 
-    def generate_masking(self, action):
-        num_items = action.count("_")
-        split_action = action.split("_")
-        element_list = [0,0,0]
-        for i in range(num_items+1):
-            element_list[i] = int(split_action[i])
-        
-        mask = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
-
-        mask[0:6] = np.ones(6)
-        if element_list[0] == 1:
-            mask[6:11] = np.ones(5)
-        elif element_list[0] == 2:
-            mask[6:44] = np.ones(38)
-        elif element_list[0] == 3:
-            mask = np.ones(54)
-        return mask
+    

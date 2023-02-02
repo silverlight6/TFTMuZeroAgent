@@ -48,7 +48,6 @@ class TFT_Simulator(AECEnv):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
-        self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
@@ -95,6 +94,7 @@ class TFT_Simulator(AECEnv):
         for key, player in self.PLAYERS.items():
             if player:
                 if player.health <= 0:
+                    print(f"DIED WITH {player.gold} GOLD")
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
@@ -119,7 +119,6 @@ class TFT_Simulator(AECEnv):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
-        self.game_round.play_game_round()
         self.game_round.play_game_round()
 
         self.agents = self.possible_agents.copy()
@@ -151,13 +150,13 @@ class TFT_Simulator(AECEnv):
         self.reset()
 
     def step(self, action):
+        # step took 0.0009970664978027344 seconds to finish
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
             return
         action = np.asarray(action)
         if action.ndim == 0:
-            self.step_function.action_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
-                                                 self.agent_selection, self.game_observations)
+            return
         elif action.ndim == 1:
             reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action, 
                                                                         self.PLAYERS[self.agent_selection], self.PLAYERS,
@@ -200,7 +199,7 @@ class TFT_Simulator(AECEnv):
             for k in self.kill_list:
                 self.terminations[k] = True
                 self.agents.remove(k)
-                self.rewards[k] = 3 - len(self.agents)
+                self.rewards[k] = (3 - len(self.agents)) * 75
 
             self.kill_list = []
             self._agent_selector.reinit(self.agents)

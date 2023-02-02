@@ -10,6 +10,8 @@ import config
 import numpy as np
 import tensorflow as tf
 import time
+import Simulator.utils as utils
+from Simulator.stats import COST
 
 ##########################
 ####### Helpers ##########
@@ -142,9 +144,9 @@ class Network(tf.keras.Model):
                               name='initial_inference')
 
     # Apply the initial inference model to the given hidden state
-    def initial_inference(self, observation) -> dict:
+    def initial_inference(self, observation, training=False) -> dict:
         hidden_state, value_logits, policy_logits = \
-            self.initial_inference_model(observation, training=False)
+            self.initial_inference_model(observation, training=training)
         value = self.value_encoder.decode(value_logits)
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
@@ -182,7 +184,7 @@ class Network(tf.keras.Model):
         return np.asarray(element_list)
 
     # Apply the recurrent inference model to the given hidden state
-    def recurrent_inference(self, hidden_state, action) -> dict: #CHECKPOINT
+    def recurrent_inference(self, hidden_state, action, training=False) -> dict: #CHECKPOINT
         action_list = [self.decode_action(action[i]) for i in range(len(action))]
         action_batch = np.asarray(action_list)
 
@@ -193,7 +195,7 @@ class Network(tf.keras.Model):
         final_action = tf.concat([one_hot_action, one_hot_target_a, one_hot_target_b], axis=-1)
         
         hidden_state, reward_logits, value_logits, policy_logits = \
-            self.recurrent_inference_model((hidden_state, final_action), training=False)
+            self.recurrent_inference_model((hidden_state, final_action), training=training)
 
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
@@ -620,11 +622,12 @@ class Batch_MCTSAgent(MCTSAgent):
     # the search tree and traversing the tree according to the UCB formula until we
     # reach a leaf node.
     def run_batch_mcts(self, root: list, action: List):
+        # run_batch_mcts took 5.652412176132202 seconds to finish
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         
         for _ in range(config.NUM_SIMULATIONS):
             history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
-            node = root
+            node = root.copy()
             search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
             
             # There is a chance I am supposed to check if the tree for the non-main-branch
@@ -649,20 +652,21 @@ class Batch_MCTSAgent(MCTSAgent):
                 
                 # print("value {}".format(network_output["value"]))
                 self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
-                
+
     def batch_policy(self, observation, prev_action):
+        # batch_policy took 6.422544717788696 seconds to finish
         # observation.shape = (8, 8246)
         self.NUM_ALIVE = observation.shape[0]
         root = [Node(0) for _ in range(self.NUM_ALIVE)]
         network_output = self.network.initial_inference(observation)  # 2.1 seconds
         
         for i in range(self.NUM_ALIVE):
-            self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
+            self.batch_expand_node(root[i], i, network_output, obs=observation[i])  # 0.39 seconds
 
             self.add_exploration_noise(root[i])
             
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
-        
+
         action = [(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
         
         # Masking only if training is based on the actions taken in the environment.
@@ -674,7 +678,8 @@ class Batch_MCTSAgent(MCTSAgent):
        
         return action, network_output["policy_logits"]
 
-    def batch_expand_node(self, node: Node, to_play: int, network_output):
+    def batch_expand_node(self, node: Node, to_play: int, network_output, obs=None):
+        # batch_expand_node took 0.021803855895996094 seconds to finish
         node.to_play = to_play
         node.hidden_state = network_output["hidden_state"][to_play]
         node.reward = network_output["reward"][to_play]
@@ -689,25 +694,53 @@ class Batch_MCTSAgent(MCTSAgent):
         # This policy sum is not in the Google's implementation. Not sure if required.
         policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
 
-        actions_p = self.encode_action_to_str(policy_action, policy_target_probs, policy_item_probs)
+        actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
         for action, p in actions_p:
             node.children[action] = Node(p / policy_sum)
 
-    def encode_action_to_str(self, action, target, item):
+    def encode_action_to_str(self, action, target, item, obs=None):
+        gold = 100
+        level = 10
+        unit_count = 0
+        shop = [True for _ in range(5)]
+        shop_price = [0 for _ in range(5)]
+        board_bench = [True for _ in range(37)]
+        items = [True for _ in range(10)]
+        if obs is not None:
+            gold = int(obs[1027])
+            level = int(obs[1])
+            shop = [np.any(obs[(1029 + i*7):(1036 + i*7)]) for i in range(5)]
+            list_champs = list(COST.keys())
+            shop_price = [COST[list_champs[utils.champ_binary_decode(obs[(1029 + i*7):(1036 + i*7)])]] for i in range(5)]
+            board_bench = [np.any(obs[(4 + i*26):(30 + i*26)]) for i in range(37)]
+            for unit in board_bench[0:28]:
+                if unit:
+                    unit_count += 1
+            items = [np.any(obs[(966 + i*6):(972 + i*6)]) for i in range(10)]
+        board_bench.append(False)
+
         actions = []
         actions.append(("0",action[0][0]))
         for i in range(5):
-            actions.append((f"1_{i}",action[0][1] * target[i] / sum(target[0:5])))
+            if shop[i] and gold >= shop_price[i]:
+                actions.append((f"1_{i}",action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
         for a in range(37):
-            for b in range(38):
+            for b in range(a, 38):
                 if a == b:
                     continue
-                actions.append((f"2_{a}_{b}",action[0][2] * target[a] / sum(target[0:37] * target[b] / (sum(target[0:38])  - target[a]))))
+                if board_bench[a] or (board_bench[b] and unit_count < level):
+                    actions.append((f"2_{a}_{b}",action[0][2] * 
+                                    (target[0][a] / sum(list(target[0].values())[0:37]) *
+                                    (target[0][b] / (sum(list(target[0].values())[0:38])  - target[0][a])))))
         for a in range(37):
             for b in range(10):
-                actions.append((f"3_{a}_{b}",action[0][3] * target[a] / sum(target[0:37]) * item[b] / sum(item)))
-        actions.append(("4",action[0][4]))
-        actions.append(("5",action[0][5]))
+                if board_bench[a] and items[b]:
+                    actions.append((f"3_{a}_{b}",action[0][3] *
+                                    (target[0][a] / sum(list(target[0].values())[0:37])) * (item[0][b] / sum(list(item[0].values())))))
+        if gold >= 4:
+            actions.append(("4",action[0][4]))
+        if gold >= 2:
+            actions.append(("5",action[0][5]))
         return actions
 
 def masked_distribution(x, use_exp, mask=None):

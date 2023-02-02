@@ -6,6 +6,7 @@ from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
 from Simulator.champion_functions import MILLIS
+from datetime import datetime
 
 
 class Game_Round:
@@ -191,7 +192,6 @@ class Game_Round:
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
-        self.step_func_obj.generate_shop_vectors(self.PLAYERS)
         for player in self.PLAYERS.values():
             if player:
                 player.start_round(self.current_round)
@@ -339,7 +339,7 @@ def log_to_file(player):
 def log_end_turn(game_round):
     if config.LOGMESSAGES:
         with open('log.txt', "a") as out:
-            out.write("END OF ROUND " + str(game_round))
+            out.write("END OF ROUND " + str(game_round) + " " + datetime.now().strftime("%H:%M:%S"))
             out.write('\n')
 
 
