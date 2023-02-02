@@ -1,8 +1,9 @@
 import config
 import functools
+import time
 import gymnasium as gym
 import numpy as np
-from gymnasium.spaces import MultiDiscrete, Box
+from gymnasium.spaces import MultiDiscrete, Box, Dict
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -79,8 +80,10 @@ class TFT_Simulator(AECEnv):
             zip(
                 self.agents,
                 [
-                    Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64)
-                    for _ in enumerate(self.agents)
+                    Dict({
+                        "tensor": Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
+                        "image": Box(low=-2.0, high=2.0, shape=(49, 16), dtype=np.float64)
+                    }) for _ in self.agents
                 ],
             )
         )
@@ -92,6 +95,8 @@ class TFT_Simulator(AECEnv):
         # For PPO
         self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
                               for agent in self.agents}
+
+        self.time = time.time_ns()
         super().__init__()
 
     @functools.lru_cache(maxsize=None)
@@ -110,9 +115,8 @@ class TFT_Simulator(AECEnv):
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
-                    self.PLAYERS[key] = None
+                    print("{} died".format(key))
                     self.kill_list.append(key)
-                    self.game_round.update_players(self.PLAYERS)
                 else:
                     num_alive += 1
         return num_alive
@@ -163,6 +167,7 @@ class TFT_Simulator(AECEnv):
         self.reset()
 
     def step(self, action):
+        # step for dead agents
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
             return
@@ -200,7 +205,7 @@ class TFT_Simulator(AECEnv):
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
                 self.game_round.play_game_round()
-
+                
                 for agent in self.agents:
                     self.observations[agent] = self.game_observations[agent].observation(
                         agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
