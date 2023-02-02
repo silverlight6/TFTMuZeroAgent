@@ -18,7 +18,7 @@ from math import floor
 # Stores all values relevant to an individual player in the game
 class player:
 
-    MAX_CHAMPION = 19 # 10 on board, 9 on bench
+    MAX_CHAMPION = 28 # 10 on board, 9 on bench,
     # hex number (1 spot), champion number (2 spot), champion star level(1 spot), past combat (1 spot), 3 items (6 spot), chosen (1 spot)
     CHAMPION_INFORMATION = 12
     BOARD_SIZE = 28
@@ -157,6 +157,7 @@ class player:
             self.chosen = a_champion.chosen
         # print("items are = " + str(a_champion.items))
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
+        a_champion.num_items = len(a_champion.items)
         if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
             self.thieves_gloves(bench_loc, -1)
@@ -260,23 +261,27 @@ class player:
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
-        offset_x = 1
-        offset_y = 0
-        parity = 1
+        x = 6
+        y = 3
         while len(coords_candidates) < 2:
-            coords_candidates = self.find_free_squares(azir_x + offset_x * parity, azir_y + offset_y * parity)
-            if parity == 1 and offset_y % 2 == 0:
-                parity = -1
-            elif parity == -1 and offset_y % 2 == 0:
-                offset_x += 1
-            elif parity == -1 and offset_y % 2 == 1:
-                parity = 1
-            else:
-                offset_x += 1
+            hexes = self.find_free_squares(x, y)
+            for hex in hexes:
+                if hex not in coords_candidates:
+                    coords_candidates.append(hex)
+            x -= 1
+            if x == -1:
+                x = 6
+                y -= 1
+
+        for x in range(2):
+            self.board[coords_candidates[x][0]][coords_candidates[x][1]] = champion.champion('sandguard',
+                                    kayn_form=self.kayn_form, target_dummy=True)
         coords = [coords_candidates[0], coords_candidates[1]]
         return coords
 
     def find_free_squares(self, x, y):
+        if x < 0 or x > 6 or y < 0 or y > 3:
+            return []
         directions = [
             [[+1, 0], [+1, +1], [0, -1],
              [0, +1], [-1, 0], [-1, +1]],
@@ -289,8 +294,8 @@ class player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (0 <= nY < 7 and 0 <= nX < 4) and not self.board[x][y]:
-                neighbors.append([nY, nX])
+            if (0 <= nY < 4 and 0 <= nX < 7) and not self.board[x][y]:
+                neighbors.append([nX, nY])
         return neighbors
 
     def findItem(self, name):
@@ -617,7 +622,7 @@ class player:
                 self.reward += self.mistake_reward
                 return False
             else:
-                if self.board[x][y]:
+                if self.board[x][y] and not self.board[x][y].target_dummy:
                     # Dealing with edge case of azir
                     if self.board[x][y].name == 'azir':
                         coords = self.board[x][y].sandguard_overlord_coordinates
@@ -654,6 +659,18 @@ class player:
                 self.board[x1][y1].y = y1
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x1][y1].name == 'sandguard' or self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x2, y2] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
+                                elif [x2, y2] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x1, y1] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x2, y2])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x1, y1])
                 self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
                            .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
                 self.generate_board_vector()
@@ -665,6 +682,13 @@ class player:
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
                 self.generate_board_vector()
                 return True
@@ -680,7 +704,7 @@ class player:
             board = True
         if y == -1:
             champ = self.bench[x]
-        if self.item_bench[xBench] and champ:
+        if self.item_bench[xBench] and champ and not champ.target_dummy:
             # thiefs glove exception
             self.print("moving {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
             # kayn item support
@@ -913,7 +937,8 @@ class player:
             if a_champion.items:
                 # thieves_gloves_location needs to be removed whether there's room on the bench or not
                 if a_champion.items[0] == 'thieves_gloves':
-                    self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
+                    if [a_champion.x, a_champion.y] in self.thieves_gloves_loc:
+                        self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
                     a_champion.items = ['thieves_gloves']
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
@@ -969,7 +994,8 @@ class player:
     # sell champion to reduce confusion over champion from import
     def sell_champion(self, s_champion, golden=False, field=True):
         # Need to add the behavior that on carousel when bench is full, add to board.
-        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion)):
+        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion) and not \
+                s_champion.target_dummy):
             self.reward += self.mistake_reward
             self.print("Could not sell champion " + s_champion.name)
             return False
@@ -1014,16 +1040,12 @@ class player:
             r2 = random.randint(0, len(thieves_gloves_items) - 1)
         self.print("thieves_gloves: {} and {}".format(thieves_gloves_items[r1], thieves_gloves_items[r2]))
         if y >= 0:
-            if len(self.board[x][y].items) != 1:
-                self.board[x][y].items.remove(self.board[x][y].items[1])
-                self.board[x][y].items.remove(self.board[x][y].items[1])
+            self.board[x][y].items = ['thieves_gloves']
             self.board[x][y].items.append(thieves_gloves_items[r1])
             self.board[x][y].items.append(thieves_gloves_items[r2])
             return True
         elif y == -1:
-            if len(self.bench[x].items) != 1:
-                self.bench[x].items.remove(self.bench[x].items[1])
-                self.bench[x].items.remove(self.bench[x].items[1])
+            self.bench[x].items = ['thieves_gloves']
             self.bench[x].items.append(thieves_gloves_items[r1])
             self.bench[x].items.append(thieves_gloves_items[r2])
             return True
