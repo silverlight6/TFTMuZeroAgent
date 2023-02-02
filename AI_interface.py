@@ -169,6 +169,7 @@ class AIInterface:
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         train_step = starting_train_step
+        tf.config.optimizer.set_jit(True)
 
         global_buffer = GlobalBuffer.remote()
 

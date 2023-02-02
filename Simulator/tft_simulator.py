@@ -1,5 +1,6 @@
 import config
 import functools
+import time
 import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import MultiDiscrete, Box, Dict
@@ -94,6 +95,8 @@ class TFT_Simulator(AECEnv):
         # For PPO
         self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
                               for agent in self.agents}
+
+        self.time = time.time_ns()
         super().__init__()
 
     @functools.lru_cache(maxsize=None)
@@ -202,7 +205,7 @@ class TFT_Simulator(AECEnv):
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
                 self.game_round.play_game_round()
-
+                
                 for agent in self.agents:
                     self.observations[agent] = self.game_observations[agent].observation(
                         agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
