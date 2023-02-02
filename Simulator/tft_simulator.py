@@ -112,11 +112,13 @@ class TFT_Simulator(AECEnv):
         for key, player in self.PLAYERS.items():
             if player:
                 if player.health <= 0:
+                    print(f"DIED WITH {player.gold} GOLD")
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
-                    print("{} died".format(key))
+                    self.PLAYERS[key] = None
                     self.kill_list.append(key)
+                    self.game_round.update_players(self.PLAYERS)
                 else:
                     num_alive += 1
         return num_alive

@@ -98,40 +98,38 @@ class DataWorker(object):
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def evaluate_agents(self, env, storage):
+        agents = {"player_" + str(r): MCTS(TFTNetwork())
+                  for r in range(config.NUM_PLAYERS)}
+        agents["player_1"].network.tft_load_model(1000)
+        agents["player_2"].network.tft_load_model(2000)
+        agents["player_3"].network.tft_load_model(3000)
+        agents["player_4"].network.tft_load_model(4000)
+        agents["player_5"].network.tft_load_model(5000)
+        agents["player_6"].network.tft_load_model(6000)
+        agents["player_7"].network.tft_load_model(7000)
 
-        def evaluate_agents(self, env, storage):
-            agents = {"player_" + str(r): MCTS(TFTNetwork())
-                      for r in range(config.NUM_PLAYERS)}
-            agents["player_1"].network.tft_load_model(1000)
-            agents["player_2"].network.tft_load_model(2000)
-            agents["player_3"].network.tft_load_model(3000)
-            agents["player_4"].network.tft_load_model(4000)
-            agents["player_5"].network.tft_load_model(5000)
-            agents["player_6"].network.tft_load_model(6000)
-            agents["player_7"].network.tft_load_model(7000)
-
-            while True:
-                # Reset the environment
-                player_observation = env.reset()
-                # This is here to make the input (1, observation_size) for initial_inference
-                player_observation = np.asarray(
-                    list(player_observation.values()))
-                # Used to know when players die and which agent is currently acting
-                terminated = {
-                    player_id: False for player_id in env.possible_agents}
-                # Current action to help with MuZero
-                placements = {
-                    player_id: 0 for player_id in env.possible_agents}
-                current_position = 7
-                info = {player_id: {"player_won": False}
-                        for player_id in env.possible_agents}
-                # While the game is still going on.
-                while not all(terminated.values()):
-                    # Ask our model for an action and policy
-                    actions = {agent: 0 for agent in agents.keys()}
-                    for i, [key, agent] in enumerate(agents.items()):
-                        action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
-                        actions[key] = action
+        while True:
+            # Reset the environment
+            player_observation = env.reset()
+            # This is here to make the input (1, observation_size) for initial_inference
+            player_observation = np.asarray(
+                list(player_observation.values()))
+            # Used to know when players die and which agent is currently acting
+            terminated = {
+                player_id: False for player_id in env.possible_agents}
+            # Current action to help with MuZero
+            placements = {
+                player_id: 0 for player_id in env.possible_agents}
+            current_position = 7
+            info = {player_id: {"player_won": False}
+                    for player_id in env.possible_agents}
+            # While the game is still going on.
+            while not all(terminated.values()):
+                # Ask our model for an action and policy
+                actions = {agent: 0 for agent in agents.keys()}
+                for i, [key, agent] in enumerate(agents.items()):
+                    action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
+                    actions[key] = action
 
                 # step_actions = self.getStepActions(terminated, np.asarray(actions))
 
@@ -146,12 +144,12 @@ class DataWorker(object):
                         placements[key] = current_position
                         current_position -= 1
 
-                for key, value in info.items():
-                    if value["player_won"]:
-                        placements[key] = 0
-                storage.record_placements.remote(placements)
-                print("recorded places {}".format(placements))
-                self.rank += config.CONCURRENT_GAMES
+            for key, value in info.items():
+                if value["player_won"]:
+                    placements[key] = 0
+            storage.record_placements.remote(placements)
+            print("recorded places {}".format(placements))
+            self.rank += config.CONCURRENT_GAMES
 
 
 class AIInterface:

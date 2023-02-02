@@ -256,6 +256,7 @@ class player:
         # print comp and bench for log purposes at end of turn
         self.printComp()
         self.printBench()
+        self.printItemBench()
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
@@ -834,12 +835,12 @@ class player:
                    "num_units_in_play = {}, health = {}".format(self.num_units_in_play, self.health))
 
     def printItemBench(self, log=True):
-        for i in self.item_bench:
-            if i:
+        for i, item in enumerate(self.item_bench):
+            if item:
                 if log:
-                    self.printt('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    self.print(str(i) + ": " + item)
                 else:
-                    print('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    print(str(i) + ": " + item)
 
     def printShop(self, shop):
         self.print("Shop with level " + str(self.level) + ": " +
