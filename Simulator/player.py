@@ -138,6 +138,7 @@ class player:
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
         if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
+            self.thieves_gloves(bench_loc, -1)
         #BENCHMISS
         return True
 
@@ -561,16 +562,15 @@ class player:
                 if len(champ.items) < 1:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
-                    champ.num_items += 3
                     self.thieves_gloves_loc.append([x, y])
                     self.thieves_gloves(x, y)
                     #ITEMMISS
                     #DECIDEMISS
                     return True
                 return False
-            if ((champ.num_items < 3 and self.item_bench[xBench] != "thieves_gloves") or
+            if ((len(champ.items) < 3 and self.item_bench[xBench] != "thieves_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
-                     in basic_items and champ.num_items == 3)):
+                     in basic_items and len(champ.items) == 3)):
                 for trait, name in enumerate(trait_items.values()):
                     if self.item_bench[xBench] == name:
                         item_trait = list(trait_items.keys())[trait]
@@ -600,10 +600,9 @@ class player:
                                     champ.origin.append(item_trait)
                                     self.update_team_tiers()
                         if item_names[item_index] == "thieves_gloves":
-                            if champ.num_items != 1:
+                            if len(champ.items) != 1:
                                 return False
                             else:
-                                champ.num_items += 2
                                 self.thieves_gloves_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
@@ -618,24 +617,20 @@ class player:
                         champ.items.append(self.item_bench[xBench])
                         champ.items.append(basic_piece)
                         self.item_bench[xBench] = None
-                        champ.num_items += 1
                     else:
                         champ.items.append(self.item_bench[xBench])
                         self.item_bench[xBench] = None
-                        champ.num_items += 1
                 else:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
-                    champ.num_items += 1
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
                                                                       champ.items))
                 #ITEMMISS
                 #DECIDEMISS
                 return True
-            elif champ.num_items < 1 and self.item_bench[xBench] == "thieves_gloves":
+            elif len(champ.items) < 1 and self.item_bench[xBench] == "thieves_gloves":
                 champ.items.append(self.item_bench[xBench])
                 self.item_bench[xBench] = None
-                champ.num_items += 3
                 #ITEMMISS
                 #DECIDEMISS
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
@@ -741,7 +736,6 @@ class player:
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
                 self.bench[x].items = []
-                self.bench[x].num_items = 0
             #ITEMMISS
             return True
         self.print("No units at bench location {}".format(x))
@@ -756,7 +750,7 @@ class player:
                 if a_champion.items[0] == 'thieves_gloves':
                     self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
                 # if I have enough space on the item bench for the number of items needed
-                if not self.item_bench_full(a_champion.num_items):
+                if not self.item_bench_full(num_of_items=len(a_champion.items)):
                     # Each item in possession
                     for item in a_champion.items:
                         if item in trait_items.values():
@@ -770,7 +764,6 @@ class player:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
                 a_champion.items = []
-                a_champion.num_items = 0
                 #ITEMMISS
             return True
         return False
@@ -856,16 +849,12 @@ class player:
             r2 = random.randint(0, len(thieves_gloves_items) - 1)
         self.print("thieves_gloves: {} and {}".format(thieves_gloves_items[r1], thieves_gloves_items[r2]))
         if y >= 0:
-            if len(self.board[x][y].items) != 1:
-                self.board[x][y].items.remove(self.board[x][y].items[1])
-                self.board[x][y].items.remove(self.board[x][y].items[1])
+            self.board[x][y].items = ['thieves_gloves']
             self.board[x][y].items.append(thieves_gloves_items[r1])
             self.board[x][y].items.append(thieves_gloves_items[r2])
             return True
         elif y == -1:
-            if len(self.bench[x].items) != 1:
-                self.bench[x].items.remove(self.bench[x].items[1])
-                self.bench[x].items.remove(self.bench[x].items[1])
+            self.bench[x].items = ['thieves_gloves']
             self.bench[x].items.append(thieves_gloves_items[r1])
             self.bench[x].items.append(thieves_gloves_items[r2])
             return True
@@ -962,7 +951,6 @@ class player:
                     r = random.randint(0, len(thieves_gloves_items) - 1)
                     self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
             champ.items = []
-            champ.num_items = 0
             self.item_bench[xBench] = None
             #ITEMMISS
             #DECIDEMISS
@@ -979,8 +967,8 @@ class player:
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
-        for x in range(len(self.thieves_gloves_loc)):
-            self.thieves_gloves(self.thieves_gloves_loc[x][0], self.thieves_gloves_loc[x][1])
+        for x in self.thieves_gloves_loc:
+            self.thieves_gloves(x[0], x[1])
 
     def won_game(self):
         self.reward += self.won_game_reward
@@ -1036,7 +1024,7 @@ class player:
                     champion_info_array[6] = curr_champ.stars / 3
                     champion_info_array[7] = curr_champ.cost / 5
                     for ind, item in enumerate(curr_champ.items):
-                        start = (ind * 6) + 8
+                        start = (ind * 6) + 7
                         finish = start + 6
                         if item in uncraftable_items:
                             i_index = list(uncraftable_items).index(item) + 1
@@ -1055,7 +1043,7 @@ class player:
                 champion_info_array[6] = curr_champ.stars / 3
                 champion_info_array[7] = curr_champ.cost / 5
                 for ind, item in enumerate(curr_champ.items):
-                    start = (ind * 6) + 8
+                    start = (ind * 6) + 7
                     finish = start + 6
                     if item in uncraftable_items:
                         i_index = list(uncraftable_items).index(item) + 1

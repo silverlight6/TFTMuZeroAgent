@@ -122,7 +122,6 @@ class champion:
         self.ability_active = False
 
         self.items = itemlist
-        self.num_items = 0
         self.ionic_sparked = 0  # just a helper to know who to zap
         self.spell_has_used_ludens = False  # helps with ludens_echo
         self.AD_reduction_cc = False  # ludens counts dazzler ad reduction as crowd control so adding a flag for dat
