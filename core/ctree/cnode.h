@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <cmath>
-#include <sys/timeb.h>
-#include <sys/time.h>
 
 const int DEBUG_MODE = 0;
 
