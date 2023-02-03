@@ -879,10 +879,11 @@ class player:
                     for i in self.bench[x].items:
                         # thieves glove exception
                         self.item_bench[self.item_bench_vacancy()] = i
+                        self.print("returning " + i + " to the item bench")
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
-                    self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
-                self.print("returning " + self.bench[x].items + " to the item bench")
+                    self.item_bench[self.item_bench_cvacancy()] = self.bench[x].items[0]
+                    self.print("returning " + self.bench[x].items[0] + " to the item bench")
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
             self.generate_item_vector()
@@ -908,13 +909,15 @@ class player:
                             a_champion.origin.pop(-1)
                             self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
+                        self.print("returning " + item + " to the item bench")
+
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
+                    self.print("returning " + a_champion.items[0] + " to the item bench")
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
-                self.print("returning " + a_champion.items + " to the item bench")
                 a_champion.items = []
                 a_champion.num_items = 0
                 self.generate_item_vector()
