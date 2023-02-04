@@ -38,7 +38,7 @@ class ReplayBuffer:
         if self.action_history:
             return self.action_history[-1]
         else:
-            return 9
+            return "0"
 
     def get_reward_sequence(self):
         return self.rewards
@@ -46,7 +46,7 @@ class ReplayBuffer:
     def set_reward_sequence(self, rewards):
         self.rewards = rewards
 
-    def store_global_buffer(self):
+    def store_global_buffer(self, count):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         # samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -54,7 +54,7 @@ class ReplayBuffer:
         #     else len(self.gameplay_experiences) - config.UNROLL_STEPS
         # config.UNROLL_STEPS because I don't want to sample the very end of the range
         # samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
-        num_steps = len(self.gameplay_experiences)
+        num_steps = len(self.action_history)
 
         action_set = []
         value_mask_set = []
@@ -82,8 +82,18 @@ class ReplayBuffer:
             # This is simply current_index since I store the reward with the same time stamp
             reward_set.append(self.rewards[current_index])
             policy_set.append(self.policy_distributions[current_index].copy())
-        # print(value_set)
-        sample_set = [self.gameplay_experiences.copy(), action_set, value_mask_set, reward_mask_set,
+
+        action_set += ["0"] * (count - len(action_set))
+        action_mask_set += [np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])] * (count - len(action_mask_set))
+        value_mask_set += [0] * (count - len(value_mask_set))
+        reward_mask_set += [0] * (count - len(reward_mask_set))
+        policy_mask_set += [0] * (count - len(policy_mask_set))
+        value_set += [0] * (count - len(value_set))
+        reward_set += [0] * (count - len(reward_set))
+        policy_set += [np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])] * (count - len(policy_set))
+
+
+        sample_set = [self.gameplay_experiences.copy()[0], action_set, value_mask_set, reward_mask_set,
                         policy_mask_set, value_set, reward_set, policy_set, action_mask_set]
         self.g_buffer.store_replay_sequence.remote(sample_set)
 
