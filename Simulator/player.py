@@ -6,9 +6,8 @@ import random
 from Simulator import champion, origin_class
 import Simulator.utils as utils
 
-from Simulator.item_stats import items as item_list, basic_items, item_builds, thieves_gloves_items, \
-                                                                    starting_items, trait_items, uncraftable_items
-
+from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
+    starting_items, trait_items, uncraftable_items
 
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
@@ -20,10 +19,6 @@ from math import floor
 # Stores all values relevant to an individual player in the game
 class player:
 
-    MAX_CHAMPION = 19  # 10 on board, 9 on bench
-    # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
-    # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
-    CHAMPION_INFORMATION = 11
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
@@ -111,8 +106,15 @@ class player:
         self.kayn_transformed = False
         self.kayn_form = None
 
-
         self.thieves_gloves_loc = []
+
+        # Start with two copies of each item in your item pool
+        self.item_pool = []
+        self.refill_item_pool()
+        self.refill_item_pool()
+
+        # Context For Loot Orbs
+        self.orb_history = []
 
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
@@ -231,26 +233,31 @@ class player:
         # print comp and bench for log purposes at end of turn
         self.printComp()
         self.printBench()
+        self.printItemBench()
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
-        offset_x = 1
-        offset_y = 0
-        parity = 1
+        x = 6
+        y = 3
         while len(coords_candidates) < 2:
-            coords_candidates = self.find_free_squares(azir_x + offset_x * parity, azir_y + offset_y * parity)
-            if parity == 1 and offset_y % 2 == 0:
-                parity = -1
-            elif parity == -1 and offset_y % 2 == 0:
-                offset_x += 1
-            elif parity == -1 and offset_y % 2 == 1:
-                parity = 1
-            else:
-                offset_x += 1
+            hexes = self.find_free_squares(x, y)
+            for hex in hexes:
+                if hex not in coords_candidates:
+                    coords_candidates.append(hex)
+            x -= 1
+            if x == -1:
+                x = 6
+                y -= 1
+
+        for x in range(2):
+            self.board[coords_candidates[x][0]][coords_candidates[x][1]] = champion.champion('sandguard',
+                                    kayn_form=self.kayn_form, target_dummy=True)
         coords = [coords_candidates[0], coords_candidates[1]]
         return coords
 
     def find_free_squares(self, x, y):
+        if x < 0 or x > 6 or y < 0 or y > 3:
+            return []
         directions = [
             [[+1, 0], [+1, +1], [0, -1],
              [0, +1], [-1, 0], [-1, +1]],
@@ -263,8 +270,8 @@ class player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (0 <= nY < 7 and 0 <= nX < 4) and not self.board[x][y]:
-                neighbors.append([nY, nX])
+            if (0 <= nY < 4 and 0 <= nX < 7) and not self.board[x][y]:
+                neighbors.append([nX, nY])
         return neighbors
 
     def findItem(self, name):
@@ -325,9 +332,8 @@ class player:
         self.level_up()
         if t_round <= 4:
             starting_round_gold = [0, 2, 2, 3, 4]
-            self.gold += starting_round_gold[t_round]
             self.gold += floor(self.gold / 10)
-            self.private_observation[1] = self.gold
+            self.gold += starting_round_gold[t_round]
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
@@ -457,7 +463,7 @@ class player:
                 self.reward += self.mistake_reward
                 return False
             else:
-                if self.board[x][y]:
+                if self.board[x][y] and not self.board[x][y].target_dummy:
                     # Dealing with edge case of azir
                     if self.board[x][y].name == 'azir':
                         coords = self.board[x][y].sandguard_overlord_coordinates
@@ -494,6 +500,18 @@ class player:
                 self.board[x1][y1].y = y1
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x1][y1].name == 'sandguard' or self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x2, y2] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
+                                elif [x2, y2] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x1, y1] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x2, y2])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x1, y1])
                 self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
                            .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
                 #BOARDMISS
@@ -505,6 +523,13 @@ class player:
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
                 #BOARDMISS
                 return True
@@ -520,7 +545,7 @@ class player:
             board = True
         if y == -1:
             champ = self.bench[x]
-        if self.item_bench[xBench] and champ:
+        if self.item_bench[xBench] and champ and not champ.target_dummy:
             # thiefs glove exception
             self.print("moving {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
             # kayn item support
@@ -535,7 +560,6 @@ class player:
             if self.item_bench[xBench] == 'champion_duplicator':
                 if not self.bench_full():
                     self.gold += champ.cost
-                    self.private_observation[1] = self.gold
                     self.buy_champion(champ)
                     self.item_bench[xBench] = None
                     #ITEMMISS
@@ -687,12 +711,12 @@ class player:
                    "num_units_in_play = {}, health = {}".format(self.num_units_in_play, self.health))
 
     def printItemBench(self, log=True):
-        for i in self.item_bench:
-            if i:
+        for i, item in enumerate(self.item_bench):
+            if item:
                 if log:
-                    self.printt('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    self.print(str(i) + ": " + item)
                 else:
-                    print('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    print(str(i) + ": " + item)
 
     def printShop(self, shop):
         self.print("Shop with level " + str(self.level) + ": " +
@@ -724,7 +748,7 @@ class player:
                 # thieves_gloves_loc_always needs to be cleared even if there's not enough room on bench
                 if self.bench[x].items[0] == 'thieves_gloves':
                     self.thieves_gloves_loc.remove([x, -1])
-                    self.items = ['thieves_gloves']
+                    self.bench[x].items = ['thieves_gloves']
 
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
@@ -732,9 +756,11 @@ class player:
                     for i in self.bench[x].items:
                         # thieves glove exception
                         self.item_bench[self.item_bench_vacancy()] = i
+                        self.print("returning " + i + " to the item bench")
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
+                    self.print("returning " + self.bench[x].items[0] + " to the item bench")
                 self.bench[x].items = []
             #ITEMMISS
             return True
@@ -748,7 +774,9 @@ class player:
             if a_champion.items:
                 # thieves_gloves_location needs to be removed whether there's room on the bench or not
                 if a_champion.items[0] == 'thieves_gloves':
-                    self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
+                    if [a_champion.x, a_champion.y] in self.thieves_gloves_loc:
+                        self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
+                    a_champion.items = ['thieves_gloves']
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(num_of_items=len(a_champion.items)):
                     # Each item in possession
@@ -757,9 +785,12 @@ class player:
                             a_champion.origin.pop(-1)
                             self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
+                        self.print("returning " + item + " to the item bench")
+
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
+                    self.print("returning " + a_champion.items[0] + " to the item bench")
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
@@ -802,7 +833,8 @@ class player:
     # sell champion to reduce confusion over champion from import
     def sell_champion(self, s_champion, golden=False, field=True):
         # Need to add the behavior that on carousel when bench is full, add to board.
-        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion)):
+        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion) and not \
+                s_champion.target_dummy):
             self.reward += self.mistake_reward
             self.print("Could not sell champion " + s_champion.name)
             return False
@@ -816,7 +848,7 @@ class player:
             self.board[s_champion.x][s_champion.y] = None
         if field:
             self.num_units_in_play -= 1
-        # self.print("selling champion " + s_champion.name)
+        self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars))
         return True
 
     def sell_from_bench(self, location, golden=False):
@@ -836,7 +868,8 @@ class player:
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
-            self.print("selling champion " + self.bench[location].name)
+            self.print("selling champion " + self.bench[location].name + "with stars = " +
+                       str(self.bench[location].stars))
             self.bench[location] = None
             #BENCHMISS
             return return_champ
@@ -994,7 +1027,7 @@ class player:
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
             self.private_observation[1] = self.gold
-    
+
     def won_ghost(self, damage):
         self.reward += 0.02 * damage
         self.print(str(0.02 * damage) + " reward for someone losing to ghost")
@@ -1066,3 +1099,13 @@ class player:
     def get_private_observation(self):
         return self.private_observation.copy()
         
+    def refill_item_pool(self):
+        self.item_pool.extend(starting_items)
+    
+    def remove_from_pool(self, item):
+        self.item_pool.remove(item)
+
+    def random_item_from_pool(self):
+        item = random.choice(self.item_pool)
+        self.remove_from_pool(item)
+        return item

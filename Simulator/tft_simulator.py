@@ -1,8 +1,8 @@
 import config
 import functools
+import time
 import gymnasium as gym
 import numpy as np
-from typing import Dict
 from gymnasium.spaces import MultiDiscrete, Discrete, Box
 from Simulator import pool
 from Simulator.player import player as player_class
@@ -51,7 +51,7 @@ class TFT_Simulator(AECEnv):
         self.game_round.play_game_round()
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
-        self.agents = self.possible_agents[:]
+        self.agents = self.possible_agents.copy()
         self.kill_list = []
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents)))))
@@ -79,6 +79,8 @@ class TFT_Simulator(AECEnv):
 
         self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
                               for agent in self.agents}
+
+        self.time = time.time_ns()
         super().__init__()
 
     @functools.lru_cache(maxsize=None)
@@ -150,7 +152,7 @@ class TFT_Simulator(AECEnv):
         self.reset()
 
     def step(self, action):
-        # step took 0.0009970664978027344 seconds to finish
+        # step for dead agents
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
             return
@@ -161,8 +163,6 @@ class TFT_Simulator(AECEnv):
             reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action, 
                                                                         self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                                         self.agent_selection, self.game_observations)
-            # self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
-            #                                        self.agent_selection, self.game_observations, self.PLAYERS)
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
@@ -172,6 +172,10 @@ class TFT_Simulator(AECEnv):
         # self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
         # self._cumulative_rewards[self.agent_selection] = \
         #     self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
+        # self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
+        #     self.agent_selection, self.PLAYERS[self.agent_selection],
+        #     self.PLAYERS[self.agent_selection].action_vector)
+        self.infos[self.agent_selection] = {}
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
@@ -193,22 +197,24 @@ class TFT_Simulator(AECEnv):
                     for player_id in self.agents:
                         if self.PLAYERS[player_id]:
                             self.PLAYERS[player_id].won_game()
+                            self.rewards[player_id] = 300
 
                     self.terminations = {a: True for a in self.agents}
 
-            for k in self.kill_list:
-                self.terminations[k] = True
-                self.agents.remove(k)
-                self.rewards[k] = (3 - len(self.agents)) * 75
+        temp_agents = self.agents.copy()
+        for k in self.kill_list:
+            # print("Terminating player", k)
+            self.terminations[k] = True
+            temp_agents.remove(k)
+            self.rewards[k] = (3 - len(temp_agents)) * 75
 
-            self.kill_list = []
-            self._agent_selector.reinit(self.agents)
+        if len(self.kill_list) > 0:
+            self._agent_selector.reinit(temp_agents)
+        self.kill_list = []
 
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
-        if len(self.agents) != 0:
+        if len(temp_agents) != 0:
             self.agent_selection = self._agent_selector.next()
-            # self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(self.agent_selection,
-            #     self.PLAYERS[self.agent_selection], self.PLAYERS[self.agent_selection].action_vector)
 
         # Probably not needed but doesn't hurt?
         # self._deads_step_first()

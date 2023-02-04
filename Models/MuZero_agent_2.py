@@ -480,45 +480,44 @@ class MCTSAgent:
         for action, p in policy.items():
             node.children[action] = Node(p / policy_sum)
 
-    def add_exploration_noise(self, node: Node):  # takes 0 time
-        actions = list(node.children.keys())
+    def add_exploration_noise(self, node: dict, key):  # takes 0 time
+        actions = list(node[key].children.keys())
         noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
         frac = config.ROOT_EXPLORATION_FRACTION
         for a, n in zip(actions, noise):
-            node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
+            node[node[key].children[a]].prior = node[node[key].children[a]].prior * (1 - frac) + n * frac
 
     # Select the child with the highest UCB score.
-    def select_child(self, node: Node, min_max_stats: MinMaxStats):
-        _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
-                                child) for action, child in node.children.items())
-        return_child = child
-
-        return action, return_child
+    def select_child(self, node: dict, key, min_max_stats: MinMaxStats):
+        _, action, max_child = max((self.ucb_score(node, child, min_max_stats, key), action,
+                                child) for action, child in node[key].children.items())
+        return action, max_child
 
     # The score for a node is based on its value, plus an exploration bonus based on
     # the prior.
     @staticmethod
-    def ucb_score(parent: Node, child: Node, min_max_stats: MinMaxStats) -> float:  # Takes aprx 0 time
-        pb_c = math.log((parent.visit_count + config.PB_C_BASE + 1) /
+    def ucb_score(node: dict, child: int, min_max_stats: MinMaxStats, key) -> float:  # Takes aprx 0 time
+        pb_c = math.log((node[key].visit_count + config.PB_C_BASE + 1) /
                         config.PB_C_BASE) + config.PB_C_INIT
-        pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-        prior_score = pb_c * child.prior
-        value_score = min_max_stats.normalize(child.value())
+        pb_c *= math.sqrt(node[key].visit_count) / (node[child].visit_count + 1)
+        prior_score = pb_c * node[child].prior
+        value_score = min_max_stats.normalize(node[child].value())
         return prior_score + value_score
 
     # At the end of a simulation, we propagate the evaluation all the way up the
     # tree to the root.
     @staticmethod
-    def backpropagate(search_path: List[Node], value: float,
+    def backpropagate(node: dict, search_path: List[dict], value: float,
                       min_max_stats: MinMaxStats, player_num: int):  # takes lots of time
-        for node in search_path:
+        last_value = value
+        for key in search_path:
             
-            node.value_sum += value if node.to_play == player_num else -value  # 2.72s
-            node.visit_count += 1
+            node[key].value_sum += last_value  # 2.72s
+            node[key].visit_count += 1
         
-            min_max_stats.update(node.value())  # 1.48s
+            min_max_stats.update(node[key].value())  # 1.48s
             
-            value = node.reward + config.DISCOUNT * value  # 1.76s
+            last_value = node[key].reward + config.DISCOUNT * value  # 1.76s
 
     # Core Monte Carlo Tree Search algorithm.
     # To decide on an action, we run N simulations, always starting at the root of
@@ -549,9 +548,9 @@ class MCTSAgent:
             self.expand_node(node, network_output)
             self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
 
-    def select_action(self, node: Node):
+    def select_action(self, node: dict):
         visit_counts = [
-            (child.visit_count, action) for action, child in node.children.items()
+            (node[child].visit_count, action) for action, child in node[0].children.items()
         ]
         t = self.visit_softmax_temperature()
         return self.histogram_sample(visit_counts, t, use_softmax=False)
@@ -621,49 +620,49 @@ class Batch_MCTSAgent(MCTSAgent):
     # To decide on an action, we run N simulations, always starting at the root of
     # the search tree and traversing the tree according to the UCB formula until we
     # reach a leaf node.
-    def run_batch_mcts(self, root: list, action: List):
+    def run_batch_mcts(self, node: list, action: List):
         # run_batch_mcts took 5.652412176132202 seconds to finish
         min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
         
         for _ in range(config.NUM_SIMULATIONS):
             history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
-            node = root.copy()
-            search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
+            search_path = [[0] for i in range(self.NUM_ALIVE)]
             
             # There is a chance I am supposed to check if the tree for the non-main-branch
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
+            
             for i in range(self.NUM_ALIVE):
-                while node[i].expanded():
-                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
-                    history[i].add_action(action[i])
-                    search_path[i].append(node[i])
+                curr_node = 0 #Starting at root
+                while node[i][curr_node].expanded():
+                    selected_action, curr_node = self.select_child(node[i], curr_node, min_max_stats[i])
+                    history[i].add_action(selected_action)
+                    search_path[i].append(curr_node)
             
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
-            hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
+            hidden_state = np.asarray([node[i][parent[i]].hidden_state for i in range(self.NUM_ALIVE)])
             last_action = [history[i].last_action() for i in range(self.NUM_ALIVE)]
 
             network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
             for i in range(self.NUM_ALIVE):
                 
-                self.batch_expand_node(node[i], node[i].to_play, network_output)  # 7s
+                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play,  network_output, search_path[i][-1])  # 7s
                 
                 # print("value {}".format(network_output["value"]))
-                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
+                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
 
     def batch_policy(self, observation, prev_action):
         # batch_policy took 6.422544717788696 seconds to finish
         # observation.shape = (8, 8246)
         self.NUM_ALIVE = observation.shape[0]
-        root = [Node(0) for _ in range(self.NUM_ALIVE)]
+        root = [{0: Node(0)} for _ in range(self.NUM_ALIVE)]
         network_output = self.network.initial_inference(observation)  # 2.1 seconds
         
         for i in range(self.NUM_ALIVE):
-            self.batch_expand_node(root[i], i, network_output, obs=observation[i])  # 0.39 seconds
-
-            self.add_exploration_noise(root[i])
+            self.batch_expand_node(root[i], i, network_output, 0, obs=observation[i])  # 0.39 seconds
+            self.add_exploration_noise(root[i], 0)
             
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
 
@@ -678,11 +677,11 @@ class Batch_MCTSAgent(MCTSAgent):
        
         return action, network_output["policy_logits"]
 
-    def batch_expand_node(self, node: Node, to_play: int, network_output, obs=None):
+    def batch_expand_node(self, node: dict, to_play: int, network_output, key, obs=None):
         # batch_expand_node took 0.021803855895996094 seconds to finish
-        node.to_play = to_play
-        node.hidden_state = network_output["hidden_state"][to_play]
-        node.reward = network_output["reward"][to_play]
+        node[key].to_play = to_play
+        node[key].hidden_state = network_output["hidden_state"][to_play]
+        node[key].reward = network_output["reward"][to_play]
 
         policy_action_probs = network_output["policy_logits"][0][to_play].numpy()
         policy_target_probs = network_output["policy_logits"][1][to_play].numpy()
@@ -696,7 +695,9 @@ class Batch_MCTSAgent(MCTSAgent):
 
         actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
         for action, p in actions_p:
-            node.children[action] = Node(p / policy_sum)
+            children_key = len(node.keys())
+            node[key].children[action] = children_key
+            node[children_key] = Node(p / policy_sum)
 
     def encode_action_to_str(self, action, target, item, obs=None):
         gold = 100

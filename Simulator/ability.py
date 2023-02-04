@@ -146,55 +146,62 @@ def annie(champion):
 
     # 1. find hex that is our neighbor and closest to the target
     neighbors = field.find_neighbors(champion.y, champion.x)
-    for n in neighbors:
-        try:
-            d = field.distance({'y': champion.target.y, 'x': champion.target.x}, {'y': n[0], 'x': n[1]}, False)
-            n.append(d)
-        except AttributeError:
-            pass
-    neighbors.sort(key=lambda x: x[2])
+    if neighbors:
+        for n in neighbors:
+            try:
+                d = field.distance({'y': champion.target.y, 'x': champion.target.x}, {'y': n[0], 'x': n[1]}, False)
+                n.append(d)
+            except AttributeError:
+                print('passing')
+                pass
+        # making sure that distance was added
+        if len(neighbors[0]) == 3:
+            neighbors = sorted(neighbors, key=lambda x: x[2])
 
-    # 2. find hex that is 1's neigbor and furthest away from us
-    # 3 leave the neighbor out of the spell which is in a line's way that's drawn from champion to 'cone_center'
+        # 2. find hex that is 1's neigbor and furthest away from us
+        # 3 leave the neighbor out of the spell which is in a line's way that's drawn from champion to 'cone_center'
 
-    spell_target = neighbors[0]
+        spell_target = neighbors[0]
 
-    direction_y = spell_target[0] - champion.y + 1
-    if champion.y % 2 == 0:
-        direction_x = spell_target[1] - champion.x + 1
-        cone_center_table = [
-            [[], [-2, -1], [-2, 1]],
-            [[0, -2], [], [0, 2]],
-            [[], [2, -1], [2, 1]]
-        ]
+        direction_y = spell_target[0] - champion.y + 1
+        if champion.y % 2 == 0:
+            direction_x = spell_target[1] - champion.x + 1
+            cone_center_table = [
+                [[], [-2, -1], [-2, 1]],
+                [[0, -2], [], [0, 2]],
+                [[], [2, -1], [2, 1]]
+            ]
 
-        leave_out_table = [
-            [[], [-3, -1], [-3, 2]],
-            [[0, -3], [], [0, 2]],
-            [[], [3, -1], [3, 2]]
-        ]
+            leave_out_table = [
+                [[], [-3, -1], [-3, 2]],
+                [[0, -3], [], [0, 2]],
+                [[], [3, -1], [3, 2]]
+            ]
 
-        cone_center = [champion.y + cone_center_table[direction_y][direction_x][0],
-                       champion.x + cone_center_table[direction_y][direction_x][1]]
-        leave_out = [champion.y + leave_out_table[direction_y][direction_x][0],
-                     champion.x + leave_out_table[direction_y][direction_x][1]]
+            cone_center = [champion.y + cone_center_table[direction_y][direction_x][0],
+                           champion.x + cone_center_table[direction_y][direction_x][1]]
+            leave_out = [champion.y + leave_out_table[direction_y][direction_x][0],
+                         champion.x + leave_out_table[direction_y][direction_x][1]]
+        else:
+            direction_x = spell_target[1] - champion.x + 1
+            cone_center_table = [
+                [[-2, -1], [-2, 1], []],
+                [[0, -2], [], [0, 2]],
+                [[2, -1], [2, 1], []]
+            ]
+
+            leave_out_table = [
+                [[-3, -2], [-3, 1], []],
+                [[0, -3], [], [0, 3]],
+                [[3, -2], [3, 1], []]
+            ]
+            cone_center = [champion.y + cone_center_table[direction_y][direction_x][0],
+                           champion.x + cone_center_table[direction_y][direction_x][1]]
+            leave_out = [champion.y + leave_out_table[direction_y][direction_x][0],
+                         champion.x + leave_out_table[direction_y][direction_x][1]]
     else:
-        direction_x = spell_target[1] - champion.x + 1
-        cone_center_table = [
-            [[-2, -1], [-2, 1], []],
-            [[0, -2], [], [0, 2]],
-            [[2, -1], [2, 1], []]
-        ]
-
-        leave_out_table = [
-            [[-3, -2], [-3, 1], []],
-            [[0, -3], [], [0, 3]],
-            [[3, -2], [3, 1], []]
-        ]
-        cone_center = [champion.y + cone_center_table[direction_y][direction_x][0],
-                       champion.x + cone_center_table[direction_y][direction_x][1]]
-        leave_out = [champion.y + leave_out_table[direction_y][direction_x][0],
-                     champion.x + leave_out_table[direction_y][direction_x][1]]
+        cone_center = [champion.target.y, champion.target.x]
+        leave_out = []
 
     neighbors = field.find_neighbors(cone_center[0], cone_center[1])
     neighbors.append(cone_center)
@@ -796,7 +803,10 @@ def janna(champion):
                   {'increase': True, 'expires': stats.SHIELD_LENGTH[champion.name]})
 
         ad_gain_abs = stats.ABILITY_DMG_GAIN[champion.name][champion.stars]
-        percentual_ad_change = (ad_gain_abs / a.AD) + 1
+        if a.AD == 0:
+            percentual_ad_change = 1
+        else:
+            percentual_ad_change = (ad_gain_abs / a.AD) + 1
         a.add_que('change_stat', -1, None, 'AD', a.AD * percentual_ad_change)
         a.add_que('change_stat', stats.SHIELD_LENGTH[champion.name], None, 'AD', None, {'ashe': percentual_ad_change})
 
@@ -1093,9 +1103,10 @@ def leesin(champion):
     if len(champion.enemy_team()) > 0:
         line_to_wall_behind_target = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y,
                                                                                          champion.target.x)
-        # print("LEE SIN ABILITY")
-        # print(line_to_wall_behind_target)
-        end_point = line_to_wall_behind_target[0][-1]
+        if line_to_wall_behind_target[0]:
+            end_point = line_to_wall_behind_target[0][-1]
+        else:
+            end_point = [champion.target.y, champion.target.x]
 
         # find the closest corner to the line's end point
         # not perfect
@@ -1181,7 +1192,7 @@ def leesin(champion):
                     all_occupied = True
                     for l in line:
                         if coords:
-                            if not coords[l[0]][l[1]]:
+                            if not 0 <= l[0] <= 7 or 0 <= l[1] <= 6:
                                 all_occupied = False
                                 break
                     if all_occupied:
@@ -1207,9 +1218,8 @@ def leesin(champion):
                             else:
                                 kick_out = True
                             break
-
-                        if (coords[line[0][0]][line[0][1]] or not (
-                                line[0][0] == 0 or line[0][0] == 7 or line[0][1] == 0 or line[0][1] == 6)):
+                        if not (line[0][0] == 0 or line[0][0] == 7 or line[0][1] == 0 or line[0][1] == 6)\
+                                or coords[line[0][0]][line[0][1]]:
                             line = line[1:]
                         else:
                             kick_coords = line[0]
@@ -1220,15 +1230,18 @@ def leesin(champion):
                 # find the closest hex to the corner that's free
                 else:
                     # some close hexes
-                    hexes_in_distance = field.hexes_in_distance(end_point[0], end_point[1], 3)
+                    index = 1
                     hexes_on_sides = []
-                    for n in hexes_in_distance:
-                        # add only if they are on side lanes
-                        if (n[0] == 0 or n[0] == 7 or n[1] == 0 or n[1] == 6) and not coords[n[0]][n[1]]:
-                            hexes_on_sides.append(n)
-                            d = field.distance({'y': n[0], 'x': n[1]},
-                                               {'y': end_point_original[0], 'x': end_point_original[1]}, False)
-                            hexes_on_sides[-1].append(d)
+                    while len(hexes_on_sides) < 1:
+                        hexes_in_distance = field.hexes_in_distance(end_point[0], end_point[1], index)
+                        for n in hexes_in_distance:
+                            # add only if they are on side lanes
+                            if (n[0] == 0 or n[0] == 7 or n[1] == 0 or n[1] == 6) and not coords[n[0]][n[1]]:
+                                hexes_on_sides.append(n)
+                                d = field.distance({'y': n[0], 'x': n[1]},
+                                                   {'y': end_point_original[0], 'x': end_point_original[1]}, False)
+                                hexes_on_sides[-1].append(d)
+                        index += 1
 
                     # sort by distance to the end point and choose the closest one
                     hexes_on_sides = sorted(hexes_on_sides, key=lambda x: x[2])
@@ -1249,7 +1262,8 @@ def leesin(champion):
                                           stats.ABILITY_SECONDARY_STUN_DURATION[champion.name][champion.stars], None,
                                           'stunned', False)
                                 champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars] / 2)
-
+                    if champion.target is None:
+                        return
                     # push to corner
                     champion.target.move(kick_coords[0], kick_coords[1], True)
                     target_y = champion.target.y
@@ -1754,12 +1768,13 @@ def pyke(champion):
 def pyke_ability(champion, data):
     coords = field.coordinates
     for p in data['path']:
-        c = coords[p[0]][p[1]]      # I got one crash here where pyke chose coordinates out of range
-        if c and c.team != champion.team and c.champion:
-            c.add_que('change_stat', -1, None, 'stunned', True)
-            c.clear_que_stunned_removal()
-            c.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None, 'stunned', False)
-            champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
+        if 0 <= p[0] <= 7 and 0 <= p[1] <= 6:
+            c = coords[p[0]][p[1]]
+            if c and c.team != champion.team and c.champion:
+                c.add_que('change_stat', -1, None, 'stunned', True)
+                c.clear_que_stunned_removal()
+                c.add_que('change_stat', stats.ABILITY_STUN_DURATION[champion.name][champion.stars], None, 'stunned', False)
+                champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
 
 
 riven_counter = []
@@ -1934,7 +1949,7 @@ def sett(champion):
 
         smash_targets = []
 
-        target_neighbors = field.find_neighbors(champion.target.y, champion.target.x, True)
+        target_neighbors = field.find_neighbors(champion.target.y, champion.target.x, False)
         for i, t in enumerate(target_neighbors):
             d = field.distance({'y': champion.y, 'x': champion.x}, {'y': t[0], 'x': t[1]}, False)
             target_neighbors[i] = [t, d]
@@ -1944,39 +1959,43 @@ def sett(champion):
         one_distance_neighbors = list(filter(lambda x: (x[1] == 1), target_neighbors))
         two_distance_neighbors = list(filter(lambda x: (x[1] == 2), target_neighbors))
 
-        # finding the preferred smash target hex (two away from the side neighbors [one distance from champion])
-        # and two away from the champion itself.
-        two_from_champion = field.hexes_distance_away(champion.y, champion.x, 2, True)
-        two_from_n0 = field.hexes_distance_away(one_distance_neighbors[0][0][0],
-                                                one_distance_neighbors[0][0][1], 2, True)
-        two_from_n1 = field.hexes_distance_away(one_distance_neighbors[1][0][0],
-                                                one_distance_neighbors[1][0][1], 2, True)
-        two_away = list(set(map(tuple, two_from_n0)).intersection(set(map(tuple, two_from_n1))))
-        two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_away))))
+        if one_distance_neighbors and two_distance_neighbors:
+            # finding the preferred smash target hex (two away from the side neighbors [one distance from champion])
+            # and two away from the champion itself.
+            two_from_champion = field.hexes_distance_away(champion.y, champion.x, 2, True)
+            two_from_n0 = field.hexes_distance_away(one_distance_neighbors[0][0][0],
+                                                    one_distance_neighbors[0][0][1], 2, True)
+            if len(one_distance_neighbors) > 1:
+                two_from_n1 = field.hexes_distance_away(one_distance_neighbors[1][0][0],
+                                                        one_distance_neighbors[1][0][1], 2, True)
+                two_away = list(set(map(tuple, two_from_n0)).intersection(set(map(tuple, two_from_n1))))
+            else:
+                two_away = two_from_n0
+            two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_away))))
+            # add into 'smash_targets' in the next order: first we have the preferred hex (solid red line)
+            # then the next two will be the secondary smash targets
+            if two_away:
+                smash_targets.append([two_away[0][0], two_away[0][1]])
+            two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
+            smash_targets.append(two_distance_neighbors[0][0])
+            if len(two_distance_neighbors) > 1:
+                smash_targets.append(two_distance_neighbors[1][0])
 
-        # add into 'smash_targets' in the next order: first we have the preferred hex (solid red line)
-        # then the next two will be the secondary smash targets
+            # go through the possibilities and try to find a free hex
+            free_hex = None
+            coords = field.coordinates
+            for s in smash_targets:
+                if s[0] >= 0 and s[0] <= 7 and s[1] >= 0 and s[1] <= 6:
+                    c = coords[s[0]][s[1]]
+                    if not c:
+                        free_hex = s
+                        break
 
-        smash_targets.append([two_away[0][0], two_away[0][1]])
-        two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
-        smash_targets.append(two_distance_neighbors[0][0])
-        smash_targets.append(two_distance_neighbors[1][0])
-
-        # go through the possibilities and try to find a free hex
-        free_hex = None
-        coords = field.coordinates
-        for s in smash_targets:
-            if s[0] >= 0 and s[0] <= 7 and s[1] >= 0 and s[1] <= 6:
-                c = coords[s[0]][s[1]]
-                if not c:
-                    free_hex = s
-                    break
-
-        # move to the target if there's a fee hex available
-        if free_hex:
-            sett_target = [champion.target.y, champion.target.x]
-            champion.target.move(free_hex[0], free_hex[1], True)
-            champion.move(sett_target[0], sett_target[1], True)
+            # move to the target if there's a fee hex available
+            if free_hex:
+                sett_target = [champion.target.y, champion.target.x]
+                champion.target.move(free_hex[0], free_hex[1], True)
+                champion.move(sett_target[0], sett_target[1], True)
 
         # slamming area
         damaged_hexes = field.hexes_in_distance(champion.target.y, champion.target.x, 2)
@@ -2582,7 +2601,10 @@ def yone(champion):
             if (len(p) > 5): path[i] = p[:5]
 
         middle_line = floor(stats.ABILITY_RADIUS[champion.name] / 2)
-        dash_coordinate = path[middle_line][-1]
+        if not path[middle_line]:
+            dash_coordinate = [champion.target.y, champion.target.x]
+        else:
+            dash_coordinate = path[middle_line][-1]
 
         # since the path function kinda sucks (especially when going straight up or down), check if the target is in the path
         # if not, change the path a bit to force the target there

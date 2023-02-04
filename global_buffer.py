@@ -16,7 +16,7 @@ class GlobalBuffer:
         observation_batch, action_history_batch, target_value_batch, target_reward_batch = [], [], [], []
         target_policy_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
         action_mask_batch = []
-        for gameplay_experience in range(self.batch_size):
+        for gameplay_experience in range(len(self.gameplay_experiences)):
             observation, action_history, value_mask, reward_mask, policy_mask,\
                 value, reward, policy, action_mask = self.gameplay_experiences.popleft()
             observation_batch.append(observation)
@@ -29,8 +29,32 @@ class GlobalBuffer:
             target_policy_batch.append(policy)
             action_mask_batch.append(action_mask)
 
+        for x in range(len(observation_batch)):
+            observation_batch[x] = observation_batch[x][-1]
+        max = 0
+        for x in range(len(target_value_batch)):
+            if len(target_value_batch[x]) > max:
+                max = len(target_value_batch[x])
+
+        for x in range(len(target_value_batch)):
+            target_value_batch[x] += [0] * (max - len(target_value_batch[x]))
+            target_reward_batch[x] += [0] * (max - len(target_reward_batch[x]))
+            value_mask_batch[x] += [0] * (max - len(value_mask_batch[x]))
+            reward_mask_batch[x] += [0] * (max - len(reward_mask_batch[x]))
+            policy_mask_batch[x] += [0] * (max - len(policy_mask_batch[x]))
+            target_policy_batch[x] += [np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])] * (max - len(target_policy_batch[x]))
+            action_mask_batch[x] += [np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])] * (max - len(action_mask_batch[x]))
+            action_history_batch[x] += ["0"] * ((max - 1) - len(action_history_batch[x]))
+                # observation_batch[x] += [np.zeros(config.OBSERVATION_SIZE)] * (max - len(observation_batch[x]))
+        
+
+        # for x in range(len(action_history_batch)):
+        #     print(len(action_history_batch[x]))
+            # action_history_batch[x] = np.asarray(action_history_batch[x])
+
         observation_batch = np.squeeze(np.asarray(observation_batch))
         action_history_batch = np.asarray(action_history_batch)
+        # print(action_history_batch[:][0])
         target_value_batch = np.asarray(target_value_batch).astype('float32')
         target_reward_batch = np.asarray(target_reward_batch).astype('float32')
         value_mask_batch = np.asarray(value_mask_batch).astype('float32')
@@ -51,8 +75,10 @@ class GlobalBuffer:
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size:
+            print("BATCH READY")
             time.sleep(5)
             return True
+        print("BATCH NOT READY", queue_length)
         time.sleep(20)
         return False
 

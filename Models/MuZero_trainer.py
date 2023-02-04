@@ -101,10 +101,9 @@ class Trainer(object):
         for tstep, prediction in enumerate(predictions):
             # prediction.value_logits is [64, 601]
             accs['value_loss'].append(
-                self.scale_gradient(
-                    tf.nn.softmax_cross_entropy_with_logits(
-                        logits=prediction.value_logits,
-                        labels=target_value_encoded[:, tstep]),
+                self.scale_gradient(tf.reduce_sum(-target_value_encoded[:, tstep] *
+                    tf.nn.log_softmax(
+                        logits=prediction.value_logits), -1),
                     gradient_scales['value'][tstep]))
             # accs['value_loss'].append(
             #     self.scale_gradient(
@@ -113,10 +112,9 @@ class Trainer(object):
             #     )
             # )
             accs['reward_loss'].append(
-                self.scale_gradient(
-                    tf.nn.softmax_cross_entropy_with_logits(
-                        logits=prediction.reward_logits,
-                        labels=target_reward_encoded[:, tstep]),
+                self.scale_gradient(tf.reduce_sum(-target_reward_encoded[:, tstep] * 
+                    tf.nn.log_softmax(
+                        logits=prediction.reward_logits), -1),
                     gradient_scales['reward'][tstep]))
             # predictions.policy_logits is [64, [action_dims]]
             # target_policy is [64, 17, [action_dims]]
@@ -126,12 +124,12 @@ class Trainer(object):
             #             prediction.policy_logits[2]
             #         ], axis=-1)
             
-            policy_loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction.policy_logits[0] * action_mask[:, tstep, 0:6],
-                                                                  labels=target_policy[:, tstep, 0:6] * action_mask[:, tstep, 0:6])
-            policy_loss += tf.nn.softmax_cross_entropy_with_logits(logits=prediction.policy_logits[1] * action_mask[:, tstep, 6:44],
-                                                                  labels=target_policy[:, tstep, 6:44] * action_mask[:, tstep, 6:44])
-            policy_loss += tf.nn.softmax_cross_entropy_with_logits(logits=prediction.policy_logits[2] * action_mask[:, tstep, 44:54],
-                                                                  labels=target_policy[:, tstep, 44:54] * action_mask[:, tstep, 44:54])
+            policy_loss = tf.reduce_sum(-target_policy[:, tstep, 0:6] * action_mask[:, tstep, 0:6] * 
+                            tf.nn.log_softmax(logits=prediction.policy_logits[0] * action_mask[:, tstep, 0:6]), -1)
+            policy_loss += tf.reduce_sum(-target_policy[:, tstep, 6:44] * action_mask[:, tstep, 6:44] * 
+                            tf.nn.log_softmax(logits=prediction.policy_logits[1] * action_mask[:, tstep, 6:44]), -1)
+            policy_loss += tf.reduce_sum(-target_policy[:, tstep, 44:54] * action_mask[:, tstep, 44:54] * 
+                            tf.nn.log_softmax(logits=prediction.policy_logits[2] * action_mask[:, tstep, 44:54]), -1)
 
             # entropy_loss = -parametric_action_distribution.entropy(
             #     prediction.policy_logits) * config.policy_loss_entropy_regularizer
