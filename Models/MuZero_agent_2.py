@@ -276,21 +276,23 @@ class TFTNetwork(Network):
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
 
         # Reward head
-        x = tf.keras.layers.Dense(units=601, activation='tanh', name='reward',
+        x = tf.keras.layers.Dense(units=601, activation='relu', name='reward',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(rnn_output)
-        reward_output = tf.keras.layers.Softmax()(x)
+        # reward_output = tf.keras.layers.Softmax()(x)
+        reward_output = x
         dynamics_model: tf.keras.Model = \
             tf.keras.Model(inputs=[dynamic_hidden_state, encoded_state_action],
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
         pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
         x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(pred_hidden_state)
-        x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
+        x = tf.keras.layers.Dense(units=601, activation='relu', name='value',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
-        value_output = tf.keras.layers.Softmax()(x)
-        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='softmax', name='action_layer')(x)
-        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='softmax', name='target_layer')(x)
-        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='softmax', name='item_layer')(x)
+        # value_output = tf.keras.layers.Softmax()(x)
+        value_output = x
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='relu', name='action_layer')(x)
+        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='relu', name='target_layer')(x)
+        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='relu', name='item_layer')(x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
                                                           outputs=[value_output, 
@@ -325,10 +327,10 @@ class Mlp(tf.keras.Model):
     def forward(self, x):
         x = self.fc1(x)
         x = self.norm(x)
-        x = tf.keras.activations.relu(x)
+        x = tf.keras.activations.elu(x)
         x = self.fc2(x)
         x = self.norm2(x)
-        x = tf.keras.activations.relu(x)
+        x = tf.keras.activations.elu(x)
         return x
 
     def __call__(self, x, *args, **kwargs):
@@ -722,7 +724,7 @@ class Batch_MCTSAgent(MCTSAgent):
 
         actions = []
         actions.append(("0",action[0][0]))
-        for i in range(5):
+        for i in range(5): #TODO check if there is space in bench
             if shop[i] and gold >= shop_price[i]:
                 actions.append((f"1_{i}",action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
         for a in range(37):

@@ -57,10 +57,6 @@ class BufferWrapper:
             index += rewardLens[i]
     
     def store_global_buffer(self):
-        max = 0
-        for replay in self.buffers.values():
-            if len(replay.gameplay_experiences) > max:
-                max = len(replay.gameplay_experiences)
         for b in self.buffers.values():
-            b.store_global_buffer(max)
+            b.store_global_buffer()
     

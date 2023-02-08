@@ -21,7 +21,7 @@ import Simulator.utils as utils
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.10)
+@ray.remote(num_gpus=0.12)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -34,48 +34,49 @@ class DataWorker(object):
         # collect_gameplay_experience took 1635.8837022781372 seconds to finish one episode
         self.agent_network.set_weights(weights)
         agent = Batch_MCTSAgent(self.agent_network)
-        # Reset the environment
-        player_observation = env.reset()
-        # This is here to make the input (1, observation_size) for initial_inference
-        player_observation = np.asarray(list(player_observation.values()))
-        # Used to know when players die and which agent is currently acting
-        terminated = {player_id: False for player_id in env.possible_agents}
-        # Current action to help with MuZero
-        self.prev_actions = ["0" for _ in range(config.NUM_PLAYERS)]
+        while True:
+            # Reset the environment
+            player_observation = env.reset()
+            # This is here to make the input (1, observation_size) for initial_inference
+            player_observation = np.asarray(list(player_observation.values()))
+            # Used to know when players die and which agent is currently acting
+            terminated = {player_id: False for player_id in env.possible_agents}
+            # Current action to help with MuZero
+            self.prev_actions = ["0" for _ in range(config.NUM_PLAYERS)]
 
-        # While the game is still going on.
-        while not all(terminated.values()):
-            # Ask our model for an action and policy
-            actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
-            step_actions = self.getStepActions(terminated, actions)
-            if any(terminated.values()):
-                for player_id, terminate in terminated.items():
-                    if terminate and player_id in env.agents:
-                        # print("Deleting", player_id)
-                        env.agents.remove(player_id)
+            # While the game is still going on.
+            while not all(terminated.values()):
+                # Ask our model for an action and policy
+                actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+                step_actions = self.getStepActions(terminated, actions)
+                if any(terminated.values()):
+                    for player_id, terminate in terminated.items():
+                        if terminate and player_id in env.agents:
+                            # print("Deleting", player_id)
+                            env.agents.remove(player_id)
 
-            # Take that action within the environment and return all of our information for the next player
-            next_observation, reward, terminated, _, info = env.step(step_actions)
-            # store the action for MuZero
-            concat_policy = np.concatenate([
-                    policy[0],
-                    policy[1],
-                    policy[2]
-                ], axis=-1)
-            for i, key in enumerate(terminated.keys()):
-                # Store the information in a buffer to train on later.
-                buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], concat_policy[i])
-            # Set up the observation for the next action
-            player_observation = np.asarray(list(next_observation.values()))
-            self.prev_actions = actions
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.step(step_actions)
+                # store the action for MuZero
+                concat_policy = np.concatenate([
+                        policy[0],
+                        policy[1],
+                        policy[2]
+                    ], axis=-1)
+                for i, key in enumerate(terminated.keys()):
+                    # Store the information in a buffer to train on later.
+                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], concat_policy[i])
+                # Set up the observation for the next action
+                player_observation = np.asarray(list(next_observation.values()))
+                self.prev_actions = actions
 
-        # buffers.rewardNorm.remote()
-        buffers.store_global_buffer.remote()
-        buffers = BufferWrapper.remote(global_buffer)
+            # buffers.rewardNorm.remote()
+            buffers.store_global_buffer.remote()
+            buffers = BufferWrapper.remote(global_buffer)
 
-        weights = ray.get(storage.get_model.remote())
-        agent.network.set_weights(weights)
-        self.rank += config.CONCURRENT_GAMES
+            weights = ray.get(storage.get_model.remote())
+            agent.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
 
 
     def getStepActions(self, terminated, actions):
@@ -129,12 +130,13 @@ class AIInterface:
     def train_model(self, starting_train_step = 0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=len(gpus), num_cpus=16)
+        ray.init(num_gpus=len(gpus), num_cpus=20)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         train_step = starting_train_step
+        tf.config.optimizer.set_jit(True)
 
         global_buffer = GlobalBuffer.remote()
 
@@ -143,32 +145,24 @@ class AIInterface:
 
         env = parallel_env()
 
-        # buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
+        buffers = [BufferWrapper.remote(global_buffer)
+                   for _ in range(config.CONCURRENT_GAMES)]
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
-        for i in range(config.CONCURRENT_GAMES):
-            buffer = BufferWrapper.remote(global_buffer)
-            data_worker = DataWorker.remote(i)
-            workers.append(data_worker.collect_gameplay_experience.remote(env, buffer, global_buffer,
+        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        for i, worker in enumerate(data_workers):
+            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
+            time.sleep(2)
 
+        # ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
 
         while True:
-            ready_ids, workers = ray.wait(workers)
-            # Get the available object and do something with it.
-            ray.get(ready_ids)
-            # Start a new task.
-            for i in range(len(workers), config.CONCURRENT_GAMES):
-                buffer = BufferWrapper.remote(global_buffer)
-                data_worker = DataWorker.remote(i)
-                workers.append(data_worker.collect_gameplay_experience.remote(env, buffer, global_buffer,
-                                                                        storage, weights))
             if ray.get(global_buffer.available_batch.remote()):
-                print("TRAINING")
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 storage.set_target_model.remote(global_agent.get_weights())
