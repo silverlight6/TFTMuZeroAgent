@@ -1,7 +1,6 @@
 import time
 import config
 import random
-# import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
@@ -99,7 +98,7 @@ class Game_Round:
                 player.end_turn_actions()
                 player.combat = False
         for num in player_nums:
-            # make sure I am dealing with one of the players who has yet to fight.
+            # make sure I am dealing with one of the players who have yet to fight.
             if players[num] and not players[num].combat:
                 # If there is more than one player left ot be matched.
                 if players_matched < config.NUM_PLAYERS - 1 - self.NUM_DEAD:
@@ -197,7 +196,7 @@ class Game_Round:
                 player.start_round(self.current_round)
 
         # TO DO
-        # Change this so it isn't tied to a player and can log as time proceeds
+        # Change this, so it isn't tied to a player and can log as time proceeds
 
     def round_1(self):
         for player in self.PLAYERS.values():

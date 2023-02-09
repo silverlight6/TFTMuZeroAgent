@@ -181,7 +181,7 @@ class AIInterface:
     def __init__(self):
         ...
 
-    def train_model(self, starting_train_step = 0):
+    def train_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=20)

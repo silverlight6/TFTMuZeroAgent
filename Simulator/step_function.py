@@ -39,14 +39,16 @@ class Step_Function:
     def dcord_to_2dcord(self, dcord):
         # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
         x = dcord % 7
-        y = (dcord - x ) // 7
-        return x,y
+        y = (dcord - x) // 7
+        return x, y
 
     def single_step_action_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
-            # action format = 0:6 (action_selector), 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
-            # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector) and 27 (board / bench division wrt target vector)
+            # action format = 0:6 (action_selector),
+            # 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
+            # TODO(lobotuerk) Get rid of magic numbers like 36 (sell target wrt target vector)
+            #  and 27 (board / bench division wrt target vector)
             action_selector = np.argmax(action[0:6])
             if action_selector == 0:
                 # Pass action
@@ -65,7 +67,7 @@ class Step_Function:
                 if swap_loc_to == 37:
                     # Sell Champ
                     if swap_loc_from < 28:
-                        x,y = self.dcord_to_2dcord(swap_loc_from)
+                        x, y = self.dcord_to_2dcord(swap_loc_from)
                         if player.board[x][y]:
                             player.sell_champion(player.board[x][y], field=True)
                     else:
@@ -74,14 +76,14 @@ class Step_Function:
                     # Swap from swap_loc_from to swap_loc_to
                     if swap_loc_from < 28:
                         if swap_loc_to < 28:
-                            x1,y1 = self.dcord_to_2dcord(swap_loc_from)
-                            x2,y2 = self.dcord_to_2dcord(swap_loc_to)
+                            x1, y1 = self.dcord_to_2dcord(swap_loc_from)
+                            x2, y2 = self.dcord_to_2dcord(swap_loc_to)
                             if player.board[x1][y1]:
                                 player.move_board_to_board(x1, y1, x2, y2)
                             elif player.board[x2][y2]:
                                 player.move_board_to_board(x2, y2, x1, y1)
                         else:
-                            x1,y1 = self.dcord_to_2dcord(swap_loc_from)
+                            x1, y1 = self.dcord_to_2dcord(swap_loc_from)
                             bench_loc = swap_loc_to - 28
                             if player.bench[bench_loc]:
                                 player.move_bench_to_board(bench_loc, x1, y1)
@@ -95,7 +97,7 @@ class Step_Function:
                     move_loc -= 28
                     player.move_item_to_bench(item_selector, move_loc)
                 else:
-                    x,y = self.dcord_to_2dcord(move_loc)
+                    x, y = self.dcord_to_2dcord(move_loc)
                     player.move_item_to_board(item_selector, x, y)
             elif action_selector == 4:
                 # Buy EXP
@@ -105,7 +107,6 @@ class Step_Function:
                 if player.refresh():
                     self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
-            
             observations = game_observations[key].get_lobo_observation(player, self.shops[player.player_num], players)
             return player.reward, observations
         return 0

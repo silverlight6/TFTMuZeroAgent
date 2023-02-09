@@ -136,8 +136,9 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
-        self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent], 
-                            self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS) for agent in self.agents}
+        self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent],
+                             self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS)
+                             for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -160,9 +161,9 @@ class TFT_Simulator(AECEnv):
         if action.ndim == 0:
             return
         elif action.ndim == 1:
-            reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action, 
-                                                                        self.PLAYERS[self.agent_selection], self.PLAYERS,
-                                                                        self.agent_selection, self.game_observations)
+            reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action,
+                                                                    self.PLAYERS[self.agent_selection], self.PLAYERS,
+                                                                    self.agent_selection, self.game_observations)
 
         # if we don't use this line, rewards will compound per step 
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
@@ -206,7 +207,7 @@ class TFT_Simulator(AECEnv):
             # print("Terminating player", k)
             self.terminations[k] = True
             temp_agents.remove(k)
-            self.rewards[k] = (3 - len(temp_agents)) * 75
+            self.rewards[k] = (3 - len(temp_agents)) * 25
 
         if len(self.kill_list) > 0:
             self._agent_selector.reinit(temp_agents)
