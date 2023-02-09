@@ -122,15 +122,15 @@ class DataWorker(object):
         return decoded_action
 
     def evaluate_agents(self, env, storage):
-        agents = {"player_" + str(r): Batch_MCTSAgent(TFTNetwork())
+        agents = {r: Batch_MCTSAgent(TFTNetwork())
                   for r in range(config.NUM_PLAYERS)}
-        agents["player_1"].network.tft_load_model(1000)
-        agents["player_2"].network.tft_load_model(2000)
-        agents["player_3"].network.tft_load_model(3000)
-        agents["player_4"].network.tft_load_model(4000)
-        agents["player_5"].network.tft_load_model(5000)
-        agents["player_6"].network.tft_load_model(6000)
-        agents["player_7"].network.tft_load_model(7000)
+        # agents["player_1"].network.tft_load_model(10)
+        agents[2].network.tft_load_model(50)
+        agents[3].network.tft_load_model(100)
+        agents[4].network.tft_load_model(150)
+        agents[5].network.tft_load_model(200)
+        agents[6].network.tft_load_model(250)
+        agents[7].network.tft_load_model(300)
 
         while True:
             # Reset the environment
@@ -150,23 +150,25 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions = {agent: 0 for agent in agents.keys()}
-                for i, [key, agent] in enumerate(agents.items()):
-                    action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
+                actions = {agent: "0" for agent in env.possible_agents}
+                for i, key, in enumerate(env.possible_agents):
+                    action, _ = agents[key].policy(player_observation[i], actions[key])
                     actions[key] = action
+                step_actions = self.getStepActions(terminated, actions)
+                if any(terminated.values()):
+                    for player_id, terminate in terminated.items():
+                        if terminate and player_id in env.agents:
+                            # print("Deleting", player_id)
+                            env.agents.remove(player_id)
+                            placements[player_id] = current_position
+                            current_position -= 1
 
-                # step_actions = self.getStepActions(terminated, np.asarray(actions))
 
                 # Take that action within the environment and return all of our information for the next player
-                next_observation, reward, terminated, _, info = env.step(actions)
+                next_observation, reward, terminated, _, info = env.step(step_actions)
 
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
-
-                for key, terminate in terminated.items():
-                    if terminate:
-                        placements[key] = current_position
-                        current_position -= 1
 
             for key, value in info.items():
                 if value["player_won"]:
@@ -221,7 +223,7 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
-                if train_step % 10 == 0:
+                if train_step % 50 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 
@@ -269,6 +271,7 @@ class AIInterface:
             workers.append(worker.evaluate_agents.remote(env, storage))
             time.sleep(1)
 
+        ray.get(workers)
         while True:
             time.sleep(10000)
             print("good luck getting past this")

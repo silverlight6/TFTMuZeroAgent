@@ -120,10 +120,8 @@ class Network(tf.keras.Model):
         self.prediction: tf.keras.Model = prediction
 
         # create encoders for the value and reward, in order to put them in a form suitable for training.
-        # self.value_encoder = ValueEncoder(-300., 300., 0, False)
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        # self.reward_encoder = ValueEncoder(-300., 300., 0, False)
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         # build initial and recurrent inference models.
@@ -287,17 +285,18 @@ class TFTNetwork(Network):
 
         pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
         x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(pred_hidden_state)
+        value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(x)
         value_output = tf.keras.layers.Dense(units=601, name='value', kernel_regularizer=regularizer,
-                                             bias_regularizer=regularizer)(x)
+                                             bias_regularizer=regularizer)(value_x)
 
-        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='relu', name='action_layer')(x)
-        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='relu', name='target_layer')(x)
-        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='relu', name='item_layer')(x)
+        policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(x)
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], activation='relu', name='action_layer')(policy_x)
+        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], activation='relu', name='target_layer')(policy_x)
+        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], activation='relu', name='item_layer')(policy_x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
                                                           outputs=[value_output, 
-                                                          [policy_output_action, policy_output_target,
-                                                           policy_output_item]],
+                                                          [policy_output_action, policy_output_target, policy_output_item]],
                                                           name='prediction')
 
         super().__init__(representation=representation_model,
@@ -407,7 +406,7 @@ class ValueEncoder:
         )
         return lower_encoding + upper_encoding
 
-    def decode(self, logits):
+    def decode(self, logits):  # not worth optimizing
         if len(logits.shape) != 2:
             raise ValueError(
                 'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
@@ -422,8 +421,7 @@ class ValueEncoder:
 
 # From the MuZero paper.
 def contractive_mapping(x, eps=0.001):
-    x = tf.math.sign(x) * (tf.math.sqrt(tf.math.abs(x) + 1.) - 1.) + eps * x
-    return x
+    return tf.math.sign(x) * (tf.math.sqrt(tf.math.abs(x) + 1.) - 1.) + eps * x
 
 
 # From the MuZero paper.
@@ -464,11 +462,12 @@ class MCTSAgent:
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
 
-    def expand_node(self, node: Node, network_output):
+    def expand_node(self, node: Node, network_output):  # takes negligible time
         node.to_play = 0
         node.hidden_state = network_output["hidden_state"]
         node.reward = network_output["reward"]
 
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
         policy_probs = network_output["policy_logits"].numpy()[0]
 
         policy = expand_node2(policy_probs, config.ACTION_DIM)
@@ -483,7 +482,7 @@ class MCTSAgent:
         for action, p in policy.items():
             node.children[action] = Node(p / policy_sum)
 
-    def add_exploration_noise(self, node: dict, key):
+    def add_exploration_noise(self, node: dict, key):  # takes 0 time
         actions = list(node[key].children.keys())
         noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
         frac = config.ROOT_EXPLORATION_FRACTION
@@ -511,7 +510,7 @@ class MCTSAgent:
     # tree to the root.
     @staticmethod
     def backpropagate(node: dict, search_path: List[dict], value: float,
-                      min_max_stats: MinMaxStats, player_num: int):  # takes lots of time
+                      min_max_stats: MinMaxStats):  # takes lots of time
         last_value = value
         for key in search_path:
             
@@ -549,7 +548,7 @@ class MCTSAgent:
             network_output = self.network. \
                 recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
             self.expand_node(node, network_output)
-            self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
+            self.backpropagate(search_path, network_output["value"], min_max_stats)
 
     def select_action(self, node: dict):
         visit_counts = [
@@ -636,7 +635,7 @@ class Batch_MCTSAgent(MCTSAgent):
             # main decision axis.
             
             for i in range(self.NUM_ALIVE):
-                curr_node = 0  # Starting at root
+                curr_node = 0 #Starting at root
                 while node[i][curr_node].expanded():
                     selected_action, curr_node = self.select_child(node[i], curr_node, min_max_stats[i])
                     history[i].add_action(selected_action)
@@ -651,10 +650,10 @@ class Batch_MCTSAgent(MCTSAgent):
             network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
             for i in range(self.NUM_ALIVE):
                 
-                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play, network_output, search_path[i][-1])
+                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play,  network_output, search_path[i][-1])  # 7s
                 
                 # print("value {}".format(network_output["value"]))
-                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)
+                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i])  # 12.08s
 
     def batch_policy(self, observation, prev_action):
         # batch_policy took 6.422544717788696 seconds to finish
@@ -670,6 +669,27 @@ class Batch_MCTSAgent(MCTSAgent):
         self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
 
         action = [(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
+        
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+       
+        return action, network_output["policy_logits"]
+
+    def policy(self, observation, prev_action):
+        # observation.shape = (8246)
+        root = {0: Node(0)}
+        network_output = self.network.initial_inference(observation.reshape(1,8246))
+        
+        self.expand_node(root, network_output, 0, obs=observation)
+        self.add_exploration_noise(root, 0)
+            
+        self.run_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
+
+        action = self.select_action(root)
         
         # Masking only if training is based on the actions taken in the environment.
         # Training in MuZero is mostly based on the predicted actions rather than the real ones.
@@ -701,6 +721,57 @@ class Batch_MCTSAgent(MCTSAgent):
             children_key = len(node.keys())
             node[key].children[action] = children_key
             node[children_key] = Node(p / policy_sum)
+    
+    def expand_node(self, node: dict, network_output, key, obs=None):
+        # batch_expand_node took 0.021803855895996094 seconds to finish
+        node[key].to_play = 0
+        node[key].hidden_state = network_output["hidden_state"]
+        node[key].reward = network_output["reward"]
+
+        policy_action_probs = network_output["policy_logits"][0].numpy()
+        policy_target_probs = network_output["policy_logits"][1].numpy()
+        policy_item_probs = network_output["policy_logits"][2].numpy()
+
+        policy_action = expand_node2(policy_action_probs.reshape(config.ACTION_DIM[0],), config.ACTION_DIM[0])
+        policy_target = expand_node2(policy_target_probs.reshape(config.ACTION_DIM[1],), config.ACTION_DIM[1])
+        policy_item = expand_node2(policy_item_probs.reshape(config.ACTION_DIM[2],), config.ACTION_DIM[2])
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+
+        actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
+        for action, p in actions_p:
+            children_key = len(node.keys())
+            node[key].children[action] = children_key
+            node[children_key] = Node(p / policy_sum)
+
+    def run_mcts(self, node: list, action):
+        # run_batch_mcts took 5.652412176132202 seconds to finish
+        min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
+        
+        for _ in range(config.NUM_SIMULATIONS):
+            history = ActionHistory(action)
+            search_path = [0]
+            
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            
+            curr_node = 0 #Starting at root
+            while node[curr_node].expanded():
+                selected_action, curr_node = self.select_child(node, curr_node, min_max_stats)
+                history.add_action(selected_action)
+                search_path.append(curr_node)
+            
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = search_path[-2]
+            hidden_state = np.asarray(node[parent].hidden_state)
+            last_action = history.last_action()
+
+            network_output = self.network.recurrent_inference(hidden_state, [last_action])  # 11.05s
+            self.expand_node(node, network_output, search_path[-1])
+            
+            self.backpropagate(node, search_path, network_output["value"].numpy(), min_max_stats)
 
     def encode_action_to_str(self, action, target, item, obs=None):
         gold = 100
@@ -723,29 +794,29 @@ class Batch_MCTSAgent(MCTSAgent):
             items = [np.any(obs[(966 + i*6):(972 + i*6)]) for i in range(10)]
         board_bench.append(False)
 
-        actions = [("0", action[0][0])]
-        for i in range(5):  # TODO check if there is space in bench
+        actions = []
+        actions.append(("0",action[0][0]))
+        for i in range(5): #TODO check if there is space in bench
             if shop[i] and gold >= shop_price[i]:
-                actions.append((f"1_{i}", action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
+                actions.append((f"1_{i}",action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
         for a in range(37):
             for b in range(a, 38):
                 if a == b:
                     continue
                 if board_bench[a] or (board_bench[b] and unit_count < level):
-                    actions.append((f"2_{a}_{b}", action[0][2] *
+                    actions.append((f"2_{a}_{b}",action[0][2] * 
                                     (target[0][a] / sum(list(target[0].values())[0:37]) *
-                                    (target[0][b] / (sum(list(target[0].values())[0:38]) - target[0][a])))))
+                                    (target[0][b] / (sum(list(target[0].values())[0:38])  - target[0][a])))))
         for a in range(37):
             for b in range(10):
                 if board_bench[a] and items[b]:
-                    actions.append((f"3_{a}_{b}", action[0][3] *
+                    actions.append((f"3_{a}_{b}",action[0][3] *
                                     (target[0][a] / sum(list(target[0].values())[0:37])) * (item[0][b] / sum(list(item[0].values())))))
         if gold >= 4:
-            actions.append(("4", action[0][4]))
+            actions.append(("4",action[0][4]))
         if gold >= 2:
-            actions.append(("5", action[0][5]))
+            actions.append(("5",action[0][5]))
         return actions
-
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:
