@@ -163,7 +163,6 @@ class DataWorker(object):
                             placements[player_id] = current_position
                             current_position -= 1
 
-
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
 
