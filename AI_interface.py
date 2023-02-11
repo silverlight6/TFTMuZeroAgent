@@ -16,6 +16,7 @@ from Models.MuZero_agent_2 import TFTNetwork, MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
+from Models import A3C_Trainer
 from Models.A3C_Agent import A3C_Agent
 
 
@@ -218,8 +219,6 @@ class AIInterface:
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-        train_step = starting_train_step
         tf.config.optimizer.set_jit(True)
 
         global_buffer = GlobalBuffer.remote()
@@ -259,20 +258,22 @@ class AIInterface:
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
-
+        
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
+        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+        tf.config.optimizer.set_jit(True)
 
         global_buffer = GlobalBuffer.remote()
 
+        trainer = A3C_Trainer.Trainer()
         storage = Storage.remote(train_step)
         
         env = parallel_env()
 
-        global_agent = A3C_Agent(config.INPUT_SHAPE)
-        global_agent_weights = ray.get(storage.get_target_model.remote())
-        global_agent.a3c_net.set_weights(global_agent_weights)
-
-        buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)]
+        buffers = [BufferWrapper.remote(global_buffer) 
+                   for _ in range(config.CONCURRENT_GAMES)]
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
@@ -282,10 +283,16 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(1)
 
+        ray.get(workers)
+        global_agent = A3C_Agent(config.INPUT_SHAPE)
+        global_agent_weights = ray.get(storage.get_target_model.remote())
+        global_agent.a3c_net.set_weights(global_agent_weights)  
+
         while True:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_a3c_batch.remote())
-                global_agent.train_step(gameplay_experience_batch)
+                trainer.train_step(gameplay_experience_batch, global_agent)
+                # global_agent.train_step(gameplay_experience_batch)
                 storage.set_target_model.remote(global_agent.a3c_net.get_weights())
                 train_step += 1
                 if train_step % 100 == 0:
