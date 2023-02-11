@@ -4,8 +4,11 @@ import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
-from Simulator.item_stats import items as item_list, basic_items, item_builds, thiefs_gloves_items, \
-                                                                    starting_items, trait_items, uncraftable_items
+import Simulator.utils as utils
+
+from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
+    starting_items, trait_items, uncraftable_items
+
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -16,15 +19,13 @@ from math import floor
 # Stores all values relevant to an individual player in the game
 class player:
 
-    MAX_CHAMPION = 19  # 10 on board, 9 on bench
-    # champion number (1 spot), champion star level(1 spot), champion cost (1 spot) ,
-    # chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
-    CHAMPION_INFORMATION = 11
+    CHAMPION_INFORMATION = 12
     BOARD_SIZE = 28
     BENCH_SIZE = 9
     MAX_CHAMPION_IN_SET = 58
     UNCRAFTABLE_ITEM = len(uncraftable_items)
     MAX_BENCH_SPACE = 10
+    CHAMP_ENCODING_SIZE = 26
 
     def __init__(self, pool_pointer, player_num):
 
@@ -33,7 +34,6 @@ class player:
         self.exp = 0
         self.health = 100
         self.player_num = player_num
-        # print("player_num = " + str(self.player_num))
 
         self.win_streak = 0  # For purposes of gold generation at start of turn
         self.loss_streak = 0  # For purposes of gold generation at start of turn
@@ -66,18 +66,18 @@ class player:
         self.max_level = 9
 
         # 2 spot for each item(2 component) 10 slots
-        self.item_vector = np.zeros(20)
+        self.item_vector = np.zeros(self.MAX_BENCH_SPACE * 6)
 
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
 
-        # gold, exp, level, round_number, max_units, num_in_play / max in the range between 0 and 1
-        # As well as a 1 for win, 0 for a loss or draw in the last 3 rounds
-        self.player_vector = np.zeros(9)
+        # player related info split between what other players can see and what they can't see
+        self.player_public_vector = np.zeros(7)
+        self.player_private_vector = np.zeros(9)
 
-        self.board_occupation_vector = np.zeros(self.BOARD_SIZE)  # 28 hex * 3 - (x, y, Occupied State)
-        self.bench_occupation_vector = np.zeros(self.BENCH_SIZE)
-        self.champions_owned_vector = np.zeros(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
+        # Encoding board as an image, so we can run convolutions on it.
+        self.board_image = np.zeros((7*7, 4*4))  # 7x4 board, with 7x4 encoding
+        self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -118,12 +118,20 @@ class player:
         self.kayn_transformed = False
         self.kayn_form = None
 
-        self.thiefs_glove_loc = []
+        self.thieves_gloves_loc = []
 
         self.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
         self.current_action = 0
         self.action_complete = False
         self.action_values = []
+
+        # Start with two copies of each item in your item pool
+        self.item_pool = []
+        self.refill_item_pool()
+        self.refill_item_pool()
+
+        # Context For Loot Orbs
+        self.orb_history = []
 
     # Return value for use of pool.
     # Also I want to treat buying a unit with a full bench as the same as buying and immediately selling it
@@ -147,8 +155,10 @@ class player:
             self.chosen = a_champion.chosen
         # print("items are = " + str(a_champion.items))
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
-        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
-            self.thiefs_glove_loc.append([bench_loc, -1])
+        a_champion.num_items = len(a_champion.items)
+        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
+            self.thieves_gloves_loc.append([bench_loc, -1])
+            self.thieves_gloves(bench_loc, -1)
         self.generate_bench_vector()
         return True
 
@@ -246,26 +256,31 @@ class player:
         # print comp and bench for log purposes at end of turn
         self.printComp()
         self.printBench()
+        self.printItemBench()
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
-        offset_x = 1
-        offset_y = 0
-        parity = 1
+        x = 6
+        y = 3
         while len(coords_candidates) < 2:
-            coords_candidates = self.find_free_squares(azir_x + offset_x * parity, azir_y + offset_y * parity)
-            if parity == 1 and offset_y % 2 == 0:
-                parity = -1
-            elif parity == -1 and offset_y % 2 == 0:
-                offset_x += 1
-            elif parity == -1 and offset_y % 2 == 1:
-                parity = 1
-            else:
-                offset_x += 1
+            hexes = self.find_free_squares(x, y)
+            for hex in hexes:
+                if hex not in coords_candidates:
+                    coords_candidates.append(hex)
+            x -= 1
+            if x == -1:
+                x = 6
+                y -= 1
+
+        for x in range(2):
+            self.board[coords_candidates[x][0]][coords_candidates[x][1]] = champion.champion('sandguard',
+                                    kayn_form=self.kayn_form, target_dummy=True)
         coords = [coords_candidates[0], coords_candidates[1]]
         return coords
 
     def find_free_squares(self, x, y):
+        if x < 0 or x > 6 or y < 0 or y > 3:
+            return []
         directions = [
             [[+1, 0], [+1, +1], [0, -1],
              [0, +1], [-1, 0], [-1, +1]],
@@ -278,8 +293,8 @@ class player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (0 <= nY < 7 and 0 <= nX < 4) and not self.board[x][y]:
-                neighbors.append([nY, nX])
+            if (0 <= nY < 4 and 0 <= nX < 7) and not self.board[x][y]:
+                neighbors.append([nX, nY])
         return neighbors
 
     def findItem(self, name):
@@ -289,105 +304,49 @@ class player:
         return False
 
     def generate_board_vector(self):
-        output_array = np.zeros(28)
-        # Loop through champion vector and update occupation state
-        hex_count = 0
+        output_array = np.zeros((7*7,4*4))
         for x in range(0, 7):
             for y in range(0, 4):
+                champion_info_array = np.zeros(28) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 if self.board[x][y]:
-                    occupation_state = 1
-                else:
-                    occupation_state = 0
-                # Can use another conditional to indicate that the unit should be sold
-                output_array[hex_count] = occupation_state
-                hex_count += 1
-        self.board_occupation_vector = output_array
-        self.generate_player_vector()
-        self.generate_champion_vectors()
+                    curr_champ = self.board[x][y]
+                    c_index = list(COST.keys()).index(curr_champ.name)
+                    champion_info_array[0:6] = utils.champ_binary_encode(c_index)
+                    champion_info_array[6] = curr_champ.stars / 3
+                    champion_info_array[7] = curr_champ.cost / 5
+                    for ind, item in enumerate(curr_champ.items):
+                        start = (ind * 6) + 8
+                        finish = start + 6
+                        if item in uncraftable_items:
+                            i_index = list(uncraftable_items).index(item) + 1
+                        elif item in item_builds.keys():
+                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                        champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
-    def generate_champion_vectors(self):
-        """
-        Helps to generate the vectors containing all the champions information. Including both Board and Bench
-        :return:
-        """
-
-        output_array = np.zeros((self.MAX_CHAMPION, self.CHAMPION_INFORMATION))  # 19 * 11 = 209
-
-        # Check champion on bench from self.bench
-        curr_bench_count = 0
-        for x in range(0, 9):
-            champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
-            if self.bench[x]:
-                self.generate_single_champion_vector(self.bench[x], champion_info_array)
-                output_array[curr_bench_count] = champion_info_array
-
-        # Check champion on board from self.board
-        curr_board_count = 9 # Starts at 9, skipping the 9 spot on bench
-        for x in range(0, 7):
-            for y in range(0, 4):
-                champion_info_array = np.zeros(self.CHAMPION_INFORMATION)
-                if self.board[x][y]:
-                    self.generate_single_champion_vector(self.board[x][y], champion_info_array)
-                    output_array[curr_board_count] = champion_info_array
-                    curr_board_count += 1
-        self.champions_owned_vector = output_array.reshape(self.MAX_CHAMPION * self.CHAMPION_INFORMATION)
-
-    def generate_single_champion_vector(self, curr_champ, champion_info_array):
-        """
-        Helps to generate a vector of length CHAMPION_INFO
-        champion number (1 spot), champion star level(1 spot), champion cost (1 spot),
-        chosen (1 spot) , past combat (1 spot), 3 items (6 spot)
-
-        :param curr_champ: Object champion
-        :param champion_info_array: The array to update the information in
-        :return:
-        """
-
-        # start with champion name
-        # Returns index of champion, # Avoiding index 0 as index 0 is reserved for no chammpion
-        c_index = list(COST.keys()).index(curr_champ.name) + 1
-
-        # This should update the champion name section of the vector
-        champion_info_array[0] = float(c_index) / self.MAX_CHAMPION_IN_SET
-        champion_info_array[1] = curr_champ.stars / 3
-        champion_info_array[2] = curr_champ.cost / 5
-
-        if curr_champ.chosen:
-            champion_info_array[3] = 1
-        if curr_champ.survive_combat:
-            champion_info_array[4] = 1
-        elif curr_champ.participated_in_combat:  # Did not survive combat
-            champion_info_array[4] = 0.5
-        # else 0 , 0 implies that did not participate in combat
-
-        item_arr = np.zeros(6)
-        for ind, item in enumerate(curr_champ.items):
-            if ind <= 2:
-                if item in item_builds.keys():
-                    component1, component2 = item_builds[item]
-                    # Avoiding index 0 as index 0 is reserved for no items
-                    component1_index = uncraftable_items.index(component1) + 1
-                    component2_index = uncraftable_items.index(component2) + 1
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
-                else:
-                    component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-            # else:
-            #     print("This champion got more than 2 items")
-        champion_info_array[5:] = item_arr
+                output_array[x*7:x*7 + 7, y*4:y*4 + 4] = np.reshape(champion_info_array, (7,4))
+        self.board_image = output_array
 
     def generate_bench_vector(self):
-        output_array = np.zeros(9)
-        for x in range(0, 9):
-            if self.bench[x]:
-                occupation_state = 1
-            else:
-                occupation_state = 0
-            output_array[x] = occupation_state
-        self.bench_occupation_vector = output_array
-        self.generate_champion_vectors()
+        bench = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        for x_bench in range(len(self.bench)):
+            champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+            if self.bench[x_bench]:
+                curr_champ = self.bench[x_bench]
+                c_index = list(COST.keys()).index(curr_champ.name)
+                champion_info_array[0:6] = utils.champ_binary_encode(c_index)
+                champion_info_array[6] = curr_champ.stars / 3
+                champion_info_array[7] = curr_champ.cost / 5
+                for ind, item in enumerate(curr_champ.items):
+                    start = (ind * 6) + 8
+                    finish = start + 6
+                    if item in uncraftable_items:
+                        i_index = list(uncraftable_items).index(item) + 1
+                    elif item in item_builds.keys():
+                        i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                    champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+            bench[x_bench*self.CHAMP_ENCODING_SIZE:
+                    x_bench*self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
+        self.bench_vector = bench
 
     def generate_chosen_vector(self):
         output_array = np.zeros(5)
@@ -402,32 +361,48 @@ class player:
 
     # return output_array
     def generate_item_vector(self):
-        item_arr = np.zeros(self.MAX_BENCH_SPACE * 2)
+        item_arr = np.zeros(self.MAX_BENCH_SPACE * 6)
         for ind, item in enumerate(self.item_bench):
-            if item:
-                if item in item_builds.keys():
-                    component1, component2 = item_builds[item]
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    component2_index = uncraftable_items.index(component2) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
-                    item_arr[ind * 2] = float(component2_index) / self.UNCRAFTABLE_ITEM
-                else:
-                    component1 = item
-                    component1_index = uncraftable_items.index(component1) + 1  # Avoiding index 0 as index 0 is reserved for no items
-                    item_arr[ind] = float(component1_index) / self.UNCRAFTABLE_ITEM
+            item_info = np.zeros(6)
+            if item in uncraftable_items:
+                item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+            elif item in item_builds.keys():
+                item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+            item_arr[ind*6:ind*6 + 6] = item_info
         self.item_vector = item_arr
 
-    def generate_player_vector(self):
-        self.player_vector[0] = self.gold / 100
-        self.player_vector[1] = self.exp / 100
-        self.player_vector[2] = self.level / 10
-        self.player_vector[3] = self.round / 30
-        self.player_vector[4] = self.max_units / 10
-        self.player_vector[5] = self.num_units_in_play / self.max_units
+    def generate_private_player_vector(self):
+        self.player_private_vector[0] = self.gold / 100
+        self.player_private_vector[1] = self.exp / 100
+        self.player_private_vector[2] = self.round / 30
+
+        exp_to_level = 0
+        if self.level < self.max_level:
+            exp_to_level = self.level_costs[self.level] - self.exp
+        self.player_private_vector[4] = exp_to_level
+        self.player_private_vector[5] = max(self.win_streak, self.loss_streak)
         if len(self.match_history) > 2:
-            self.player_vector[6] = self.match_history[-3]
-            self.player_vector[7] = self.match_history[-2]
-            self.player_vector[8] = self.match_history[-1]
+            self.player_private_vector[6] = self.match_history[-3]
+            self.player_private_vector[7] = self.match_history[-2]
+            self.player_private_vector[8] = self.match_history[-1]
+
+    def generate_public_player_vector(self):
+        self.player_private_vector[0] = self.health / 100
+        self.player_public_vector[1] = self.level / 10
+        self.player_public_vector[2] = self.max_units / 10
+        self.player_private_vector[3] = self.max_units / 10
+        self.player_public_vector[4] = self.num_units_in_play / self.max_units
+        self.player_public_vector[5] = min(floor(self.gold / 10), 5) / 5.0
+        streak_lvl = 0
+        if self.win_streak == 4:
+            streak_lvl = 0.5
+        elif self.win_streak >= 5:
+            streak_lvl = 1
+        self.player_private_vector[6] = streak_lvl
+
+    def generate_player_vector(self):
+        self.generate_public_player_vector()
+        self.generate_private_player_vector()
 
     # This takes every occurrence of a champion at a given level and returns 1 of a higher level.
     # Transfers items over. The way I have it would mean it would require bench space.
@@ -481,8 +456,8 @@ class player:
         self.level_up()
         if t_round <= 4:
             starting_round_gold = [0, 2, 2, 3, 4]
-            self.gold += starting_round_gold[t_round]
             self.gold += floor(self.gold / 10)
+            self.gold += starting_round_gold[t_round]
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
@@ -575,8 +550,8 @@ class player:
                 self.board[board_x][board_y] = m_champion
                 # tracking thiefs gloves location
                 if len(m_champion.items) > 0:
-                    if m_champion.items[0] == 'thiefs_gloves':
-                        self.thiefs_gloves_loc_update(bench_x, -1, board_x, board_y)
+                    if m_champion.items[0] == 'thieves_gloves':
+                        self.thieves_gloves_loc_update(bench_x, -1, board_x, board_y)
                 if m_champion.name == 'azir':
                     # There should never be a situation where the board is too fill to fit the sandguards.
                     sand_coords = self.find_azir_sandguards(board_x, board_y)
@@ -606,7 +581,7 @@ class player:
                 self.reward += self.mistake_reward
                 return False
             else:
-                if self.board[x][y]:
+                if self.board[x][y] and not self.board[x][y].target_dummy:
                     # Dealing with edge case of azir
                     if self.board[x][y].name == 'azir':
                         coords = self.board[x][y].sandguard_overlord_coordinates
@@ -621,8 +596,8 @@ class player:
                     self.bench[bench_loc].x = bench_loc
                     self.bench[bench_loc].y = -1
                     self.num_units_in_play -= 1
-                    if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thiefs_gloves':
-                        self.thiefs_gloves_loc_update(bench_loc, -1, x, y)
+                    if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
+                        self.thieves_gloves_loc_update(bench_loc, -1, x, y)
                     self.generate_bench_vector()
                     self.generate_board_vector()
                     self.update_team_tiers()
@@ -634,26 +609,45 @@ class player:
         if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
             if self.board[x1][y1] and self.board[x2][y2]:
                 temp_champ = self.board[x2][y2]
-                if (self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves') or \
-                   (self.board[x2][y2].items and self.board[x2][y2].items[0] == 'thiefs_gloves'):
-                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
+                if (self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thieves_gloves') or \
+                   (self.board[x2][y2].items and self.board[x2][y2].items[0] == 'thieves_gloves'):
+                    self.thieves_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = temp_champ
                 self.board[x1][y1].x = x1
                 self.board[x1][y1].y = y1
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x1][y1].name == 'sandguard' or self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x2, y2] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
+                                elif [x2, y2] in self.board[x][y].sandguard_overlord_coordinates and \
+                                        [x1, y1] not in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x2, y2])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x1, y1])
                 self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
                            .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
                 self.generate_board_vector()
                 return True
             elif self.board[x1][y1]:
-                if self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thiefs_gloves':
-                    self.thiefs_gloves_loc_update(x1, y1, x2, y2)
+                if self.board[x1][y1].items and self.board[x1][y1].items[0] == 'thieves_gloves':
+                    self.thieves_gloves_loc_update(x1, y1, x2, y2)
                 self.board[x2][y2] = self.board[x1][y1]
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
+                if self.board[x2][y2].name == 'sandguard':
+                    for x in range(7):
+                        for y in range(4):
+                            if self.board[x][y] and self.board[x][y].name == 'azir':
+                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates:
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(self.board[x2][y2].name, x1, y1, x2, y2))
                 self.generate_board_vector()
                 return True
@@ -669,7 +663,7 @@ class player:
             board = True
         if y == -1:
             champ = self.bench[x]
-        if self.item_bench[xBench] and champ:
+        if self.item_bench[xBench] and champ and not champ.target_dummy:
             # thiefs glove exception
             self.print("moving {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
             # kayn item support
@@ -706,18 +700,18 @@ class player:
                 return False
             if self.item_bench[xBench] == 'reforger':
                 return self.use_reforge(xBench, x, y)
-            if self.item_bench[xBench] == 'thiefs_gloves':
+            if self.item_bench[xBench] == 'thieves_gloves':
                 if len(champ.items) < 1:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
                     champ.num_items += 3
-                    self.thiefs_glove_loc.append([x, y])
-                    self.thiefs_gloves(x, y)
+                    self.thieves_gloves_loc.append([x, y])
+                    self.thieves_gloves(x, y)
                     self.generate_item_vector()
                     self.decide_vector_generation(board)
                     return True
                 return False
-            if ((champ.num_items < 3 and self.item_bench[xBench] != "thiefs_gloves") or
+            if ((champ.num_items < 3 and self.item_bench[xBench] != "thieves_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
                      in basic_items and champ.num_items == 3)):
                 for trait, name in enumerate(trait_items.values()):
@@ -748,17 +742,17 @@ class player:
                                 else:
                                     champ.origin.append(item_trait)
                                     self.update_team_tiers()
-                        if item_names[item_index] == "theifs_gloves":
+                        if item_names[item_index] == "thieves_gloves":
                             if champ.num_items != 1:
                                 return False
                             else:
                                 champ.num_items += 2
-                                self.thiefs_glove_loc.append([x, y])
+                                self.thieves_gloves_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
                         champ.items.append(item_names[item_index])
-                        if champ.items[0] == 'thiefs_gloves':
-                            self.thiefs_gloves(x, y)
+                        if champ.items[0] == 'thieves_gloves':
+                            self.thieves_gloves(x, y)
                         self.reward += .2 * self.item_reward
                         self.print(
                             ".2 reward for combining two basic items into a {}".format(item_names[item_index]))
@@ -781,7 +775,7 @@ class player:
                 self.generate_item_vector()
                 self.decide_vector_generation(board)
                 return True
-            elif champ.num_items < 1 and self.item_bench[xBench] == "thiefs_gloves":
+            elif champ.num_items < 1 and self.item_bench[xBench] == "thieves_gloves":
                 champ.items.append(self.item_bench[xBench])
                 self.item_bench[xBench] = None
                 champ.num_items += 3
@@ -789,7 +783,7 @@ class player:
                 self.decide_vector_generation(board)
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
                                                                       champ.items))
-                self.thiefs_glove_loc.append([x, -1])
+                self.thieves_gloves_loc.append([x, -1])
                 return True
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
@@ -843,12 +837,12 @@ class player:
                    "num_units_in_play = {}, health = {}".format(self.num_units_in_play, self.health))
 
     def printItemBench(self, log=True):
-        for i in self.item_bench:
-            if i:
+        for i, item in enumerate(self.item_bench):
+            if item:
                 if log:
-                    self.printt('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    self.print(str(i) + ": " + item)
                 else:
-                    print('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    print(str(i) + ": " + item)
 
     def printShop(self, shop):
         self.print("Shop with level " + str(self.level) + ": " +
@@ -875,18 +869,23 @@ class player:
         if self.bench[x]:
             # skip if there are no items, trying to save a little processing time.
             if self.bench[x].items:
-                # thiefs_glove_loc_always needs to be cleared even if there's not enough room on bench
-                if self.bench[x].items[0] == 'thiefs_gloves':
-                    self.thiefs_glove_loc.remove([x, -1])
+
+                # thieves_gloves_loc_always needs to be cleared even if there's not enough room on bench
+                if self.bench[x].items[0] == 'thieves_gloves':
+                    self.thieves_gloves_loc.remove([x, -1])
+                    self.bench[x].items = ['thieves_gloves']
+
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(len(self.bench[x].items)):
                     # Each item in possession
                     for i in self.bench[x].items:
                         # thieves glove exception
                         self.item_bench[self.item_bench_vacancy()] = i
-                # if there is only one or two spots left on the item_bench and thiefs_gloves is removed
-                elif not self.item_bench_full(1) and self.bench[x].items[0] == "thiefs_gloves":
-                    self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
+                        self.print("returning " + i + " to the item bench")
+                # if there is only one or two spots left on the item_bench and thieves_gloves is removed
+                elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
+                    self.item_bench[self.item_bench_cvacancy()] = self.bench[x].items[0]
+                    self.print("returning " + self.bench[x].items[0] + " to the item bench")
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
             self.generate_item_vector()
@@ -899,9 +898,11 @@ class player:
         if a_champion:
             # skip if there are no items, trying to save a little processing time.
             if a_champion.items:
-                # thiefs_gloves_location needs to be removed whether there's room on the bench or not
-                if a_champion.items[0] == 'thiefs_gloves':
-                    self.thiefs_glove_loc.remove([a_champion.x, a_champion.y])
+                # thieves_gloves_location needs to be removed whether there's room on the bench or not
+                if a_champion.items[0] == 'thieves_gloves':
+                    if [a_champion.x, a_champion.y] in self.thieves_gloves_loc:
+                        self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
+                    a_champion.items = ['thieves_gloves']
                 # if I have enough space on the item bench for the number of items needed
                 if not self.item_bench_full(a_champion.num_items):
                     # Each item in possession
@@ -910,15 +911,19 @@ class player:
                             a_champion.origin.pop(-1)
                             self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
-                # if there is only one or two spots left on the item_bench and thiefs_gloves is removed
-                elif not self.item_bench_full(1) and a_champion.items[0] == "thiefs_gloves":
+                        self.print("returning " + item + " to the item bench")
+
+                # if there is only one or two spots left on the item_bench and thieves_gloves is removed
+                elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
+                    self.print("returning " + a_champion.items[0] + " to the item bench")
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
                 a_champion.items = []
                 a_champion.num_items = 0
                 self.generate_item_vector()
+
             return True
         return False
 
@@ -956,7 +961,8 @@ class player:
     # sell champion to reduce confusion over champion from import
     def sell_champion(self, s_champion, golden=False, field=True):
         # Need to add the behavior that on carousel when bench is full, add to board.
-        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion)):
+        if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion) and not \
+                s_champion.target_dummy):
             self.reward += self.mistake_reward
             self.print("Could not sell champion " + s_champion.name)
             return False
@@ -969,7 +975,7 @@ class player:
             self.board[s_champion.x][s_champion.y] = None
         if field:
             self.num_units_in_play -= 1
-        # self.print("selling champion " + s_champion.name)
+        self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars))
         return True
 
     def sell_from_bench(self, location, golden=False):
@@ -988,45 +994,42 @@ class player:
             if self.bench[location].chosen:
                 self.chosen = False
             return_champ = self.bench[location]
-            self.print("selling champion " + self.bench[location].name)
+            self.print("selling champion " + self.bench[location].name + "with stars = " +
+                       str(self.bench[location].stars))
             self.bench[location] = None
             self.generate_bench_vector()
             return return_champ
         return False
 
-    def thiefs_gloves(self, x, y):
-        r1 = random.randint(0, len(thiefs_gloves_items) - 1)
-        r2 = random.randint(0, len(thiefs_gloves_items) - 1)
+    def thieves_gloves(self, x, y):
+        r1 = random.randint(0, len(thieves_gloves_items) - 1)
+        r2 = random.randint(0, len(thieves_gloves_items) - 1)
         while r1 == r2:
-            r2 = random.randint(0, len(thiefs_gloves_items) - 1)
-        self.print("thiefs_gloves: {} and {}".format(thiefs_gloves_items[r1], thiefs_gloves_items[r2]))
+            r2 = random.randint(0, len(thieves_gloves_items) - 1)
+        self.print("thieves_gloves: {} and {}".format(thieves_gloves_items[r1], thieves_gloves_items[r2]))
         if y >= 0:
-            if len(self.board[x][y].items) != 1:
-                self.board[x][y].items.remove(self.board[x][y].items[1])
-                self.board[x][y].items.remove(self.board[x][y].items[1])
-            self.board[x][y].items.append(thiefs_gloves_items[r1])
-            self.board[x][y].items.append(thiefs_gloves_items[r2])
+            self.board[x][y].items = ['thieves_gloves']
+            self.board[x][y].items.append(thieves_gloves_items[r1])
+            self.board[x][y].items.append(thieves_gloves_items[r2])
             return True
         elif y == -1:
-            if len(self.bench[x].items) != 1:
-                self.bench[x].items.remove(self.bench[x].items[1])
-                self.bench[x].items.remove(self.bench[x].items[1])
-            self.bench[x].items.append(thiefs_gloves_items[r1])
-            self.bench[x].items.append(thiefs_gloves_items[r2])
+            self.bench[x].items = ['thieves_gloves']
+            self.bench[x].items.append(thieves_gloves_items[r1])
+            self.bench[x].items.append(thieves_gloves_items[r2])
             return True
         else:
             return False
 
-    def thiefs_gloves_loc_update(self, x1, y1, x2, y2):
-        if [x1, y1] in self.thiefs_glove_loc and [x2, y2] in self.thiefs_glove_loc:
+    def thieves_gloves_loc_update(self, x1, y1, x2, y2):
+        if [x1, y1] in self.thieves_gloves_loc and [x2, y2] in self.thieves_gloves_loc:
             return True
-        elif [x1, y1] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x1, y1])
-            self.thiefs_glove_loc.append([x2, y2])
-        elif [x2, y2] in self.thiefs_glove_loc:
-            self.thiefs_glove_loc.remove([x2, y2])
-            self.thiefs_glove_loc.append([x1, y1])
-            
+        elif [x1, y1] in self.thieves_gloves_loc:
+            self.thieves_gloves_loc.remove([x1, y1])
+            self.thieves_gloves_loc.append([x2, y2])
+        elif [x2, y2] in self.thieves_gloves_loc:
+            self.thieves_gloves_loc.remove([x2, y2])
+            self.thieves_gloves_loc.append([x1, y1])
+
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
         for x in range(len(self.item_bench)):
@@ -1098,14 +1101,14 @@ class player:
                     while trait_item_list[r] == item:
                         r = random.randint(0, 7)
                     self.item_bench[self.item_bench_vacancy()] = trait_item_list[r]
-                elif item in thiefs_gloves_items:
-                    r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    while thiefs_gloves_items[r] == item:
-                        r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+                elif item in thieves_gloves_items:
+                    r = random.randint(0, len(thieves_gloves_items) - 1)
+                    while thieves_gloves_items[r] == item:
+                        r = random.randint(0, len(thieves_gloves_items) - 1)
+                    self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
                 else:   # this will only ever be thiefs gloves
-                    r = random.randint(0, len(thiefs_gloves_items) - 1)
-                    self.item_bench[self.item_bench_vacancy()] = thiefs_gloves_items[r]
+                    r = random.randint(0, len(thieves_gloves_items) - 1)
+                    self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
             champ.items = []
             champ.num_items = 0
             self.item_bench[xBench] = None
@@ -1125,8 +1128,8 @@ class player:
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
-        for x in range(len(self.thiefs_glove_loc)):
-            self.thiefs_gloves(self.thiefs_glove_loc[x][0], self.thiefs_glove_loc[x][1])
+        for x in self.thieves_gloves_loc:
+            self.thieves_gloves(x[0], x[1])
 
     def won_game(self):
         self.reward += self.won_game_reward
@@ -1149,7 +1152,19 @@ class player:
                     return
                 self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
                 self.fortune_loss_streak = 0
-    
+
     def won_ghost(self, damage):
         self.reward += 0.02 * damage
         self.print(str(0.02 * damage) + " reward for someone losing to ghost")
+
+    # Item pool mechanic utilities
+    def refill_item_pool(self):
+        self.item_pool.extend(starting_items)
+    
+    def remove_from_pool(self, item):
+        self.item_pool.remove(item)
+
+    def random_item_from_pool(self):
+        item = random.choice(self.item_pool)
+        self.remove_from_pool(item)
+        return item
