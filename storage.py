@@ -36,7 +36,7 @@ class Storage:
         if config.MODEL == "MuZero":
             return TFTNetwork()
         elif config.MODEL == "A3C":
-            return A3C_Agent(config.INPUT_SHAPE)
+            return A3C_Agent()
         else:
             return TFTNetwork()
 

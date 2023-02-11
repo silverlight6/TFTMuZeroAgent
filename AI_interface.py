@@ -27,16 +27,21 @@ class DataWorker(object):
         if config.MODEL == "MuZero":
             self.agent_network = TFTNetwork()
         elif config.MODEL == "A3C":
-            self.agent_network = A3C_Agent(config.INPUT_SHAPE)
-            self.prev_actions = [[0 for _ in range(len(config.ACTION_8D_DIM))] for _ in range(config.NUM_PLAYERS)]
-        else: # Muzero as default
+            self.agent_network = A3C_Agent()
+            self.prev_actions = [
+                [0 for _ in range(len(config.ACTION_8D_DIM))]
+                for _ in range(config.NUM_PLAYERS)
+            ]
+        else:  # Muzero as default
             self.agent_network = TFTNetwork()
-      
+
         self.rank = rank
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
-    def muzero_collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
+    def muzero_collect_gameplay_experience(
+        self, env, buffers, global_buffer, storage, weights
+    ):
         self.agent_network.set_weights(weights)
         agent = MCTS(self.agent_network)
 
@@ -60,12 +65,16 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, [player_observation[0][i], player_observation[1][i]],
-                                                       actions[i], reward[key], policy[i])
+                    buffers.store_replay_buffer.remote(
+                        key,
+                        [player_observation[0][i], player_observation[1][i]],
+                        actions[i],
+                        reward[key],
+                        policy[i],
+                    )
 
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
-
 
             buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
@@ -74,8 +83,10 @@ class DataWorker(object):
             weights = ray.get(storage.get_model.remote())
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
-            
-    def a3c_collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
+
+    def a3c_collect_gameplay_experience(
+        self, env, buffers, global_buffer, storage, weights
+    ):
         self.agent_network.a3c_net.set_weights(weights)
         agent = self.agent_network
 
@@ -90,7 +101,9 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(player_observation, self.prev_actions)
+                actions, policy = agent.batch_policy(
+                    player_observation, self.prev_actions
+                )
 
                 step_actions = self.getStepActions(terminated, actions)
 
@@ -99,14 +112,22 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], policy[i])
+                    buffers.store_replay_buffer.remote(
+                        key,
+                        [player_observation[0][i], player_observation[1][i]],
+                        actions[i],
+                        reward[key],
+                        policy[i]
+                    )
 
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
                 # Update previous actions for the next round
                 self.prev_actions = actions
                 # Make sure it is of the same length as the observation when a player dies
-                self.prev_actions = np.delete(self.prev_actions, np.argwhere(list(terminated.values())), axis=0)
+                self.prev_actions = np.delete(
+                    self.prev_actions, np.argwhere(list(terminated.values())), axis=0
+                )
 
             buffers = BufferWrapper.remote(global_buffer)
 
@@ -114,7 +135,10 @@ class DataWorker(object):
             agent.a3c_net.set_weights(weights)
 
             # Current action to help with MuZero
-            self.prev_actions = [[0 for _ in range(len(config.ACTION_8D_DIM))] for _ in range(config.NUM_PLAYERS)]
+            self.prev_actions = [
+                [0 for _ in range(len(config.ACTION_8D_DIM))]
+                for _ in range(config.NUM_PLAYERS)
+            ]
             self.rank += config.CONCURRENT_GAMES
 
     def getStepActions(self, terminated, actions):
@@ -134,7 +158,6 @@ class DataWorker(object):
             images.append(obs[1])
         return [np.asarray(tensors), np.asarray(images)]
 
-
     def collect_dummy_data(self):
         env = gym.make("TFT_Set4-v0", env_config={})
         while True:
@@ -144,15 +167,18 @@ class DataWorker(object):
             while not terminated:
                 # agent policy that uses the observation and info
                 action = np.random.randint(
-                    low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                    low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8]
+                )
                 self.prev_actions = action
                 observation_list, rewards, terminated, truncated, info = env.step(
-                    action)
+                    action
+                )
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def evaluate_agents(self, env, storage):
-        agents = {"player_" + str(r): MCTS(TFTNetwork())
-                  for r in range(config.NUM_PLAYERS)}
+        agents = {
+            "player_" + str(r): MCTS(TFTNetwork()) for r in range(config.NUM_PLAYERS)
+        }
         agents["player_1"].network.tft_load_model(1000)
         agents["player_2"].network.tft_load_model(2000)
         agents["player_3"].network.tft_load_model(3000)
@@ -165,23 +191,23 @@ class DataWorker(object):
             # Reset the environment
             player_observation = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
-            player_observation = np.asarray(
-                list(player_observation.values()))
+            player_observation = np.asarray(list(player_observation.values()))
             # Used to know when players die and which agent is currently acting
-            terminated = {
-                player_id: False for player_id in env.possible_agents}
+            terminated = {player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
-            placements = {
-                player_id: 0 for player_id in env.possible_agents}
+            placements = {player_id: 0 for player_id in env.possible_agents}
             current_position = 7
-            info = {player_id: {"player_won": False}
-                    for player_id in env.possible_agents}
+            info = {
+                player_id: {"player_won": False} for player_id in env.possible_agents
+            }
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
                 actions = {agent: 0 for agent in agents.keys()}
                 for i, [key, agent] in enumerate(agents.items()):
-                    action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
+                    action, _ = agent.policy(
+                        np.expand_dims(player_observation[i], axis=0)
+                    )
                     actions[key] = action
 
                 # step_actions = self.getStepActions(terminated, np.asarray(actions))
@@ -203,20 +229,19 @@ class DataWorker(object):
             storage.record_placements.remote(placements)
             print("recorded places {}".format(placements))
             self.rank += config.CONCURRENT_GAMES
-            
+
 
 class AIInterface:
-
     def __init__(self):
         ...
 
     def train_muzero_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-        gpus = tf.config.list_physical_devices('GPU')
+        gpus = tf.config.list_physical_devices("GPU")
         ray.init(num_gpus=len(gpus), num_cpus=config.NUM_CPUS)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+        train_log_dir = "logs/gradient_tape/" + current_time + "/train"
         train_step = starting_train_step
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         tf.config.optimizer.set_jit(True)
@@ -225,18 +250,24 @@ class AIInterface:
 
         trainer = MuZero_trainer.Trainer()
         storage = Storage.remote(train_step)
-        
+
         env = parallel_env()
 
-        buffers = [BufferWrapper.remote(global_buffer)
-                   for _ in range(config.CONCURRENT_GAMES)]
+        buffers = [
+            BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)
+        ]
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
-        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [
+            DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)
+        ]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.muzero_collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            workers.append(
+                worker.muzero_collect_gameplay_experience.remote(
+                    env, buffers[i], global_buffer, storage, weights
+                )
+            )
             time.sleep(2)
 
         ray.get(workers)
@@ -247,7 +278,12 @@ class AIInterface:
         while True:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(
+                    gameplay_experience_batch,
+                    global_agent,
+                    train_step,
+                    train_summary_writer,
+                )
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
                 if train_step % 100 == 0:
@@ -256,11 +292,11 @@ class AIInterface:
 
     def train_a3c_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-        gpus = tf.config.list_physical_devices('GPU')
+        gpus = tf.config.list_physical_devices("GPU")
         ray.init(num_gpus=len(gpus), num_cpus=config.NUM_CPUS)
-        
+
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+        train_log_dir = "logs/gradient_tape/" + current_time + "/train"
         train_step = starting_train_step
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         tf.config.optimizer.set_jit(True)
@@ -269,28 +305,35 @@ class AIInterface:
 
         trainer = A3C_Trainer.Trainer()
         storage = Storage.remote(train_step)
-        
+
         env = parallel_env()
 
-        buffers = [BufferWrapper.remote(global_buffer) 
-                   for _ in range(config.CONCURRENT_GAMES)]
+        buffers = [
+            BufferWrapper.remote(global_buffer) for _ in range(config.CONCURRENT_GAMES)
+        ]
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
-        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [
+            DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)
+        ]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.a3c_collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            workers.append(
+                worker.a3c_collect_gameplay_experience.remote(
+                    env, buffers[i], global_buffer, storage, weights
+                )
+            )
             time.sleep(1)
 
-        ray.get(workers)
-        global_agent = A3C_Agent(config.INPUT_SHAPE)
+        global_agent = A3C_Agent()
         global_agent_weights = ray.get(storage.get_target_model.remote())
-        global_agent.a3c_net.set_weights(global_agent_weights)  
+        global_agent.a3c_net.set_weights(global_agent_weights)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
-                gameplay_experience_batch = ray.get(global_buffer.sample_a3c_batch.remote())
+                gameplay_experience_batch = ray.get(
+                    global_buffer.sample_a3c_batch.remote()
+                )
                 trainer.train_step(gameplay_experience_batch, global_agent)
                 # global_agent.train_step(gameplay_experience_batch)
                 storage.set_target_model.remote(global_agent.a3c_net.get_weights())
@@ -307,28 +350,41 @@ class AIInterface:
             t = time.time_ns()
             while not all(terminated.values()):
                 # agent policy that uses the observation and info
-                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
+                action = np.random.randint(
+                    low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8]
+                )
                 step_actions = {}
                 i = 0
                 for player_id, terminate in terminated.items():
                     if not terminate:
                         step_actions[player_id] = action[i]
                         i += 1
-                observation_list, rewards, terminated, truncated, info = env.step(step_actions)
+                observation_list, rewards, terminated, truncated, info = env.step(
+                    step_actions
+                )
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):
         # register our environment, we have no config parameters
-        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(self.env_creator(local_config)))
+        register_env(
+            "tft-set4-v0",
+            lambda local_config: PettingZooEnv(self.env_creator(local_config)),
+        )
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
-            PPOConfig().environment(
+            PPOConfig()
+            .environment(
                 # Env class to use (here: our gym.Env sub-class from above).
-                env='tft-set4-v0',
+                env="tft-set4-v0",
                 env_config={},
-                observation_space=gym.spaces.Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                action_space=gym.spaces.Discrete(config.ACTION_DIM)
+                observation_space=gym.spaces.Box(
+                    low=-5.0,
+                    high=5.0,
+                    shape=(config.OBSERVATION_SIZE,),
+                    dtype=np.float64,
+                ),
+                action_space=gym.spaces.Discrete(config.ACTION_DIM),
             )
             .rollouts(num_rollout_workers=1)
             .framework("tf2")
@@ -346,14 +402,16 @@ class AIInterface:
 
     def evaluate(self):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-        gpus = tf.config.list_physical_devices('GPU')
+        gpus = tf.config.list_physical_devices("GPU")
         ray.init(num_gpus=len(gpus), num_cpus=16)
         storage = Storage.remote(0)
 
         env = parallel_env()
 
         workers = []
-        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [
+            DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)
+        ]
         for i, worker in enumerate(data_workers):
             workers.append(worker.evaluate_agents.remote(env, storage))
             time.sleep(1)

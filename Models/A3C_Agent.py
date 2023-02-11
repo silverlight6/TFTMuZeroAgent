@@ -4,7 +4,6 @@ from datetime import datetime
 
 import config
 
-
 class A3C_Agent:
     def __init__(self, t_board=None):
         self.optimizer = tf.optimizers.RMSprop(learning_rate=1e-3)
@@ -62,10 +61,12 @@ class A3C_Agent:
                                          [norm_v, un_norm_v]])
         return output
 
-    def batch_policy(self, state, prev_action):
+    def batch_policy(self, observation, prev_action):
         one_hot_last_action = self.action_one_hot(prev_action)
+        print(observation[0].shape)
+        print(observation[1].shape)
 
-        action_q, [value, _] = self.a3c_net([state, one_hot_last_action])
+        action_q, [value, _] = self.a3c_net([observation[0], observation[1], one_hot_last_action])
 
         actions = np.swapaxes(np.asarray([tf.random.categorical(action_q[:][i], 1).numpy()
                               for i in range(len(self.action_dim))]), 0, 1)
@@ -73,6 +74,16 @@ class A3C_Agent:
         actions = np.squeeze(actions)
 
         return actions, value
+
+    def action_one_hot(self, batch_actions):
+        o_h_last_action = []
+        for b in range(len(batch_actions)):
+            one_hot_last_action = tf.Variable(tf.one_hot(batch_actions[b][0], self.action_dim[0]))
+            for i in range(1, len(self.action_dim)):
+                one_hot_last_action = tf.concat([one_hot_last_action,
+                                                 tf.one_hot(batch_actions[b][i], self.action_dim[i])], axis=0)
+            o_h_last_action.append(one_hot_last_action)
+        return tf.convert_to_tensor(o_h_last_action)
 
     # Renaming as to not override built-in functions
     def tft_save_model(self, episode):

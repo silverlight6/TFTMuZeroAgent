@@ -5,23 +5,16 @@ from datetime import datetime
 
 class Trainer(object):
     def __init__(self):
+        self.optimizer = tf.optimizers.RMSprop(learning_rate=1e-3)
         self.action_dim = config.ACTION_8D_DIM
         self.sequence_length = config.A3C_SEQUENCE_LENGTH
-
-    def action_one_hot(self, batch_actions):
-        o_h_last_action = []
-        for b in range(len(batch_actions)):
-            one_hot_last_action = tf.Variable(tf.one_hot(batch_actions[b][0], self.action_dim[0]))
-            for i in range(1, len(self.action_dim)):
-                one_hot_last_action = tf.concat([one_hot_last_action,
-                                                 tf.one_hot(batch_actions[b][i], self.action_dim[i])], axis=0)
-            o_h_last_action.append(one_hot_last_action)
-        return tf.convert_to_tensor(o_h_last_action)
+        self.gamma = 0.99
+        self.batch_size = config.BATCH_SIZE
 
     def train_step(self, batch, agent, episode=0):
         # Trains the underlying network with batches of gameplay experience
         # Returns a training loss
-        state_batch, logit_batch, action_batch, reward_batch, prev_action_batch = batch
+        obs_batch, logit_batch, action_batch, reward_batch, prev_action_batch = batch
         # vr_s, _, _, vr_r = sample_sequence
 
         reward_batch = self.process_rewards(reward_batch, episode)
@@ -31,20 +24,20 @@ class Trainer(object):
 
         act_re_input = []
         for i in range(self.sequence_length):
-            act_re_input.append(self.action_one_hot(prev_action_batch[:, i]))
+            act_re_input.append(agent.action_one_hot(prev_action_batch[:, i]))
         act_re_input = np.swapaxes(np.asarray(act_re_input), 0, 1)
 
         with tf.GradientTape() as tape:
 
             # Create gradients for the batch as a whole
-            state_input = tf.convert_to_tensor(state_batch, dtype=tf.float32)
+            # obs_input = tf.convert_to_tensor(obs_batch, dtype=tf.float32)
             policy, norm_value, un_norm_value = [], [], []
             # state shape = (batch size, sequence length, 1, state dimensionality)
             # Moving over the sequence length because I need an output at each time step
             # and the action and policy do not have a sequence length component to them.
             for i in range(self.sequence_length):
                 # I need to add the previous action and reward here.
-                p, [norm_v, un_norm_v] = agent.a3c_net([state_input[:, i], act_re_input[:, i]], training=True)
+                p, [norm_v, un_norm_v] = agent.a3c_net([obs_batch[:, i], act_re_input[:, i]], training=True)
                 policy.append(self.transpose(p))
                 norm_value.append(norm_v)
                 un_norm_value.append(un_norm_v)
