@@ -2,8 +2,12 @@ import numpy as np
 
 ### MODEL ###
 # This can be "MuZero or A3C currently
-# MODEL = "MuZero"
-MODEL = "A3C"
+MODEL = "MuZero"
+# MODEL = "A3C"
+
+# IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
+NUM_CPUS = 28
+
 PRINTMESSAGES = True
 LOGMESSAGES = True
 MANA_DAMAGE_GAIN = 0.06
