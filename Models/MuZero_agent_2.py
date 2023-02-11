@@ -276,7 +276,7 @@ class TFTNetwork(Network):
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
 
         # Reward head
-        reward_output = tf.keras.layers.Dense(units=601, name='reward', kernel_regularizer=regularizer,
+        reward_output = tf.keras.layers.Dense(units=601, name='reward', activation='relu', kernel_regularizer=regularizer,
                                               bias_regularizer=regularizer)(rnn_output)
 
         dynamics_model: tf.keras.Model = \
@@ -286,7 +286,7 @@ class TFTNetwork(Network):
         pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
         x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(pred_hidden_state)
         value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(x)
-        value_output = tf.keras.layers.Dense(units=601, name='value', kernel_regularizer=regularizer,
+        value_output = tf.keras.layers.Dense(units=601, name='value', activation='relu', kernel_regularizer=regularizer,
                                              bias_regularizer=regularizer)(value_x)
 
         policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(x)
@@ -606,7 +606,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return .9
+        return .1
 
 
 class Batch_MCTSAgent(MCTSAgent):
@@ -714,13 +714,14 @@ class Batch_MCTSAgent(MCTSAgent):
         policy_target = expand_node2(policy_target_probs, config.ACTION_DIM[1])
         policy_item = expand_node2(policy_item_probs, config.ACTION_DIM[2])
         # This policy sum is not in the Google's implementation. Not sure if required.
-        policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+        # policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
 
         actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
+
         for action, p in actions_p:
             children_key = len(node.keys())
             node[key].children[action] = children_key
-            node[children_key] = Node(p / policy_sum)
+            node[children_key] = Node(p)
     
     def expand_node(self, node: dict, network_output, key, obs=None):
         # batch_expand_node took 0.021803855895996094 seconds to finish
@@ -736,13 +737,14 @@ class Batch_MCTSAgent(MCTSAgent):
         policy_target = expand_node2(policy_target_probs.reshape(config.ACTION_DIM[1],), config.ACTION_DIM[1])
         policy_item = expand_node2(policy_item_probs.reshape(config.ACTION_DIM[2],), config.ACTION_DIM[2])
         # This policy sum is not in the Google's implementation. Not sure if required.
-        policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+        # policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
 
         actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
+
         for action, p in actions_p:
             children_key = len(node.keys())
             node[key].children[action] = children_key
-            node[children_key] = Node(p / policy_sum)
+            node[children_key] = Node(p)
 
     def run_mcts(self, node: list, action):
         # run_batch_mcts took 5.652412176132202 seconds to finish
@@ -783,6 +785,10 @@ class Batch_MCTSAgent(MCTSAgent):
         items = [True for _ in range(10)]
         if obs is not None:
             gold = int(obs[1027])
+            if gold < 2:
+                action[0][5] = 0.
+            if gold < 4:
+                action[0][4] = 0.
             level = int(obs[1])
             shop = [np.any(obs[(1029 + i*7):(1036 + i*7)]) for i in range(5)]
             list_champs = list(COST.keys())
@@ -790,32 +796,56 @@ class Batch_MCTSAgent(MCTSAgent):
             board_bench = [np.any(obs[(4 + i*26):(30 + i*26)]) for i in range(37)]
             for unit in board_bench[0:28]:
                 if unit:
-                    unit_count += 1
+                    unit_count += 1  ##TODO THIS IS MISSING SANDGUARDS
             items = [np.any(obs[(966 + i*6):(972 + i*6)]) for i in range(10)]
         board_bench.append(False)
 
         actions = []
-        actions.append(("0",action[0][0]))
+        actions_sum = action[0][0] + action[0][1] + action[0][2] + action[0][3] + action[0][4] +action[0][5]
+        actions.append(("0",action[0][0] / actions_sum))
+
+        # Hard way of properly calculating probabilities
+        shop_sum = 0.
+        shops = []
         for i in range(5): #TODO check if there is space in bench
             if shop[i] and gold >= shop_price[i]:
-                actions.append((f"1_{i}",action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
+                shops.append((f"1_{i}",action[0][1] * target[0][i] / actions_sum))
+                shop_sum += target[0][i]
+        for i in range(len(shops)):
+            temp_action, temp_prob = shops[i]
+            shops[i] = (temp_action, temp_prob/shop_sum)
+        actions += shops
+
+        target_sum = 0.
+        targets = []
         for a in range(37):
             for b in range(a, 38):
                 if a == b:
                     continue
                 if board_bench[a] or (board_bench[b] and unit_count < level):
-                    actions.append((f"2_{a}_{b}",action[0][2] * 
-                                    (target[0][a] / sum(list(target[0].values())[0:37]) *
-                                    (target[0][b] / (sum(list(target[0].values())[0:38])  - target[0][a])))))
+                    targets.append((f"2_{a}_{b}",action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                    target_sum += target[0][a]  * target[0][b]
+        for i in range(len(targets)):
+            temp_action, temp_prob = targets[i]
+            targets[i] = (temp_action, temp_prob/target_sum)
+        actions += targets
+
+        items_sum = 0.
+        item_actions = []
         for a in range(37):
             for b in range(10):
                 if board_bench[a] and items[b]:
-                    actions.append((f"3_{a}_{b}",action[0][3] *
-                                    (target[0][a] / sum(list(target[0].values())[0:37])) * (item[0][b] / sum(list(item[0].values())))))
+                    item_actions.append((f"3_{a}_{b}",action[0][3] * target[0][a] * item[0][b] / actions_sum))
+                    items_sum +=  target[0][a] * item[0][b]
+        for i in range(len(item_actions)):
+            temp_action, temp_prob = item_actions[i]
+            item_actions[i] = (temp_action, temp_prob/items_sum)
+        actions += item_actions
+
         if gold >= 4:
-            actions.append(("4",action[0][4]))
+            actions.append(("4",action[0][4] / actions_sum))
         if gold >= 2:
-            actions.append(("5",action[0][5]))
+            actions.append(("5",action[0][5] / actions_sum))
         return actions
 
 def masked_distribution(x, use_exp, mask=None):
