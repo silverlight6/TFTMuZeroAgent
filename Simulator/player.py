@@ -790,10 +790,12 @@ class player:
         return False
 
     def move_item_to_bench(self, xBench, x):
-        self.move_item(xBench, x, -1)
+        if 0 <= x < 9:
+            self.move_item(xBench, x, -1)
 
     def move_item_to_board(self, xBench, x, y):
-        self.move_item(xBench, x, y)
+        if 0 <= x < 7 and 0 <= y < 4:
+            self.move_item(xBench, x, y)
 
     def num_in_triple_catelog(self, a_champion):
         num = 0
@@ -979,7 +981,7 @@ class player:
     def sell_from_bench(self, location, golden=False):
         # Check if champion has items
         # Are there any champions with special abilities on sell.
-        if self.bench[location]:
+        if 0 <= location < 9 and self.bench[location]:
             if not (self.remove_triple_catalog(self.bench[location], golden=golden) and
                     self.return_item_from_bench(location)):
                 self.print("Mistake in sell from bench with {} and level {}".format(self.bench[location],

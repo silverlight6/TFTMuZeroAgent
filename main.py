@@ -19,7 +19,8 @@ def main():
     args = parser.parse_args()
 
     interface = AI_interface.AIInterface()
-    # interface.train_model(starting_train_step=args.starting_episode)
+    # interface.train_muzero_model(starting_train_step=args.starting_episode)
+    # interface.train_a3c_model()
     interface.collect_dummy_data()
     # interface.testEnv()
     # interface.PPO_algorithm()
