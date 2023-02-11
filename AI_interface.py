@@ -37,7 +37,7 @@ class DataWorker(object):
     # This is going to be implemented mostly in the game_round file under the AI side of things.
     def muzero_collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.set_weights(weights)
-        agent = Batch_MCTSAgent(self.agent_network)
+        agent = MCTS(self.agent_network)
 
         while True:
             # Reset the environment
@@ -71,18 +71,12 @@ class DataWorker(object):
             buffers = BufferWrapper.remote(global_buffer)
 
             weights = ray.get(storage.get_model.remote())
-            
             agent.network.set_weights(weights)
-
-            # Current action to help with MuZero
-            self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
-
             self.rank += config.CONCURRENT_GAMES
             
     def a3c_collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.a3c_net.set_weights(weights)
         agent = self.agent_network
-
 
         while True:
             # Reset the environment
@@ -213,7 +207,7 @@ class DataWorker(object):
 class AIInterface:
 
     def __init__(self):
-        self.env = parallel_env()
+        ...
 
     def train_muzero_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
@@ -222,6 +216,7 @@ class AIInterface:
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+        train_step = starting_train_step
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         train_step = starting_train_step
@@ -230,7 +225,9 @@ class AIInterface:
         global_buffer = GlobalBuffer.remote()
 
         trainer = MuZero_trainer.Trainer()
-        storage = Storage.remote(starting_train_step)
+        storage = Storage.remote(train_step)
+        
+        env = parallel_env()
 
         buffers = [BufferWrapper.remote(global_buffer)
                    for _ in range(config.CONCURRENT_GAMES)]
@@ -239,7 +236,7 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.muzero_collect_gameplay_experience.remote(self.env, buffers[i], global_buffer,
+            workers.append(worker.muzero_collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(2)
 
@@ -258,16 +255,18 @@ class AIInterface:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 
-    def train_a3c_model(self):
+    def train_a3c_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
         ray.init(num_gpus=len(gpus), num_cpus=16)
 
-        train_step = 100
+        train_step = starting_train_step
 
         global_buffer = GlobalBuffer.remote()
 
         storage = Storage.remote(train_step)
+        
+        env = parallel_env()
 
         global_agent = A3C_Agent(config.INPUT_SHAPE)
         global_agent_weights = ray.get(storage.get_target_model.remote())
@@ -279,7 +278,7 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.a3c_collect_gameplay_experience.remote(self.env, buffers[i], global_buffer,
+            workers.append(worker.a3c_collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(1)
 
@@ -292,32 +291,6 @@ class AIInterface:
                 if train_step % 100 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
-
-    def test_train_model(self, max_episodes=10000):
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-
-        global_agent = TFTNetwork()
-        global_buffer = GlobalBuffer.remote()
-        trainer = MuZero_trainer.Trainer()
-        train_step = 0
-        # global_agent.load_model(0)
-        dataWorker = DataWorker().remote()
-
-        for episode_cnt in range(1, max_episodes):
-            agent = Batch_MCTSAgent(network=global_agent)
-            buffers = [BufferWrapper.remote(global_buffer) for _ in range(config.NUM_PLAYERS)]
-            dataWorker.test_collect_gameplay_experience(self.env, agent, buffers)
-
-            for i in range(config.NUM_PLAYERS):
-                buffers[i].store_global_buffer()
-            while global_buffer.available_batch():
-                gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                train_step += 1
-            global_agent.save_model(episode_cnt)
-            print("Episode " + str(episode_cnt) + " Completed")
 
     def collect_dummy_data(self):
         env = parallel_env()
