@@ -121,7 +121,7 @@ class DataWorker(object):
                     )
 
                 # Set up the observation for the next action
-                player_observation = np.asarray(list(next_observation.values()))
+                player_observation = self.observation_to_input(next_observation)
                 # Update previous actions for the next round
                 self.prev_actions = actions
                 # Make sure it is of the same length as the observation when a player dies
@@ -403,7 +403,7 @@ class AIInterface:
     def evaluate(self):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices("GPU")
-        ray.init(num_gpus=len(gpus), num_cpus=16)
+        ray.init(num_gpus=len(gpus), num_cpus=config.NUM_CPUS)
         storage = Storage.remote(0)
 
         env = parallel_env()

@@ -14,7 +14,9 @@ class Trainer(object):
     def train_step(self, batch, agent, episode=0):
         # Trains the underlying network with batches of gameplay experience
         # Returns a training loss
-        obs_batch, logit_batch, action_batch, reward_batch, prev_action_batch = batch
+        # obs_batch, logit_batch, action_batch, reward_batch, prev_action_batch = batch
+        # (64, 2)    (64, 4)  (64, 5)     (64, 5)      (64, 5)     (64, 5) (64, 5), (64, 5,10)
+        observation, history, value_mask, reward_mask, policy_mask, value, reward,  policy   , prev_action = batch
         # vr_s, _, _, vr_r = sample_sequence
 
         reward_batch = self.process_rewards(reward_batch, episode)
@@ -37,7 +39,7 @@ class Trainer(object):
             # and the action and policy do not have a sequence length component to them.
             for i in range(self.sequence_length):
                 # I need to add the previous action and reward here.
-                p, [norm_v, un_norm_v] = agent.a3c_net([obs_batch[:, i], act_re_input[:, i]], training=True)
+                p, [norm_v, un_norm_v] = agent.a3c_net([observation[0], observation[1], prev_action], training=True)
                 policy.append(self.transpose(p))
                 norm_value.append(norm_v)
                 un_norm_value.append(un_norm_v)

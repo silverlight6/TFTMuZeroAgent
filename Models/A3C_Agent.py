@@ -63,8 +63,6 @@ class A3C_Agent:
 
     def batch_policy(self, observation, prev_action):
         one_hot_last_action = self.action_one_hot(prev_action)
-        print(observation[0].shape)
-        print(observation[1].shape)
 
         action_q, [value, _] = self.a3c_net([observation[0], observation[1], one_hot_last_action])
 

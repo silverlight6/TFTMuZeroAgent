@@ -46,24 +46,34 @@ class GlobalBuffer:
         self.gameplay_experiences.append(sample)
 
     def sample_a3c_batch(self):
-        # Returns: a batch of gameplay experiences without regard to which agent.
-        state_batch, logit_batch, action_batch, reward_batch, p_action_batch = [], [], [], [], []
-
+    # Returns: a batch of gameplay experiences without regard to which agent.
+        observation_batch, action_history_batch, target_value_batch, target_reward_batch = [], [], [], []
+        target_policy_batch, value_mask_batch, reward_mask_batch, policy_mask_batch = [], [], [], []
+        prev_action_batch = []
         for gameplay_experience in range(self.batch_size):
-            [state, logit, action, reward, prev_action] = self.gameplay_experiences.popleft()
-            state_batch.append(state)
-            logit_batch.append(logit)
-            action_batch.append(action)
-            reward_batch.append(reward)
-            p_action_batch.append(prev_action)
+            observation, action_history, value_mask, reward_mask, policy_mask,\
+                value, reward, policy, prev_action = self.gameplay_experiences.popleft()
+            observation_batch.append(observation)
+            action_history_batch.append(action_history[1:])
+            value_mask_batch.append(value_mask)
+            reward_mask_batch.append(reward_mask)
+            policy_mask_batch.append(policy_mask)
+            target_value_batch.append(value)
+            target_reward_batch.append(reward)
+            target_policy_batch.append(policy)
+            prev_action_batch.append(prev_action)
 
-        state_batch = np.squeeze(np.asarray(state_batch))
-        # logit_batch = np.squeeze(np.asarray(logit_batch))
-        action_batch = np.squeeze(np.asarray(action_batch))
-        reward_batch = np.squeeze(np.asarray(reward_batch))
-        p_action_batch = np.squeeze(np.asarray(p_action_batch))
+        observation_batch = np.squeeze(np.asarray(observation_batch))
+        action_history_batch = np.asarray(action_history_batch)
+        target_value_batch = np.asarray(target_value_batch).astype('float32')
+        target_reward_batch = np.asarray(target_reward_batch).astype('float32')
+        value_mask_batch = np.asarray(value_mask_batch).astype('float32')
+        reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
+        policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
+        target_policy_batch = np.asarray(target_policy_batch).astype('float32')
 
-        return [state_batch, logit_batch, action_batch, reward_batch, p_action_batch]
+        return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
+                target_value_batch, target_reward_batch, target_policy_batch, prev_action_batch]
 
     def store_replay_a3c_sequence(self, state, logits, action, reward, prev_action, prev_reward):
         # Records a single step of gameplay experience
