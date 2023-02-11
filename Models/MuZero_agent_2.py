@@ -635,7 +635,7 @@ class Batch_MCTSAgent(MCTSAgent):
             # main decision axis.
             
             for i in range(self.NUM_ALIVE):
-                curr_node = 0 #Starting at root
+                curr_node = 0  # Starting at root
                 while node[i][curr_node].expanded():
                     selected_action, curr_node = self.select_child(node[i], curr_node, min_max_stats[i])
                     history[i].add_action(selected_action)
@@ -649,11 +649,10 @@ class Batch_MCTSAgent(MCTSAgent):
 
             network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
             for i in range(self.NUM_ALIVE):
-                
-                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play,  network_output, search_path[i][-1])  # 7s
+                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play, network_output, search_path[i][-1])
                 
                 # print("value {}".format(network_output["value"]))
-                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i])  # 12.08s
+                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i])
 
     def batch_policy(self, observation, prev_action):
         # batch_policy took 6.422544717788696 seconds to finish
@@ -682,7 +681,7 @@ class Batch_MCTSAgent(MCTSAgent):
     def policy(self, observation, prev_action):
         # observation.shape = (8246)
         root = {0: Node(0)}
-        network_output = self.network.initial_inference(observation.reshape(1,8246))
+        network_output = self.network.initial_inference(observation.reshape(1, 8246))
         
         self.expand_node(root, network_output, 0, obs=observation)
         self.add_exploration_noise(root, 0)
@@ -703,6 +702,8 @@ class Batch_MCTSAgent(MCTSAgent):
     def batch_expand_node(self, node: dict, to_play: int, network_output, key, obs=None):
         # batch_expand_node took 0.021803855895996094 seconds to finish
         node[key].to_play = to_play
+        print(key)
+        print(node[key].reward)
         node[key].hidden_state = network_output["hidden_state"][to_play]
         node[key].reward = network_output["reward"][to_play]
 
@@ -758,7 +759,7 @@ class Batch_MCTSAgent(MCTSAgent):
             # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
             # main decision axis.
             
-            curr_node = 0 #Starting at root
+            curr_node = 0  # Starting at root
             while node[curr_node].expanded():
                 selected_action, curr_node = self.select_child(node, curr_node, min_max_stats)
                 history.add_action(selected_action)
@@ -771,6 +772,7 @@ class Batch_MCTSAgent(MCTSAgent):
             last_action = history.last_action()
 
             network_output = self.network.recurrent_inference(hidden_state, [last_action])  # 11.05s
+            print(search_path[-1])
             self.expand_node(node, network_output, search_path[-1])
             
             self.backpropagate(node, search_path, network_output["value"].numpy(), min_max_stats)
@@ -847,6 +849,7 @@ class Batch_MCTSAgent(MCTSAgent):
         if gold >= 2:
             actions.append(("5",action[0][5] / actions_sum))
         return actions
+
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:
