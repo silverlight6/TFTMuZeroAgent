@@ -151,7 +151,7 @@ class Network(tf.keras.Model):
     def initial_inference(self, observation) -> dict:
         hidden_state, value_logits, policy_logits = \
             self.initial_inference_model(observation, training=True)
-        value = self.value_encoder.decode(value_logits)
+        value = self.value_encoder.decode(tf.nn.softmax(value_logits))
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
 
@@ -181,12 +181,17 @@ class Network(tf.keras.Model):
 
     # Apply the recurrent inference model to the given hidden state
     def recurrent_inference(self, hidden_state, action) -> dict:
-        one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
-        hidden_state, reward_logits, value_logits, policy_logits = \
-            self.recurrent_inference_model((hidden_state, one_hot_action), training=True)
+        print(action)
+        one_hot_action = tf.one_hot(action[:, 0], config.ACTION_DIM[0], 1., 0., axis=-1)
+        one_hot_target_a = tf.one_hot(action[:, 1], config.ACTION_DIM[1], 1., 0., axis=-1)
+        one_hot_target_b = tf.one_hot(action[:, 2], config.ACTION_DIM[1] - 1, 1., 0., axis=-1)
 
-        value = self.value_encoder.decode(value_logits)
-        reward = self.reward_encoder.decode(reward_logits)
+        final_action = tf.concat([one_hot_action, one_hot_target_a, one_hot_target_b], axis=-1)
+        hidden_state, reward_logits, value_logits, policy_logits = \
+            self.recurrent_inference_model((hidden_state, final_action), training=True)
+
+        value = self.value_encoder.decode(tf.nn.softmax(value_logits))
+        reward = self.reward_encoder.decode(tf.nn.softmax(reward_logits))
 
         outputs = {
             "value": value,
@@ -219,6 +224,14 @@ class Network(tf.keras.Model):
             tensors.append(states)
         assert cur_idx == state.shape[-1]
         return tensors
+
+    def decode_action(self, str_action):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0, 0, 0]
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+        return np.asarray(element_list)
 
 
 class TFTNetwork(Network):
@@ -275,23 +288,26 @@ class TFTNetwork(Network):
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
 
         # Reward head
-        x = tf.keras.layers.Dense(units=601, activation='tanh', name='reward',
-                                  kernel_regularizer=regularizer, bias_regularizer=regularizer)(rnn_output)
-        reward_output = tf.keras.layers.Softmax()(x)
+        reward_output = tf.keras.layers.Dense(units=601, name='reward', kernel_regularizer=regularizer,
+                                              bias_regularizer=regularizer)(rnn_output)
         dynamics_model: tf.keras.Model = \
             tf.keras.Model(inputs=[dynamic_hidden_state, encoded_state_action],
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
         pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
         value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="value")(pred_hidden_state)
-        policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
-        x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
+        value_output = tf.keras.layers.Dense(units=601, name='value',
                                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(value_x)
-        value_output = tf.keras.layers.Softmax()(x)
-        policy_output = tf.keras.layers.Dense(config.ACTION_DIM, activation='softmax', name='shop_layer')(policy_x)
+
+        policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], name='action_layer')(policy_x)
+        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], name='target_layer')(policy_x)
+        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], name='item_layer')(policy_x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
-                                                          outputs=[value_output, policy_output],
+                                                          outputs=[value_output,
+                                                                   [policy_output_action, policy_output_target,
+                                                                    policy_output_item]],
                                                           name='prediction')
 
         super().__init__(representation=representation_model,
@@ -691,7 +707,10 @@ class MCTS(MCTSAgent):
             network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
-            policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
+            policy_action = network_output["policy_logits"][0].numpy()
+            policy_target = network_output["policy_logits"][1].numpy()
+            policy_item = network_output["policy_logits"][2].numpy()
+            policy_logits_pool, mappings = self.encode_action_to_str(policy_action, policy_target, policy_item)
 
             # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
@@ -708,21 +727,27 @@ class MCTS(MCTSAgent):
 
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits_pool,
-                                      min_max_stats_lst, results, is_reset_lst)
+                                      min_max_stats_lst, results, is_reset_lst, mappings)
 
     def policy(self, observation):
         self.NUM_ALIVE = observation[0].shape[0]
-        # Setup specialised roots datastruction, format: env_nums, action_space_size, num_simulations
-        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_DIM, config.NUM_SIMULATIONS)
-        network_output = self.network.initial_inference(observation)
+        # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
+        # Number of agents, previous action, number of simulations for memory purposes
+        roots_cpp = tree.Roots(self.NUM_ALIVE, 0, config.NUM_SIMULATIONS)
+        network_output = self.network.initial_inference([observation[0], observation[1]])
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
-        policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
+        policy_action = network_output["policy_logits"][0].numpy()
+        policy_target = network_output["policy_logits"][1].numpy()
+        policy_item = network_output["policy_logits"][2].numpy()
+        policy_logits_pool, mappings = self.encode_action_to_str(policy_action, policy_target, policy_item)
 
         # prepare the nodes to feed them into batch_mcts
-        noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * config.ACTION_DIM).astype(np.float32).tolist()
+        noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
+                                      len(policy_logits_pool[0])).astype(np.float32).tolist()
                   for _ in range(self.NUM_ALIVE)]
-        roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
+
+        roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
 
         # Output for root node
         hidden_state_pool = network_output["hidden_state"]
@@ -732,7 +757,7 @@ class MCTS(MCTSAgent):
         roots_distributions = roots_cpp.get_distributions()
         actions = []
         # This variable controls if distributions is randomly created,
-        # such as during the very first loop, however it doesnt look like it always being True impacts anything
+        # such as during the very first loop, however it doesn't look like it always being True impacts anything
         # start_training = True
         temp = self.visit_softmax_temperature()  # controls the way actions are chosen
         for i in range(self.NUM_ALIVE):
@@ -772,6 +797,61 @@ class MCTS(MCTSAgent):
 
         count_entropy = entropy(action_probs, base=2)
         return action_pos, count_entropy
+
+    def encode_action_to_str(self, action, target, item, mask=None):
+        actions = []
+        mappings = []
+        for idx in range(len(action)):
+            local_action = [action[idx][0]]
+            local_mappings = [bytes("0", "utf-8")]
+            if mask is not None:
+                print("Mask")
+                print(mask)
+                # for i in range(5):  # TODO check if there is space in bench
+                #     if mask[:][1][i]:
+                #         actions.append((f"1_{i}", action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
+                # for a in range(37):
+                #     for b in range(a, 38):
+                #         if a == b:
+                #             continue
+                #         if board_bench[a] or (board_bench[b] and unit_count < level):
+                #             actions.append((f"2_{a}_{b}", action[0][2] *
+                #                             (target[0][a] / sum(list(target[0].values())[0:37]) *
+                #                              (target[0][b] / (sum(list(target[0].values())[0:38]) - target[0][a])))))
+                # for a in range(37):
+                #     for b in range(10):
+                #         if board_bench[a] and items[b]:
+                #             actions.append((f"3_{a}_{b}", action[0][3] *
+                #                             (target[0][a] / sum(list(target[0].values())[0:37])) *
+                #                             (item[0][b] / sum(list(item[0].values())))))
+                # if gold >= 4:
+                #     actions.append(("4", action[0][4]))
+                # if gold >= 2:
+                #     actions.append(("5", action[0][5]))
+                ...
+            else:
+                for i in range(5):  # TODO check if there is space in bench
+                    local_action.append(action[idx][1] * target[idx][i] / sum(list(target[idx])[0:5]))
+                    local_mappings.append(bytes(f"1_{i}", "utf-8"))
+                for a in range(37):
+                    for b in range(a, 38):
+                        if a == b:
+                            continue
+                        local_action.append(action[idx][2] * (target[idx][a] / sum(list(target[idx])[0:37]) *
+                                         (target[idx][b] / (sum(list(target[idx])[0:38]) - target[idx][a]))))
+                        local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
+                for a in range(37):
+                    for b in range(10):
+                        local_action.append(action[idx][3] * (target[idx][a] / sum(list(target[idx])[0:37])) *
+                                        (item[idx][b] / sum(list(item[idx]))))
+                        local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
+                local_action.append(action[idx][4])
+                local_mappings.append(bytes("4", "utf-8"))
+                local_action.append(action[idx][5])
+                local_mappings.append(bytes("5", "utf-8"))
+            actions.append(local_action)
+            mappings.append(local_mappings)
+        return actions, mappings
 
 
 def masked_distribution(x, use_exp, mask=None):

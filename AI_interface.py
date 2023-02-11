@@ -76,10 +76,12 @@ class DataWorker(object):
     def observation_to_input(self, observation):
         tensors = []
         images = []
+        masks = []
         for obs in observation.values():
             tensors.append(obs[0])
             images.append(obs[1])
-        return [np.asarray(tensors), np.asarray(images)]
+            masks.append(obs[2])
+        return [np.asarray(tensors), np.asarray(images), masks]
 
 
     def collect_dummy_data(self):

@@ -48,12 +48,21 @@ namespace tree{
 
     CNode::~CNode(){}
 
-    void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix, const std::vector<float> &policy_logits){
+    void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
+                       const std::vector<float> &policy_logits, const std::vector<char*> &mappings){
         this->to_play = to_play;
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->value_prefix = value_prefix;
-
+        this->mappings = mappings;
+//
+//        std::cout <<"Vector 'mappings' : ";
+//
+//        for(int i=0; i < mappings.size(); i++) {
+//
+//            std::cout <<mappings.at(i) <<' '; }
+//
+//        std::cout << std::endl;
         int action_num = this->action_num;
         float temp_policy;
         float policy_sum = 0.0;
@@ -181,6 +190,7 @@ namespace tree{
     }
 
     CRoots::CRoots(int root_num, int action_num, int pool_size){
+        // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
         this->action_num = action_num;
         this->pool_size = pool_size;
@@ -198,18 +208,23 @@ namespace tree{
 
     CRoots::~CRoots(){}
 
-    void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises, const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies){
+    void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
+                         const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
+                         const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
+
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
 
             this->roots[i].visit_count += 1;
         }
     }
 
-    void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies){
+    void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
+                                  const std::vector<std::vector<float>> &policies,
+                                  const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
 
             this->roots[i].visit_count += 1;
         }
@@ -280,7 +295,19 @@ namespace tree{
         }
     }
 
-    void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play, float value, float discount){
+    std::vector<int> decode_action(char* &str_action) {
+        std::string str(str_action);
+        char* split_action = strtok(str_action, "_");
+        std::vector<int> element_list;
+        while(split_action != NULL) {
+            element_list.push_back(std::stoi(split_action));
+            split_action = strtok(NULL, "_");
+        }
+        return element_list;
+    }
+
+    void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play,
+                         float value, float discount){
         float bootstrap_value = value;
         int path_len = search_path.size();
         for(int i = path_len - 1; i >= 0; --i){
@@ -311,9 +338,12 @@ namespace tree{
         update_tree_q(root, min_max_stats, discount);
     }
 
-    void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs, const std::vector<float> &values, const std::vector<std::vector<float>> &policies, tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results, std::vector<int> is_reset_lst){
+    void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
+                               const std::vector<float> &values, const std::vector<std::vector<float>> &policies,
+                               tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
+                               std::vector<int> is_reset_lst, const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < results.num; ++i){
-            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policies[i]);
+            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policies[i], mappings[i]);
             // reset
             results.nodes[i]->is_reset = is_reset_lst[i];
 
@@ -321,13 +351,15 @@ namespace tree{
         }
     }
 
-    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount, float mean_q){
+    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init,
+                      float discount, float mean_q){
         float max_score = FLOAT_MIN;
         const float epsilon = 0.000001;
         std::vector<int> max_index_lst;
         for(int a = 0; a < root->action_num; ++a){
             CNode* child = root->get_child(a);
-            float temp_score = cucb_score(child, min_max_stats, mean_q, root->is_reset, root->visit_count - 1, root->value_prefix, pb_c_base, pb_c_init, discount);
+            float temp_score = cucb_score(child, min_max_stats, mean_q, root->is_reset, root->visit_count - 1,
+                                          root->value_prefix, pb_c_base, pb_c_init, discount);
 
             if(max_score < temp_score){
                 max_score = temp_score;
@@ -348,7 +380,9 @@ namespace tree{
         return action;
     }
 
-    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q, int is_reset, float total_children_visit_counts, float parent_value_prefix, float pb_c_base, float pb_c_init, float discount){
+    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q, int is_reset,
+                     float total_children_visit_counts, float parent_value_prefix, float pb_c_base, float pb_c_init,
+                     float discount){
         float pb_c = 0.0, prior_score = 0.0, value_score = 0.0;
         pb_c = log((total_children_visit_counts + pb_c_base + 1) / pb_c_base) + pb_c_init;
         pb_c *= (sqrt(total_children_visit_counts) / (child->visit_count + 1));
@@ -374,13 +408,14 @@ namespace tree{
         return ucb_value;
     }
 
-    void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount, tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
+    void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
+                         tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
         // set seed
         timeval t1;
         gettimeofday(&t1, NULL);
         srand(t1.tv_usec);
 
-        int last_action = -1;
+        std::vector<int> last_action{0};
         float parent_q = 0.0;
         results.search_lens = std::vector<int>();
         for(int i = 0; i < results.num; ++i){
@@ -390,25 +425,31 @@ namespace tree{
             results.search_paths[i].push_back(node);
 
             while(node->expanded()){
+                std::cout << "Checkpoint 5 " << std::endl;
                 float mean_q = node->get_mean_q(is_root, parent_q, discount);
                 is_root = 0;
                 parent_q = mean_q;
 
-                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount, mean_q);
+                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init,
+                                           discount, mean_q);
                 node->best_action = action;
+                std::vector<char*> mappings = node->mappings;
+                char* str_action = mappings[action];
+
                 // next
                 node = node->get_child(action);
-                last_action = action;
+                last_action = decode_action(str_action);
                 results.search_paths[i].push_back(node);
                 search_len += 1;
             }
-
             CNode* parent = results.search_paths[i][results.search_paths[i].size() - 2];
-
+            std::cout << "Checkpoint 0 " << std::endl;
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);
+            std::cout << "Checkpoint 1 " << std::endl;
             results.hidden_state_index_y_lst.push_back(parent->hidden_state_index_y);
-
+            std::cout << "Checkpoint 2 " << std::endl;
             results.last_actions.push_back(last_action);
+            std::cout << "Checkpoint 3 " << std::endl;
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
         }

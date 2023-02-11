@@ -82,7 +82,8 @@ class TFT_Simulator(AECEnv):
                 [
                     Dict({
                         "tensor": Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "image": Box(low=-2.0, high=2.0, shape=(49, 16), dtype=np.float64)
+                        "image": Box(low=-2.0, high=2.0, shape=(49, 16), dtype=np.float64),
+                        "mask": MultiDiscrete([6, 5, 28, 9, 10])
                     }) for _ in self.agents
                 ],
             )
@@ -112,7 +113,7 @@ class TFT_Simulator(AECEnv):
         for key, player in self.PLAYERS.items():
             if player:
                 if player.health <= 0:
-                    print(f"DIED WITH {player.gold} GOLD")
+                    # print(f"DIED WITH {player.gold} GOLD")
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
