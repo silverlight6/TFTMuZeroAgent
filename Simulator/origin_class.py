@@ -580,15 +580,16 @@ def duelist_helper(champion):
 
 # set the emperor to be the overlord of the statue thingy
 def emperor(blue_team, red_team):
-    teams = {'blue': blue_team, 'red': red_team}
-
-    for t in ['blue', 'red']:
-        for c in teams[t]:
-            if c.name == 'sandguard':
-                items.change_stat(c, 'stunned', True)
-                daddy = field.coordinates[c.overlord_coordinates[0]][c.overlord_coordinates[1]]
-                c.overlord = daddy
-                daddy.underlords.append(c)
+    ...
+    # teams = {'blue': blue_team, 'red': red_team}
+    #
+    # for t in ['blue', 'red']:
+    #     for c in teams[t]:
+    #         if c.name == 'sandguard':
+    #             items.change_stat(c, 'stunned', True)
+    #             daddy = field.coordinates[c.overlord_coordinates[0]][c.overlord_coordinates[1]]
+    #             c.overlord = daddy
+    #             daddy.underlords.append(c)
 
 
 def fortune():

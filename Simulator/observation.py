@@ -15,56 +15,70 @@ class Observation:
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                                 config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): np.zeros(299)
+        self.other_player_observations = {"player_" + str(player_id): [np.zeros(306), np.zeros((49, 16))]
                                           for player_id in range(config.NUM_PLAYERS)}
 
-    def observation(self, player_id, player, action_vector):
+    def observation(self, player_id, player, action_vector=np.array([])):
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
-        complete_game_state_vector = np.concatenate([shop_vector,
-                                                     player.board_occupation_vector,
-                                                     player.bench_occupation_vector,
-                                                     player.champions_owned_vector,
-                                                     player.chosen_vector,
-                                                     player.item_vector,
-                                                     player.player_vector,
-                                                     game_state_vector,
-                                                     action_vector], axis=-1)
+        game_state_tensor = np.concatenate([shop_vector,
+                                            player.bench_vector,
+                                            player.chosen_vector,
+                                            player.item_vector,
+                                            player.player_public_vector,
+                                            player.player_private_vector,
+                                            game_state_vector,
+                                            action_vector], axis=-1)
+
+        game_state_image = player.board_image
 
         # initially fill the queue with duplicates of first observation
         # so we can still sample when there aren't enough time steps yet
         maxLen = config.OBSERVATION_TIME_STEPS * config.OBSERVATION_TIME_STEP_INTERVAL
         if len(self.cur_player_observations) == 0:
             for _ in range(maxLen):
-                self.cur_player_observations.append(complete_game_state_vector)
+                self.cur_player_observations.append([game_state_tensor, game_state_image])
 
         # enqueue the latest observation and pop the oldest (performed automatically by deque with maxLen configured)
-        self.cur_player_observations.append(complete_game_state_vector)
+        self.cur_player_observations.append([game_state_tensor, game_state_image])
 
-        # sample every N time steps at M intervals, where maxLen of queue = M*N
-        cur_player_observation = np.array([self.cur_player_observations[i]
-                                           for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
+        # # sample every N time steps at M intervals, where maxLen of queue = M*N
+        # cur_player_observation = np.array([self.cur_player_observations[i]
+        #                               for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
 
-        other_player_observation_list = []
+        cur_player_tensor_observation = []
+        cur_player_image_observation = []
+        for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL):
+            tensor, image = self.cur_player_observations[i]
+            cur_player_tensor_observation.append(tensor)
+            cur_player_image_observation.append(image)
+        cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
+        cur_player_image_observation = np.asarray(cur_player_image_observation)
+
+        other_player_tensor_observation_list = []
+        other_player_image_observation_list = []
         for k, v in self.other_player_observations.items():
             if k != player_id:
-                other_player_observation_list.append(v)
-        other_player_observation = np.array(other_player_observation_list).flatten()
+                other_player_tensor_observation_list.append(v[0])
+                other_player_image_observation_list.append(v[1])
+        other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        other_player_image_observation = np.array(other_player_image_observation_list)
 
-        total_observation = np.concatenate((cur_player_observation, other_player_observation))
-        return total_observation
+        total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
+        total_image_observation = np.concatenate((cur_player_image_observation, other_player_image_observation))
+        total_image_observation = np.transpose(total_image_observation, (1, 2, 0))
+        return [total_tensor_observation, total_image_observation]
 
     def generate_other_player_vectors(self, cur_player, players):
         for player_id in players:
             other_player = players[player_id]
             if other_player and other_player != cur_player:
-                other_player_vector = np.concatenate([other_player.board_occupation_vector,
-                                                      other_player.champions_owned_vector,
-                                                      other_player.bench_occupation_vector,
+                other_player_vector = np.concatenate([other_player.bench_vector,
                                                       other_player.chosen_vector,
                                                       other_player.item_vector,
-                                                      other_player.player_vector], axis=-1)
-                self.other_player_observations[player_id] = other_player_vector
+                                                      other_player.player_public_vector], axis=-1)
+                other_player_game_state_image = other_player.board_image
+                self.other_player_observations[player_id] = [other_player_vector, other_player_game_state_image]
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

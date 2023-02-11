@@ -37,7 +37,7 @@ def normalize2(value, minimum, maximum):  # faster implementation of normalizati
 
 def update2(value, maximum, minimum):
     if value > maximum:
-        maximum = value 
+        maximum = value
     elif value < minimum:
         minimum = value
     return maximum, minimum
@@ -53,7 +53,7 @@ class MinMaxStats(object):
 
     def update(self, value: float):
         self.maximum, self.minimum = update2(float(value), float(self.maximum), float(self.minimum))
-        self.set = True       
+        self.set = True
 
     def normalize(self, value: float) -> float:
 
@@ -106,6 +106,7 @@ class Network(tf.keras.Model):
     """
     Base class for all of MuZero neural networks.
     """
+
     # initialize the network with the given representation, dynamics, and prediction model.
     def __init__(self,
                  representation: tf.keras.Model,
@@ -135,20 +136,21 @@ class Network(tf.keras.Model):
     # build the initial inference model (used to generate predicitons)
     def build_initial_inference_model(self) -> tf.keras.Model:
         # define the input tensor
-        observation = tf.keras.Input(shape=config.INPUT_SHAPE, dtype=tf.float32, name='observation')
+        tensor_observation = tf.keras.Input(shape=config.INPUT_TENSOR_SHAPE, dtype=tf.float32, name='t_observation')
+        image_observation = tf.keras.Input(shape=config.INPUT_IMAGE_SHAPE, dtype=tf.float32, name='i_observation')
 
-        hidden_state = self.representation(observation)
+        hidden_state = self.representation([tensor_observation, image_observation])
 
         value, policy_logits = self.prediction(hidden_state)
 
-        return tf.keras.Model(inputs=observation,
+        return tf.keras.Model(inputs=[tensor_observation, image_observation],
                               outputs=[hidden_state, value, policy_logits],
                               name='initial_inference')
 
     # Apply the initial inference model to the given hidden state
     def initial_inference(self, observation) -> dict:
         hidden_state, value_logits, policy_logits = \
-            self.initial_inference_model(observation, training=False)
+            self.initial_inference_model(observation, training=True)
         value = self.value_encoder.decode(value_logits)
         reward = tf.zeros_like(value)
         reward_logits = self.reward_encoder.encode(reward)
@@ -165,7 +167,7 @@ class Network(tf.keras.Model):
 
     # Build the recurrent inference model (used to generate predictions for subsequent steps)
     def build_recurrent_inference_model(self) -> tf.keras.Model:
-        hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='hidden_state')
+        hidden_state = tf.keras.Input(shape=[config.LAYER_HIDDEN_SIZE], dtype=tf.float32, name='hidden_state')
         # state_space = tf.keras.Input(shape=[1, config.HIDDEN_STATE_SIZE], dtype=tf.float32, name='state_space')
         action = tf.keras.Input(shape=([config.ACTION_CONCAT_SIZE]), dtype=tf.int32, name='action')
 
@@ -181,7 +183,7 @@ class Network(tf.keras.Model):
     def recurrent_inference(self, hidden_state, action) -> dict:
         one_hot_action = tf.one_hot(action, config.ACTION_DIM, 1., 0., axis=-1)
         hidden_state, reward_logits, value_logits, policy_logits = \
-            self.recurrent_inference_model((hidden_state, one_hot_action), training=False)
+            self.recurrent_inference_model((hidden_state, one_hot_action), training=True)
 
         value = self.value_encoder.decode(value_logits)
         reward = self.reward_encoder.decode(reward_logits)
@@ -194,8 +196,8 @@ class Network(tf.keras.Model):
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
-        self.rec_count += 1 
-        
+        self.rec_count += 1
+
         return outputs
 
     def rnn_to_flat(self, state):
@@ -210,13 +212,12 @@ class Network(tf.keras.Model):
         """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in [config.HIDDEN_STATE_SIZE]:
+        for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx:cur_idx + size])
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
             cur_idx += 2 * size
             tensors.append(states)
-            cur_idx = 0
-        # assert cur_idx == state.shape[-1]
+        assert cur_idx == state.shape[-1]
         return tensors
 
 
@@ -224,27 +225,39 @@ class TFTNetwork(Network):
     """
     Neural networks for tic-tac-toe game.
     """
-    def __init__(self) -> None:
 
+    def __init__(self) -> None:
         regularizer = tf.keras.regularizers.l2(l=1e-4)
+
         # Representation model. Observation --> hidden state
-        representation_model: tf.keras.Model = tf.keras.Sequential([
-            tf.keras.Input(shape=config.INPUT_SHAPE),
-            Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE),
-            tf.keras.layers.Dense(2 * config.HIDDEN_STATE_SIZE, activation='sigmoid', name='final'),
-            tf.keras.layers.Flatten()
-        ], name='observation_encoding')
+        rep_tensor_input = tf.keras.Input(shape=config.INPUT_TENSOR_SHAPE)
+        tensor_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE / 2, name="rep_tensor")(rep_tensor_input)
+        tensor_x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='rep_tensor')(tensor_x)
+
+        rep_image_input = tf.keras.Input(shape=config.INPUT_IMAGE_SHAPE)
+        image_x = tf.keras.layers.Conv2D(filters=config.CONV_FILTERS, kernel_size=4, strides=(2, 2),
+                                         padding='same', use_bias=False, name='conv_resize')(rep_image_input)
+        image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
+        image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
+        image_x = tf.keras.layers.Flatten()(image_x)
+        image_x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='rep_image')(image_x)
+
+        rep_output = tf.concat([tensor_x, image_x], axis=-1)
+
+        representation_model: tf.keras.Model = \
+            tf.keras.Model(inputs=[rep_tensor_input, rep_image_input],
+                           outputs=rep_output, name='observation_encodings')
 
         # Dynamics Model. Hidden State --> next hidden state and reward
         # Action encoding
         encoded_state_action = tf.keras.Input(shape=[config.ACTION_CONCAT_SIZE])
-        action_embeddings = tf.keras.layers.Dense(units=2 * config.HIDDEN_STATE_SIZE, activation='relu',
+        action_embeddings = tf.keras.layers.Dense(units=config.LAYER_HIDDEN_SIZE, activation='relu',
                                                   kernel_regularizer=regularizer,
                                                   bias_regularizer=regularizer)(encoded_state_action)
         action_embeddings = tf.keras.layers.Flatten()(action_embeddings)
 
         # Hidden state input. [[1, 256], [1. 256]] Needs both the hidden state and lstm state
-        dynamic_hidden_state = tf.keras.Input(shape=[2 * config.HIDDEN_STATE_SIZE], name='hidden_state_input')
+        dynamic_hidden_state = tf.keras.Input(shape=[config.LAYER_HIDDEN_SIZE], name='hidden_state_input')
         rnn_state = self.flat_to_lstm_input(dynamic_hidden_state)
 
         # Core of the model
@@ -253,9 +266,9 @@ class TFTNetwork(Network):
         }['lstm']
         rnn_cells = [
             rnn_cell_cls(
-                config.HIDDEN_STATE_SIZE,
+                size,
                 recurrent_activation='sigmoid',
-                name='cell_{}'.format(idx)) for idx in range(1)]
+                name='cell_{}'.format(idx)) for idx, size in enumerate(config.RNN_SIZES)]
         core = tf.keras.layers.StackedRNNCells(rnn_cells, name='recurrent_core')
 
         rnn_output, next_rnn_state = core(action_embeddings, rnn_state)
@@ -270,11 +283,12 @@ class TFTNetwork(Network):
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
         pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
-        x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)(pred_hidden_state)
+        value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="value")(pred_hidden_state)
+        policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
         x = tf.keras.layers.Dense(units=601, activation='tanh', name='value',
-                                  kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
+                                  kernel_regularizer=regularizer, bias_regularizer=regularizer)(value_x)
         value_output = tf.keras.layers.Softmax()(x)
-        policy_output = tf.keras.layers.Dense(config.ACTION_DIM, activation='softmax', name='shop_layer')(x)
+        policy_output = tf.keras.layers.Dense(config.ACTION_DIM, activation='softmax', name='shop_layer')(policy_x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
                                                           outputs=[value_output, policy_output],
@@ -298,25 +312,70 @@ class TFTNetwork(Network):
 
 
 class Mlp(tf.keras.Model):
-    def __init__(self, hidden_size=256, mlp_dim=512):
+    def __init__(self, num_layers=2, hidden_size=512, name=""):
         super(Mlp, self).__init__()
-        self.fc1 = tf.keras.layers.Dense(mlp_dim, dtype=tf.float32)
-        self.fc2 = tf.keras.layers.Dense(hidden_size, dtype=tf.float32)
-        self.norm = tf.keras.layers.LayerNormalization()
-        self.norm2 = tf.keras.layers.LayerNormalization()
+
+        # Default input gives two layers: [1024, 512]
+        sizes = [hidden_size * layer for layer in range(num_layers, 0, -1)]
+        layers = []
+
+        for size in sizes:
+            layers.extend([
+                tf.keras.layers.Dense(size, dtype=tf.float32),
+                tf.keras.layers.LayerNormalization(),
+                tf.keras.layers.ReLU()
+            ])
+
+        self.net = tf.keras.Sequential(layers, name=name + "_mlp")
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.norm(x)
-        x = tf.keras.activations.relu(x)
-        x = self.fc2(x)
-        x = self.norm2(x)
-        x = tf.keras.activations.relu(x)
-        return x
+        return self.net(x)
 
     def __call__(self, x, *args, **kwargs):
         out = self.forward(x)
         return out
+
+
+class ResidualBlock(tf.keras.layers.Layer):
+    """
+    Residual block.
+    Implementation adapted from:
+    https://towardsdatascience.com/from-scratch-implementation-of-alphazero-for-connect4-f73d4554002a
+    .
+    """
+
+    def __init__(self, planes):
+        super(ResidualBlock, self).__init__(name='')
+        self.planes = planes
+
+        # Question mark if we want to use kernel size 3 or 4 given our board slots are 7x4 tensors.
+        self.conv2a = tf.keras.layers.Conv2D(
+            filters=self.planes,
+            kernel_size=4,
+            strides=(1, 1),
+            padding='same',
+            use_bias=False)
+        self.bn2a = tf.keras.layers.LayerNormalization()
+
+        self.conv2b = tf.keras.layers.Conv2D(
+            filters=self.planes,
+            kernel_size=4,
+            strides=(1, 1),
+            padding='same',
+            use_bias=False)
+        self.bn2b = tf.keras.layers.LayerNormalization()
+        self.relu = tf.keras.layers.ReLU()
+
+    def __call__(self, input_tensor, training=True, **kwargs):
+        x = self.conv2a(input_tensor, training=training)
+        x = self.bn2a(x, training=training)
+        x = self.relu(x)
+
+        x = self.conv2b(x, training=training)
+        x = self.bn2b(x, training=training)
+
+        x += input_tensor
+        return self.relu(x)
 
 
 class ActionHistory(object):
@@ -494,12 +553,11 @@ class MCTSAgent:
     def backpropagate(search_path: List[Node], value: float,
                       min_max_stats: MinMaxStats, player_num: int):  # takes lots of time
         for node in search_path:
-            
             node.value_sum += value if node.to_play == player_num else -value  # 2.72s
             node.visit_count += 1
-        
+
             min_max_stats.update(node.value())  # 1.48s
-            
+
             value = node.reward + config.DISCOUNT * value  # 1.76s
 
     # Core Monte Carlo Tree Search algorithm.
@@ -538,7 +596,8 @@ class MCTSAgent:
         t = self.visit_softmax_temperature()
         return self.histogram_sample(visit_counts, t, use_softmax=False)
 
-    def policy(self, observation, previous_action):
+    def policy(self, observation):
+        previous_action = 0
         root = Node(0)
         network_output = self.network.initial_inference(observation)
         self.expand_node(root, network_output)
@@ -594,27 +653,26 @@ class MCTS(MCTSAgent):
         super().__init__(network, 0)
         self.times = [0]*6
         self.NUM_ALIVE = config.NUM_PLAYERS
-    
+
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
         num = roots_cpp.num
         # config variables
-        discount = config.DISCOUNT  
+        discount = config.DISCOUNT
         pb_c_init = config.PB_C_INIT
         pb_c_base = config.PB_C_BASE
         hidden_state_index_x = 0
 
-
-        # minimax value storage data structure 
+        # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2 
-        # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future 
-        horizons = 1  
+        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD*2)  # config.MINIMUM_REWARD *2
+        # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future
+        horizons = 1
         hidden_state_pool = [hidden_state_pool]
-        # go through the tree NUM_SIMULATIONS times 
-        for _ in range(config.NUM_SIMULATIONS): 
+        # go through the tree NUM_SIMULATIONS times
+        for _ in range(config.NUM_SIMULATIONS):
             # prepare a result wrapper to transport results between python and c++ parts
-            hidden_states = [] 
+            hidden_states = []
             results = tree.ResultsWrapper(num)
 
             # evaluation for leaf nodes, traversing across the tree and updating values
@@ -630,15 +688,14 @@ class MCTS(MCTSAgent):
             # hidden state given an action and the previous hidden state.
 
             last_action = np.asarray(last_action)
-            network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)   
+            network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
 
-            # add nodes to the pool after each search 
+            # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
-
 
             assert horizons > 0
             reset_idx = (np.array(search_lens) % horizons == 0)
@@ -652,12 +709,12 @@ class MCTS(MCTSAgent):
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits_pool,
                                       min_max_stats_lst, results, is_reset_lst)
-    
+
     def policy(self, observation):
-        self.NUM_ALIVE = observation.shape[0] 
+        self.NUM_ALIVE = observation[0].shape[0]
         # Setup specialised roots datastruction, format: env_nums, action_space_size, num_simulations
-        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_DIM, config.NUM_SIMULATIONS) 
-        network_output = self.network.initial_inference(observation)  
+        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_DIM, config.NUM_SIMULATIONS)
+        network_output = self.network.initial_inference(observation)
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
         policy_logits_pool = np.array(network_output["policy_logits"]).tolist()
@@ -667,33 +724,33 @@ class MCTS(MCTSAgent):
                   for _ in range(self.NUM_ALIVE)]
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool)
 
-        
         # Output for root node
-        hidden_state_pool = network_output["hidden_state"] 
+        hidden_state_pool = network_output["hidden_state"]
 
         # set up nodes to be able to find and select actions
-        self.run_batch_mcts(roots_cpp, hidden_state_pool)   
+        self.run_batch_mcts(roots_cpp, hidden_state_pool)
         roots_distributions = roots_cpp.get_distributions()
-        actions = [] 
-        # This variable controls if distributions is randomly created, such as during the very first loop, however it doesnt look like it always being True impacts anything 
-        # start_training = True 
-        temp = self.visit_softmax_temperature() # controls the way actions are chosen
+        actions = []
+        # This variable controls if distributions is randomly created,
+        # such as during the very first loop, however it doesnt look like it always being True impacts anything
+        # start_training = True
+        temp = self.visit_softmax_temperature()  # controls the way actions are chosen
         for i in range(self.NUM_ALIVE):
-            deterministic = False # False = sample distribution, True = argmax 
+            deterministic = False  # False = sample distribution, True = argmax
             # if start_training:
             #     distributions = roots_distributions[i]
             # else:
-            #     #random distributions if training has just started 
+            #     #random distributions if training has just started
             #     distributions = np.ones(config.ACTION_DIM)
             distributions = roots_distributions[i]
-            action, entropy = self.select_action(distributions,temperature=temp,deterministic=deterministic) 
+            action, entropy = self.select_action(distributions, temperature=temp, deterministic=deterministic)
             actions.append(action)
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-       
+
         return actions, network_output["policy_logits"]
-    
+
     @staticmethod
     def select_action(visit_counts, temperature=1, deterministic=True):
         """select action from the root visit counts.
@@ -715,7 +772,6 @@ class MCTS(MCTSAgent):
 
         count_entropy = entropy(action_probs, base=2)
         return action_pos, count_entropy
-
 
 
 def masked_distribution(x, use_exp, mask=None):

@@ -227,6 +227,11 @@ class Game_Round:
 
         for player in self.PLAYERS.values():
             if player:
+                player.end_turn_actions()
+                player.combat = False
+
+        for player in self.PLAYERS.values():
+            if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
         self.start_round()
         return False
