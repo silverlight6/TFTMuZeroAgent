@@ -47,9 +47,9 @@ cdef class Roots:
     cdef int pool_size
     cdef CRoots *roots
 
-    def __cinit__(self, int root_num, int action_num, int tree_nodes):
+    def __cinit__(self, int root_num, list action_num, int tree_nodes, int max_action_num):
         self.root_num = root_num
-        self.pool_size = action_num * (tree_nodes + 2)
+        self.pool_size = max_action_num * (tree_nodes + 2)
         self.roots = new CRoots(root_num, action_num, self.pool_size)
 
     def prepare(self, float root_exploration_fraction, list noises, list value_prefix_pool, list policy_logits_pool,

@@ -179,11 +179,12 @@ namespace tree{
 
     CRoots::CRoots(){
         this->root_num = 0;
-        this->action_num = 0;
+        this->action_num = std::vector<int>{0};
         this->pool_size = 0;
     }
 
-    CRoots::CRoots(int root_num, int action_num, int pool_size){
+    // root_num is the number of agents in the batch (NUM_PLAYERS in our base case)
+    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
         this->action_num = action_num;
@@ -196,7 +197,7 @@ namespace tree{
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, action_num, &this->node_pools[i]));
+            this->roots.push_back(CNode(0, action_num[i], &this->node_pools[i]));
         }
     }
 
@@ -205,8 +206,7 @@ namespace tree{
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
                          const std::vector<std::vector<char*>> &mappings){
-        for(int i = 0; i < this->root_num; ++i){
-
+        for(int i = 0; i < this->root_num; ++i) {
             this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
 
@@ -218,6 +218,7 @@ namespace tree{
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings){
+        std::cout << "prepare_no_noise 0" << std::endl;
         for(int i = 0; i < this->root_num; ++i){
             this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
 
