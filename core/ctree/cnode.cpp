@@ -1,24 +1,25 @@
 #include <iostream>
 #include "cnode.h"
 
-namespace tree{
+namespace tree {
+    const std::vector<char*> default_mapping = create_default_mapping();
 
-    CSearchResults::CSearchResults(){
+    CSearchResults::CSearchResults() {
         this->num = 0;
     }
 
-    CSearchResults::CSearchResults(int num){
+    CSearchResults::CSearchResults(int num) {
         this->num = num;
         for(int i = 0; i < num; ++i){
             this->search_paths.push_back(std::vector<CNode*>());
         }
     }
 
-    CSearchResults::~CSearchResults(){}
+    CSearchResults::~CSearchResults() {}
 
     //*********************************************************
 
-    CNode::CNode(){
+    CNode::CNode() {
         this->prior = 0;
         this->action_num = 0;
         this->best_action = -1;
@@ -32,7 +33,7 @@ namespace tree{
         this->mappings = std::vector<char*>{};
     }
 
-    CNode::CNode(float prior, int action_num, std::vector<CNode>* ptr_node_pool){
+    CNode::CNode(float prior, int action_num, std::vector<CNode>* ptr_node_pool) {
         this->prior = prior;
         this->action_num = action_num;
 
@@ -45,13 +46,13 @@ namespace tree{
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
-        this->mappings = create_default_mapping();
+        this->mappings = default_mapping;
     }
 
     CNode::~CNode(){}
 
     void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-                       const std::vector<float> &policy_logits){
+                       const std::vector<float> &policy_logits) {
         this->to_play = to_play;
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
@@ -68,7 +69,7 @@ namespace tree{
             }
         }
 
-        for(int a = 0; a < action_num; ++a){
+        for(int a = 0; a < action_num; ++a) {
             temp_policy = exp(policy_logits[a] - policy_max);
             policy_sum += temp_policy;
             policy[a] = temp_policy;
@@ -76,7 +77,7 @@ namespace tree{
 
         float prior;
         std::vector<CNode>* ptr_node_pool = this->ptr_node_pool;
-        for(int a = 0; a < action_num; ++a){
+        for(int a = 0; a < action_num; ++a) {
             prior = policy[a] / policy_sum;
             int index = ptr_node_pool->size();
             this->children_index.push_back(index);
@@ -87,7 +88,7 @@ namespace tree{
 
     void CNode::add_exploration_noise(float exploration_fraction, const std::vector<float> &noises){
         float noise, prior;
-        for(int a = 0; a < this->action_num; ++a){
+        for(int a = 0; a < this->action_num; ++a) {
             noise = noises[a];
             CNode* child = this->get_child(a);
 
@@ -96,15 +97,15 @@ namespace tree{
         }
     }
 
-    float CNode::get_mean_q(int isRoot, float parent_q, float discount){
+    float CNode::get_mean_q(int isRoot, float parent_q, float discount) {
         float total_unsigned_q = 0.0;
         int total_visits = 0;
         float parent_value_prefix = this->value_prefix;
-        for(int a = 0; a < this->action_num; ++a){
+        for(int a = 0; a < this->action_num; ++a) {
             CNode* child = this->get_child(a);
-            if(child->visit_count > 0){
+            if(child->visit_count > 0) {
                 float true_reward = child->value_prefix - parent_value_prefix;
-                if(this->is_reset == 1){
+                if(this->is_reset == 1) {
                     true_reward = child->value_prefix;
                 }
                 float qsa = true_reward + discount * child->value();
@@ -114,10 +115,10 @@ namespace tree{
         }
 
         float mean_q = 0.0;
-        if(isRoot && total_visits > 0){
+        if(isRoot && total_visits > 0) {
             mean_q = (total_unsigned_q) / (total_visits);
         }
-        else{
+        else {
             mean_q = (parent_q + total_unsigned_q) / (total_visits + 1);
         }
         return mean_q;
@@ -476,12 +477,13 @@ namespace tree{
         std::vector<int> last_action{0};
         float parent_q = 0.0;
         results.search_lens = std::vector<int>();
-        for(int i = 0; i < results.num; ++i){
+        for(int i = 0; i < results.num; ++i) {
             CNode *node = &(roots->roots[i]);
             int is_root = 1;
             int search_len = 0;
             results.search_paths[i].push_back(node);
-            while(node->expanded()){
+            while(node->expanded()) {
+                std::cout << i << std::endl;
                 float mean_q = node->get_mean_q(is_root, parent_q, discount);
                 is_root = 0;
                 parent_q = mean_q;
