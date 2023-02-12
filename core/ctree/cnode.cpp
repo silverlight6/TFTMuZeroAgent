@@ -299,12 +299,17 @@ namespace tree{
 
     std::vector<int> decode_action(char* &str_action) {
         std::cout << str_action << std::endl;
+        std::cout << "hi" << std::endl;
         std::string str(str_action);
         char* split_action = strtok(str_action, "_");
         std::vector<int> element_list;
         while(split_action != NULL) {
             element_list.push_back(std::stoi(split_action));
             split_action = strtok(NULL, "_");
+        }
+        while(element_list.size() < 3) {
+            std::cout << element_list.size() << std::endl;
+            element_list.push_back(0);
         }
         return element_list;
     }
@@ -436,11 +441,10 @@ namespace tree{
                 node->best_action = action;
                 std::vector<char*> mappings = node->mappings;
                 char* str_action = mappings[action];
-                std::cout << "Checkpoint 0 " << std::endl;
+                std::cout << action << std::endl;
 
                 // next
                 node = node->get_child(action);
-                std::cout << node->prior << std::endl;
                 last_action = decode_action(str_action);
                 std::cout << "Checkpoint 5 " << std::endl;
                 results.search_paths[i].push_back(node);
