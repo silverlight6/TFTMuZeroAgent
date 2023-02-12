@@ -350,6 +350,7 @@ namespace tree {
         mapping.push_back(&four[0]);
         std::string five = "5";
         mapping.push_back(&five[0]);
+        std::cout << mapping.size() << std::endl;
         return mapping;
     }
 
@@ -483,7 +484,6 @@ namespace tree {
             int search_len = 0;
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
-                std::cout << i << std::endl;
                 float mean_q = node->get_mean_q(is_root, parent_q, discount);
                 is_root = 0;
                 parent_q = mean_q;
