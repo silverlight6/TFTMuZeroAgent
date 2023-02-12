@@ -29,6 +29,7 @@ namespace tree{
         this->to_play = 0;
         this->value_prefix = 0.0;
         this->ptr_node_pool = nullptr;
+        this->mappings = std::vector<char*>{};
     }
 
     CNode::CNode(float prior, int action_num, std::vector<CNode>* ptr_node_pool){
@@ -44,6 +45,7 @@ namespace tree{
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
+        this->mappings = std::vector<char*>{};
     }
 
     CNode::~CNode(){}
@@ -296,6 +298,7 @@ namespace tree{
     }
 
     std::vector<int> decode_action(char* &str_action) {
+        std::cout << str_action << std::endl;
         std::string str(str_action);
         char* split_action = strtok(str_action, "_");
         std::vector<int> element_list;
@@ -423,9 +426,7 @@ namespace tree{
             int is_root = 1;
             int search_len = 0;
             results.search_paths[i].push_back(node);
-
             while(node->expanded()){
-                std::cout << "Checkpoint 5 " << std::endl;
                 float mean_q = node->get_mean_q(is_root, parent_q, discount);
                 is_root = 0;
                 parent_q = mean_q;
@@ -435,21 +436,20 @@ namespace tree{
                 node->best_action = action;
                 std::vector<char*> mappings = node->mappings;
                 char* str_action = mappings[action];
+                std::cout << "Checkpoint 0 " << std::endl;
 
                 // next
                 node = node->get_child(action);
+                std::cout << node->prior << std::endl;
                 last_action = decode_action(str_action);
+                std::cout << "Checkpoint 5 " << std::endl;
                 results.search_paths[i].push_back(node);
                 search_len += 1;
             }
             CNode* parent = results.search_paths[i][results.search_paths[i].size() - 2];
-            std::cout << "Checkpoint 0 " << std::endl;
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);
-            std::cout << "Checkpoint 1 " << std::endl;
             results.hidden_state_index_y_lst.push_back(parent->hidden_state_index_y);
-            std::cout << "Checkpoint 2 " << std::endl;
             results.last_actions.push_back(last_action);
-            std::cout << "Checkpoint 3 " << std::endl;
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
         }

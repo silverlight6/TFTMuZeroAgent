@@ -181,7 +181,6 @@ class Network(tf.keras.Model):
 
     # Apply the recurrent inference model to the given hidden state
     def recurrent_inference(self, hidden_state, action) -> dict:
-        print(action)
         one_hot_action = tf.one_hot(action[:, 0], config.ACTION_DIM[0], 1., 0., axis=-1)
         one_hot_target_a = tf.one_hot(action[:, 1], config.ACTION_DIM[1], 1., 0., axis=-1)
         one_hot_target_b = tf.one_hot(action[:, 2], config.ACTION_DIM[1] - 1, 1., 0., axis=-1)
@@ -703,6 +702,7 @@ class MCTS(MCTSAgent):
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
 
+            print(last_action)
             last_action = np.asarray(last_action)
             network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
@@ -733,7 +733,7 @@ class MCTS(MCTSAgent):
         self.NUM_ALIVE = observation[0].shape[0]
         # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
         # Number of agents, previous action, number of simulations for memory purposes
-        roots_cpp = tree.Roots(self.NUM_ALIVE, 0, config.NUM_SIMULATIONS)
+        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_ENCODING_SIZE, config.NUM_SIMULATIONS)
         network_output = self.network.initial_inference([observation[0], observation[1]])
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()

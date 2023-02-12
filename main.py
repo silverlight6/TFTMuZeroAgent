@@ -18,8 +18,8 @@ def main():
                              'disables loading if = 0')
     args = parser.parse_args()
 
-    interface = AI_interface.AIInterface()
-    interface.train_model(starting_train_step=args.starting_episode)
+    # interface = AI_interface.AIInterface()
+    # interface.train_model(starting_train_step=args.starting_episode)
     # interface.collect_dummy_data()
     # interface.testEnv()
     # interface.PPO_algorithm()
