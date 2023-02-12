@@ -23,6 +23,8 @@ namespace tree {
             float value_prefix, prior, value_sum;
             std::vector<int> children_index;
             std::vector<CNode>* ptr_node_pool;
+            // This is used to map the action from the 1d to the multi dim that the environment can use
+            // I wish this could be a string vector but Cython does not support strings, only char *
             std::vector<char*> mappings;
 
             CNode();
@@ -30,7 +32,7 @@ namespace tree {
             ~CNode();
 
             void expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-                        const std::vector<float> &policy_logits, const std::vector<char*> &mappings);
+                        const std::vector<float> &policy_logits);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
             float get_mean_q(int isRoot, float parent_q, float discount);
 
@@ -84,12 +86,13 @@ namespace tree {
     //*********************************************************
     void update_tree_q(CNode* root, tools::CMinMaxStats &min_max_stats, float discount);
     std::vector<int> decode_action(char* &str_action);
+    std::vector<char*> create_default_mapping();
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play,
                          float value, float discount);
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policies,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<int> is_reset_lst, const std::vector<std::vector<char*>> &mappings);
+                               std::vector<int> is_reset_lst);
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init,
                       float discount, float mean_q);
     float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q, int is_reset,

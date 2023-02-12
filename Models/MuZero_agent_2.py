@@ -710,7 +710,7 @@ class MCTS(MCTSAgent):
             policy_action = network_output["policy_logits"][0].numpy()
             policy_target = network_output["policy_logits"][1].numpy()
             policy_item = network_output["policy_logits"][2].numpy()
-            policy_logits_pool, mappings = self.encode_action_to_str(policy_action, policy_target, policy_item)
+            policy_logits_pool, _ = self.encode_action_to_str(policy_action, policy_target, policy_item)
 
             # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
@@ -727,7 +727,7 @@ class MCTS(MCTSAgent):
 
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits_pool,
-                                      min_max_stats_lst, results, is_reset_lst, mappings)
+                                      min_max_stats_lst, results, is_reset_lst)
 
     def policy(self, observation):
         self.NUM_ALIVE = observation[0].shape[0]
@@ -807,7 +807,7 @@ class MCTS(MCTSAgent):
             if mask is not None:
                 print("Mask")
                 print(mask)
-                # for i in range(5):  # TODO check if there is space in bench
+                # for i in range(5):
                 #     if mask[:][1][i]:
                 #         actions.append((f"1_{i}", action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
                 # for a in range(37):

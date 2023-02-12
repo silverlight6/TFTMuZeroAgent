@@ -43,7 +43,7 @@ cdef extern from "cnode.h" namespace "tree":
         vector[char*] mappings;
 
         void expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefixs,
-                    vector[float] policy_logits, vector[char*] mappings)
+                    vector[float] policy_logits)
         void add_exploration_noise(float exploration_fraction, vector[float] noises)
         float get_mean_q(int isRoot, float parent_q, float discount)
 
@@ -82,7 +82,6 @@ cdef extern from "cnode.h" namespace "tree":
                               float value, float discount)
     void cbatch_back_propagate(int hidden_state_index_x, float discount, vector[float] value_prefixs,
                                vector[float] values, vector[vector[float]] policies,
-                               CMinMaxStatsList *min_max_stats_lst, CSearchResults &results, vector[int] is_reset_lst,
-                               vector[vector[char*]] mappings)
+                               CMinMaxStatsList *min_max_stats_lst, CSearchResults &results, vector[int] is_reset_lst)
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          CMinMaxStatsList *min_max_stats_lst, CSearchResults &results)

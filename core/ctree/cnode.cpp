@@ -45,26 +45,18 @@ namespace tree{
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
-        this->mappings = std::vector<char*>{};
+        this->mappings = create_default_mapping();
     }
 
     CNode::~CNode(){}
 
     void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-                       const std::vector<float> &policy_logits, const std::vector<char*> &mappings){
+                       const std::vector<float> &policy_logits){
         this->to_play = to_play;
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->value_prefix = value_prefix;
-        this->mappings = mappings;
-//
-//        std::cout <<"Vector 'mappings' : ";
-//
-//        for(int i=0; i < mappings.size(); i++) {
-//
-//            std::cout <<mappings.at(i) <<' '; }
-//
-//        std::cout << std::endl;
+
         int action_num = this->action_num;
         float temp_policy;
         float policy_sum = 0.0;
@@ -215,9 +207,10 @@ namespace tree{
                          const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
 
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
 
+            this->roots[i].mappings = mappings[i];
             this->roots[i].visit_count += 1;
         }
     }
@@ -226,8 +219,9 @@ namespace tree{
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
 
+            this->roots[i].mappings = mappings[i];
             this->roots[i].visit_count += 1;
         }
     }
@@ -298,8 +292,6 @@ namespace tree{
     }
 
     std::vector<int> decode_action(char* &str_action) {
-        std::cout << str_action << std::endl;
-        std::cout << "hi" << std::endl;
         std::string str(str_action);
         char* split_action = strtok(str_action, "_");
         std::vector<int> element_list;
@@ -308,23 +300,76 @@ namespace tree{
             split_action = strtok(NULL, "_");
         }
         while(element_list.size() < 3) {
-            std::cout << element_list.size() << std::endl;
             element_list.push_back(0);
         }
         return element_list;
     }
 
+    std::vector<char*> create_default_mapping() {
+        std::vector<char*> mapping = std::vector<char*>{};
+        std::string zero = "0";
+        mapping.push_back(&zero[0]);
+
+        // Default encodings for the shop.
+        for(int i = 0; i < 5; i++) {
+            // Create the string that we want to add to the list
+            std::string str = "1_" + std::to_string(i);
+            // Allocate some memory for the list to live in
+            char *copy = new char[strlen(&str[0]) + 1];
+            // Copy our string to the allocated memory
+            strcpy(copy, &str[0]);
+            // Add it to the array.
+            // If we don't allocate the memory, it will only push copies of the same string.
+            mapping.push_back(copy);
+        }
+
+        // Default encodings for the move / sell board / bench
+        for(int a = 0; a < 37; a++) {
+            for(int b = a; b < 38; b++) {
+                if(a == b) {
+                    continue;
+                }
+                std::string str = "2_" + std::to_string(a) + "_" + std::to_string(b);
+                char *copy = new char[strlen(&str[0]) + 1];
+                strcpy(copy, &str[0]);
+                mapping.push_back(copy);
+            }
+        }
+
+        // Default encodings for the move item
+        for(int a = 0; a < 37; a++) {
+            for(int b = 0; b < 10; b++) {
+                std::string str = "3_" + std::to_string(a) + "_" + std::to_string(b);
+                char *copy = new char[strlen(&str[0]) + 1];
+                strcpy(copy, &str[0]);
+                mapping.push_back(copy);
+            }
+        }
+        std::string four = "4";
+        mapping.push_back(&four[0]);
+        std::string five = "5";
+        mapping.push_back(&five[0]);
+        return mapping;
+    }
+
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play,
-                         float value, float discount){
+                         float value, float discount) {
+        // Value from the dynamics network.
         float bootstrap_value = value;
+        // How far from root we are.
         int path_len = search_path.size();
+        // For each node on our path back to root.
         for(int i = path_len - 1; i >= 0; --i){
+            // Our current node
             CNode* node = search_path[i];
+            // Update the value of our node.
+            // (bootstrap_value can be negative so this doesn't scale to infinite)
             node->value_sum += bootstrap_value;
             node->visit_count += 1;
 
             float parent_value_prefix = 0.0;
             int is_reset = 0;
+            // not really sure why this is here.
             if(i >= 1){
                 CNode* parent = search_path[i - 1];
                 parent_value_prefix = parent->value_prefix;
@@ -333,13 +378,15 @@ namespace tree{
 //                min_max_stats.update(qsa);
             }
 
-            float true_reward = node->value_prefix - parent_value_prefix;
+            // see if our value is higher in the current state than the previous state.
+            // originally named true_reward but changed to true_value since that is what this actually is.
+            float true_value = node->value_prefix - parent_value_prefix;
             if(is_reset == 1){
                 // parent is reset
-                true_reward = node->value_prefix;
+                true_value = node->value_prefix;
             }
 
-            bootstrap_value = true_reward + discount * bootstrap_value;
+            bootstrap_value = true_value + discount * bootstrap_value;
         }
         min_max_stats.clear();
         CNode* root = search_path[0];
@@ -349,9 +396,10 @@ namespace tree{
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policies,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<int> is_reset_lst, const std::vector<std::vector<char*>> &mappings){
+                               std::vector<int> is_reset_lst){
+        // For each player
         for(int i = 0; i < results.num; ++i){
-            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policies[i], mappings[i]);
+            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policies[i]);
             // reset
             results.nodes[i]->is_reset = is_reset_lst[i];
 
@@ -419,10 +467,12 @@ namespace tree{
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
         // set seed
+        // Not sure we use this seed anywhere
         timeval t1;
         gettimeofday(&t1, NULL);
         srand(t1.tv_usec);
 
+        // Last action is a multidimensional action so a vector is required.
         std::vector<int> last_action{0};
         float parent_q = 0.0;
         results.search_lens = std::vector<int>();
@@ -436,20 +486,23 @@ namespace tree{
                 is_root = 0;
                 parent_q = mean_q;
 
+                // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init,
                                            discount, mean_q);
+                // Not sure what best_action is actually doing
                 node->best_action = action;
-                std::vector<char*> mappings = node->mappings;
-                char* str_action = mappings[action];
-                std::cout << action << std::endl;
+                // Pick the action from the mappings.
+                char* str_action = node->mappings[action];
 
                 // next
                 node = node->get_child(action);
+                // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);
-                std::cout << "Checkpoint 5 " << std::endl;
+                // Add Node to the search path for exploration purposes
                 results.search_paths[i].push_back(node);
                 search_len += 1;
             }
+            // These are all for return values back to the python code. Defined in the cytree.pyx file.
             CNode* parent = results.search_paths[i][results.search_paths[i].size() - 2];
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);
             results.hidden_state_index_y_lst.push_back(parent->hidden_state_index_y);
