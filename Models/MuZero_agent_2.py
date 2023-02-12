@@ -702,7 +702,6 @@ class MCTS(MCTSAgent):
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
 
-            print(last_action)
             last_action = np.asarray(last_action)
             network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
@@ -744,9 +743,6 @@ class MCTS(MCTSAgent):
         # Number of agents, previous action, number of simulations for memory purposes
         roots_cpp = tree.Roots(self.NUM_ALIVE, action_sizes, config.NUM_SIMULATIONS, max_length)
 
-        print(action_sizes)
-        print(max_length)
-
         # prepare the nodes to feed them into batch_mcts
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
                                       len(policy_logits_pool[0])).astype(np.float32).tolist()
@@ -778,7 +774,7 @@ class MCTS(MCTSAgent):
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-
+        print(actions)
         return actions, network_output["policy_logits"]
 
     @staticmethod

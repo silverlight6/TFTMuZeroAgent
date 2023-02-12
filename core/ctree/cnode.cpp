@@ -219,7 +219,6 @@ namespace tree {
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings){
-        std::cout << "prepare_no_noise 0" << std::endl;
         for(int i = 0; i < this->root_num; ++i){
             this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
 
@@ -310,7 +309,10 @@ namespace tree {
     std::vector<char*> create_default_mapping() {
         std::vector<char*> mapping = std::vector<char*>{};
         std::string zero = "0";
-        mapping.push_back(&zero[0]);
+        char *copyzero = new char[strlen(&zero[0]) + 1];
+        strcpy(copyzero, &zero[0]);
+        mapping.push_back(copyzero);
+        
 
         // Default encodings for the shop.
         for(int i = 0; i < 5; i++) {
@@ -348,10 +350,14 @@ namespace tree {
             }
         }
         std::string four = "4";
-        mapping.push_back(&four[0]);
+        char *copyfour = new char[strlen(&four[0]) + 1];
+        strcpy(copyfour, &four[0]);
+        mapping.push_back(copyfour);
         std::string five = "5";
-        mapping.push_back(&five[0]);
-        std::cout << mapping.size() << std::endl;
+        char *copyfive = new char[strlen(&five[0]) + 1];
+        strcpy(copyfive, &five[0]);
+        mapping.push_back(copyfive);
+        
         return mapping;
     }
 
@@ -510,6 +516,13 @@ namespace tree {
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);
             results.hidden_state_index_y_lst.push_back(parent->hidden_state_index_y);
             results.last_actions.push_back(last_action);
+            std::cout <<"Vector 'last_action' : ";
+
+            for(int i=0; i < last_action.size(); i++) {
+
+                std::cout <<last_action.at(i) <<' '; }
+
+            std::cout << std::endl;
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
         }
