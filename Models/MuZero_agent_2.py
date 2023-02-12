@@ -710,7 +710,7 @@ class MCTS(MCTSAgent):
             policy_action = network_output["policy_logits"][0].numpy()
             policy_target = network_output["policy_logits"][1].numpy()
             policy_item = network_output["policy_logits"][2].numpy()
-            policy_logits_pool, _ = self.encode_action_to_str(policy_action, policy_target, policy_item)
+            policy_logits_pool, _, _, _ = self.encode_action_to_str(policy_action, policy_target, policy_item)
 
             # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
@@ -731,16 +731,21 @@ class MCTS(MCTSAgent):
 
     def policy(self, observation):
         self.NUM_ALIVE = observation[0].shape[0]
-        # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
-        # Number of agents, previous action, number of simulations for memory purposes
-        roots_cpp = tree.Roots(self.NUM_ALIVE, config.ACTION_ENCODING_SIZE, config.NUM_SIMULATIONS)
-        network_output = self.network.initial_inference([observation[0], observation[1]])
 
+        network_output = self.network.initial_inference([observation[0], observation[1]])
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
         policy_action = network_output["policy_logits"][0].numpy()
         policy_target = network_output["policy_logits"][1].numpy()
         policy_item = network_output["policy_logits"][2].numpy()
-        policy_logits_pool, mappings = self.encode_action_to_str(policy_action, policy_target, policy_item)
+        policy_logits_pool, mappings, action_sizes, max_length = self.encode_action_to_str(policy_action, policy_target,
+                                                                                           policy_item, observation[2])
+
+        # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
+        # Number of agents, previous action, number of simulations for memory purposes
+        roots_cpp = tree.Roots(self.NUM_ALIVE, action_sizes, config.NUM_SIMULATIONS, max_length)
+
+        print(action_sizes)
+        print(max_length)
 
         # prepare the nodes to feed them into batch_mcts
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
@@ -801,36 +806,41 @@ class MCTS(MCTSAgent):
     def encode_action_to_str(self, action, target, item, mask=None):
         actions = []
         mappings = []
+        action_sizes = []
+        max_length = 0
         for idx in range(len(action)):
             local_action = [action[idx][0]]
             local_mappings = [bytes("0", "utf-8")]
             if mask is not None:
-                print("Mask")
-                print(mask)
-                # for i in range(5):
-                #     if mask[:][1][i]:
-                #         actions.append((f"1_{i}", action[0][1] * target[0][i] / sum(list(target[0].values())[0:5])))
-                # for a in range(37):
-                #     for b in range(a, 38):
-                #         if a == b:
-                #             continue
-                #         if board_bench[a] or (board_bench[b] and unit_count < level):
-                #             actions.append((f"2_{a}_{b}", action[0][2] *
-                #                             (target[0][a] / sum(list(target[0].values())[0:37]) *
-                #                              (target[0][b] / (sum(list(target[0].values())[0:38]) - target[0][a])))))
-                # for a in range(37):
-                #     for b in range(10):
-                #         if board_bench[a] and items[b]:
-                #             actions.append((f"3_{a}_{b}", action[0][3] *
-                #                             (target[0][a] / sum(list(target[0].values())[0:37])) *
-                #                             (item[0][b] / sum(list(item[0].values())))))
-                # if gold >= 4:
-                #     actions.append(("4", action[0][4]))
-                # if gold >= 2:
-                #     actions.append(("5", action[0][5]))
-                ...
+                for i in range(5):
+                    if mask[idx][1][i]:
+                        local_action.append(action[idx][1] * target[idx][i] / sum(list(target[idx])[0:5]))
+                        local_mappings.append(bytes(f"1_{i}", "utf-8"))
+                for a in range(37):
+                    for b in range(a, 38):
+                        if a == b:
+                            continue
+                        # This does not account for max units yet
+                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                            continue
+                        local_action.append(action[idx][2] * (target[idx][a] / sum(list(target[idx])[0:37]) *
+                                            (target[idx][b] / (sum(list(target[idx])[0:38]) - target[idx][a]))))
+                        local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
+                for a in range(37):
+                    for b in range(10):
+                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
+                            continue
+                        local_action.append(action[idx][3] * (target[idx][a] / sum(list(target[idx])[0:37])) *
+                                            (item[idx][b] / sum(list(item[idx]))))
+                        local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
+                if mask[idx][0][4]:
+                    local_action.append(action[idx][4])
+                    local_mappings.append(bytes("4", "utf-8"))
+                if mask[idx][0][5]:
+                    local_action.append(action[idx][5])
+                    local_mappings.append(bytes("5", "utf-8"))
             else:
-                for i in range(5):  # TODO check if there is space in bench
+                for i in range(5):
                     local_action.append(action[idx][1] * target[idx][i] / sum(list(target[idx])[0:5]))
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
                 for a in range(37):
@@ -851,7 +861,10 @@ class MCTS(MCTSAgent):
                 local_mappings.append(bytes("5", "utf-8"))
             actions.append(local_action)
             mappings.append(local_mappings)
-        return actions, mappings
+            action_sizes.append(len(local_action))
+            if len(local_action) > max_length:
+                max_length = len(local_action)
+        return actions, mappings, action_sizes, max_length
 
 
 def masked_distribution(x, use_exp, mask=None):
