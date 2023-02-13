@@ -117,7 +117,7 @@ class DataWorker(object):
                         [player_observation[0][i], player_observation[1][i]],
                         actions[i],
                         reward[key],
-                        policy[i]
+                        policy[i],
                     )
 
                 # Set up the observation for the next action
@@ -129,6 +129,7 @@ class DataWorker(object):
                     self.prev_actions, np.argwhere(list(terminated.values())), axis=0
                 )
 
+            buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
 
             weights = ray.get(storage.get_model.remote())

@@ -19,15 +19,16 @@ class Trainer(object):
         observation, history, value_mask, reward_mask, policy_mask, value, reward,  policy   , prev_action = batch
         # vr_s, _, _, vr_r = sample_sequence
 
-        reward_batch = self.process_rewards(reward_batch, episode)
+        reward_batch = self.process_rewards(reward_mask, episode)
         # No need to process prev rewards because it wants the raw reward value rather the adjusted one
         # Since the model normally gets the raw reward value
         # sample_batch = self.process_rewards(vr_r, episode)
 
         act_re_input = []
-        for i in range(self.sequence_length):
-            act_re_input.append(agent.action_one_hot(prev_action_batch[:, i]))
-        act_re_input = np.swapaxes(np.asarray(act_re_input), 0, 1)
+        # for i in range(self.sequence_length):
+        #     act_re_input.append(agent.action_one_hot(prev_action[:, 0, :]))
+        # act_re_input = np.swapaxes(np.asarray(act_re_input), 0, 1)
+        prev_action = agent.action_one_hot(prev_action[:, 0, :])
 
         with tf.GradientTape() as tape:
 
