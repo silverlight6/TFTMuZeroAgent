@@ -8,10 +8,7 @@
 #include <algorithm>
 #include "cminimax.h"
 #include <stdlib.h>
-#include <time.h>
 #include <math.h>
-#include <sys/timeb.h>
-#include <sys/time.h>
 
 const int DEBUG_MODE = 0;
 

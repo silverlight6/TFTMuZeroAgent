@@ -68,6 +68,8 @@ class TFT_Simulator(AECEnv):
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
 
+        self.ckpt_time = time.time_ns()
+
         # For MuZero
         # self.observation_spaces: Dict = dict(
         #     zip(self.agents,

@@ -96,8 +96,8 @@ class player:
         self.refresh_reward = 0
         self.minion_count_reward = 0
         self.mistake_reward = 0
-        self.level_reward = .8
-        self.item_reward = .1
+        self.level_reward = 5
+        self.item_reward = 1
         self.won_game_reward = 0
         self.prev_rewards = 0
 
@@ -558,8 +558,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.02 * damage
-            self.print(str(-0.02 * damage) + " reward for losing round")
+            self.reward -= 0.5 * damage
+            self.print(str(-0.5 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1177,8 +1177,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0.02 * damage
-            self.print(str(0.02 * damage) + " reward for winning round")
+            self.reward += 0.5 * damage
+            self.print(str(0.5 * damage) + " reward for winning round")
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:

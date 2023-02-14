@@ -13,9 +13,9 @@ class GlobalBuffer:
         # Returns: a batch of gameplay experiences without regard to which agent.
         obs_tensor_batch, obs_image_batch, action_history_batch, target_value_batch,  = [], [], [], [],
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch,  = [], [], [], []
-        policy_mask_batch = []
+        policy_mask_batch, action_mask_batch = [], []
         for gameplay_experience in range(self.batch_size):
-            observation, action_history, value_mask, reward_mask, policy_mask,\
+            observation, action_history, value_mask, reward_mask, policy_mask, action_mask,\
                 value, reward, policy = self.gameplay_experiences.popleft()
             obs_tensor_batch.append(observation[0])
             obs_image_batch.append(observation[1])
@@ -23,6 +23,7 @@ class GlobalBuffer:
             value_mask_batch.append(value_mask)
             reward_mask_batch.append(reward_mask)
             policy_mask_batch.append(policy_mask)
+            action_mask_batch.append(action_mask)
             target_value_batch.append(value)
             target_reward_batch.append(reward)
             target_policy_batch.append(policy)
@@ -36,10 +37,10 @@ class GlobalBuffer:
         value_mask_batch = np.asarray(value_mask_batch).astype('float32')
         reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
-        target_policy_batch = np.asarray(target_policy_batch).astype('float32')
+        action_mask_batch = np.asarray(action_mask_batch).astype('float32')
 
         return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
-                target_value_batch, target_reward_batch, target_policy_batch]
+                action_mask_batch, target_value_batch, target_reward_batch, target_policy_batch]
 
     def store_replay_sequence(self, sample):
         # Records a single step of gameplay experience

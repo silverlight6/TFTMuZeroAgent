@@ -312,7 +312,6 @@ namespace tree {
         char *copyzero = new char[strlen(&zero[0]) + 1];
         strcpy(copyzero, &zero[0]);
         mapping.push_back(copyzero);
-        
 
         // Default encodings for the shop.
         for(int i = 0; i < 5; i++) {
@@ -475,11 +474,6 @@ namespace tree {
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
-        // set seed
-        // Not sure we use this seed anywhere
-        timeval t1;
-        gettimeofday(&t1, NULL);
-        srand(t1.tv_usec);
 
         // Last action is a multidimensional action so a vector is required.
         std::vector<int> last_action{0};
@@ -516,16 +510,8 @@ namespace tree {
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);
             results.hidden_state_index_y_lst.push_back(parent->hidden_state_index_y);
             results.last_actions.push_back(last_action);
-            std::cout <<"Vector 'last_action' : ";
-
-            for(int i=0; i < last_action.size(); i++) {
-
-                std::cout <<last_action.at(i) <<' '; }
-
-            std::cout << std::endl;
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
         }
     }
-
 }

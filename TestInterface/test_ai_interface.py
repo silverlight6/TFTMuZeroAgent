@@ -7,7 +7,9 @@ from TestInterface.test_global_buffer import GlobalBuffer
 from Simulator.tft_simulator import parallel_env
 from Models import MuZero_trainer
 from TestInterface.test_replay_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import MCTS, TFTNetwork
+from Models.MuZero_agent_2 import TFTNetwork
+from Models.MCTS import MCTS
+from Simulator import utils
 
 
 class DataWorker(object):
@@ -35,6 +37,7 @@ class DataWorker(object):
             # Ask our model for an action and policy
             actions, policy = agent.policy(player_observation)
             step_actions = self.getStepActions(terminated, actions)
+            storage_actions = utils.decode_action(actions)
 
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -42,7 +45,7 @@ class DataWorker(object):
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
                 buffers.store_replay_buffer(key, [player_observation[0][i], player_observation[1][i]],
-                                            actions[i], reward[key], policy[i])
+                                            storage_actions[i], reward[key], [policy[0][i], policy[1][i], policy[2][i]])
             # Set up the observation for the next action
             player_observation = self.observation_to_input(next_observation)
 
@@ -54,7 +57,7 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = actions[i]
+                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
                 i += 1
         return step_actions
 
@@ -67,6 +70,28 @@ class DataWorker(object):
             images.append(obs[1])
             masks.append(obs[2])
         return [np.asarray(tensors), np.asarray(images), masks]
+
+    def decode_action_to_one_hot(self, str_action):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0, 0, 0]
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+
+        decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
+        decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
+
+        if element_list[0] == 1:
+            decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
+
+        if element_list[0] == 2:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + utils.one_hot_encode_number(
+                element_list[2], 38)
+
+        if element_list[0] == 3:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
+            decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+        return decoded_action
 
 
 class AIInterface:
@@ -99,5 +124,5 @@ class AIInterface:
                 gameplay_experience_batch = global_buffer.sample_batch()
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 train_step += 1
-                if train_step % 100 == 0:
+                if train_step % 10 == 0:
                     global_agent.tft_save_model(train_step)
