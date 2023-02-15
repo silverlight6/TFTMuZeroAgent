@@ -1,6 +1,7 @@
 import config
 import collections
 import tensorflow as tf
+import tensorflow_probability as tfp 
     
 
 Prediction = collections.namedtuple(
@@ -49,7 +50,7 @@ class Trainer(object):
         ]
 
         # recurrent steps
-        num_recurrent_steps = history.shape[-1]
+        num_recurrent_steps = config.UNROLL_STEPS
         for rstep in range(num_recurrent_steps):
             hidden_state_gradient_scale = 1.0 if rstep == 0 else 0.5
             output = agent.recurrent_inference(
@@ -66,12 +67,9 @@ class Trainer(object):
                 ))
 
         num_target_steps = target_value.shape[-1]
-        # print(target_value, " target_val")
-        # print(predictions, " predictions")
-        # print("histroy", history)
-        # assert len(predictions) == num_target_steps, (
-        #     'There should be as many predictions ({}) as targets ({})'.format(
-        #         len(predictions), num_target_steps))
+        assert len(predictions) == num_target_steps, (
+            'There should be as many predictions ({}) as targets ({})'.format(
+                len(predictions), num_target_steps))
 
         masks = {
             'value': target_value_mask,
