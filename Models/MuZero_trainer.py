@@ -1,7 +1,6 @@
 import config
 import collections
 import tensorflow as tf
-import tensorflow_probability as tfp 
     
 
 Prediction = collections.namedtuple(
@@ -130,7 +129,7 @@ class Trainer(object):
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy() * config.policy_loss_entropy_regularizer
             
             accs['policy_loss'].append(
-                self.scale_gradient(policy_loss+entropy_loss, gradient_scales['policy'][tstep]))
+                self.scale_gradient(policy_loss, gradient_scales['policy'][tstep]))
 
             accs['value_diff'].append(
                 tf.abs(tf.squeeze(prediction.value) - target_value[:, tstep]))
