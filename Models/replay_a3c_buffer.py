@@ -190,7 +190,7 @@ class ReplayBuffer:
                         value_set.append(0.0)
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distribtuions[0])
-                prev_action_set.append(self.prev_actions[current_index][0])
+                prev_action_set.append(self.prev_actions[current_index])
                 sample_set = [
                     self.gameplay_experiences[sample],
                     action_set,

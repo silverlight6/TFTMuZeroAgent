@@ -16,10 +16,10 @@ class Trainer(object):
         # Returns a training loss
         # obs_batch, logit_batch, action_batch, reward_batch, prev_action_batch = batch
         # (64, 2)    (64, 4)  (64, 5)     (64, 5)      (64, 5)     (64, 5) (64, 5), (64, 5,10)
-        observation, history, value_mask, reward_mask, policy_mask, value, reward,  policy   , prev_action = batch
+        observation_batch, history, value_mask_batch, reward_mask_batch, policy_mask_batch, value, reward_batch,  worker_policy_batch   , prev_action = batch
         # vr_s, _, _, vr_r = sample_sequence
 
-        reward_batch = self.process_rewards(reward_mask, episode)
+        reward_batch = self.process_rewards(reward_batch, episode)
         # No need to process prev rewards because it wants the raw reward value rather the adjusted one
         # Since the model normally gets the raw reward value
         # sample_batch = self.process_rewards(vr_r, episode)
@@ -34,14 +34,14 @@ class Trainer(object):
 
             # Create gradients for the batch as a whole
             # obs_input = tf.convert_to_tensor(obs_batch, dtype=tf.float32)
-            policy, norm_value, un_norm_value = [], [], []
+            target_policy_batch, norm_value, un_norm_value = [], [], []
             # state shape = (batch size, sequence length, 1, state dimensionality)
             # Moving over the sequence length because I need an output at each time step
             # and the action and policy do not have a sequence length component to them.
             for i in range(self.sequence_length):
                 # I need to add the previous action and reward here.
-                p, [norm_v, un_norm_v] = agent.a3c_net([observation[0], observation[1], prev_action], training=True)
-                policy.append(self.transpose(p))
+                p, [norm_v, un_norm_v] = agent.a3c_net([observation_batch[0], observation_batch[1], prev_action], training=True)
+                target_policy_batch.append(self.transpose(p))
                 norm_value.append(norm_v)
                 un_norm_value.append(un_norm_v)
             norm_v = tf.convert_to_tensor(norm_value)
@@ -50,7 +50,7 @@ class Trainer(object):
             un_norm_v = tf.reshape(un_norm_v, (self.sequence_length, self.batch_size,))
             bootstrap = un_norm_v[-1]
             policy = self.transpose(policy)
-            logit_batch = self.transpose(logit_batch)
+            policy_batch = self.transpose(policy_batch)
             # policy, logit_batch = self.maskInput(policy, logit_batch, action_batch)
 
             # Create gradients for the random sub-sequence
