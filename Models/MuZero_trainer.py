@@ -1,8 +1,6 @@
 import config
 import collections
 import tensorflow as tf
-import tensorflow_probability as tfp 
-    
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -23,19 +21,20 @@ class Trainer(object):
         return optimizer, learning_rate_fn
 
     def train_network(self, batch, agent, train_step, summary_writer):
-        observation, history, value_mask, reward_mask, policy_mask, action_mask, value, reward, policy = batch
+        observation, history, value_mask, reward_mask, policy_mask, value, reward, policy = batch
         # if i % config.checkpoint_interval == 0:
         #     storage.save_network(i, network)
         with tf.GradientTape() as tape:
-            loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask, action_mask,
+            loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                      value, reward, policy, train_step, summary_writer)
 
+        print("loss = {}".format(loss))
         grads = tape.gradient(loss, agent.get_rl_training_variables())
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
         # storage.save_network(config.training_steps, network)\
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
-                     target_action_mask, target_value, target_reward, target_policy, train_step, summary_writer):
+                     target_value, target_reward, target_policy, train_step, summary_writer):
         # initial step
         output = agent.initial_inference(observation)
 
@@ -115,12 +114,8 @@ class Trainer(object):
             
             # predictions.policy_logits is (actiondims, batch) 
             # target_policy is (batch,unrollsteps+1,action_dims)
-            policy_loss = [i[tstep][0] for i in target_action_mask]* tf.nn.softmax_cross_entropy_with_logits(
-                logits=prediction.policy_logits[0], labels=[i[tstep][0] for i in target_policy]) 
-            policy_loss += [i[tstep][1] for i in target_action_mask] * tf.nn.softmax_cross_entropy_with_logits(
-                logits=prediction.policy_logits[1], labels=[i[tstep][1] for i in target_policy]) 
-            policy_loss += [i[tstep][2] for i in target_action_mask] * tf.nn.softmax_cross_entropy_with_logits(
-                logits=prediction.policy_logits[2], labels=[i[tstep][2] for i in target_policy])       
+            policy_loss = tf.nn.softmax_cross_entropy_with_logits(
+                logits=prediction.policy_logits, labels=[i[tstep] for i in target_policy])
 
             # future ticket
             # entropy_loss = -tfd.Independent(tfd.Categorical(

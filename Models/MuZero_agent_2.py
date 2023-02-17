@@ -131,13 +131,12 @@ class Network(tf.keras.Model):
     def build_initial_inference_model(self) -> tf.keras.Model:
         # define the input tensor
         tensor_observation = tf.keras.Input(shape=config.INPUT_TENSOR_SHAPE, dtype=tf.float32, name='t_observation')
-        image_observation = tf.keras.Input(shape=config.INPUT_IMAGE_SHAPE, dtype=tf.float32, name='i_observation')
 
-        hidden_state = self.representation([tensor_observation, image_observation])
+        hidden_state = self.representation(tensor_observation)
 
         value, policy_logits = self.prediction(hidden_state)
 
-        return tf.keras.Model(inputs=[tensor_observation, image_observation],
+        return tf.keras.Model(inputs=tensor_observation,
                               outputs=[hidden_state, value, policy_logits],
                               name='initial_inference')
 
@@ -230,20 +229,10 @@ class TFTNetwork(Network):
         # Representation model. Observation --> hidden state
         rep_tensor_input = tf.keras.Input(shape=config.INPUT_TENSOR_SHAPE)
         tensor_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE / 2, name="rep_tensor")(rep_tensor_input)
-        tensor_x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='rep_tensor')(tensor_x)
-
-        rep_image_input = tf.keras.Input(shape=config.INPUT_IMAGE_SHAPE)
-        image_x = tf.keras.layers.Conv2D(filters=config.CONV_FILTERS, kernel_size=4, strides=(2, 2),
-                                         padding='same', use_bias=False, name='conv_resize')(rep_image_input)
-        image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
-        image_x = ResidualBlock(config.CONV_FILTERS)(image_x)
-        image_x = tf.keras.layers.Flatten()(image_x)
-        image_x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE, activation='sigmoid', name='rep_image')(image_x)
-
-        rep_output = tf.concat([tensor_x, image_x], axis=-1)
+        rep_output = tf.keras.layers.Dense(config.LAYER_HIDDEN_SIZE, activation='sigmoid', name='rep_tensor')(tensor_x)
 
         representation_model: tf.keras.Model = \
-            tf.keras.Model(inputs=[rep_tensor_input, rep_image_input],
+            tf.keras.Model(inputs=rep_tensor_input,
                            outputs=rep_output, name='observation_encodings')
 
         # Dynamics Model. Hidden State --> next hidden state and reward
@@ -279,20 +268,16 @@ class TFTNetwork(Network):
             tf.keras.Model(inputs=[dynamic_hidden_state, encoded_state_action],
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
-        pred_hidden_state = tf.keras.Input(shape=np.array([2 * config.HIDDEN_STATE_SIZE]), name="prediction_input")
+        pred_hidden_state = tf.keras.Input(shape=np.array([config.LAYER_HIDDEN_SIZE]), name="prediction_input")
         value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="value")(pred_hidden_state)
         value_output = tf.keras.layers.Dense(units=601, name='value',
                                              kernel_regularizer=regularizer, bias_regularizer=regularizer)(value_x)
 
         policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
-        policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], name='action_layer')(policy_x)
-        policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], name='target_layer')(policy_x)
-        policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], name='item_layer')(policy_x)
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_ENCODING_SIZE, name='policy_output')(policy_x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
-                                                          outputs=[value_output,
-                                                                   [policy_output_action, policy_output_target,
-                                                                    policy_output_item]],
+                                                          outputs=[value_output, policy_output_action],
                                                           name='prediction')
 
         super().__init__(representation=representation_model,

@@ -47,9 +47,9 @@ cdef class Roots:
     cdef int pool_size
     cdef CRoots *roots
 
-    def __cinit__(self, int root_num, list action_num, int tree_nodes, int max_action_num):
+    def __cinit__(self, int root_num, int action_num, int tree_nodes):
         self.root_num = root_num
-        self.pool_size = max_action_num * (tree_nodes + 2)
+        self.pool_size = action_num * (tree_nodes + 2)
         self.roots = new CRoots(root_num, action_num, self.pool_size)
 
     def prepare(self, float root_exploration_fraction, list noises, list value_prefix_pool, list policy_logits_pool,
@@ -90,19 +90,20 @@ cdef class Node:
         pass
 
     def expand(self, int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-               list policy_logits):
+               list policy_logits, list mappings):
         cdef vector[float] cpolicy = policy_logits
-        self.cnode.expand(to_play, hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy)
+        self.cnode.expand(to_play, hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, mappings)
 
-def batch_back_propagate(int hidden_state_index_x, float discount, list value_prefixs, list values, list policies,
-                         MinMaxStatsList min_max_stats_lst, ResultsWrapper results, list is_reset_lst):
+def batch_back_propagate(int hidden_state_index_x, float discount, list value_prefixs, list values, list policy,
+                         MinMaxStatsList min_max_stats_lst, ResultsWrapper results,
+                         list is_reset_lst, list mappings):
     cdef int i
     cdef vector[float] cvalue_prefixs = value_prefixs
     cdef vector[float] cvalues = values
-    cdef vector[vector[float]] cpolicies = policies
+    cdef vector[vector[float]] cpolicy = policy
 
-    cbatch_back_propagate(hidden_state_index_x, discount, cvalue_prefixs, cvalues, cpolicies,
-                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, is_reset_lst)
+    cbatch_back_propagate(hidden_state_index_x, discount, cvalue_prefixs, cvalues, cpolicy,
+                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, is_reset_lst, mappings)
 
 
 def batch_traverse(Roots roots, int pb_c_base, float pb_c_init, float discount, MinMaxStatsList min_max_stats_lst,

@@ -53,21 +53,3 @@ def decode_action(str_actions):
             element_list[i] = int(split_action[i])
         actions.append(np.asarray(element_list))
     return np.asarray(actions)
-
-
-def generate_masking(element_list):
-    mask = np.ones(3)
-    if element_list[0] == 0:
-        mask[1] = 0
-        mask[2] = 0
-    elif element_list[0] == 1:
-        mask[2] = 0
-    elif element_list[0] == 2:
-        mask[2] = 0
-    elif element_list[0] == 4:
-        mask[1] = 0
-        mask[2] = 0
-    elif element_list[0] == 5:
-        mask[1] = 0
-        mask[2] = 0
-    return mask

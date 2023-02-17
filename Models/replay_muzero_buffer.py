@@ -2,7 +2,6 @@ import numpy as np
 import config
 import random
 from global_buffer import GlobalBuffer
-from Simulator.utils import generate_masking
 
 
 class ReplayBuffer:
@@ -10,7 +9,6 @@ class ReplayBuffer:
         self.gameplay_experiences = []
         self.rewards = []
         self.policy_distributions = []
-        self.observation_history = []
         self.action_history = []
         self.g_buffer = g_buffer
 
@@ -22,16 +20,6 @@ class ReplayBuffer:
         self.action_history.append(action)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
-
-    def store_observation(self, observation):
-        self.observation_history.append(observation)
-
-    def len_observation_buffer(self):
-        return len(self.observation_history)
-
-    def get_prev_observation(self, i):
-        # take the sample from i num from the end of list
-        return self.observation_history[i * -1]
 
     def get_prev_action(self):
         if self.action_history:
@@ -65,7 +53,6 @@ class ReplayBuffer:
                 value_set = []
                 reward_set = []
                 policy_set = []
-                action_mask_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
                     #### POSSIBLE EXTENSION -- set up value_approximation storing
@@ -81,7 +68,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             # To weed this out later when sampling the global buffer
-                            action_set.append([0])
+                            action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -89,11 +76,10 @@ class ReplayBuffer:
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(self.rewards[current_index])
-                        action_mask_set.append(np.asarray(generate_masking(self.action_history[current_index])))
-
                         policy_set.append(self.policy_distributions[current_index])
+
                     elif current_index == num_steps - 1:
-                        action_set.append(9)
+                        action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
@@ -104,17 +90,16 @@ class ReplayBuffer:
                         reward_set.append(self.rewards[current_index])
                         # 0 is ok here because this get masked out anyway
                         policy_set.append(self.policy_distributions[0])
-                        action_mask_set.append(np.asarray([0, 0, 0]))
+
                     else:
                         # States past the end of games is treated as absorbing states.
-                        action_set.append(0)
+                        action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
                         value_set.append(0.0)
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
-                        action_mask_set.append(np.asarray([0, 0, 0]))
                 sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                              policy_mask_set, action_mask_set, value_set, reward_set, policy_set]
+                              policy_mask_set, value_set, reward_set, policy_set]
                 self.g_buffer.store_replay_sequence.remote(sample_set)

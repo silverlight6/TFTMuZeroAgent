@@ -666,7 +666,7 @@ def run(champion_q, player_1, player_2, round_damage=0):
                 return 2, (round_damage + DAMAGE_PER_UNIT[len(red)])
             break
         if MILLIS() > 150000:
-            print("Round has gone on too long")
+            # print("Round has gone on too long")
             return 0, round_damage
     return 0, round_damage
 

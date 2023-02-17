@@ -44,12 +44,11 @@ class DataWorker(object):
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 # Store the information in a buffer to train on later.
-                buffers.store_replay_buffer(key, [player_observation[0][i], player_observation[1][i]],
-                                            storage_actions[i], reward[key], [policy[0][i], policy[1][i], policy[2][i]])
+                buffers.store_replay_buffer(key, player_observation[0][i], storage_actions[i], reward[key], policy[i])
             # Set up the observation for the next action
             player_observation = self.observation_to_input(next_observation)
 
-        buffers.rewardNorm()
+        # buffers.rewardNorm()
         buffers.store_global_buffer()
 
     def getStepActions(self, terminated, actions):
@@ -63,13 +62,11 @@ class DataWorker(object):
 
     def observation_to_input(self, observation):
         tensors = []
-        images = []
         masks = []
         for obs in observation.values():
             tensors.append(obs[0])
-            images.append(obs[1])
-            masks.append(obs[2])
-        return [np.asarray(tensors), np.asarray(images), masks]
+            masks.append(obs[1])
+        return [np.asarray(tensors), masks]
 
     def decode_action_to_one_hot(self, str_action):
         num_items = str_action.count("_")

@@ -30,7 +30,7 @@ namespace tree {
         this->to_play = 0;
         this->value_prefix = 0.0;
         this->ptr_node_pool = nullptr;
-        this->mappings = std::vector<char*>{};
+        this->mappings = default_mapping;
     }
 
     CNode::CNode(float prior, int action_num, std::vector<CNode>* ptr_node_pool) {
@@ -52,11 +52,12 @@ namespace tree {
     CNode::~CNode(){}
 
     void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-                       const std::vector<float> &policy_logits) {
+                       const std::vector<float> &policy_logits, const std::vector<char*> mappings) {
         this->to_play = to_play;
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->value_prefix = value_prefix;
+        this->mappings = mappings;
 
         int action_num = this->action_num;
         float temp_policy;
@@ -180,12 +181,14 @@ namespace tree {
 
     CRoots::CRoots(){
         this->root_num = 0;
-        this->action_num = std::vector<int>{0};
+        this->action_num = 0;
         this->pool_size = 0;
     }
 
     // root_num is the number of agents in the batch (NUM_PLAYERS in our base case)
-    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
+    // pool_size is in place to speed up the vectors and to allocate a given amount of memory at the start
+    // Setting this to be the number of samples for now but someone should check if that is correct
+    CRoots::CRoots(int root_num, int action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
         this->action_num = action_num;
@@ -198,7 +201,7 @@ namespace tree {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, action_num[i], &this->node_pools[i]));
+            this->roots.push_back(CNode(0, action_num, &this->node_pools[i]));
         }
     }
 
@@ -208,10 +211,8 @@ namespace tree {
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
                          const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i) {
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
-
-            this->roots[i].mappings = mappings[i];
             this->roots[i].visit_count += 1;
         }
     }
@@ -220,9 +221,7 @@ namespace tree {
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i]);
-
-            this->roots[i].mappings = mappings[i];
+            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
         }
     }
@@ -267,6 +266,7 @@ namespace tree {
         node_stack.push(root);
         float parent_value_prefix = 0.0;
         int is_reset = 0;
+
         while(node_stack.size() > 0){
             CNode* node = node_stack.top();
             node_stack.pop();
@@ -280,13 +280,13 @@ namespace tree {
                 min_max_stats.update(qsa);
             }
 
+            // This for statement checks an absolutely absurd number of nodes from start to finish (like 50k)
             for(int a = 0; a < node->action_num; ++a){
                 CNode* child = node->get_child(a);
                 if(child->expanded()){
                     node_stack.push(child);
                 }
             }
-
             parent_value_prefix = node->value_prefix;
             is_reset = node->is_reset;
         }
@@ -308,6 +308,7 @@ namespace tree {
 
     std::vector<char*> create_default_mapping() {
         std::vector<char*> mapping = std::vector<char*>{};
+//        mapping.reserve(1081);
         std::string zero = "0";
         char *copyzero = new char[strlen(&zero[0]) + 1];
         strcpy(copyzero, &zero[0]);
@@ -385,7 +386,6 @@ namespace tree {
 //                float qsa = (node->value_prefix - parent_value_prefix) + discount * node->value();
 //                min_max_stats.update(qsa);
             }
-
             // see if our value is higher in the current state than the previous state.
             // originally named true_reward but changed to true_value since that is what this actually is.
             float true_value = node->value_prefix - parent_value_prefix;
@@ -399,15 +399,16 @@ namespace tree {
         min_max_stats.clear();
         CNode* root = search_path[0];
         update_tree_q(root, min_max_stats, discount);
+
     }
 
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
-                               const std::vector<float> &values, const std::vector<std::vector<float>> &policies,
+                               const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<int> is_reset_lst){
+                               std::vector<int> is_reset_lst, std::vector<std::vector<char*>> mappings){
         // For each player
         for(int i = 0; i < results.num; ++i){
-            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policies[i]);
+            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policy[i], mappings[i]);
             // reset
             results.nodes[i]->is_reset = is_reset_lst[i];
 
@@ -479,6 +480,7 @@ namespace tree {
         std::vector<int> last_action{0};
         float parent_q = 0.0;
         results.search_lens = std::vector<int>();
+
         for(int i = 0; i < results.num; ++i) {
             CNode *node = &(roots->roots[i]);
             int is_root = 1;

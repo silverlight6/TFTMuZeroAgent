@@ -16,7 +16,7 @@ class Observation:
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                                 config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): [np.zeros(306), np.zeros((49, 16))]
+        self.other_player_observations = {"player_" + str(player_id): np.zeros(306)
                                           for player_id in range(config.NUM_PLAYERS)}
 
     def observation(self, player_id, player, action_vector=np.array([])):
@@ -30,52 +30,43 @@ class Observation:
                                             player.item_vector,
                                             player.player_public_vector,
                                             player.player_private_vector,
+                                            player.board_vector,
                                             game_state_vector,
                                             action_vector], axis=-1)
-
-        game_state_image = player.board_image
 
         # Initially fill the queue with duplicates of first observation
         # so we can still sample when there aren't enough time steps yet
         maxLen = config.OBSERVATION_TIME_STEPS * config.OBSERVATION_TIME_STEP_INTERVAL
         if len(self.cur_player_observations) == 0:
             for _ in range(maxLen):
-                self.cur_player_observations.append([game_state_tensor, game_state_image])
+                self.cur_player_observations.append(game_state_tensor)
 
         # Enqueue the latest observation and pop the oldest (performed automatically by deque with maxLen configured)
-        self.cur_player_observations.append([game_state_tensor, game_state_image])
+        self.cur_player_observations.append(game_state_tensor)
 
         # # sample every N time steps at M intervals, where maxLen of queue = M*N
         # cur_player_observation = np.array([self.cur_player_observations[i]
         #                               for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
 
         cur_player_tensor_observation = []
-        cur_player_image_observation = []
         for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL):
-            tensor, image = self.cur_player_observations[i]
+            tensor = self.cur_player_observations[i]
             cur_player_tensor_observation.append(tensor)
-            cur_player_image_observation.append(image)
         cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
-        cur_player_image_observation = np.asarray(cur_player_image_observation)
 
         # Fetch other player data
         other_player_tensor_observation_list = []
-        other_player_image_observation_list = []
         for k, v in self.other_player_observations.items():
             if k != player_id:
-                other_player_tensor_observation_list.append(v[0])
-                other_player_image_observation_list.append(v[1])
+                other_player_tensor_observation_list.append(v)
         other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
-        other_player_image_observation = np.array(other_player_image_observation_list)
 
-        # Gather all vectors and images into one place
+        # Gather all vectors into one place
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
-        total_image_observation = np.concatenate((cur_player_image_observation, other_player_image_observation))
-        total_image_observation = np.transpose(total_image_observation, (1, 2, 0))
 
         # Fetch and concatenate mask
         mask = [player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask]
-        return [total_tensor_observation, total_image_observation, mask]
+        return [total_tensor_observation, mask]
 
     def generate_other_player_vectors(self, cur_player, players):
         for player_id in players:
@@ -85,8 +76,7 @@ class Observation:
                                                       other_player.chosen_vector,
                                                       other_player.item_vector,
                                                       other_player.player_public_vector], axis=-1)
-                other_player_game_state_image = other_player.board_image
-                self.other_player_observations[player_id] = [other_player_vector, other_player_game_state_image]
+                self.other_player_observations[player_id] = other_player_vector
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)

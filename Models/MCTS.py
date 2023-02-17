@@ -24,34 +24,36 @@ class MCTS:
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
+        self.default_byte_mapping, self.default_string_mapping = self.create_default_mapping()
 
     def policy(self, observation):
         self.NUM_ALIVE = observation[0].shape[0]
 
-        # 0.97 seconds for first action to 0.04 after a few actions
-        network_output = self.network.initial_inference([observation[0], observation[1]])
+        # 0.02 seconds
+        network_output = self.network.initial_inference(observation[0])
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
-        policy_action = network_output["policy_logits"][0].numpy()
-        policy_target = network_output["policy_logits"][1].numpy()
-        policy_item = network_output["policy_logits"][2].numpy()
+        policy_logits = network_output["policy_logits"].numpy()
 
-        # 0.015 seconds
-        policy_logits_pool, mappings, action_sizes, max_length, string_mapping = \
-            self.encode_action_to_str(policy_action, policy_target, policy_item, observation[2])
+        # 0.01 seconds
+        policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+
+        # 0.003 seconds
+        policy_logits_pool, mappings, string_mapping = self.sample(policy_logits_pool, mappings,
+                                                                   string_mapping, config.NUM_SAMPLES)
 
         # less than 0.0001 seconds
         # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
         # Number of agents, previous action, number of simulations for memory purposes
-        roots_cpp = tree.Roots(self.NUM_ALIVE, action_sizes, config.NUM_SIMULATIONS, max_length)
+        roots_cpp = tree.Roots(self.NUM_ALIVE, config.NUM_SAMPLES, config.NUM_SIMULATIONS)
 
         # 0.0002 seconds
-        # prepare the nodes to feed them into batch_mcts
+        # prepare the nodes to feed them into batch_mcts, for statement to deal with different lengths due to masking.
         noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
-                                      len(policy_logits_pool[0])).astype(np.float32).tolist()
-                  for _ in range(self.NUM_ALIVE)]
+                                      len(policy_logits_pool[i])).astype(np.float32).tolist()
+                  for i in range(self.NUM_ALIVE)]
 
-        # 0.002 seconds
+        # 0.01 seconds
         roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
 
         # Output for root node
@@ -67,14 +69,11 @@ class MCTS:
             deterministic = False  # False = sample distribution, True = argmax
             distributions = roots_distributions[i]
             action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
-            actions.append(action)
+            actions.append(string_mapping[i][action])
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-        str_action = []
-        for i, act in enumerate(actions):
-            str_action.append(string_mapping[i][act])
-        return str_action, network_output["policy_logits"]
+        return actions, network_output["policy_logits"]
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -97,7 +96,7 @@ class MCTS:
             hidden_states = []
             results = tree.ResultsWrapper(num)
 
-            # 0.0001 seconds
+            # 0.001 seconds
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
@@ -111,19 +110,16 @@ class MCTS:
             # hidden state given an action and the previous hidden state.
 
             last_action = np.asarray(last_action)
-            # 0.03 seconds
-            self.ckpt_time = time.time_ns()
+
+            # 0.026 to 0.064 seconds
             network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
-            print("recurrent_inference takes {} time".format(time.time_ns() - self.ckpt_time))
+
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
-            policy_action = network_output["policy_logits"][0].numpy()
-            policy_target = network_output["policy_logits"][1].numpy()
-            policy_item = network_output["policy_logits"][2].numpy()
 
-            # .015 to 0.045 seconds
-            policy_logits_pool, _, _, _, _ = self.encode_action_to_str(policy_action, policy_target, policy_item)
-
+            # 0.002 seconds
+            policy_logits, mapping, _ = self.sample(network_output["policy_logits"].numpy(), self.default_byte_mapping,
+                                                    self.default_string_mapping, config.NUM_SAMPLES)
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
@@ -134,10 +130,10 @@ class MCTS:
             # tree node.isreset = is_reset_list[node]
             hidden_state_index_x += 1
 
-            # 0.001 to 0.006 seconds
+            # 0.001 seconds
             # backpropagation along the search path to update the attributes
-            tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits_pool,
-                                      min_max_stats_lst, results, is_reset_lst)
+            tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
+                                      min_max_stats_lst, results, is_reset_lst, mapping)
 
     @staticmethod
     def select_action(visit_counts, temperature=1, deterministic=True):
@@ -164,79 +160,99 @@ class MCTS:
         return action_pos, count_entropy
 
     @staticmethod
-    def encode_action_to_str(action, target, item, mask=None):
+    def encode_action_to_str(policy_logits, mask):
         actions = []
         mappings = []
         second_mappings = []
-        action_sizes = []
-        max_length = 0
-        for idx in range(len(action)):
-            local_action = [action[idx][0]]
+        for idx in range(len(policy_logits)):
+            local_counter = 0
+            local_action = [policy_logits[idx][local_counter]]
             local_mappings = [bytes("0", "utf-8")]
             second_local_mappings = ["0"]
-            shop_sum = sum(list(target[idx])[0:5])
-            board_sum_a = sum(list(target[idx])[0:37])
-            board_sum_b = sum(list(target[idx])[0:38])
-            item_sum = sum(list(item[idx]))
-            if mask is not None:
-                for i in range(5):
-                    if mask[idx][1][i]:
-                        local_action.append(action[idx][1] * target[idx][i] / shop_sum)
-                        local_mappings.append(bytes(f"1_{i}", "utf-8"))
-                        second_local_mappings.append(f"1_{i}")
-                for a in range(37):
-                    for b in range(a, 38):
-                        if a == b:
-                            continue
-                        # This does not account for max units yet
-                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
-                            continue
-                        local_action.append(action[idx][2] * (target[idx][a] / board_sum_a *
-                                                              (target[idx][b] / (board_sum_b - target[idx][a]))))
-                        local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
-                        second_local_mappings.append(f"2_{a}_{b}")
-                for a in range(37):
-                    for b in range(10):
-                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
-                            continue
-                        local_action.append(action[idx][3] * (target[idx][a] / board_sum_a) *
-                                            (item[idx][b] / item_sum))
-                        local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
-                        second_local_mappings.append(f"3_{a}_{b}")
-                if mask[idx][0][4]:
-                    local_action.append(action[idx][4])
-                    local_mappings.append(bytes("4", "utf-8"))
-                    second_local_mappings.append("4")
-                if mask[idx][0][5]:
-                    local_action.append(action[idx][5])
-                    second_local_mappings.append("5")
-                second_mappings.append(second_local_mappings)
-            else:
-                for i in range(5):
-                    local_action.append(action[idx][1] * target[idx][i] / shop_sum)
+            local_counter += 1
+            for i in range(5):
+                if mask[idx][1][i]:
+                    local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
-                for a in range(37):
-                    for b in range(a, 38):
-                        if a == b:
-                            continue
-                        local_action.append(action[idx][2] * (target[idx][a] / board_sum_a *
-                                                              (target[idx][b] / (board_sum_b - target[idx][a]))))
-                        local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
-                for a in range(37):
-                    for b in range(10):
-                        local_action.append(action[idx][3] * (target[idx][a] / board_sum_a) *
-                                            (item[idx][b] / item_sum))
-                        local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
-                local_action.append(action[idx][4])
+                    second_local_mappings.append(f"1_{i}")
+                local_counter += 1
+            for a in range(37):
+                for b in range(a, 38):
+                    if a == b:
+                        continue
+                    # This does not account for max units yet
+                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                        local_counter += 1
+                        continue
+                    local_action.append(policy_logits[idx][local_counter])
+                    local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
+                    second_local_mappings.append(f"2_{a}_{b}")
+                    local_counter += 1
+            for a in range(37):
+                for b in range(10):
+                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
+                        local_counter += 1
+                        continue
+                    local_action.append(policy_logits[idx][local_counter])
+                    local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
+                    second_local_mappings.append(f"3_{a}_{b}")
+                    local_counter += 1
+            if mask[idx][0][4]:
+                local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("4", "utf-8"))
-                local_action.append(action[idx][5])
+                second_local_mappings.append("4")
+            local_counter += 1
+            if mask[idx][0][5]:
+                local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("5", "utf-8"))
+                second_local_mappings.append("5")
+
             actions.append(local_action)
             mappings.append(local_mappings)
-            action_sizes.append(len(local_action))
-            if len(local_action) > max_length:
-                max_length = len(local_action)
-        return actions, mappings, action_sizes, max_length, second_mappings
+            second_mappings.append(second_local_mappings)
+        return actions, mappings, second_mappings
+
+    @staticmethod
+    def create_default_mapping():
+        mappings = [bytes("0", "utf-8")]
+        second_mappings = ["0"]
+        for i in range(5):
+            mappings.append(bytes(f"1_{i}", "utf-8"))
+            second_mappings.append(f"1_{i}")
+        for a in range(37):
+            for b in range(a, 38):
+                if a == b:
+                    continue
+                mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
+                second_mappings.append(f"2_{a}_{b}")
+        for a in range(37):
+            for b in range(10):
+                mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
+                second_mappings.append(f"3_{a}_{b}")
+        mappings.append(bytes("4", "utf-8"))
+        second_mappings.append("4")
+        mappings.append(bytes("5", "utf-8"))
+        second_mappings.append("5")
+        mappings = [mappings for _ in range(config.NUM_PLAYERS)]
+        second_mappings = [second_mappings for _ in range(config.NUM_PLAYERS)]
+        return mappings, second_mappings
+
+    def sample(self, policy_logits, string_mapping, byte_mapping, num_samples):
+        output_logits = []
+        output_string_mapping = []
+        output_byte_mapping = []
+        for i in range(len(policy_logits)):
+            probs = self.softmax_stable(policy_logits[i])
+            policy_range = np.arange(stop=len(policy_logits[i]))
+            samples = np.random.choice(a=policy_range, size=num_samples, replace=False, p=probs)
+            output_logits.append([policy_logits[i][sample] for sample in samples])
+            output_string_mapping.append([string_mapping[i][sample] for sample in samples])
+            output_byte_mapping.append([byte_mapping[i][sample] for sample in samples])
+        return output_logits, output_string_mapping, output_byte_mapping
+
+    @staticmethod
+    def softmax_stable(x):
+        return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
 
     def fill_metadata(self) -> Dict[str, str]:
         return {'network_id': str(self.network.training_steps())}

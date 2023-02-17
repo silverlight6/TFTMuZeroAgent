@@ -29,7 +29,7 @@ namespace tree {
             ~CNode();
 
             void expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-                        const std::vector<float> &policy_logits);
+                        const std::vector<float> &policy_logits, const std::vector<char*> mappings);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
             float get_mean_q(int isRoot, float parent_q, float discount);
 
@@ -45,12 +45,12 @@ namespace tree {
     class CRoots{
         public:
             int root_num, pool_size;
-            std::vector<int> action_num;
+            int action_num;
             std::vector<CNode> roots;
             std::vector<std::vector<CNode>> node_pools;
 
             CRoots();
-            CRoots(int root_num, std::vector<int> action_num, int pool_size);
+            CRoots(int root_num, int action_num, int pool_size);
             ~CRoots();
 
             void prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
@@ -88,9 +88,9 @@ namespace tree {
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play,
                          float value, float discount);
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
-                               const std::vector<float> &values, const std::vector<std::vector<float>> &policies,
+                               const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<int> is_reset_lst);
+                               std::vector<int> is_reset_lst, std::vector<std::vector<char*>> mappings);
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init,
                       float discount, float mean_q);
     float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q, int is_reset,
