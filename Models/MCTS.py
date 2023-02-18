@@ -246,21 +246,53 @@ class MCTS:
         output_string_mapping = []
         output_byte_mapping = []
         for i in range(len(policy_logits)):
-            probs = self.softmax_stable(policy_logits[i])
-            policy_range = np.arange(stop=len(policy_logits[i]))
-            samples = np.random.choice(a=policy_range, size=num_samples, replace=False, p=probs)
+            local_logits = []
+            local_string = []
+            local_byte = []
+            # Add samples for pass and the 5 shop options
+            # Note that if there are not 5 available shop options, the sample here will be move options
+            for fixed_sample in range(0, 6):
+                local_logits.append(policy_logits[i][fixed_sample])
+                local_string.append(string_mapping[i][fixed_sample])
+                local_byte.append(byte_mapping[i][fixed_sample])
+            # Add samples for refresh and level
+            # Note if either refresh or level is not available, the samples here will be move options
+            for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
+                local_logits.append(policy_logits[i][last_sample])
+                local_string.append(string_mapping[i][last_sample])
+                local_byte.append(byte_mapping[i][last_sample])
+            # Get the softmax of the policy output
+            probs = self.softmax_stable(policy_logits[i][6:-2])
+            # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
+            # We are removing 8 samples initially because those are the most important actions
+            policy_range = np.arange(stop=len(policy_logits[i]) - 8)
+            # sample values
+            # -8 here because we already added 8 samples above
+            samples = np.random.choice(a=policy_range, size=num_samples - 8, replace=False, p=probs)
+            # Sort now so the mapping back to 1081 later is much faster
             samples.sort()
-            output_logits.append([policy_logits[i][sample] for sample in samples])
-            output_string_mapping.append([string_mapping[i][sample] for sample in samples])
-            output_byte_mapping.append([byte_mapping[i][sample] for sample in samples])
+            for sample in samples:
+                # Add the base value for the sample
+                # +6 because we have to skip the first 6 values but never want to hit the last 2
+                local_logits.append(policy_logits[i][sample + 6])
+                # Add the name of the string action
+                local_string.append(string_mapping[i][sample + 6])
+                # Same but for the c++ side
+                local_byte.append(byte_mapping[i][sample + 6])
+            # Need to separate to keep batch_dim the same
+            output_logits.append(local_logits)
+            output_string_mapping.append(local_string)
+            output_byte_mapping.append(local_byte)
         return output_logits, output_string_mapping, output_byte_mapping
 
     def map_sample_to_distribution(self, mapping, sample_dist):
         local_counter = 0
         output_policy = []
+        # If 0 is part of our sampling (will always be true if using specified sampling)
         if mapping[local_counter] == "0":
             output_policy.append(sample_dist[local_counter])
             local_counter += 1
+        # else add 0 to indicate probability 0.
         else:
             output_policy.append(0)
         for i in range(5):

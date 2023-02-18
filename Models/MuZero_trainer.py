@@ -30,7 +30,6 @@ class Trainer(object):
 
         grads = tape.gradient(loss, agent.get_rl_training_variables())
 
-        print(loss)
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
         # storage.save_network(config.training_steps, network)\
 
