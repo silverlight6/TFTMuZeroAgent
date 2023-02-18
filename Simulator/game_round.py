@@ -302,15 +302,17 @@ class Game_Round:
         random.shuffle(player_list)
         ghost = player_list[0]      # if there's a ghost combat, always use first player after shuffling
         while len(player_list) >= 2:
-            index = 1
+            index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
             weights = 0
             player = list(players)[player_list[0]]
             player.opponent_options["possible_opponents"] = []
             for num in player_list:
                 if not num == player_list[0]:
+                    # if any possible opponents have a high enough possible opponents value consider them for combat
                     if player.possible_opponents[num] >= config.MATCHMAKING_WEIGHTS:
                         weights += player.possible_opponents[num]
             if weights == 0:
+                # if no opponents have a high enough possible opponents value, take whichever one is highest
                 opponent = 0
                 for i, num in enumerate(player_list):
                     if i < 0:
@@ -318,6 +320,7 @@ class Game_Round:
                             opponent = player.possible_opponents[num]
                             index = i
             else:
+                # if there are opponents with a high enough value, use weights to determine who to fight
                 r = random.randint(0, weights)
                 while r >= player.possible_opponents[player_list[index]]:
                     r -= player.possible_opponents[player_list[index]]
@@ -346,7 +349,7 @@ class Game_Round:
             player_list.remove(player_list[0])
         if len(player_list) == 1:
             self.matchups.append([player_list[0], "ghost", ghost])
-            players[player_list[0]].opponent_options['possible_opponents'] = [ghost, "ghost"]
+            players[player_list[0]].opponent_options['possible_opponents'] = [ghost]
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")
