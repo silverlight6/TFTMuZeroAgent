@@ -81,8 +81,8 @@ class TFT_Simulator(AECEnv):
                 self.agents,
                 [
                     Dict({
-                        "tensor": Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "image": Box(low=-2.0, high=2.0, shape=(49, 16), dtype=np.float64)
+                        "tensor": Box(low=-1000.0, high=1000.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
+                        "image": Box(low=-500.0, high=500.0, shape=(49, 16), dtype=np.float64)
                     }) for _ in self.agents
                 ],
             )

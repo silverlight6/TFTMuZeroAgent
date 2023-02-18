@@ -111,8 +111,9 @@ class player:
         self.start_time = time.time_ns()
 
         # Putting this here to show the next possible opponent
-        self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
+        self.possible_opponents = [config.MATCHMAKING_WEIGHTS for _ in range(config.NUM_PLAYERS)]
         self.possible_opponents[self.player_num] = -1
+        self.opponent_options = {"possible_opponents": []}
 
         self.kayn_turn_count = 0
         self.kayn_transformed = False
@@ -881,7 +882,7 @@ class player:
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
-                self.print("returning " + self.bench[x].items + " to the item bench")
+                self.print("returning " + str(self.bench[x].items) + " to the item bench")
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
             self.generate_item_vector()
@@ -913,7 +914,7 @@ class player:
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
-                self.print("returning " + a_champion.items + " to the item bench")
+                self.print("returning " + str(a_champion.items) + " to the item bench")
                 a_champion.items = []
                 a_champion.num_items = 0
                 self.generate_item_vector()
@@ -1124,6 +1125,7 @@ class player:
             self.kayn_transform()
         for x in self.thieves_gloves_loc:
             self.thieves_gloves(x[0], x[1])
+        print(self.possible_opponents, self.player_num, self.opponent_options)
 
     def won_game(self):
         self.reward += self.won_game_reward

@@ -375,10 +375,6 @@ namespace tree{
     }
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount, tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
-        // set seed
-        timeval t1;
-        gettimeofday(&t1, NULL);
-        srand(t1.tv_usec);
 
         int last_action = -1;
         float parent_q = 0.0;

@@ -26,6 +26,9 @@ WARLORD_WINS = {"blue": 0, "red": 0}
 
 LEAP_DELAY = 395  # assassins and shades
 
+MATCHMAKING_WEIGHTS = 10
+WEIGHTS_INCREMENT = 3
+
 # AI RELATED VALUES START HERE
 
 #### MODEL SET UP ####
