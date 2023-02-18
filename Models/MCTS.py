@@ -64,16 +64,20 @@ class MCTS:
         roots_distributions = roots_cpp.get_distributions()
 
         actions = []
+        target_policy = []
         temp = self.visit_softmax_temperature()  # controls the way actions are chosen
         for i in range(self.NUM_ALIVE):
             deterministic = False  # False = sample distribution, True = argmax
             distributions = roots_distributions[i]
             action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
             actions.append(string_mapping[i][action])
+            output_policy = self.map_sample_to_distribution(string_mapping[i],
+                                                            [x / config.NUM_SIMULATIONS for x in distributions])
+            target_policy.append(output_policy)
 
         # Notes on possibilities for other dimensions at the bottom
         self.num_actions += 1
-        return actions, network_output["policy_logits"]
+        return actions, target_policy
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -245,10 +249,58 @@ class MCTS:
             probs = self.softmax_stable(policy_logits[i])
             policy_range = np.arange(stop=len(policy_logits[i]))
             samples = np.random.choice(a=policy_range, size=num_samples, replace=False, p=probs)
+            samples.sort()
             output_logits.append([policy_logits[i][sample] for sample in samples])
             output_string_mapping.append([string_mapping[i][sample] for sample in samples])
             output_byte_mapping.append([byte_mapping[i][sample] for sample in samples])
         return output_logits, output_string_mapping, output_byte_mapping
+
+    def map_sample_to_distribution(self, mapping, sample_dist):
+        local_counter = 0
+        output_policy = []
+        if mapping[local_counter] == "0":
+            output_policy.append(sample_dist[local_counter])
+            local_counter += 1
+        else:
+            output_policy.append(0)
+        for i in range(5):
+            if mapping[local_counter] == f"1_{i}":
+                output_policy.append(sample_dist[local_counter])
+                local_counter += 1
+            else:
+                output_policy.append(0)
+        for a in range(37):
+            for b in range(a, 38):
+                if a == b:
+                    continue
+                if mapping[local_counter] == f"2_{a}_{b}":
+                    output_policy.append(sample_dist[local_counter])
+                    local_counter += 1
+                    if local_counter == len(mapping):
+                        local_counter -= 1
+                else:
+                    output_policy.append(0)
+        for a in range(37):
+            for b in range(10):
+                if mapping[local_counter] == f"3_{a}_{b}":
+                    output_policy.append(sample_dist[local_counter])
+                    local_counter += 1
+                    if local_counter == len(mapping):
+                        local_counter -= 1
+                else:
+                    output_policy.append(0)
+        if mapping[local_counter] == "4":
+            output_policy.append(sample_dist[local_counter])
+            local_counter += 1
+            if local_counter == len(mapping):
+                local_counter -= 1
+        else:
+            output_policy.append(0)
+        if mapping[local_counter] == "5":
+            output_policy.append(sample_dist[local_counter])
+        else:
+            output_policy.append(0)
+        return output_policy
 
     @staticmethod
     def softmax_stable(x):
@@ -274,8 +326,7 @@ class MCTS:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 1
-
+        return 0.9
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:

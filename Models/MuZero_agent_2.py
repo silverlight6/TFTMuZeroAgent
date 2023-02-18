@@ -274,7 +274,8 @@ class TFTNetwork(Network):
                                              kernel_regularizer=regularizer, bias_regularizer=regularizer)(value_x)
 
         policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
-        policy_output_action = tf.keras.layers.Dense(config.ACTION_ENCODING_SIZE, name='policy_output')(policy_x)
+        policy_output_action = tf.keras.layers.Dense(config.ACTION_ENCODING_SIZE,
+                                                     name='policy_output')(policy_x)
 
         prediction_model: tf.keras.Model = tf.keras.Model(inputs=pred_hidden_state,
                                                           outputs=[value_output, policy_output_action],

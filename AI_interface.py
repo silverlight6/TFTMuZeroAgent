@@ -21,7 +21,7 @@ from Simulator import utils
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.15)
+@ray.remote(num_gpus=0.2)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()

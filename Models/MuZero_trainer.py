@@ -28,8 +28,9 @@ class Trainer(object):
             loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                      value, reward, policy, train_step, summary_writer)
 
-        print("loss = {}".format(loss))
         grads = tape.gradient(loss, agent.get_rl_training_variables())
+
+        print(loss)
         self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
         # storage.save_network(config.training_steps, network)\
 
@@ -100,27 +101,28 @@ class Trainer(object):
         for tstep, prediction in enumerate(predictions):
             # prediction.value_logits is [64, 601]
             accs['value_loss'].append(
-                self.scale_gradient(
-                    tf.nn.softmax_cross_entropy_with_logits(
-                        logits=prediction.value_logits,
-                        labels=target_value_encoded[:, tstep]),
+                self.scale_gradient(tf.nn.softmax_cross_entropy_with_logits(
+                    logits=prediction.value_logits,
+                    labels=target_value_encoded[:, tstep]),
                     gradient_scales['value'][tstep]))
             accs['reward_loss'].append(
-                self.scale_gradient(
-                    tf.nn.softmax_cross_entropy_with_logits(
-                        logits=prediction.reward_logits,
-                        labels=target_reward_encoded[:, tstep]),
+                self.scale_gradient(tf.nn.softmax_cross_entropy_with_logits(
+                    logits=prediction.reward_logits,
+                    labels=target_reward_encoded[:, tstep]),
                     gradient_scales['reward'][tstep]))
-            
+
             # predictions.policy_logits is (actiondims, batch) 
             # target_policy is (batch,unrollsteps+1,action_dims)
-            policy_loss = tf.nn.softmax_cross_entropy_with_logits(
-                logits=prediction.policy_logits, labels=[i[tstep] for i in target_policy])
 
             # future ticket
             # entropy_loss = -tfd.Independent(tfd.Categorical(
-            #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy() * config.policy_loss_entropy_regularizer
-            
+            #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
+            #     * config.policy_loss_entropy_regularizer
+            policy_loss = tf.nn.softmax_cross_entropy_with_logits(
+                logits=prediction.policy_logits, labels=tf.convert_to_tensor([i[tstep] for i in target_policy]))
+            # policy_loss = tf.reduce_sum(-tf.convert_to_tensor([i[tstep] for i in target_policy]) *
+            #                             tf.nn.log_softmax(logits=prediction.policy_logits), -1)
+
             accs['policy_loss'].append(
                 self.scale_gradient(policy_loss, gradient_scales['policy'][tstep]))
 
