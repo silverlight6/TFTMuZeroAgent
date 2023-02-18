@@ -606,7 +606,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return .1
+        return .9
 
 
 class Batch_MCTSAgent(MCTSAgent):
@@ -651,7 +651,6 @@ class Batch_MCTSAgent(MCTSAgent):
             for i in range(self.NUM_ALIVE):
                 self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play, network_output, search_path[i][-1])
                 
-                # print("value {}".format(network_output["value"]))
                 self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i])
 
     def batch_policy(self, observation, prev_action):
@@ -702,8 +701,6 @@ class Batch_MCTSAgent(MCTSAgent):
     def batch_expand_node(self, node: dict, to_play: int, network_output, key, obs=None):
         # batch_expand_node took 0.021803855895996094 seconds to finish
         node[key].to_play = to_play
-        print(key)
-        print(node[key].reward)
         node[key].hidden_state = network_output["hidden_state"][to_play]
         node[key].reward = network_output["reward"][to_play]
 
@@ -772,7 +769,6 @@ class Batch_MCTSAgent(MCTSAgent):
             last_action = history.last_action()
 
             network_output = self.network.recurrent_inference(hidden_state, [last_action])  # 11.05s
-            print(search_path[-1])
             self.expand_node(node, network_output, search_path[-1])
             
             self.backpropagate(node, search_path, network_output["value"].numpy(), min_max_stats)

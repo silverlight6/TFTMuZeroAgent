@@ -185,7 +185,7 @@ class AIInterface:
     def train_model(self, starting_train_step=0):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=len(gpus), num_cpus=20)
+        ray.init()
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -232,23 +232,26 @@ class AIInterface:
             _ = env.reset()
             terminated = {player_id: False for player_id in env.possible_agents}
             t = time.time_ns()
+            rewards = None
             while not all(terminated.values()):
                 # agent policy that uses the observation and info
-                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
-                step_actions = {}
-                i = 0
-                for player_id, terminate in terminated.items():
-                    if not terminate:
-                        step_actions[player_id] = action[i]
-                        i += 1
-                observation_list, rewards, terminated, truncated, info = env.step(step_actions)
+                action = {
+                agent: env.action_space(agent).sample()
+                for agent in env.agents
+                if (
+                    (agent in terminated and not terminated[agent])
+                    or (agent in truncated and not truncated[agent])
+                )
+                }
+                observation_list, rewards, terminated, truncated, info = env.step(action)
+            print(rewards)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def testEnv(self):
         local_env = parallel_env()
         parallel_api_test(local_env, num_cycles=100000)
-        # second_env = tft_env()
-        # api_test(second_env, num_cycles=100000)
+        second_env = tft_env()
+        api_test(second_env, num_cycles=100000)
 
     # function looks stupid as is right now, but should remain this way
     # for potential future abstractions
