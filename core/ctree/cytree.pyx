@@ -31,8 +31,6 @@ cdef class MinMaxStatsList:
     def __dealloc__(self):
         del self.cmin_max_stats_lst
 
-    
-
 
 cdef class ResultsWrapper:
     cdef CSearchResults cresults
@@ -54,11 +52,12 @@ cdef class Roots:
         self.pool_size = action_num * (tree_nodes + 2)
         self.roots = new CRoots(root_num, action_num, self.pool_size)
 
-    def prepare(self, float root_exploration_fraction, list noises, list value_prefix_pool, list policy_logits_pool):
-        self.roots[0].prepare(root_exploration_fraction, noises, value_prefix_pool, policy_logits_pool)
+    def prepare(self, float root_exploration_fraction, list noises, list value_prefix_pool, list policy_logits_pool,
+                list mappings):
+        self.roots[0].prepare(root_exploration_fraction, noises, value_prefix_pool, policy_logits_pool, mappings)
 
-    def prepare_no_noise(self, list value_prefix_pool, list policy_logits_pool):
-        self.roots[0].prepare_no_noise(value_prefix_pool, policy_logits_pool)
+    def prepare_no_noise(self, list value_prefix_pool, list policy_logits_pool, list mappings):
+        self.roots[0].prepare_no_noise(value_prefix_pool, policy_logits_pool, mappings)
 
     def get_trajectories(self):
         return self.roots[0].get_trajectories()
@@ -90,21 +89,25 @@ cdef class Node:
         # self.cnode = CNode(prior, action_num)
         pass
 
-    def expand(self, int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix, list policy_logits):
+    def expand(self, int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
+               list policy_logits, list mappings):
         cdef vector[float] cpolicy = policy_logits
-        self.cnode.expand(to_play, hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy)
+        self.cnode.expand(to_play, hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, mappings)
 
-def batch_back_propagate(int hidden_state_index_x, float discount, list value_prefixs, list values, list policies, MinMaxStatsList min_max_stats_lst, ResultsWrapper results, list is_reset_lst):
+def batch_back_propagate(int hidden_state_index_x, float discount, list value_prefixs, list values, list policy,
+                         MinMaxStatsList min_max_stats_lst, ResultsWrapper results,
+                         list is_reset_lst, list mappings):
     cdef int i
     cdef vector[float] cvalue_prefixs = value_prefixs
     cdef vector[float] cvalues = values
-    cdef vector[vector[float]] cpolicies = policies
+    cdef vector[vector[float]] cpolicy = policy
 
-    cbatch_back_propagate(hidden_state_index_x, discount, cvalue_prefixs, cvalues, cpolicies,
-                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, is_reset_lst)
+    cbatch_back_propagate(hidden_state_index_x, discount, cvalue_prefixs, cvalues, cpolicy,
+                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, is_reset_lst, mappings)
 
 
-def batch_traverse(Roots roots, int pb_c_base, float pb_c_init, float discount, MinMaxStatsList min_max_stats_lst, ResultsWrapper results):
+def batch_traverse(Roots roots, int pb_c_base, float pb_c_init, float discount, MinMaxStatsList min_max_stats_lst,
+                   ResultsWrapper results):
 
     cbatch_traverse(roots.roots, pb_c_base, pb_c_init, discount, min_max_stats_lst.cmin_max_stats_lst, results.cresults)
 

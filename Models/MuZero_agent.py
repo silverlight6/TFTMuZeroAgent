@@ -2,111 +2,33 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from typing import Dict, List
-from datetime import datetime
-from numba import jit, cuda
+from typing import Dict
 import collections
-import math
 import config
 import time
-import numpy as np
 import tensorflow as tf
-
-##########################
-####### Helpers ##########
-
-MAXIMUM_FLOAT_VALUE = float('inf')
-
-KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
     'value reward policy_logits hidden_state')
 
 
-def normalize2(value, min, max):
-    ans = (value - min)/(max-min)
-    return ans
+class MuZero_agent(tf.keras.Model):
 
-
-class MinMaxStats(object):
-    """A class that holds the min-max values of the tree."""
-
-    def __init__(self, minimum: int, maximum: int):
-        self.maximum = minimum
-        self.minimum = maximum
-        self.set = False
-
-    def update(self, value: float):
-        self.maximum = max(self.maximum, value)
-        self.minimum = min(self.minimum, value)
-        self.set = True
-
-    def normalize(self, value: float) -> float:
-        
-        # if self.maximum > self.minimum:
-        if self.set:
-            # We normalize only when we have set the maximum and minimum values.
-            
-            if value == 0:
-                value = 0.0
-            max = self.maximum
-            min = self.minimum
-            if type(max) != int and type(max) != float:
-                max = float(max.numpy())
-            if type(min) != int and type(min) != float:
-                min = float(min.numpy())
-            if type(value) != int and type(value) != float:
-                value = float(value.numpy())
-
-            return normalize2(value, max, min)
-
-        return value
-
-
-class Node(object):
-    def __init__(self, prior: float):
-        self.visit_count = 0
-        self.to_play = 1
-        self.prior = prior
-        self.value_sum = 0
-        # 5 because there are 5 separate actions.
-        self.children = [{} for _ in range(len(config.ACTION_DIM))]
-        self.hidden_state = None
-
-    def expanded(self) -> bool:
-        return len(self.children[0]) > 0
-
-    def value(self) -> float:
-        if self.visit_count == 0:
-            return 0
-        return self.value_sum / self.visit_count
-
-def expand_node2(network_output, action_dim):
-    policy = []
-    for i, action_dim in enumerate(action_dim):
-        policy.append({b: math.exp(network_output[i][0][b]) for b in range(action_dim)})
-    return policy
-
-
-class MuZero_agent(tf.Module):
-
-    def __init__(self, t_board=None):
+    def __init__(self):
         super().__init__(name='MuZeroAgent')
-        self.start_time = time.time_ns()
         self.ckpt_time = time.time_ns()
-        # action_dim = [possible actions, item bench, unit bench, x axis, y axis]
-        self.action_dim = [10, 5, 9, 10, 7, 4, 7, 4]
-        self.mlp_block_num = 2
+
+        self.action_dim = config.ACTION_DIM
         self.batch_size = config.BATCH_SIZE
-        self.t_board = t_board
-        logs = "./logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.file_writer = tf.summary.create_file_writer(logs)
-        self.file_writer.set_as_default()
         self.head_hidden_sizes = [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS
+        self.res_conv_sizes = [config.CONV_FILTERS] * config.N_HEAD_HIDDEN_LAYERS
         self.num_actions = 0
         self.mlp1 = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)
         self.mlp2 = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, mlp_dim=config.HEAD_HIDDEN_SIZE)
+        self.init_conv = tf.keras.layers.Conv2D(filters=config.CONV_FILTERS, kernel_size=4, strides=(2, 2),
+                                                padding='same', use_bias=False, name='conv_resize')
+        self.res1 = ResidualBlock(config.CONV_FILTERS)
 
         rnn_cell_cls = {
             'lstm': tf.keras.layers.LSTMCell,
@@ -115,11 +37,10 @@ class MuZero_agent(tf.Module):
             rnn_cell_cls(
                 size,
                 recurrent_activation='sigmoid',
-                name='cell_{}'.format(idx)) for idx, size in enumerate([config.HIDDEN_STATE_SIZE])]
+                name='cell_{}'.format(idx)) for idx, size in enumerate(config.RNN_SIZES)]
         self._core = tf.keras.layers.StackedRNNCells(rnn_cells, name='recurrent_core')
 
-        # I can play around with the num_steps (0) later.
-        # Not a 100% sure what difference it will make at this time.
+        # TO DO: Move to utilities
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))))
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))))
@@ -128,63 +49,10 @@ class MuZero_agent(tf.Module):
         self._value_head = tf.keras.layers.Dense(config.ENCODER_NUM_STEPS, name='output', dtype=tf.float32)
         self._reward_head = tf.keras.layers.Dense(config.ENCODER_NUM_STEPS, name='output', dtype=tf.float32)
 
-        self._decision_output = tf.keras.layers.Dense(self.action_dim[0], activation='softmax', name='decision_layer')
-        self._shop_output = tf.keras.layers.Dense(self.action_dim[1], activation='softmax', name='shop_layer')
-        self._bench_output = tf.keras.layers.Dense(self.action_dim[2], activation='softmax', name='bench_layer')
-        self._item_output = tf.keras.layers.Dense(self.action_dim[3], activation='softmax', name='item_layer')
-        self._board_output_x = tf.keras.layers.Dense(self.action_dim[4], activation='softmax', name='board_x_layer')
-        self._board_output_y = tf.keras.layers.Dense(self.action_dim[5], activation='softmax', name='board_y_layer')
-        self._board_output_x2 = tf.keras.layers.Dense(self.action_dim[6], activation='softmax', name='board_x2_layer')
-        self._board_output_y2 = tf.keras.layers.Dense(self.action_dim[7], activation='softmax', name='board_y2_layer')
+        self.policy_output_action = tf.keras.layers.Dense(config.ACTION_DIM[0], name='action_layer')
+        self.policy_output_target = tf.keras.layers.Dense(config.ACTION_DIM[1], name='target_layer')
+        self.policy_output_item = tf.keras.layers.Dense(config.ACTION_DIM[2], name='item_layer')
 
-    def policy(self, observation, player_num):
-        self.ckpt_time = time.time_ns()
-        root = Node(0)
-        # observation = np.expand_dims(observation, axis=0)
-        network_output = self.initial_inference(observation)
-
-        self.expand_node(root, player_num, network_output)
-        self.add_exploration_noise(root)
-
-        # We then run a Monte Carlo Tree Search using only action sequences and the
-        # model learned by the network.
-        initial_action = [
-            np.argmax(network_output["policy_logits"][0].numpy()),
-            np.argmax(network_output["policy_logits"][1].numpy()),
-            np.argmax(network_output["policy_logits"][2].numpy()),
-            np.argmax(network_output["policy_logits"][3].numpy()),
-            np.argmax(network_output["policy_logits"][4].numpy()),
-            np.argmax(network_output["policy_logits"][5].numpy()),
-            np.argmax(network_output["policy_logits"][6].numpy()),
-            np.argmax(network_output["policy_logits"][7].numpy())
-        ]
-        self.run_mcts(root, initial_action, player_num)
-        action = self.select_action(root)
-
-        # Masking only if training is based on the actions taken in the environment.
-        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
-        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
-
-        # Notes on possibilities for other dimensions at the bottom
-        self.num_actions += 1
-
-        return action, network_output["policy_logits"]
-
-    def expand_node(self, node: Node, to_play: int, network_output):
-        node.to_play = to_play
-        node.hidden_state = network_output["hidden_state"]
-        node.reward = network_output["reward"]
-        policy_probs = masked_softmax(network_output["policy_logits"])
-        policy = {a: policy_probs[a] for a in self.action_dim}
-        for i, action_dim in enumerate(policy):
-            policy_sum = sum(action_dim.values())
-            for action, p in action_dim.items():
-                node.children[i][action] = Node(p / policy_sum)
-
-    # So let me make a few quick notes here first
-    # I want to build blocks in other functions and then tie them together at the end.
-    # I also want to start to put more stuff in the configuration as I go
-    # The first place I should start to put things in is to encode observation.
     def initial_inference(self, observation) -> Dict:
         # representation + prediction function
         encoded_observation = self.encode_observation(
@@ -193,8 +61,8 @@ class MuZero_agent(tf.Module):
 
         # could add encoding but more research has to be done to why that is a good idea
         value_logits = self.value_head(hidden_state)
-        value_logits = tf.nn.softmax(value_logits)
-        value = self.value_encoder.decode(value_logits)
+        value_softmax = tf.nn.softmax(value_logits)
+        value = self.value_encoder.decode(value_softmax)
 
         # Rewards are only calculated in recurrent_inference.
         reward = tf.zeros_like(value)
@@ -214,13 +82,13 @@ class MuZero_agent(tf.Module):
 
     def recurrent_inference(self, hidden_state, action) -> Dict:
         # dynamics + prediction function
-        # only looking at the first dimension for now.
-        # I am setting off values to 0 out of preference, Google sets it to 1. Not sure if there is a real difference.
-        one_hot_action = tf.Variable(tf.one_hot(action[:, 0], self.action_dim[0], 1., 0.))
-        for i in range(1, len(self.action_dim)):
-            one_hot_action = tf.concat([one_hot_action, tf.one_hot(action[:, i], self.action_dim[i], 1., 0.)], axis=-1)
+        one_hot_action = tf.one_hot(action[:, 0], config.ACTION_DIM[0], 1., 0., axis=-1)
+        one_hot_target_a = tf.one_hot(action[:, 1], config.ACTION_DIM[1], 1., 0., axis=-1)
+        one_hot_target_b = tf.one_hot(action[:, 2], config.ACTION_DIM[1] - 1, 1., 0., axis=-1)
 
-        embedded_action = self.action_embeddings(one_hot_action)
+        final_action = tf.concat([one_hot_action, one_hot_target_a, one_hot_target_b], axis=-1)
+
+        embedded_action = self.action_embeddings(final_action)
         rnn_state = self.flat_to_lstm_input(hidden_state)
 
         rnn_output, next_rnn_state = self.core(embedded_action, rnn_state)
@@ -229,13 +97,13 @@ class MuZero_agent(tf.Module):
 
         # could add encoding but more research has to be done to why that is a good idea
         value_logits = self.value_head(next_hidden_state)
-        value_logits = tf.nn.softmax(value_logits)
-        value = self.value_encoder.decode(value_logits)
+        value_softmax = tf.nn.softmax(value_logits)
+        value = self.value_encoder.decode(value_softmax)
 
         # Rewards are only calculated in recurrent_inference.
         reward_logits = self.reward_head(rnn_output)
-        reward_logits = tf.nn.softmax(reward_logits)
-        reward = self.reward_encoder.decode(reward_logits)
+        reward_softmax = tf.nn.softmax(reward_logits)
+        reward = self.reward_encoder.decode(reward_softmax)
 
         policy_logits = self.policy_head(next_hidden_state)
 
@@ -250,13 +118,15 @@ class MuZero_agent(tf.Module):
         return outputs
 
     def encode_observation(self, observation):
-        x = self.mlp1(observation)
-        x = self.mlp2(x)
-        # # Adding in the previous action and reward to the end of the LSTM output
-        # # Can add in later if I feel like it
-        # prev_stats = tf.keras.Input(shape=[sum(self.action_dim) + 1], dtype=np.float32)
-        # x = tf.concat([x, prev_stats], axis=-1)
+        # not sure if 1 or 2 mlp blocks are needed
+        tensor = self.mlp1(observation[0])
+        tensor = self.mlp2(tensor)
 
+        image = self.init_conv(observation[1])
+        image = self.conv_layers(image)
+        flatten_image = tf.keras.layers.Flatten()(image)
+
+        x = tf.concat([tensor, flatten_image], axis=-1)
         return x
 
     def core(self, embedded_action, lstm_input):
@@ -280,16 +150,10 @@ class MuZero_agent(tf.Module):
 
     def policy_head(self, x):
         x = self.head_hidden_layers(x)
-        decision_output = self._decision_output(x)
-        shop_output = self._shop_output(x)
-        item_output = self._item_output(x)
-        bench_output = self._bench_output(x)
-        board_output_x = self._board_output_x(x)
-        board_output_y = self._board_output_y(x)
-        board_output_x2 = self._board_output_x2(x)
-        board_output_y2 = self._board_output_y2(x)
-        return [decision_output, shop_output, item_output, bench_output,
-                board_output_x, board_output_y, board_output_x2, board_output_y2]
+        action_output = self.policy_output_action(x)
+        target_output = self.policy_output_target(x)
+        item_output = self.policy_output_item(x)
+        return [action_output, target_output, item_output]
 
     def head_hidden_layers(self, x):
         def _make_layer(head_size):
@@ -304,130 +168,24 @@ class MuZero_agent(tf.Module):
 
         return x
 
-    def get_weights(self):
-        # Returns the weights of this network.
-        return []
+    def conv_layers(self, x):
+        def _make_layer():
+            return ResidualBlock(config.CONV_FILTERS)
 
-    def training_steps(self) -> int:
-        # How many steps / batches the network has been trained for.
-        return 0
+        for idx, size in enumerate(self.res_conv_sizes):
+            x = tf.keras.Sequential(_make_layer(), name='res_block_{}'.format(idx))(x)
 
-    # At the start of each search, we add dirichlet noise to the prior of the root
-    # to encourage the search to explore new actions.
-    def add_exploration_noise(self, node: Node):
-        for act_dim in range(len(self.action_dim)):
-            actions = list(node.children[act_dim].keys())
-            noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
-            frac = config.ROOT_EXPLORATION_FRACTION
-            for a, n in zip(actions, noise):
-                node.children[act_dim][a].prior = node.children[act_dim][a].prior * (1 - frac) + n * frac
-
-    # Core Monte Carlo Tree Search algorithm.
-    # To decide on an action, we run N simulations, always starting at the root of
-    # the search tree and traversing the tree according to the UCB formula until we
-    # reach a leaf node.
-    def run_mcts(self, root: Node, action: List, player_num: int):
-        min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
-
-        for _ in range(config.NUM_SIMULATIONS):
-            history = ActionHistory(action)
-            node = root
-            search_path = [node]
-
-            # There is a chance I am supposed to check if the tree for the non-main-branch
-            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
-            # main decision axis.
-            while node.expanded():
-                action, node = self.select_child(node, min_max_stats)
-                history.add_action(action)
-                search_path.append(node)
-
-            # Inside the search tree we use the dynamics function to obtain the next
-            # hidden state given an action and the previous hidden state.
-            parent = search_path[-2]
-            network_output = self.recurrent_inference(parent.hidden_state,
-                                                      np.expand_dims(np.asarray(history.last_action()), axis=0))
-            self.expand_node(node, self.player_to_play(player_num, history.last_action()), network_output)
-            self.backpropagate(search_path, network_output["value"], min_max_stats, player_num)
-
-    # Select the child with the highest UCB score.
-    def select_child(self, node: Node, min_max_stats: MinMaxStats):
-        actions = []
-        return_child = None
-        for act_dim in range(len(self.action_dim)):
-            _, action, child = max((self.ucb_score(node, child, min_max_stats), action,
-                                    child) for action, child in node.children[act_dim].items())
-            actions.append(action)
-            if act_dim == 0:
-                return_child = child
-        if actions[0] == 7:
-            node.to_play *= -1
-
-        return actions, return_child
-
-    # The score for a node is based on its value, plus an exploration bonus based on
-    # the prior.
-    def ucb_score(self, parent: Node, child: Node, min_max_stats: MinMaxStats) -> float:
-        pb_c = math.log((parent.visit_count + config.PB_C_BASE + 1) /
-                        config.PB_C_BASE) + config.PB_C_INIT
-        pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-
-        prior_score = pb_c * child.prior
-        value_score = min_max_stats.normalize(child.value())
-        return prior_score + value_score
-
-    def player_to_play(self, player_num, action):
-        if action == 7:
-            if player_num == config.NUM_PLAYERS - 1:
-                return 0
-            else:
-                return player_num + 1
-        return player_num
-
-    def increment_player(self, player_num):
-        if player_num < config.NUM_PLAYERS - 1:
-            return player_num + 1
-        return 0
-
-    # At the end of a simulation, we propagate the evaluation all the way up the
-    # tree to the root.
-    def backpropagate(self, search_path: List[Node], value: float,
-                      min_max_stats: MinMaxStats, player_num: int):
-        for node in search_path:
-            node.value_sum += value if node.to_play == player_num else -value
-            node.visit_count += 1
-            min_max_stats.update(node.value())
-
-            value = node.reward + config.DISCOUNT * value
-
-    def select_action(self, node: Node):
-        action = []
-        for act_dim in range(len(self.action_dim)):
-            visit_counts = [
-                (child.visit_count, action) for action, child in node.children[act_dim].items()
-            ]
-            t = self.visit_softmax_temperature()
-            action.append(histogram_sample(visit_counts, t, use_softmax=False))
-        return action
-
-    def visit_softmax_temperature(self):
-        return .1
-        # if num_moves < 30:
-        #     return 0.1
-        # else:
-        #     return 0.0  # Play according to the max.
+        return x
 
     def flat_to_lstm_input(self, state):
         """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in [config.HIDDEN_STATE_SIZE]:
+        for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx:cur_idx + size])
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
             cur_idx += 2 * size
             tensors.append(states)
-            cur_idx = 0
-        # assert cur_idx == state.shape[-1]
         return tensors
 
     def rnn_to_flat(self, state):
@@ -443,38 +201,6 @@ class MuZero_agent(tf.Module):
     def action_embeddings(self, action):
         x = tf.keras.layers.Dense(config.HIDDEN_STATE_SIZE)(action)
         return x
-
-    #### This code is not used anywhere. Leaving here in case people want to play around with masking the input ###
-    #### So that training does not see any values that are not at least attempted to be executed. ####
-    def maskInput(self, logits, actions):
-        if actions[0] < 8 or actions[0] > 8:
-            actions[1] = self.action_dim[1] - 1
-            one_hot_action = tf.expand_dims(tf.squeeze(tf.one_hot(actions[1], self.action_dim[1])), axis=0)
-            logits[1] = one_hot_action
-        elif actions[1] == self.action_dim[1] - 1:
-            actions[1] = np.random.randint(self.action_dim[1] - 1)
-        if actions[0] < 9 or actions[0] == 11:
-            actions[2] = self.action_dim[2] - 1
-            one_hot_action = tf.expand_dims(tf.squeeze(tf.one_hot(actions[2], self.action_dim[2])), axis=0)
-            logits[2] = one_hot_action
-        elif actions[2] == self.action_dim[2] - 1:
-            actions[2] = np.random.randint(self.action_dim[2] - 1)
-        if actions[0] < 8 or actions[0] == 9:
-            actions[3] = self.action_dim[3] - 1
-            one_hot_action = tf.expand_dims(tf.squeeze(tf.one_hot(actions[3], self.action_dim[3])), axis=0)
-            logits[3] = one_hot_action
-            actions[4] = self.action_dim[4] - 1
-            one_hot_action = tf.expand_dims(tf.squeeze(tf.one_hot(actions[4], self.action_dim[4])), axis=0)
-            logits[4] = one_hot_action
-        else:
-            if actions[3] == self.action_dim[3] - 1:
-                actions[3] = np.random.randint(self.action_dim[3] - 1)
-            if actions[4] == self.action_dim[4] - 1:
-                actions[4] = np.random.randint(self.action_dim[4] - 1)
-        return logits, actions
-
-    def action_history(self):
-        return ActionHistory(self.history)
 
     def get_rl_training_variables(self):
         return self.trainable_variables
@@ -502,65 +228,6 @@ class Mlp(tf.Module):
         return out
 
 
-class ActionHistory(object):
-    """Simple history container used inside the search.
-
-  Only used to keep track of the actions executed.
-  """
-
-    def __init__(self, history: List):
-        self.history = [history]
-
-    def clone(self):
-        return ActionHistory(self.history)
-
-    def add_action(self, action: List):
-        self.history.append(action)
-
-    def last_action(self) -> List:
-        return self.history[-1]
-
-
-def masked_distribution(x, use_exp, mask=None):
-    if mask is None:
-        mask = [1] * len(x)
-    assert sum(mask) > 0, 'Not all values can be masked.'
-    assert len(mask) == len(x), (
-        'The dimensions of the mask and x need to be the same.')
-    x = np.exp(x) if use_exp else np.array(x, dtype=np.float64)
-    mask = np.array(mask, dtype=np.float64)
-    x *= mask
-    if sum(x) == 0:
-        # No unmasked value has any weight. Use uniform distribution over unmasked
-        # tokens.
-        x = mask
-    return x / np.sum(x, keepdims=True)
-
-
-def masked_softmax(x, mask=None):
-    x = np.array(x) - np.max(x, axis=-1)  # to avoid overflow
-    return masked_distribution(x, use_exp=True, mask=mask)
-
-
-def masked_count_distribution(x, mask=None):
-    return masked_distribution(x, use_exp=False, mask=mask)
-
-
-def histogram_sample(distribution, temperature, use_softmax=False, mask=None):
-    actions = [d[1] for d in distribution]
-    visit_counts = np.array([d[0] for d in distribution], dtype=np.float64)
-    if temperature == 0.:
-        probs = masked_count_distribution(visit_counts, mask=mask)
-        return actions[np.argmax(probs)]
-    if use_softmax:
-        logits = visit_counts / temperature
-        probs = masked_softmax(logits, mask)
-    else:
-        logits = visit_counts ** (1. / temperature)
-        probs = masked_count_distribution(logits, mask)
-    return np.random.choice(actions, p=probs)
-
-
 class ValueEncoder:
     """Encoder for reward and value targets from Appendix of MuZero Paper."""
 
@@ -568,10 +235,6 @@ class ValueEncoder:
                  min_value,
                  max_value,
                  use_contractive_mapping=True):
-        # if not max_value > min_value:
-        #     raise ValueError('max_value must be > min_value')
-        # min_value = float(min_value)
-        # max_value = float(max_value)
         if use_contractive_mapping:
             max_value = contractive_mapping(max_value)
             min_value = contractive_mapping(min_value)
@@ -635,90 +298,43 @@ def inverse_contractive_mapping(x, eps=0.001):
                          (tf.math.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 
-class Batch_MCTSAgent(MuZero_agent):
+class ResidualBlock(tf.keras.layers.Layer):
     """
-    Use Monte-Carlo Tree-Search to select moves.
+    Residual block.
+    Implementation adapted from:
+    https://towardsdatascience.com/from-scratch-implementation-of-alphazero-for-connect4-f73d4554002a
+    .
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.NUM_ALIVE = config.NUM_PLAYERS
+    def __init__(self, planes):
+        super(ResidualBlock, self).__init__(name='')
+        self.planes = planes
 
-    # Core Monte Carlo Tree Search algorithm.
-    # To decide on an action, we run N simulations, always starting at the root of
-    # the search tree and traversing the tree according to the UCB formula until we
-    # reach a leaf node.
-    def run_batch_mcts(self, root: list, action: List):
-        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
+        # Question mark if we want to use kernel size 3 or 4 given our board slots are 7x4 tensors.
+        self.conv2a = tf.keras.layers.Conv2D(
+            filters=self.planes,
+            kernel_size=4,
+            strides=(1, 1),
+            padding='same',
+            use_bias=False)
+        self.bn2a = tf.keras.layers.LayerNormalization()
 
-        for _ in range(config.NUM_SIMULATIONS):
-            history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
-            node = root
-            search_path = [[node[i]] for i in range(self.NUM_ALIVE)]
+        self.conv2b = tf.keras.layers.Conv2D(
+            filters=self.planes,
+            kernel_size=4,
+            strides=(1, 1),
+            padding='same',
+            use_bias=False)
+        self.bn2b = tf.keras.layers.LayerNormalization()
+        self.relu = tf.keras.layers.ReLU()
 
-            # There is a chance I am supposed to check if the tree for the non-main-branch
-            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
-            # main decision axis.
-            for i in range(self.NUM_ALIVE):
-                while node[i].expanded():
-                    action[i], node[i] = self.select_child(node[i], min_max_stats[i])
-                    history[i].add_action(action[i])
-                    search_path[i].append(node[i])
+    def __call__(self, input_tensor, training=True, **kwargs):
+        x = self.conv2a(input_tensor, training=training)
+        x = self.bn2a(x, training=training)
+        x = self.relu(x)
 
-            # Inside the search tree we use the dynamics function to obtain the next
-            # hidden state given an action and the previous hidden state.
-            parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
-            hidden_state = np.asarray([parent[i].hidden_state for i in range(self.NUM_ALIVE)])
-            last_action = np.asarray([history[i].last_action() for i in range(self.NUM_ALIVE)])
+        x = self.conv2b(x, training=training)
+        x = self.bn2b(x, training=training)
 
-            network_output = self.recurrent_inference(hidden_state, last_action)  # 11.05s
-            for i in range(self.NUM_ALIVE):
-                self.batch_expand_node(node[i], node[i].to_play, network_output)  # 7s
-
-                self.backpropagate(search_path[i], network_output["value"].numpy()[i], min_max_stats[i], i)  # 12.08s
-
-    def batch_policy(self, observation, prev_action):
-        self.NUM_ALIVE = observation.shape[0]
-        root = [Node(0) for _ in range(self.NUM_ALIVE)]
-        network_output = self.initial_inference(observation)  # 2.1 seconds
-
-        for i in range(self.NUM_ALIVE):
-            self.batch_expand_node(root[i], i, network_output)  # 0.39 seconds
-
-            self.add_exploration_noise(root[i])
-
-        self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
-
-        action = [int(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
-
-        # Masking only if training is based on the actions taken in the environment.
-        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
-        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
-
-        # Notes on possibilities for other dimensions at the bottom
-        self.num_actions += 1
-
-        return action, network_output["policy_logits"]
-
-    def batch_expand_node(self, node: Node, to_play: int, network_output):
-        node.to_play = to_play
-        node.hidden_state = network_output["hidden_state"][to_play]
-        node.reward = network_output["reward"][to_play]
-
-        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
-        policy_probs = []
-        for a in range(len(self.action_dim)):
-            policy_probs.append(masked_softmax(network_output["policy_logits"][a][to_play]))
-        policy = {a: policy_probs[a] for a in range(len(self.action_dim))}
-        for i, [key, action_dim] in enumerate(policy.items()):
-            policy_sum = sum(action_dim)
-            for p in action_dim:
-                node.children[i][key] = Node(p / policy_sum)
-        # Figure out a way to traverse the tree intelligently with multiple axes
-
-    def select_action(self, node: Node):
-        visit_counts = [
-            (child.visit_count, action) for action, child in node.children.items()
-        ]
-        t = self.visit_softmax_temperature()
-        return self.histogram_sample(visit_counts, t, use_softmax=False)
+        x += input_tensor
+        return self.relu(x)

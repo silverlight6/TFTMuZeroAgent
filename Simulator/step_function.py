@@ -21,132 +21,77 @@ class Step_Function:
     def generate_shop_vectors(self, players):
         for player in players.keys():
             if players[player]:
-                self.observation_objs[player].generate_shop_vector(self.shops[player])
+                self.observation_objs[player].generate_shop_vector(self.shops[player], players[player])
+
+    def dcord_to_2dcord(self, dcord):
+        # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
+        x = dcord % 7
+        y = (dcord - x) // 7
+        return x, y
 
     # Input -> [Decision, shop, champion_bench, item_bench, x1, y1, x2, y2]
     def batch_2d_controller(self, action, player, players, key, game_observations):
-        # implement i later
+        # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
-            # Buy a shop unit
-            if action[0] == 0:
-                if action[1] == 0:
-                    if self.shops[player.player_num][0] == " ":
-                        player.reward += player.mistake_reward
-                        return player.reward
-                    if self.shops[player.player_num][0].endswith("_c"):
-                        c_shop = self.shops[player.player_num][0].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[player.player_num][0])
-                    success = player.buy_champion(a_champion)
-                    if success:
-                        self.shops[player.player_num][0] = " "
-                        game_observations[key].generate_shop_vector(self.shops[player.player_num])
-
-                elif action[1] == 1:
-                    if self.shops[player.player_num][1] == " ":
-                        player.reward += player.mistake_reward
-                        return player.reward
-                    if self.shops[player.player_num][1].endswith("_c"):
-                        c_shop = self.shops[player.player_num][1].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[player.player_num][1])
-                    success = player.buy_champion(a_champion)
-                    if success:
-                        self.shops[player.player_num][1] = " "
-                        game_observations[key].generate_shop_vector(self.shops[player.player_num])
-
-                elif action[1] == 2:
-                    if self.shops[player.player_num][2] == " ":
-                        player.reward += player.mistake_reward
-                        return player.reward
-                    if self.shops[player.player_num][2].endswith("_c"):
-                        c_shop = self.shops[player.player_num][2].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[player.player_num][2])
-                    success = player.buy_champion(a_champion)
-                    if success:
-                        self.shops[player.player_num][2] = " "
-                        game_observations[key].generate_shop_vector(self.shops[player.player_num])
-
-                elif action[1] == 3:
-                    if self.shops[player.player_num][3] == " ":
-                        player.reward += player.mistake_reward
-                        return player.reward
-                    if self.shops[player.player_num][3].endswith("_c"):
-                        c_shop = self.shops[player.player_num][3].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[player.player_num][3])
-
-                    success = player.buy_champion(a_champion)
-                    if success:
-                        self.shops[player.player_num][3] = " "
-                        game_observations[key].generate_shop_vector(self.shops[player.player_num])
-
-                elif action[1] == 4:
-                    if self.shops[player.player_num][4] == " ":
-                        player.reward += player.mistake_reward
-                        return player.reward
-                    if self.shops[player.player_num][4].endswith("_c"):
-                        c_shop = self.shops[player.player_num][4].split('_')
-                        a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
-                    else:
-                        a_champion = champion.champion(self.shops[player.player_num][4])
-
-                    success = player.buy_champion(a_champion)
-                    if success:
-                        self.shops[player.player_num][4] = " "
-                        game_observations[key].generate_shop_vector(self.shops[player.player_num])
-
-            # Refresh
-            elif action[0] == 1:
-                if player.refresh():
-                    self.shops[player.player_num] = self.pool_obj.sample(player, 5)
-
-            # Buy exp
-            elif action[0] == 2:
-                player.buy_exp()
-
-            # Move Item
-            elif action[0] == 3:
-                # Call network to activate the move_item_agent
-                player.move_item_to_board(action[3], action[4],
-                                          action[5])
-
-            # Sell Unit from bench
-            elif action[0] == 4:
-                # Call network to activate the bench_agent
-                player.sell_from_bench(action[2])
-
-            # Move bench to board
-            elif action[0] == 5:
-                # Call network to activate the bench and board agents
-                player.move_bench_to_board(action[2], action[4],
-                                           action[5])
-
-            # Move board to bench
-            elif action[0] == 6:
-                # Call network to activate the bench and board agents
-                player.move_board_to_bench(action[5], action[6])
-
-            # Move board to board
-            elif action[0] == 7:
-                player.move_board_to_board(action[4], action[5],
-                                           action[6], action[7])
-
-            # Update the other players information
-            elif action[0] == 8:
+            # action format = 0:6 (action_selector),
+            # 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
+            action_selector = np.argmax(action[0:6])
+            if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()
                 game_observations[key].generate_other_player_vectors(player, players)
-
-            # End turn with later implementations, currently nothing
-            elif action[0] == 9:
-                ...
-            return player.reward
-        return 0
+            elif action_selector == 1:
+                # Buy from shop
+                champ_shop_target = np.argmax(action[6:11])
+                self.batch_shop(champ_shop_target, player, game_observations[key])
+            elif action_selector == 2:
+                # Swap champ place
+                target_1 = np.argmax(action[6:43])
+                action[target_1 + 6] = 0
+                target_2 = np.argmax(action[6:44])
+                swap_loc_from = min(target_1, target_2)
+                swap_loc_to = max(target_1, target_2)
+                if swap_loc_to == 37:
+                    # Sell Champ
+                    if swap_loc_from < 28:
+                        x, y = self.dcord_to_2dcord(swap_loc_from)
+                        if player.board[x][y]:
+                            player.sell_champion(player.board[x][y], field=True)
+                    else:
+                        player.sell_from_bench(swap_loc_from - 28)
+                else:
+                    # Swap from swap_loc_from to swap_loc_to
+                    if swap_loc_from < 28:
+                        if swap_loc_to < 28:
+                            x1, y1 = self.dcord_to_2dcord(swap_loc_from)
+                            x2, y2 = self.dcord_to_2dcord(swap_loc_to)
+                            if player.board[x1][y1]:
+                                player.move_board_to_board(x1, y1, x2, y2)
+                            elif player.board[x2][y2]:
+                                player.move_board_to_board(x2, y2, x1, y1)
+                        else:
+                            x1, y1 = self.dcord_to_2dcord(swap_loc_from)
+                            bench_loc = swap_loc_to - 28
+                            if player.bench[bench_loc]:
+                                player.move_bench_to_board(bench_loc, x1, y1)
+                            else:
+                                player.move_board_to_bench(x1, y1)
+            elif action_selector == 3:
+                # Place item on champ
+                item_selector = np.argmax(action[44:54])
+                move_loc = np.argmax(action[6:43])
+                if move_loc >= 28:
+                    move_loc -= 28
+                    player.move_item_to_bench(item_selector, move_loc)
+                else:
+                    x, y = self.dcord_to_2dcord(move_loc)
+                    player.move_item_to_board(item_selector, x, y)
+            elif action_selector == 4:
+                # Buy EXP
+                player.buy_exp()
+            elif action_selector == 5:
+                # Refresh shop
+                if player.refresh():
+                    self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken
@@ -173,7 +118,7 @@ class Step_Function:
                 success = player.buy_champion(a_champion)
                 if success:
                     self.shops[0] = " "
-                    game_observation.generate_shop_vector(self.shops)
+                    game_observation.generate_shop_vector(self.shops, player)
                 else:
                     return self.shops, False, False, 2
 
@@ -189,7 +134,7 @@ class Step_Function:
                 success = player.buy_champion(a_champion)
                 if success:
                     self.shops[1] = " "
-                    game_observation.generate_shop_vector(self.shops)
+                    game_observation.generate_shop_vector(self.shops, player)
                 else:
                     return self.shops, False, False, 2
 
@@ -205,7 +150,7 @@ class Step_Function:
                 success = player.buy_champion(a_champion)
                 if success:
                     self.shops[2] = " "
-                    game_observation.generate_shop_vector(self.shops)
+                    game_observation.generate_shop_vector(self.shops, player)
                 else:
                     return self.shops, False, False, 2
 
@@ -222,7 +167,7 @@ class Step_Function:
                 success = player.buy_champion(a_champion)
                 if success:
                     self.shops[3] = " "
-                    game_observation.generate_shop_vector(self.shops)
+                    game_observation.generate_shop_vector(self.shops, player)
                 else:
                     return self.shops, False, False, 2
 
@@ -239,7 +184,7 @@ class Step_Function:
                 success = player.buy_champion(a_champion)
                 if success:
                     self.shops[4] = " "
-                    game_observation.generate_shop_vector(self.shops)
+                    game_observation.generate_shop_vector(self.shops, player)
                 else:
                     return self.shops, False, False, 2
 
@@ -247,7 +192,7 @@ class Step_Function:
         elif action == 1:
             if player.refresh():
                 self.shops = self.pool_obj.sample(player, 5)
-                game_observation.generate_shop_vector(self.shops)
+                game_observation.generate_shop_vector(self.shops, player)
             else:
                 return self.shops, False, False, 1
 
@@ -541,7 +486,7 @@ class Step_Function:
         elif action == 1:
             if player.refresh():
                 self.shops[player.player_num] = self.pool_obj.sample(player, 5)
-                game_observation.generate_shop_vector(self.shops[player.player_num])
+                game_observation.generate_shop_vector(self.shops[player.player_num], player)
 
         elif action == 2:
             player.buy_exp()
@@ -584,6 +529,6 @@ class Step_Function:
         success = player.buy_champion(a_champion)
         if success:
             self.shops[player.player_num][shop_action] = " "
-            game_observation.generate_shop_vector(self.shops[player.player_num])
+            game_observation.generate_shop_vector(self.shops[player.player_num], player)
         else:
             return

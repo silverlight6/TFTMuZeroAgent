@@ -12,18 +12,21 @@ from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import TFTNetwork, MCTS
+from Models.MuZero_agent_2 import TFTNetwork
+from Models.MCTS import MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
+from Simulator import utils
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.25)
+@ray.remote(num_gpus=0.2)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
         self.rank = rank
+        self.ckpt_time = time.time_ns()
 
     # This is the main overarching gameplay method.
     # This is going to be implemented mostly in the game_round file under the AI side of things.
@@ -44,19 +47,20 @@ class DataWorker(object):
                 actions, policy = agent.policy(player_observation)
 
                 step_actions = self.getStepActions(terminated, actions)
+                storage_actions = utils.decode_action(actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, [player_observation[0][i], player_observation[1][i]],
-                                                       actions[i], reward[key], policy[i])
+                    buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i], reward[key],
+                                                       policy[i])
 
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
 
-            buffers.rewardNorm.remote()
+            # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
 
@@ -69,18 +73,39 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = actions[i]
+                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
                 i += 1
         return step_actions
 
     def observation_to_input(self, observation):
         tensors = []
-        images = []
+        masks = []
         for obs in observation.values():
             tensors.append(obs[0])
-            images.append(obs[1])
-        return [np.asarray(tensors), np.asarray(images)]
+            masks.append(obs[1])
+        return [np.asarray(tensors), masks]
 
+    def decode_action_to_one_hot(self, str_action):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0, 0, 0]
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+
+        decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
+        decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
+
+        if element_list[0] == 1:
+            decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
+
+        if element_list[0] == 2:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + utils.one_hot_encode_number(
+                element_list[2], 38)
+
+        if element_list[0] == 3:
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
+            decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+        return decoded_action
 
     def collect_dummy_data(self):
         env = gym.make("TFT_Set4-v0", env_config={})
@@ -167,7 +192,7 @@ class AIInterface:
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         train_step = starting_train_step
-        tf.config.optimizer.set_jit(True)
+        # tf.config.optimizer.set_jit(True)
 
         global_buffer = GlobalBuffer.remote()
 
@@ -187,7 +212,6 @@ class AIInterface:
                                                                      storage, weights))
             time.sleep(2)
 
-        ray.get(workers)
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)

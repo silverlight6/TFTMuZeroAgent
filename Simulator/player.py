@@ -76,8 +76,15 @@ class player:
         self.player_private_vector = np.zeros(9)
 
         # Encoding board as an image, so we can run convolutions on it.
-        self.board_image = np.zeros((7*7, 4*4))  # 7x4 board, with 7x4 encoding
+        self.board_vector = np.zeros(728)  # 7x4 board, with 7x4 encoding
         self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+
+        self.decision_mask = np.ones(6)
+        self.shop_mask = np.ones(5)
+        self.board_mask = np.ones(28)
+        self.bench_mask = np.ones(9)
+        self.item_mask = np.ones(10)
+        self.shop_costs = np.ones(5)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -89,8 +96,8 @@ class player:
         self.refresh_reward = 0
         self.minion_count_reward = 0
         self.mistake_reward = 0
-        self.level_reward = .8
-        self.item_reward = .1
+        self.level_reward = 5
+        self.item_reward = 1
         self.won_game_reward = 0
         self.prev_rewards = 0
 
@@ -305,10 +312,11 @@ class player:
         return False
 
     def generate_board_vector(self):
-        output_array = np.zeros((7*7,4*4))
-        for x in range(0, 7):
-            for y in range(0, 4):
-                champion_info_array = np.zeros(28) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+        for y in range(0, 4):
+            # IMPORTANT TO HAVE THE X INSIDE -- Silver is not sure why but ok.
+            for x in range(0, 7):
+                # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+                champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
@@ -316,21 +324,23 @@ class player:
                     champion_info_array[6] = curr_champ.stars / 3
                     champion_info_array[7] = curr_champ.cost / 5
                     for ind, item in enumerate(curr_champ.items):
-                        start = (ind * 6) + 8
+                        start = (ind * 6) + 7
                         finish = start + 6
+                        i_index = []
                         if item in uncraftable_items:
                             i_index = list(uncraftable_items).index(item) + 1
                         elif item in item_builds.keys():
                             i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                         champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
-                output_array[x*7:x*7 + 7, y*4:y*4 + 4] = np.reshape(champion_info_array, (7,4))
-        self.board_image = output_array
+                # Fit the area into the designated spot in the vector
+                self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
 
     def generate_bench_vector(self):
         bench = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
         for x_bench in range(len(self.bench)):
-            champion_info_array = np.zeros(6 * 4 + 2) # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+            # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
+            champion_info_array = np.zeros(6 * 4 + 2)
             if self.bench[x_bench]:
                 curr_champ = self.bench[x_bench]
                 c_index = list(COST.keys()).index(curr_champ.name)
@@ -345,6 +355,9 @@ class player:
                     elif item in item_builds.keys():
                         i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                     champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+                self.bench_mask[x_bench] = 1
+            else:
+                self.bench_mask[x_bench] = 0
             bench[x_bench*self.CHAMP_ENCODING_SIZE:
                     x_bench*self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
         self.bench_vector = bench
@@ -367,8 +380,12 @@ class player:
             item_info = np.zeros(6)
             if item in uncraftable_items:
                 item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+                self.item_mask[ind] = 1
             elif item in item_builds.keys():
                 item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+                self.item_mask[ind] = 1
+            else:
+                self.item_mask[ind] = 0
             item_arr[ind*6:ind*6 + 6] = item_info
         self.item_vector = item_arr
 
@@ -386,6 +403,23 @@ class player:
             self.player_private_vector[6] = self.match_history[-3]
             self.player_private_vector[7] = self.match_history[-2]
             self.player_private_vector[8] = self.match_history[-1]
+
+        # Decision mask parameters
+        if self.gold < 4:
+            self.decision_mask[4] = 0
+            if self.gold < 2:
+                self.decision_mask[5] = 0
+            else:
+                self.decision_mask[5] = 1
+        else:
+            self.decision_mask[4] = 1
+            self.decision_mask[5] = 1
+
+        for idx, cost in enumerate(self.shop_costs):
+            if self.gold < cost:
+                self.shop_mask[idx] = 0
+            elif cost != 0 and self.gold >= cost:
+                self.shop_mask[idx] = 1
 
     def generate_public_player_vector(self):
         self.player_private_vector[0] = self.health / 100
@@ -523,8 +557,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.02 * damage
-            self.print(str(-0.02 * damage) + " reward for losing round")
+            self.reward -= 0.5 * damage
+            self.print(str(-0.5 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1044,6 +1078,9 @@ class player:
                 if self.bench[x].name == 'kayn':
                     self.bench[x].kaynform = kayn_item
 
+    def update_shop_costs(self, shop_costs):
+        self.shop_costs = shop_costs
+
     def update_team_tiers(self):
         self.team_composition = origin_class.team_origin_class(self)
         if self.chosen in self.team_composition.keys():
@@ -1139,8 +1176,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0.02 * damage
-            self.print(str(0.02 * damage) + " reward for winning round")
+            self.reward += 0.5 * damage
+            self.print(str(0.5 * damage) + " reward for winning round")
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
