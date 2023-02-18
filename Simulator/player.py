@@ -257,6 +257,7 @@ class player:
         # print comp and bench for log purposes at end of turn
         self.printComp()
         self.printBench()
+        self.printItemBench()
 
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
@@ -835,12 +836,12 @@ class player:
                    "num_units_in_play = {}, health = {}".format(self.num_units_in_play, self.health))
 
     def printItemBench(self, log=True):
-        for i in self.item_bench:
-            if i:
+        for i, item in enumerate(self.item_bench):
+            if item:
                 if log:
-                    self.printt('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    self.print(str(i) + ": " + item)
                 else:
-                    print('{:<120}'.format('{:<8}', format(self.player_num) + self.item_bench))
+                    print(str(i) + ": " + item)
 
     def printShop(self, shop):
         self.print("Shop with level " + str(self.level) + ": " +
@@ -879,10 +880,11 @@ class player:
                     for i in self.bench[x].items:
                         # thieves glove exception
                         self.item_bench[self.item_bench_vacancy()] = i
+                        self.print("returning " + i + " to the item bench")
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
-                    self.item_bench[self.item_bench_vacancy()] = self.bench[x].items[0]
-                self.print("returning " + str(self.bench[x].items) + " to the item bench")
+                    self.item_bench[self.item_bench_cvacancy()] = self.bench[x].items[0]
+                    self.print("returning " + str(self.bench[x].items[0]) + " to the item bench")
                 self.bench[x].items = []
                 self.bench[x].num_items = 0
             self.generate_item_vector()
@@ -908,13 +910,15 @@ class player:
                             a_champion.origin.pop(-1)
                             self.update_team_tiers()
                         self.item_bench[self.item_bench_vacancy()] = item
+                        self.print("returning " + item + " to the item bench")
+
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
+                    self.print("returning " + str(a_champion.items[0]) + " to the item bench")
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
-                self.print("returning " + str(a_champion.items) + " to the item bench")
                 a_champion.items = []
                 a_champion.num_items = 0
                 self.generate_item_vector()
@@ -1125,7 +1129,6 @@ class player:
             self.kayn_transform()
         for x in self.thieves_gloves_loc:
             self.thieves_gloves(x[0], x[1])
-        print(self.possible_opponents, self.player_num, self.opponent_options)
 
     def won_game(self):
         self.reward += self.won_game_reward
