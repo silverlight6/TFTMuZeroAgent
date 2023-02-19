@@ -39,8 +39,8 @@ class MCTS:
         policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
         # 0.003 seconds
-        policy_logits_pool, mappings, string_mapping = self.sample(policy_logits_pool, mappings,
-                                                                   string_mapping, config.NUM_SAMPLES)
+        policy_logits_pool, string_mapping, mapping = self.sample(policy_logits_pool, string_mapping,
+                                                                   mappings, config.NUM_SAMPLES)
 
         # less than 0.0001 seconds
         # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
@@ -122,8 +122,9 @@ class MCTS:
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
             # 0.002 seconds
-            policy_logits, mapping, _ = self.sample(network_output["policy_logits"].numpy(), self.default_byte_mapping,
-                                                    self.default_string_mapping, config.NUM_SAMPLES)
+            policy_logits, _, mappings = self.sample(network_output["policy_logits"].numpy(),
+                                                    self.default_string_mapping,self.default_byte_mapping,
+                                                    config.NUM_SAMPLES)
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
             hidden_states_nodes = network_output["hidden_state"]
@@ -137,7 +138,7 @@ class MCTS:
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
-                                      min_max_stats_lst, results, is_reset_lst, mapping)
+                                      min_max_stats_lst, results, is_reset_lst, mappings)
 
     @staticmethod
     def select_action(visit_counts, temperature=1, deterministic=True):
@@ -249,36 +250,46 @@ class MCTS:
             local_logits = []
             local_string = []
             local_byte = []
+            num_pass_shop_actions = 6
+            refresh_level_actions = 2
             # Add samples for pass and the 5 shop options
             # Note that if there are not 5 available shop options, the sample here will be move options
             for fixed_sample in range(0, 6):
-                local_logits.append(policy_logits[i][fixed_sample])
-                local_string.append(string_mapping[i][fixed_sample])
-                local_byte.append(byte_mapping[i][fixed_sample])
+                if string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1":
+                    local_logits.append(policy_logits[i][fixed_sample])
+                    local_string.append(string_mapping[i][fixed_sample])
+                    local_byte.append(byte_mapping[i][fixed_sample])
+                else:
+                    num_pass_shop_actions -= 1
             # Add samples for refresh and level
             # Note if either refresh or level is not available, the samples here will be move options
             for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
-                local_logits.append(policy_logits[i][last_sample])
-                local_string.append(string_mapping[i][last_sample])
-                local_byte.append(byte_mapping[i][last_sample])
+                if string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5":
+                    local_logits.append(policy_logits[i][last_sample])
+                    local_string.append(string_mapping[i][last_sample])
+                    local_byte.append(byte_mapping[i][last_sample])
+                else:
+                    refresh_level_actions -= 1
+            num_core_actions = num_pass_shop_actions + refresh_level_actions
             # Get the softmax of the policy output
-            probs = self.softmax_stable(policy_logits[i][6:-2])
+            probs = self.softmax_stable(policy_logits[i][num_pass_shop_actions:
+                                                         len(policy_logits[i]) - refresh_level_actions])
             # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
             # We are removing 8 samples initially because those are the most important actions
-            policy_range = np.arange(stop=len(policy_logits[i]) - 8)
-            # sample values
+            policy_range = np.arange(stop=len(policy_logits[i]) - num_core_actions)
+            # sample values, can break if less than 20 values in the policy_logits. Working on fix.
             # -8 here because we already added 8 samples above
-            samples = np.random.choice(a=policy_range, size=num_samples - 8, replace=False, p=probs)
+            samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, replace=False, p=probs)
             # Sort now so the mapping back to 1081 later is much faster
             samples.sort()
             for sample in samples:
                 # Add the base value for the sample
                 # +6 because we have to skip the first 6 values but never want to hit the last 2
-                local_logits.append(policy_logits[i][sample + 6])
+                local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
                 # Add the name of the string action
-                local_string.append(string_mapping[i][sample + 6])
+                local_string.append(string_mapping[i][sample + num_pass_shop_actions])
                 # Same but for the c++ side
-                local_byte.append(byte_mapping[i][sample + 6])
+                local_byte.append(byte_mapping[i][sample + num_pass_shop_actions])
             # Need to separate to keep batch_dim the same
             output_logits.append(local_logits)
             output_string_mapping.append(local_string)

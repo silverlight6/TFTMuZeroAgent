@@ -43,6 +43,11 @@ class ReplayBuffer:
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
             samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
             num_steps = len(self.gameplay_experiences)
+            reward_correction = []
+            prev_reward = 0
+            for reward in self.rewards:
+                reward_correction.append(reward - prev_reward)
+                prev_reward = reward
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
                 # and that takes a lot of time.
@@ -59,7 +64,7 @@ class ReplayBuffer:
                     # value = value_approximations[bootstrap_index] * discount**td_steps
                     value = 0.0
 
-                    for i, reward in enumerate(self.rewards[current_index:]):
+                    for i, reward in enumerate(reward_correction[current_index:]):
                         value += reward * config.DISCOUNT ** i
 
                     reward_mask = 1.0 if current_index > sample else 0.0

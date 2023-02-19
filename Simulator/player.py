@@ -418,7 +418,7 @@ class player:
             self.decision_mask[5] = 1
 
         for idx, cost in enumerate(self.shop_costs):
-            if self.gold < cost:
+            if self.gold < cost or self.bench_full():
                 self.shop_mask[idx] = 0
             elif cost != 0 and self.gold >= cost:
                 self.shop_mask[idx] = 1
