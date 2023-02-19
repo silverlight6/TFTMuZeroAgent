@@ -407,8 +407,10 @@ class player:
             self.player_private_vector[8] = self.match_history[-1]
 
         # Decision mask parameters
+        # if gold < 4, do not allow to level
         if self.gold < 4:
             self.decision_mask[4] = 0
+            # if gold < 2, do not allow to roll
             if self.gold < 2:
                 self.decision_mask[5] = 0
             else:

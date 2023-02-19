@@ -16,3 +16,4 @@ libdevice.10.bc
 /core/ctree/cytree.cpp
 /core/ctree/build
 .vscode/
+core/ctree/cytree.cpython-39-x86_64-linux-gnu.so

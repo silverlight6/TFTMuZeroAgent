@@ -36,6 +36,7 @@ class MCTS:
         policy_logits = network_output["policy_logits"].numpy()
 
         # 0.01 seconds
+        # observation[1] = mask
         policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
         # 0.003 seconds
@@ -173,15 +174,19 @@ class MCTS:
             local_counter = 0
             local_action = [policy_logits[idx][local_counter]]
             local_mappings = [bytes("0", "utf-8")]
+            # do nothing
             second_local_mappings = ["0"]
             local_counter += 1
+            # for every shop index...
             for i in range(5):
                 if mask[idx][1][i]:
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
                     second_local_mappings.append(f"1_{i}")
                 local_counter += 1
+            # for all board + bench slots...
             for a in range(37):
+                # rest of board slot locs for moving, last for sell
                 for b in range(a, 38):
                     if a == b:
                         continue
@@ -193,7 +198,9 @@ class MCTS:
                     local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
                     second_local_mappings.append(f"2_{a}_{b}")
                     local_counter += 1
+            # for all board + bench slots...
             for a in range(37):
+                # for every item slot...
                 for b in range(10):
                     if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
                         local_counter += 1
@@ -202,11 +209,13 @@ class MCTS:
                     local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
                     second_local_mappings.append(f"3_{a}_{b}")
                     local_counter += 1
+            # level
             if mask[idx][0][4]:
                 local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("4", "utf-8"))
                 second_local_mappings.append("4")
             local_counter += 1
+            # roll
             if mask[idx][0][5]:
                 local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("5", "utf-8"))
