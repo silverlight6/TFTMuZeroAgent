@@ -3,7 +3,7 @@ import functools
 import time
 import gymnasium as gym
 import numpy as np
-from gymnasium.spaces import MultiDiscrete, Box, Dict
+from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -82,7 +82,9 @@ class TFT_Simulator(AECEnv):
                 [
                     Dict({
                         "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "mask": MultiDiscrete([6, 5, 28, 9, 10])
+                        "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8), 
+                                MultiDiscrete(np.ones(5) * 2, dtype=np.int8), MultiDiscrete(np.ones(28) * 2, dtype=np.int8), 
+                                MultiDiscrete(np.ones(9) * 2, dtype=np.int8), MultiDiscrete(np.ones(10) * 2, dtype=np.int8)))
                     }) for _ in self.agents
                 ],
             )

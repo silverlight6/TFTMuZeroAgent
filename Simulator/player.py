@@ -79,11 +79,11 @@ class player:
         self.board_vector = np.zeros(728)  # 7x4 board, with 7x4 encoding
         self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
 
-        self.decision_mask = np.ones(6)
-        self.shop_mask = np.ones(5)
-        self.board_mask = np.ones(28)
-        self.bench_mask = np.ones(9)
-        self.item_mask = np.ones(10)
+        self.decision_mask = np.ones(6, dtype=np.int8)
+        self.shop_mask = np.ones(5, dtype=np.int8)
+        self.board_mask = np.ones(28, dtype=np.int8)
+        self.bench_mask = np.ones(9, dtype=np.int8)
+        self.item_mask = np.ones(10, dtype=np.int8)
         self.shop_costs = np.ones(5)
 
         # Using this to track the reward gained by each player for the AI to train.
@@ -317,6 +317,7 @@ class player:
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
+                    self.board_mask[4 * x + y] = 1
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
@@ -331,6 +332,8 @@ class player:
                         elif item in item_builds.keys():
                             i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                         champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+                else:
+                    self.board_mask[4 * x + y] = 0
 
                 # Fit the area into the designated spot in the vector
                 self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
