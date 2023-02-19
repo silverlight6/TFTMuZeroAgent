@@ -81,8 +81,8 @@ class DataWorker(object):
         tensors = []
         masks = []
         for obs in observation.values():
-            tensors.append(obs[0])
-            masks.append(obs[1])
+            tensors.append(obs["tensor"])
+            masks.append(obs["mask"])
         return [np.asarray(tensors), masks]
 
     def decode_action_to_one_hot(self, str_action):
