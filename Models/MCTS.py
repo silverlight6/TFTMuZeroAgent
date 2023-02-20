@@ -251,8 +251,9 @@ class MCTS:
             local_logits = []
             local_string = []
             local_byte = []
-            num_pass_shop_actions = 6
-            refresh_level_actions = 2
+            # Switch this to 6 and refresh to 2 if using specified sampling.
+            num_pass_shop_actions = 0
+            refresh_level_actions = 0
             # Add samples for pass and the 5 shop options
             # Note that if there are not 5 available shop options, the sample here will be move options
             if len(policy_logits[i]) <= num_samples:
@@ -261,22 +262,24 @@ class MCTS:
                 output_byte_mapping.append(byte_mapping[i])
                 policy_sizes.append(len(policy_logits[i]))
             else:
-                for fixed_sample in range(0, 6):
-                    if string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1":
-                        local_logits.append(policy_logits[i][fixed_sample])
-                        local_string.append(string_mapping[i][fixed_sample])
-                        local_byte.append(byte_mapping[i][fixed_sample])
-                    else:
-                        num_pass_shop_actions -= 1
-                # Add samples for refresh and level
-                # Note if either refresh or level is not available, the samples here will be move options
-                for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
-                    if string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5":
-                        local_logits.append(policy_logits[i][last_sample])
-                        local_string.append(string_mapping[i][last_sample])
-                        local_byte.append(byte_mapping[i][last_sample])
-                    else:
-                        refresh_level_actions -= 1
+                # for fixed_sample in range(0, 6):
+                #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
+                #             and config.SELECTED_SAMPLES:
+                #         local_logits.append(policy_logits[i][fixed_sample])
+                #         local_string.append(string_mapping[i][fixed_sample])
+                #         local_byte.append(byte_mapping[i][fixed_sample])
+                #     else:
+                #         num_pass_shop_actions -= 1
+                # # Add samples for refresh and level
+                # # Note if either refresh or level is not available, the samples here will be move options
+                # for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
+                #     if (string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5") \
+                #             and config.SELECTED_SAMPLES:
+                #         local_logits.append(policy_logits[i][last_sample])
+                #         local_string.append(string_mapping[i][last_sample])
+                #         local_byte.append(byte_mapping[i][last_sample])
+                #     else:
+                #         refresh_level_actions -= 1
                 num_core_actions = num_pass_shop_actions + refresh_level_actions
                 # Get the softmax of the policy output
                 probs = self.softmax_stable(policy_logits[i][num_pass_shop_actions:

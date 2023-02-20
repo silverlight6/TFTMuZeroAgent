@@ -3,6 +3,7 @@ import config
 import datetime
 import ray
 import os
+import copy
 import tensorflow as tf
 import gymnasium as gym
 import numpy as np
@@ -12,7 +13,7 @@ from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
 from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import TFTNetwork
+from Models.MuZero_keras_agent import TFTNetwork
 from Models.MCTS import MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
@@ -64,7 +65,7 @@ class DataWorker(object):
             buffers.store_global_buffer.remote()
             buffers = BufferWrapper.remote(global_buffer)
 
-            weights = ray.get(storage.get_model.remote())
+            weights = copy.deepcopy(ray.get(storage.get_model.remote()))
             agent.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -284,9 +285,7 @@ class AIInterface:
             workers.append(worker.evaluate_agents.remote(env, storage))
             time.sleep(1)
 
-        while True:
-            time.sleep(10000)
-            print("good luck getting past this")
+        ray.get(workers)
 
     def testEnv(self):
         raw_env = tft_env()

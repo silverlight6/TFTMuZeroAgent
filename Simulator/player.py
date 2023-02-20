@@ -96,8 +96,8 @@ class player:
         self.refresh_reward = 0
         self.minion_count_reward = 0
         self.mistake_reward = 0
-        self.level_reward = 5
-        self.item_reward = 1
+        self.level_reward = 0
+        self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
 

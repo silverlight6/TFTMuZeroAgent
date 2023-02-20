@@ -1,7 +1,7 @@
 import config
-import numpy as np
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
+
 
 # TODO
 # add better randomness to drops
@@ -99,7 +99,6 @@ class ThirdMinion(Minion):
         else:
             # common == 2
             orbs += [LootOrb.COMMON, LootOrb.UNCOMMON]
-        
 
         history += orbs
 
@@ -175,6 +174,7 @@ class Nexus(Minion):
         loot += gen_loot(choices, probabilities, count, history)
 
         return loot
+
 
 # Drops 1 random full item and 2 random orbs
 class Herald(Minion):
