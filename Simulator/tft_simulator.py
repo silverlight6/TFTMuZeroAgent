@@ -225,7 +225,7 @@ class TFT_Simulator(AECEnv):
             for k in self.kill_list:
                 self.terminations[k] = True
                 _live_agents.remove(k)
-                self.rewards[k] = (3 - len(_live_agents)) * 2.55 + 1.25
+                self.rewards[k] = (3 - len(_live_agents)) * 2.5 + 1.25
                 self._cumulative_rewards[k] = self.rewards[k]
 
             if len(self.kill_list) > 0:

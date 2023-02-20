@@ -1,19 +1,21 @@
 import config
 import datetime
-import tensorflow as tf
 import numpy as np
-import os
 from TestInterface.test_global_buffer import GlobalBuffer
 from Simulator.tft_simulator import parallel_env
-from Models import MuZero_trainer
+
 from TestInterface.test_replay_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import TFTNetwork
+
 from Models.MCTS import MCTS
 from Simulator import utils
 
 
 class DataWorker(object):
     def __init__(self, rank):
+        if config.ARCHITECTURE == "Tensorflow":
+            from Models.MuZero_keras_agent import TFTNetwork
+        else:
+            from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
         self.agent_network = TFTNetwork()
         self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
         self.rank = rank
@@ -99,15 +101,22 @@ class AIInterface:
         ...
 
     def train_model(self, starting_train_step=0):
-        tf.config.optimizer.set_jit(True)
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+        if config.ARCHITECTURE == "Tensorflow":
+            import tensorflow as tf
+            from Models.MuZero_keras_agent import TFTNetwork
+            tf.config.optimizer.set_jit(True)
+            train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+        else:
+            from torch.utils.tensorboard import SummaryWriter
+            from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+            train_summary_writer = SummaryWriter(train_log_dir)
         train_step = starting_train_step
 
         global_buffer = GlobalBuffer()
 
-        trainer = MuZero_trainer.Trainer()
+        # trainer = MuZero_trainer.Trainer()
 
         env = parallel_env()
         data_workers = DataWorker(0)
@@ -119,9 +128,9 @@ class AIInterface:
             buffers = BufferWrapper(global_buffer)
             data_workers.collect_gameplay_experience(env, buffers, weights)
 
-            while global_buffer.available_batch():
-                gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                train_step += 1
-                if train_step % 10 == 0:
-                    global_agent.tft_save_model(train_step)
+            # while global_buffer.available_batch():
+                # gameplay_experience_batch = global_buffer.sample_batch()
+                # trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                # train_step += 1
+                # if train_step % 10 == 0:
+                #     global_agent.tft_save_model(train_step)

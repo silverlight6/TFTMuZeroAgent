@@ -1,7 +1,7 @@
 import Simulator.config as config
-import numpy as np
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
+
 
 # TODO
 # add better randomness to drops

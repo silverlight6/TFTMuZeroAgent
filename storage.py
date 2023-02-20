@@ -1,7 +1,5 @@
 import ray
-
 import config
-from Models.MuZero_agent_2 import TFTNetwork
 
 
 @ray.remote
@@ -23,6 +21,10 @@ class Storage:
 
     # Implementing saving.
     def load_model(self):
+        if config.ARCHITECTURE == "Tensorflow":
+            from Models.MuZero_keras_agent import TFTNetwork
+        else:
+            from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
         return TFTNetwork()
 
     def get_target_model(self):

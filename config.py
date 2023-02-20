@@ -26,8 +26,10 @@ ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [6, 38, 10]
 # ACTION_DIM = 10
 ENCODER_NUM_STEPS = 601
+SELECTED_SAMPLES = True
+ARCHITECTURE = "Pytorch" # "Tensorflow is the other option
 
-# Still used in MuZero_agent.py
+# Still used in MuZero_torch_agent.py
 HEAD_HIDDEN_SIZE = 1024
 N_HEAD_HIDDEN_LAYERS = 1
 
@@ -38,7 +40,7 @@ NUM_PLAYERS = 8
 NUM_SAMPLES = 25
 NUM_SIMULATIONS = 6
 SAMPLES_PER_PLAYER = 128
-UNROLL_STEPS = 4
+UNROLL_STEPS = 5
 
 #### TRAINING ####
 BATCH_SIZE = 256
