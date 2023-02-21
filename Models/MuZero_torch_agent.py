@@ -99,13 +99,19 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
+        action = torch.tensor(action)
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
+        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1] - 1)
+
+        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1)
         # Stack encoded_state with a game specific one hot encoded action (See paper appendix Network Architecture)
-        action_one_hot = (
-            torch.zeros((action.shape[0], self.action_space_size))
-            .to(action.device)
-            .float()
-        )
-        action_one_hot.scatter_(1, action.long(), 1.0)
+        # action_one_hot = (
+        #     torch.zeros((action.shape[0], self.action_space_size))
+        #     .to(action.device)
+        #     .float()
+        # )
+        # action_one_hot.scatter_(1, action.long(), 1.0)
         action_encodings = self.action_encodings(action_one_hot)
 
         lstm_state = self.flat_to_lstm_input(encoded_state)
@@ -186,23 +192,23 @@ class MuZeroNetwork(AbstractNetwork):
         return tensors
 
 
-def recurrent_inference(self, encoded_state, action):
-        hidden_state, reward_logits = self.dynamics(encoded_state, action)
-        policy_logits, value_logits = self.prediction(hidden_state)
-        value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits))
-        reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits))
+    def recurrent_inference(self, encoded_state, action):
+            hidden_state, reward_logits = self.dynamics(encoded_state, action)
+            policy_logits, value_logits = self.prediction(hidden_state)
+            value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits))
+            reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits))
 
-        outputs = {
-            "value": value,
-            "value_logits": value_logits,
-            "reward": reward,
-            "reward_logits": reward_logits,
-            "policy_logits": policy_logits,
-            "hidden_state": hidden_state
-        }
-        self.rec_count += 1
+            outputs = {
+                "value": value,
+                "value_logits": value_logits,
+                "reward": reward,
+                "reward_logits": reward_logits,
+                "policy_logits": policy_logits,
+                "hidden_state": hidden_state
+            }
+            self.rec_count += 1
 
-        return outputs
+            return outputs
 
 
 def mlp(
