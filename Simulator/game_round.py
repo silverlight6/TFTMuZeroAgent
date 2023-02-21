@@ -1,6 +1,7 @@
 import time
 import config
 import random
+import numpy as np
 # import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
@@ -310,7 +311,7 @@ class Game_Round:
             index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
             weights = 0
             player = list(players)[player_list[0]]
-            player.opponent_options["possible_opponents"] = []
+            player.opponent_options = np.zeros(config.NUM_PLAYERS)
             for num in player_list:
                 if not num == player_list[0]:
                     # if any possible opponents have a high enough possible opponents value consider them for combat
@@ -334,20 +335,20 @@ class Game_Round:
                         index = 1
             self.matchups.append([player_list[0], player_list[index]])
             opposition = list(players)[player_list[index]]
-            opposition.opponent_options['possible_opponents'] = []
+            opposition.opponent_options = np.zeros(config.NUM_PLAYERS)
             for x in range(config.NUM_PLAYERS):
                 if player.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:
-                    player.opponent_options['possible_opponents'].append(x)
+                    player.opponent_options[x] = 1
                 if opposition.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:
-                    opposition.opponent_options['possible_opponents'].append(x)
+                    opposition.opponent_options[x] = 1
                 if not player.possible_opponents[x] == -1:
                     player.possible_opponents[x] += config.WEIGHTS_INCREMENT
                 if not opposition.possible_opponents[x] == -1:
                     opposition.possible_opponents[x] += config.WEIGHTS_INCREMENT
-            if not player.opponent_options['possible_opponents']:
-                player.opponent_options['possible_opponents'].append(player_list[index])
-            if not opposition.opponent_options['possible_opponents']:
-                opposition.opponent_options['possible_opponents'].append(player_list[0])
+            if 1 not in player.opponent_options:
+                player.opponent_options[player_list[index]] = 1
+            if 1 not in opposition.opponent_options:
+                opposition.opponent_options[player_list[0]] = 1
             player.possible_opponents[player_list[index]] = 0
             opposition.possible_opponents[player_list[0]] = 0
             player_list.remove(player_list[index])

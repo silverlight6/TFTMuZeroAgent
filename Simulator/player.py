@@ -73,7 +73,7 @@ class player:
 
         # player related info split between what other players can see and what they can't see
         self.player_public_vector = np.zeros(7)
-        self.player_private_vector = np.zeros(9)
+        self.player_private_vector = np.zeros(16)
 
         # Encoding board as an image, so we can run convolutions on it.
         self.board_vector = np.zeros(728)  # 7x4 board, with 7x4 encoding
@@ -120,7 +120,7 @@ class player:
         # Putting this here to show the next possible opponent
         self.possible_opponents = [config.MATCHMAKING_WEIGHTS for _ in range(config.NUM_PLAYERS)]
         self.possible_opponents[self.player_num] = -1
-        self.opponent_options = {"possible_opponents": []}
+        self.opponent_options = np.zeros(config.NUM_PLAYERS)
 
         self.kayn_turn_count = 0
         self.kayn_transformed = False
