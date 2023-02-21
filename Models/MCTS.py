@@ -33,7 +33,7 @@ class MCTS:
         network_output = self.network.initial_inference(observation[0])
 
         value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
-        policy_logits = network_output["policy_logits"].numpy()
+        policy_logits = network_output["policy_logits"]
 
         # 0.01 seconds
         policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
