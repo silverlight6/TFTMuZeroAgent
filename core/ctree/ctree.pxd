@@ -55,8 +55,9 @@ cdef extern from "cnode.h" namespace "tree":
 
     cdef cppclass CRoots:
         CRoots() except +
-        CRoots(int root_num, int action_num, int pool_size) except +
-        int root_num, action_num, pool_size
+        CRoots(int root_num, const vector[int] action_num, int pool_size) except +
+        int root_num, pool_size
+        vector[int] action_num
         vector[CNode] roots
         vector[vector[CNode]] node_pools
 

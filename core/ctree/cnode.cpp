@@ -181,14 +181,14 @@ namespace tree {
 
     CRoots::CRoots(){
         this->root_num = 0;
-        this->action_num = 0;
+        this->action_num = std::vector<int>{0};
         this->pool_size = 0;
     }
 
     // root_num is the number of agents in the batch (NUM_PLAYERS in our base case)
     // pool_size is in place to speed up the vectors and to allocate a given amount of memory at the start
     // Setting this to be the number of samples for now but someone should check if that is correct
-    CRoots::CRoots(int root_num, int action_num, int pool_size){
+    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
         this->action_num = action_num;
@@ -201,7 +201,7 @@ namespace tree {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, action_num, &this->node_pools[i]));
+            this->roots.push_back(CNode(0, action_num[i], &this->node_pools[i]));
         }
     }
 

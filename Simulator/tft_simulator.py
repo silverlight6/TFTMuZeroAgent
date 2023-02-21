@@ -3,7 +3,7 @@ import functools
 import time
 import gymnasium as gym
 import numpy as np
-from gymnasium.spaces import MultiDiscrete, Box, Dict
+from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
 from Simulator import pool
 from Simulator.player import player as player_class
 from Simulator.step_function import Step_Function
@@ -81,8 +81,10 @@ class TFT_Simulator(AECEnv):
                 self.agents,
                 [
                     Dict({
-                        "tensor": Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "mask": MultiDiscrete([6, 5, 28, 9, 10])
+                        "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
+                        "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8), 
+                                MultiDiscrete(np.ones(5) * 2, dtype=np.int8), MultiDiscrete(np.ones(28) * 2, dtype=np.int8), 
+                                MultiDiscrete(np.ones(9) * 2, dtype=np.int8), MultiDiscrete(np.ones(10) * 2, dtype=np.int8)))
                     }) for _ in self.agents
                 ],
             )
@@ -93,7 +95,7 @@ class TFT_Simulator(AECEnv):
         #                       for agent in self.agents}
 
         # For PPO
-        self.action_spaces = {agent: MultiDiscrete(config.ACTION_DIM)
+        self.action_spaces = {agent: MultiDiscrete(np.ones(config.ACTION_DIM))
                               for agent in self.agents}
         super().__init__()
 
@@ -110,7 +112,6 @@ class TFT_Simulator(AECEnv):
         for key, player in self.PLAYERS.items():
             if player:
                 if player.health <= 0:
-                    # print(f"DIED WITH {player.gold} GOLD")
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
@@ -179,17 +180,9 @@ class TFT_Simulator(AECEnv):
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                    self.agent_selection, self.game_observations)
 
-        # if we don't use this line, rewards will compound per step 
+        # if we don't use this line, rewards will compound per step
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
         self._clear_rewards()
-        self.rewards[self.agent_selection] = \
-            self.PLAYERS[self.agent_selection].reward - self.previous_rewards[self.agent_selection]
-        self.previous_rewards[self.agent_selection] = self.PLAYERS[self.agent_selection].reward
-        self._cumulative_rewards[self.agent_selection] = \
-            self._cumulative_rewards[self.agent_selection] + self.rewards[self.agent_selection]
-        self.observations[self.agent_selection] = self.game_observations[self.agent_selection].observation(
-            self.agent_selection, self.PLAYERS[self.agent_selection],
-            self.PLAYERS[self.agent_selection].action_vector)
         self.infos[self.agent_selection] = {}
 
         self.terminations = {a: False for a in self.agents}
@@ -205,7 +198,7 @@ class TFT_Simulator(AECEnv):
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
                 self.game_round.play_game_round()
-                
+
                 for agent in self.agents:
                     self.observations[agent] = self.game_observations[agent].observation(
                         agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
@@ -216,20 +209,30 @@ class TFT_Simulator(AECEnv):
                     for player_id in self.agents:
                         if self.PLAYERS[player_id]:
                             self.PLAYERS[player_id].won_game()
+                            self.rewards[player_id] = 8.75
+                            self._cumulative_rewards[player_id] = self.rewards[player_id]
 
                     self.terminations = {a: True for a in self.agents}
 
+            _live_agents = self.agents[:]
             for k in self.kill_list:
                 self.terminations[k] = True
-                self.agents.remove(k)
+                _live_agents.remove(k)
+                self.rewards[k] = (3 - len(_live_agents)) * 2.55 + 1.25
+                self._cumulative_rewards[k] = self.rewards[k]
 
+            if len(self.kill_list) > 0:
+                self._agent_selector.reinit(_live_agents)
             self.kill_list = []
-            self._agent_selector.reinit(self.agents)
 
-        # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
-        if len(self.agents) != 0:
+            for player_id in self.PLAYERS:
+                if self.PLAYERS[player_id]:
+                    self.rewards[player_id] = self.PLAYERS[player_id].reward
+                    self._cumulative_rewards[player_id] = self.rewards[player_id]
+            # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
+        if len(self._agent_selector.agent_order):
             self.agent_selection = self._agent_selector.next()
 
         # Probably not needed but doesn't hurt?
-        # self._deads_step_first()
-        # return self.observations, self.rewards, self.terminations, self.truncations, self.infos
+        self._deads_step_first()
+        return self.observations, self.rewards, self.terminations, self.truncations, self.infos

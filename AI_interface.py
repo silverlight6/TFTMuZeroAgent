@@ -81,8 +81,8 @@ class DataWorker(object):
         tensors = []
         masks = []
         for obs in observation.values():
-            tensors.append(obs[0])
-            masks.append(obs[1])
+            tensors.append(obs["tensor"])
+            masks.append(obs["mask"])
         return [np.asarray(tensors), masks]
 
     def decode_action_to_one_hot(self, str_action):
@@ -232,16 +232,15 @@ class AIInterface:
             _ = env.reset()
             terminated = {player_id: False for player_id in env.possible_agents}
             t = time.time_ns()
+            rewards = None
             while not all(terminated.values()):
                 # agent policy that uses the observation and info
-                action = np.random.randint(low=0, high=[10, 5, 9, 10, 7, 4, 7, 4], size=[8, 8])
-                step_actions = {}
-                i = 0
-                for player_id, terminate in terminated.items():
-                    if not terminate:
-                        step_actions[player_id] = action[i]
-                        i += 1
-                observation_list, rewards, terminated, truncated, info = env.step(step_actions)
+                action = {
+                    agent: env.action_space(agent).sample()
+                    for agent in env.agents
+                    if (agent in terminated and not terminated[agent])
+                }
+                observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
     def PPO_algorithm(self):

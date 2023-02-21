@@ -11,7 +11,7 @@ from Simulator.origin_class import team_traits, game_comp_tiers
 class Observation:
     def __init__(self):
         self.shop_vector = np.zeros(45)
-        self.shop_mask = np.ones(5)
+        self.shop_mask = np.ones(5, dtype=np.int8)
         self.game_comp_vector = np.zeros(208)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
@@ -65,8 +65,8 @@ class Observation:
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
 
         # Fetch and concatenate mask
-        mask = [player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask]
-        return [total_tensor_observation, mask]
+        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask)
+        return {"tensor": total_tensor_observation, "mask": mask}
 
     def generate_other_player_vectors(self, cur_player, players):
         for player_id in players:

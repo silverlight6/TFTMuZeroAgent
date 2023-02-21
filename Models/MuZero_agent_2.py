@@ -262,15 +262,15 @@ class TFTNetwork(Network):
         next_hidden_state = self.rnn_to_flat(next_rnn_state)
 
         # Reward head
-        reward_output = tf.keras.layers.Dense(units=601, name='reward', kernel_regularizer=regularizer,
-                                              bias_regularizer=regularizer)(rnn_output)
+        reward_output = tf.keras.layers.Dense(units=config.ENCODER_NUM_STEPS, name='reward',
+                                              kernel_regularizer=regularizer, bias_regularizer=regularizer)(rnn_output)
         dynamics_model: tf.keras.Model = \
             tf.keras.Model(inputs=[dynamic_hidden_state, encoded_state_action],
                            outputs=[next_hidden_state, reward_output], name='dynamics')
 
         pred_hidden_state = tf.keras.Input(shape=np.array([config.LAYER_HIDDEN_SIZE]), name="prediction_input")
         value_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="value")(pred_hidden_state)
-        value_output = tf.keras.layers.Dense(units=601, name='value',
+        value_output = tf.keras.layers.Dense(units=config.ENCODER_NUM_STEPS, name='value',
                                              kernel_regularizer=regularizer, bias_regularizer=regularizer)(value_x)
 
         policy_x = Mlp(hidden_size=config.HIDDEN_STATE_SIZE, name="policy")(pred_hidden_state)
