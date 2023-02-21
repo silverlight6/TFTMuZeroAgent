@@ -80,8 +80,9 @@ class MCTS:
         return actions, target_policy
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
-        # preparation
+        # preparation / num -> number of players alive
         num = roots_cpp.num
+
         # config variables
         discount = config.DISCOUNT
         pb_c_init = config.PB_C_INIT
@@ -90,9 +91,7 @@ class MCTS:
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2)  # config.MINIMUM_REWARD *2
-        # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future
-        horizons = 1
+        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2 + 1)  # config.MINIMUM_REWARD *2
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
         for _ in range(config.NUM_SIMULATIONS):
@@ -100,11 +99,10 @@ class MCTS:
             hidden_states = []
             results = tree.ResultsWrapper(num)
 
-            # 0.001 seconds
+            # 0.0001 > time
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
-            search_lens = results.get_search_len()
 
             # obtain the states for leaf nodes
             for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
@@ -130,15 +128,13 @@ class MCTS:
             hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
 
-            reset_idx = (np.array(search_lens) % horizons == 0)
-            is_reset_lst = reset_idx.astype(np.int32).tolist()
             # tree node.isreset = is_reset_list[node]
             hidden_state_index_x += 1
 
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
-                                      min_max_stats_lst, results, is_reset_lst, mappings)
+                                      min_max_stats_lst, results, mappings)
 
     @staticmethod
     def select_action(visit_counts, temperature=1, deterministic=True):

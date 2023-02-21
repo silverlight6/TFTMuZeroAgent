@@ -59,9 +59,6 @@ cdef class Roots:
     def prepare_no_noise(self, list value_prefix_pool, list policy_logits_pool, list mappings):
         self.roots[0].prepare_no_noise(value_prefix_pool, policy_logits_pool, mappings)
 
-    def get_trajectories(self):
-        return self.roots[0].get_trajectories()
-
     def get_distributions(self):
         return self.roots[0].get_distributions()
 
@@ -89,21 +86,20 @@ cdef class Node:
         # self.cnode = CNode(prior, action_num)
         pass
 
-    def expand(self, int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
+    def expand(self, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
                list policy_logits, list mappings):
         cdef vector[float] cpolicy = policy_logits
-        self.cnode.expand(to_play, hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, mappings)
+        self.cnode.expand(hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, mappings)
 
-def batch_back_propagate(int hidden_state_index_x, float discount, list value_prefixs, list values, list policy,
-                         MinMaxStatsList min_max_stats_lst, ResultsWrapper results,
-                         list is_reset_lst, list mappings):
+def batch_back_propagate(int hidden_state_index_x, float discount, list rewards, list values, list policy,
+                         MinMaxStatsList min_max_stats_lst, ResultsWrapper results, list mappings):
     cdef int i
-    cdef vector[float] cvalue_prefixs = value_prefixs
+    cdef vector[float] crewards = rewards
     cdef vector[float] cvalues = values
     cdef vector[vector[float]] cpolicy = policy
 
-    cbatch_back_propagate(hidden_state_index_x, discount, cvalue_prefixs, cvalues, cpolicy,
-                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, is_reset_lst, mappings)
+    cbatch_back_propagate(hidden_state_index_x, discount, crewards, cvalues, cpolicy,
+                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, mappings)
 
 
 def batch_traverse(Roots roots, int pb_c_base, float pb_c_init, float discount, MinMaxStatsList min_max_stats_lst,
