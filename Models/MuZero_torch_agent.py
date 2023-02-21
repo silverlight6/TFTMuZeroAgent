@@ -85,7 +85,8 @@ class MuZeroNetwork(AbstractNetwork):
 
     def representation(self, observation):
         observation = torch.tensor(observation, dtype=torch.float32)
-        observation = observation.view(observation.shape[0], -1)
+        # observation = torch.tensor(observation, dtype=torch.float32)
+        # observation = observation.view(observation.shape[0], -1)
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
         min_encoded_state = encoded_state.min(1, keepdim=True)[0]
@@ -134,17 +135,25 @@ class MuZeroNetwork(AbstractNetwork):
         hidden_state = self.representation(observation)
         policy_logits, value_logits = self.prediction(hidden_state)
         # reward equal to 0 for consistency
-        reward = torch.log(
-            (
-                torch.zeros(1, self.full_support_size)
-                .scatter(1, torch.tensor([[self.full_support_size // 2]]).long(), 1.0)
-                .repeat(len(observation), 1)
-                .to(observation.device)
-            )
-        )
+        # reward = torch.log(
+        #     (
+        #         torch.zeros(1, self.full_support_size)
+        #         .scatter(1, torch.tensor([[self.full_support_size // 2]]).long(), 1.0)
+        #         .repeat(len(observation), 1)
+        #         .to(observation.device)
+        #     )
+        # )
+
+        
+
+        reward = np.zeros(observation.shape[0])
 
         reward_logits = self.reward_encoder.encode(reward)
-        value = self.value_encoder.decode(torch.nn.Softmax(value_logits))
+        value = support_to_scalar(value_logits, self.full_support_size)
+
+        value_logits = value_logits.detach().cpu().numpy()
+        policy_logits = policy_logits.detach().cpu().numpy()
+        hidden_state = hidden_state.detach().cpu().numpy()
 
         outputs = {
             "value": value,
@@ -180,8 +189,8 @@ class MuZeroNetwork(AbstractNetwork):
 def recurrent_inference(self, encoded_state, action):
         hidden_state, reward_logits = self.dynamics(encoded_state, action)
         policy_logits, value_logits = self.prediction(hidden_state)
-        value = self.value_encoder.decode(torch.nn.Softmax(value_logits))
-        reward = self.reward_encoder.decode(torch.nn.Softmax(reward_logits))
+        value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits))
+        reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits))
 
         outputs = {
             "value": value,
@@ -250,11 +259,11 @@ class ValueEncoder:
         num_steps = above_min / self.step_size
         lower_step = np.floor(num_steps)
         upper_mod = num_steps - lower_step
-        lower_step = lower_step.type(np.int32)
+        lower_step = lower_step.astype(int)
         upper_step = lower_step + 1
         lower_mod = 1.0 - upper_mod
         lower_encoding, upper_encoding = (
-            np.equal(step, self.step_range_int).type(np.float32) * mod
+            np.equal(step, self.step_range_int).astype(float) * mod
             for step, mod in (
                 (lower_step, lower_mod),
                 (upper_step, upper_mod),)
@@ -284,3 +293,26 @@ def inverse_contractive_mapping(x, eps=0.001):
     return np.sign(x) * \
            (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
+def support_to_scalar(logits, full_support_size):
+    """
+    Transform a categorical representation to a scalar
+    See paper appendix Network Architecture
+    """
+    support_size = full_support_size // 2
+    # Decode to a scalar
+    probabilities = torch.softmax(logits, dim=1)
+    support = (
+        torch.tensor([x for x in range(-support_size, support_size + 1)])
+        .expand(probabilities.shape)
+        .float()
+        .to(device=probabilities.device)
+    )
+    x = torch.sum(support * probabilities, dim=1, keepdim=True)
+
+    # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
+    x = torch.sign(x) * (
+        ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
+        ** 2
+        - 1
+    )
+    return x
