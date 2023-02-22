@@ -132,7 +132,10 @@ class MCTS:
             last_action = np.asarray(last_action)
 
             # 0.026 to 0.064 seconds
-            network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
+            if config.ARCHITECTURE == 'Pytorch':
+                network_output = self.network.recurrent_inference(hidden_states, last_action)
+            else:
+                network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
 
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()

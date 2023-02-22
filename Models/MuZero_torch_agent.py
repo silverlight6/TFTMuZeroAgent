@@ -49,28 +49,29 @@ class MuZeroNetwork(AbstractNetwork):
 
         self.representation_network = torch.nn.DataParallel(
             mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.HIDDEN_STATE_SIZE)
+                config.LAYER_HIDDEN_SIZE)
         )
 
         self.action_encodings = torch.nn.DataParallel(
-            mlp(config.ACTION_ENCODING_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.HIDDEN_STATE_SIZE)
+            mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                config.LAYER_HIDDEN_SIZE)
         )
 
         self.dynamics_encoded_state_network = [
-            torch.nn.LSTMCell(size, size) for size in config.RNN_SIZES]
+            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).to("cuda"), torch.nn.LSTMCell(256, 256).to("cuda")]
+  
 
         self.dynamics_reward_network = torch.nn.DataParallel(
-            mlp(config.HIDDEN_STATE_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
         )
 
         self.prediction_policy_network = torch.nn.DataParallel(
-            mlp(config.HIDDEN_STATE_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 config.ACTION_ENCODING_SIZE)
         )
         self.prediction_value_network = torch.nn.DataParallel(
-            mlp(config.HIDDEN_STATE_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
         )
 
@@ -85,8 +86,6 @@ class MuZeroNetwork(AbstractNetwork):
 
     def representation(self, observation):
         observation = torch.tensor(observation, dtype=torch.float32)
-        # observation = torch.tensor(observation, dtype=torch.float32)
-        # observation = observation.view(observation.shape[0], -1)
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
         min_encoded_state = encoded_state.min(1, keepdim=True)[0]
@@ -101,28 +100,23 @@ class MuZeroNetwork(AbstractNetwork):
     def dynamics(self, encoded_state, action):
         action = torch.tensor(action)
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1] - 1)
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
+        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
 
-        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1)
-        # Stack encoded_state with a game specific one hot encoded action (See paper appendix Network Architecture)
-        # action_one_hot = (
-        #     torch.zeros((action.shape[0], self.action_space_size))
-        #     .to(action.device)
-        #     .float()
-        # )
-        # action_one_hot.scatter_(1, action.long(), 1.0)
+        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+
         action_encodings = self.action_encodings(action_one_hot)
 
         lstm_state = self.flat_to_lstm_input(encoded_state)
 
-        rnn_output, next_rnn_state = self.dynamics_encoded_state_network[0](action_encodings, lstm_state)
-        rnn_output, next_rnn_state = self.dynamics_encoded_state_network[1](rnn_output, next_rnn_state)
+        inputs = action_encodings
+        new_nested_states = []
 
-        next_hidden_state = self.rnn_t_flat(next_rnn_state)
-
-        next_encoded_state = self.dynamics_encoded_state_network[1](encoded_state)
-        x = torch.cat((next_action_state, next_encoded_state), dim=1)
+        for cell, states in zip(self.dynamics_encoded_state_network, lstm_state):
+          inputs, new_states = cell(inputs, states)
+          new_nested_states.append([inputs, new_states])
+        
+        next_encoded_state = self.rnn_to_flat(new_nested_states) # (8, 1024)
 
         reward = self.dynamics_reward_network(next_encoded_state)
 
@@ -140,17 +134,6 @@ class MuZeroNetwork(AbstractNetwork):
     def initial_inference(self, observation):
         hidden_state = self.representation(observation)
         policy_logits, value_logits = self.prediction(hidden_state)
-        # reward equal to 0 for consistency
-        # reward = torch.log(
-        #     (
-        #         torch.zeros(1, self.full_support_size)
-        #         .scatter(1, torch.tensor([[self.full_support_size // 2]]).long(), 1.0)
-        #         .repeat(len(observation), 1)
-        #         .to(observation.device)
-        #     )
-        # )
-
-        
 
         reward = np.zeros(observation.shape[0])
 
@@ -180,7 +163,8 @@ class MuZeroNetwork(AbstractNetwork):
 
     @staticmethod
     def flat_to_lstm_input(state):
-        """Maps flat vector to LSTM state."""
+        """Maps flat vector to LSTM state.""" 
+        state = torch.tensor(state).to("cuda")
         tensors = []
         cur_idx = 0
         for size in config.RNN_SIZES:
@@ -188,15 +172,21 @@ class MuZeroNetwork(AbstractNetwork):
                       state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
             cur_idx += 2 * size
             tensors.append(states)
-        assert cur_idx == state.shape[-1]
+        # assert cur_idx == state.shape[-1]
         return tensors
 
 
     def recurrent_inference(self, encoded_state, action):
             hidden_state, reward_logits = self.dynamics(encoded_state, action)
             policy_logits, value_logits = self.prediction(hidden_state)
-            value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits))
-            reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits))
+
+            value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits).detach().cpu().numpy())
+            reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits).detach().cpu().numpy())
+
+            hidden_state = hidden_state.detach().cpu().numpy()
+            policy_logits = policy_logits.detach().cpu()
+            value_logits = value_logits.detach().cpu().numpy()
+            reward_logits = reward_logits.detach().cpu().numpy()
 
             outputs = {
                 "value": value,
@@ -206,7 +196,6 @@ class MuZeroNetwork(AbstractNetwork):
                 "policy_logits": policy_logits,
                 "hidden_state": hidden_state
             }
-            self.rec_count += 1
 
             return outputs
 
