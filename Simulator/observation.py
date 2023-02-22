@@ -64,8 +64,11 @@ class Observation:
         # Gather all vectors into one place
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
 
+        # random useful masks
+        # util_mask[0] = 0 if board is full, 1 if not
+
         # Fetch and concatenate mask
-        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask)
+        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask, player.util_mask)
         return {"tensor": total_tensor_observation, "mask": mask}
 
     def generate_other_player_vectors(self, cur_player, players):

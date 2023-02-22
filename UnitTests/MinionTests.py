@@ -31,7 +31,7 @@ def rewardsTest():
     # PVE rounds can drop champions, gold, or items, but not nothing
     for r in rounds:
         p1.gold = 0
-        p1.bench = [None for _ in range(10)]
+        p1.bench = [None for _ in range(9)]
         p1.item_bench = [None for _ in range(10)]
         
         minion.minion_round(p1, r, [None for _ in range(2)])

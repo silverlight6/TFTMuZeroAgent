@@ -39,7 +39,7 @@ class Step_Function:
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()
                 game_observations[key].generate_other_player_vectors(player, players)
-                player.print(f"player {player} passed")
+                player.print(f"pass action")
             elif action_selector == 1:
                 # Buy from shop
                 champ_shop_target = np.argmax(action[6:11])

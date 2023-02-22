@@ -166,7 +166,13 @@ class MCTS:
         return action_pos, count_entropy
 
     @staticmethod
-    def encode_action_to_str(policy_logits, mask):
+    def encode_action_to_str(policy_logits, mask) -> tuple[list[float], list[bytes], list[str]]:
+        # mask[0] = decision mask
+        # mask[1] = shop mask - 1 if can buy champ, 0 if can't
+        # mask[2] = board mask - 1 if slot is occupied, 0 if not
+        # mask[3] = bench mask - 1 if slot is occupied, 0 if not
+        # mask[4] = item mask - 1 if slot is occupied, 0 if not
+        # mask[5] = util mask
         actions = []
         mappings = []
         second_mappings = []
@@ -182,7 +188,7 @@ class MCTS:
                 if mask[idx][1][i]:
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
-                    second_local_mappings.append(f"1_{i}")
+                    second_local_mappings.append(f"1_{i}") 
                 local_counter += 1
             # for all board + bench slots...
             for a in range(37):
@@ -190,8 +196,19 @@ class MCTS:
                 for b in range(a, 38):
                     if a == b:
                         continue
+                    if a > 27 and b != 38:
+                        continue
                     # This does not account for max units yet
+                    # if we are trying to move a non-existent champion, skip
                     if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                        local_counter += 1
+                        continue
+                    # if we're doing a bench to board move and board is full and there is no champ at destination, skip
+                    if a < 28 and b > 27 and b != 38 and mask[idx][5][0] and not mask[idx][2][a]:
+                        local_counter += 1
+                        continue
+                    # filter out bench-to-bench movements
+                    if a > 27 and b > 27 and b != 38:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
@@ -237,6 +254,8 @@ class MCTS:
             for b in range(a, 38):
                 if a == b:
                     continue
+                if a > 27 and b != 38:
+                    continue
                 mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
                 second_mappings.append(f"2_{a}_{b}")
         for a in range(37):
@@ -247,6 +266,7 @@ class MCTS:
         second_mappings.append("4")
         mappings.append(bytes("5", "utf-8"))
         second_mappings.append("5")
+        # converting mappings to batch size for all players in a game
         mappings = [mappings for _ in range(config.NUM_PLAYERS)]
         second_mappings = [second_mappings for _ in range(config.NUM_PLAYERS)]
         return mappings, second_mappings
