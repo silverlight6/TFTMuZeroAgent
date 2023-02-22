@@ -158,7 +158,8 @@ class player:
     Outputs     - True: successfully added to the bench
                   False: Either could not update triple catalog (some error), or the bench was full
     """
-    #
+    # TODO: Verify that the units received carousel round are not bugging out.
+    #       Check the logs in the simulator discord channel
     def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
         # try to triple second
         golden, triple_success = self.update_triple_catalog(a_champion)
@@ -449,9 +450,7 @@ class player:
         self.chosen_vector = output_array
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Generates the item vector. This is done using binary encoding.
     """
     # return output_array
     def generate_item_vector(self):
@@ -470,9 +469,7 @@ class player:
         self.item_vector = item_arr
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - All information that other players do not have access to is stored in this vector
     """
     def generate_private_player_vector(self):
         self.player_private_vector[0] = self.gold / 100
@@ -507,9 +504,7 @@ class player:
                 self.shop_mask[idx] = 1
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - All game state information that other players have access to is stored here..
     """
     def generate_public_player_vector(self):
         self.player_private_vector[0] = self.health / 100
@@ -526,21 +521,21 @@ class player:
         self.player_private_vector[6] = streak_lvl
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - So we can call one method instead of 2 in the dozen or so places where these vectors get updated.
     """
     def generate_player_vector(self):
         self.generate_public_player_vector()
         self.generate_private_player_vector()
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.
+                  Transfers items over. The way I have it would mean it would require bench space.
+    Inputs      - a_champion: Champion object
+                    The third champion in the triple of 3.
+    Outputs     - b_champion: Champion object
+                    The goldened champion in whichever spot was decided to for it to be.             
     """
-    # This takes every occurrence of a champion at a given level and returns 1 of a higher level.
-    # Transfers items over. The way I have it would mean it would require bench space.
+    # TODO: Verify if multiple units have full items, that it does not do weird behavior.
     def golden(self, a_champion):
         x = -1
         y = -1
@@ -583,13 +578,12 @@ class player:
         return b_champion
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Including base_exp income here. This gets called before any of the neural nets happen. 
+                  This is the start of the round
+    Inputs      - t_round: Int
+                    Current game round
     """
-    # TO DO: FORTUNE TRAIT - HUGE EDGE CASE - GOOGLE FOR MORE INFO - FORTUNE - TFT SET 4
-    # Including base_exp income here
-    # This gets called before any of the neural nets happen. This is the start of the round
+    # TODO: FORTUNE TRAIT - HUGE EDGE CASE - GOOGLE FOR MORE INFO - FORTUNE - TFT SET 4
     def gold_income(self, t_round):
         self.exp += 2
         self.level_up()

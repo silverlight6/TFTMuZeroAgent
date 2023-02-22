@@ -18,7 +18,7 @@ def env():
     """
     The env function often wraps the environment in wrappers by default.
     You can find full documentation for these methods
-    elsewhere in the developer documentation.
+    elsewhere in the developer pettingzoo documentation.
     """
     local_env = TFT_Simulator(env_config=None)
 
