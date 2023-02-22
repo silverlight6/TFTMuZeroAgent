@@ -24,7 +24,8 @@ class Step_Function:
 
         if self.shops[player.player_num][shop_action] == " ":
             player.reward += player.mistake_reward
-            return
+            print("BUG WITH BUY MASK1")
+            return False
         if self.shops[player.player_num][shop_action].endswith("_c"):
             c_shop = self.shops[player.player_num][shop_action].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
@@ -33,8 +34,10 @@ class Step_Function:
         success = player.buy_champion(a_champion)
         if success:
             self.shops[player.player_num][shop_action] = " "
+            return True
         else:
-            return
+            print("BUG WITH BUY MASK2")
+            return False
 
     def dcord_to_2dcord(self, dcord):
         # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
@@ -56,12 +59,14 @@ class Step_Function:
             elif action_selector == 1:
                 # Buy from shop
                 champ_shop_target = np.argmax(action[6:11])
-                self.batch_shop(champ_shop_target, player, game_observations[key])
+                if not self.batch_shop(champ_shop_target, player, game_observations[key]):
+                    print(self.shops[player.player_num], action, player.gold)
             elif action_selector == 2:
                 # Swap champ place
                 target_1 = np.argmax(action[6:43])
                 action[target_1 + 6] = 0
                 target_2 = np.argmax(action[6:44])
+                action[target_1 + 6] = 1
                 swap_loc_from = min(target_1, target_2)
                 swap_loc_to = max(target_1, target_2)
                 if swap_loc_to == 37:
@@ -79,26 +84,31 @@ class Step_Function:
                             x1, y1 = self.dcord_to_2dcord(swap_loc_from)
                             x2, y2 = self.dcord_to_2dcord(swap_loc_to)
                             if player.board[x1][y1]:
-                                player.move_board_to_board(x1, y1, x2, y2)
+                                if not player.move_board_to_board(x1, y1, x2, y2):
+                                    print(player.boardStr(), action)
                             elif player.board[x2][y2]:
                                 player.move_board_to_board(x2, y2, x1, y1)
                         else:
                             x1, y1 = self.dcord_to_2dcord(swap_loc_from)
                             bench_loc = swap_loc_to - 28
                             if player.bench[bench_loc]:
-                                player.move_bench_to_board(bench_loc, x1, y1)
+                                if not player.move_bench_to_board(bench_loc, x1, y1):
+                                    print(player.boardStr(), player.benchStr(), action)
                             else:
-                                player.move_board_to_bench(x1, y1)
+                                if not player.move_board_to_bench(x1, y1):
+                                    print(player.boardStr(), player.benchStr(), action)
             elif action_selector == 3:
                 # Place item on champ
                 item_selector = np.argmax(action[44:54])
                 move_loc = np.argmax(action[6:43])
-                if move_loc >= 28:
+                if move_loc > 27:
                     move_loc -= 28
-                    player.move_item_to_bench(item_selector, move_loc)
+                    if not player.move_item_to_bench(item_selector, move_loc):
+                        print(player.benchStr(), action, player.item_bench)
                 else:
                     x, y = self.dcord_to_2dcord(move_loc)
-                    player.move_item_to_board(item_selector, x, y)
+                    if not player.move_item_to_board(item_selector, x, y):
+                        print(player.boardStr(), action, player.item_bench)
             elif action_selector == 4:
                 # Buy EXP
                 player.buy_exp()

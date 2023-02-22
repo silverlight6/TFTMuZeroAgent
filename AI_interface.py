@@ -47,25 +47,22 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.batch_policy(player_observation, list(self.prev_actions))
+                actions, _ = agent.batch_policy(player_observation, list(self.prev_actions))
                 step_actions = self.getStepActions(terminated, actions)
-                if any(terminated.values()):
-                    for player_id, terminate in terminated.items():
-                        if terminate and player_id in env.agents:
-                            # print("Deleting", player_id)
-                            env.agents.remove(player_id)
+
+                #Does not seem to be needed
+                # if any(terminated.values()):
+                #     for player_id, terminate in terminated.items():
+                #         if terminate and player_id in env.agents:
+                #             # print("Deleting", player_id)
+                #             env.agents.remove(player_id)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
-                # store the action for MuZero
-                concat_policy = np.concatenate([
-                        policy[0],
-                        policy[1],
-                        policy[2]
-                    ], axis=-1)
+
                 for i, key in enumerate(terminated.keys()):
                     # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], concat_policy[i])
+                    buffers.store_replay_buffer.remote(key, player_observation[i], actions[i], reward[key], step_actions[key])
                 # Set up the observation for the next action
                 player_observation = np.asarray(list(next_observation.values()))
                 self.prev_actions = actions

@@ -4,11 +4,14 @@ from UnitTests.BaseUnitTest import runTest
 import argparse
 import numpy as np
 import tensorflow as tf
+import UnitTests.PlayerTests as PlayerTests
 
 
 def main():
     if config.RUN_UNIT_TEST:
         runTest()
+
+    # PlayerTests.mask_test()
 
     # TODO(lobotuerk) A lot of hardcoded parameters should be used like this intead.
     parser = argparse.ArgumentParser(description='Train an AI to play TFT',

@@ -12,6 +12,7 @@ import tensorflow as tf
 import time
 import Simulator.utils as utils
 from Simulator.stats import COST
+from Simulator.pool_stats import cost_star_values
 
 ##########################
 ####### Helpers ##########
@@ -606,7 +607,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return .9
+        return 1.0
 
 
 class Batch_MCTSAgent(MCTSAgent):
@@ -780,7 +781,11 @@ class Batch_MCTSAgent(MCTSAgent):
         shop = [True for _ in range(5)]
         shop_price = [0 for _ in range(5)]
         board_bench = [True for _ in range(37)]
+        free_slots = [3 for _ in range(37)]
         items = [True for _ in range(10)]
+        thieves_gloves = [False for _ in range(10)]
+        normal_gloves = [False for _ in range(10)]
+        error_tg = [False for _ in range(37)]
         if obs is not None:
             gold = int(obs[1027])
             if gold < 2:
@@ -790,13 +795,29 @@ class Batch_MCTSAgent(MCTSAgent):
             level = int(obs[1])
             shop = [np.any(obs[(1029 + i*7):(1036 + i*7)]) for i in range(5)]
             list_champs = list(COST.keys())
-            shop_price = [COST[list_champs[utils.champ_binary_decode(obs[(1029 + i*7):(1036 + i*7)])]] for i in range(5)]
+            shop_price = [cost_star_values[COST[list_champs[utils.champ_binary_decode(obs[(1029 + i*7):(1036 + i*7)])]] - 1]
+                            [int(obs[1035 + i*7] * 1)] for i in range(5)]
             board_bench = [np.any(obs[(4 + i*26):(30 + i*26)]) for i in range(37)]
+            free_slots = [(not np.any(obs[(12 + i*26):(18 + i*26)])) 
+                            + (not np.any(obs[(18 + i*26):(24 + i*26)])) 
+                            + (not np.any(obs[(24 + i*26):(30 + i*26)])) for i in range(37)]
             for unit in board_bench[0:28]:
                 if unit:
                     unit_count += 1  ##TODO THIS IS MISSING SANDGUARDS
             items = [np.any(obs[(966 + i*6):(972 + i*6)]) for i in range(10)]
+            thieves_gloves = [np.all(obs[(966 + i*6):(972 + i*6)] == np.array([1, 1, 0, 0, 1, 0])) for i in range(10)] #110010 TG encoding, fix magic number
+            normal_gloves = [np.all(obs[(966 + i*6):(972 + i*6)] == np.array([0, 0, 0, 1, 1, 1])) for i in range(10)]
+            error_tg = [np.all(obs[(18 + i*26):(24 + i*26)] == np.array([0, 0, 0, 1, 1, 1]))
+                        or np.all(obs[(24 + i*26):(30 + i*26)] == np.array([0, 0, 0, 1, 1, 1])) for i in range(37)]
         board_bench.append(False)
+
+        # print("BOARD AND BENCH", board_bench)
+        # print("GOLD", gold)
+        # print("level", level)
+        # print("unit count", unit_count)
+        # print("Shop price", shop_price)
+        # print(error_tg)
+        # print(normal_gloves)
 
         actions = []
         actions_sum = action[0][0] + action[0][1] + action[0][2] + action[0][3] + action[0][4] +action[0][5]
@@ -806,8 +827,8 @@ class Batch_MCTSAgent(MCTSAgent):
         shop_sum = 0.
         shops = []
         for i in range(5): #TODO check if there is space in bench
-            if shop[i] and gold >= shop_price[i]:
-                shops.append((f"1_{i}",action[0][1] * target[0][i] / actions_sum))
+            if shop[i] and gold >= shop_price[i] and board_bench[-10:-1].count(True) < 9:
+                shops.append((f"1_{i}", action[0][1] * target[0][i] / actions_sum))
                 shop_sum += target[0][i]
         for i in range(len(shops)):
             temp_action, temp_prob = shops[i]
@@ -816,13 +837,30 @@ class Batch_MCTSAgent(MCTSAgent):
 
         target_sum = 0.
         targets = []
-        for a in range(37):
-            for b in range(a, 38):
-                if a == b:
-                    continue
-                if board_bench[a] or (board_bench[b] and unit_count < level):
-                    targets.append((f"2_{a}_{b}",action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+        # MOVE CHAMPS ON BOARD
+        for a in range(27):
+            for b in range(a+1, 28):
+                if board_bench[a] or board_bench[b]:
+                    targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
                     target_sum += target[0][a]  * target[0][b]
+        # SWAP WITH BENCH
+        swaped = {}
+        for a in range(28):
+            for b in range(28, 37):
+                if board_bench[b]:
+                    if board_bench[a] or unit_count < level:
+                        targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                        target_sum += target[0][a]  * target[0][b]
+                elif board_bench[a] and not a in swaped.keys():
+                    targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                    target_sum += target[0][a]  * target[0][b]
+                    swaped[a] = True
+        #SELL UNITS
+        for a in range(37):
+            if board_bench[a]:
+                if 3 - free_slots[a] + items.count(True) > 11:
+                    targets.append((f"2_{a}_37", action[0][2] * target[0][a]  * target[0][37] / actions_sum))
+                    target_sum += target[0][a]  * target[0][37]
         for i in range(len(targets)):
             temp_action, temp_prob = targets[i]
             targets[i] = (temp_action, temp_prob/target_sum)
@@ -832,18 +870,23 @@ class Batch_MCTSAgent(MCTSAgent):
         item_actions = []
         for a in range(37):
             for b in range(10):
-                if board_bench[a] and items[b]:
-                    item_actions.append((f"3_{a}_{b}",action[0][3] * target[0][a] * item[0][b] / actions_sum))
-                    items_sum +=  target[0][a] * item[0][b]
+                if board_bench[a] and free_slots[a] and items[b]:
+                    if thieves_gloves[b]:
+                        if free_slots[a] == 3:
+                            item_actions.append((f"3_{a}_{b}", action[0][3] * target[0][a] * item[0][b] / actions_sum))
+                            items_sum +=  target[0][a] * item[0][b]
+                    elif not (normal_gloves[b] and error_tg[a]):
+                        item_actions.append((f"3_{a}_{b}", action[0][3] * target[0][a] * item[0][b] / actions_sum))
+                        items_sum +=  target[0][a] * item[0][b]
         for i in range(len(item_actions)):
             temp_action, temp_prob = item_actions[i]
             item_actions[i] = (temp_action, temp_prob/items_sum)
         actions += item_actions
 
         if gold >= 4:
-            actions.append(("4",action[0][4] / actions_sum))
+            actions.append(("4", action[0][4] / actions_sum))
         if gold >= 2:
-            actions.append(("5",action[0][5] / actions_sum))
+            actions.append(("5", action[0][5] / actions_sum))
         return actions
 
 

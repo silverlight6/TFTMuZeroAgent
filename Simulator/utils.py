@@ -51,3 +51,9 @@ def generate_masking(action):
         elif element_list[0] == 3:
             mask = np.ones(54)
         return mask
+
+def dcord_to_2dcord(dcord):
+        # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
+        x = dcord % 7
+        y = (dcord - x) // 7
+        return x, y

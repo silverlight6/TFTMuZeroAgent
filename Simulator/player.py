@@ -27,7 +27,7 @@ class player:
 
     def __init__(self, pool_pointer, player_num):
 
-        self.gold = 0
+        self._gold = 0
         self.level = 1
         self.exp = 0
         self.health = 100
@@ -168,6 +168,7 @@ class player:
         if self.gold == 0 or cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold \
                 or a_champion.cost == 0:
             self.reward += self.mistake_reward
+            print("BUG WITH BUY MASK3")
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         self.private_observation[1] = self.gold
@@ -190,6 +191,7 @@ class player:
     def buy_exp(self):
         if self.gold < self.exp_cost or self.level == self.max_level:
             self.reward += self.mistake_reward
+            print("BUG WITH EXP MASK")
             return False
         self.gold -= 4
         self.private_observation[1] = self.gold
@@ -417,7 +419,7 @@ class player:
     def move_bench_to_board(self, bench_x, board_x, board_y):
         # print("bench_x = " + str(bench_x) + " with len(self.bench) = " + str(len(self.bench)))
         if 0 <= bench_x < 9 and self.bench[bench_x] and 7 > board_x >= 0 and 4 > board_y >= 0:
-            if self.num_units_in_play < self.max_units:
+            if self.num_units_in_play < self.max_units or self.board[board_x][board_y] is not None:
                 # TO DO - IMPLEMENT AZIR TURRET SPAWNS
                 m_champion = self.bench[bench_x]
                 m_champion.x = board_x
@@ -428,6 +430,7 @@ class player:
                         self.bench[bench_x] = m_champion
                         m_champion.x = bench_x
                         m_champion.y = -1
+                        print("BUG WITH MOVE BENCH TO BOARD MASK not found champ")
                         return False
                 self.board[board_x][board_y] = m_champion
                 # tracking thiefs gloves location
@@ -447,6 +450,7 @@ class player:
                 self.update_team_tiers()
                 return True
         self.reward += self.mistake_reward
+        print("BUG WITH MOVE BENCH TO BOARD MASK too many units", bench_x, board_x, board_y, self.board[board_x][board_y])
         return False
 
     # automatically put the champion at the end of the open bench
@@ -455,12 +459,14 @@ class player:
             if self.bench_full():
                 if self.board[x][y]:
                     if not self.sell_champion(self.board[x][y], field=True):
+                        print("BUG WITH MOVE TO BENCH MASK, TRIED TO MOVE EMPTY SPACE TO BENCH")
                         return False
                     self.print("sold from board [{}, {}]".format(x, y))
                     #BOARDMISS
                     self.update_team_tiers()
                     return True
                 self.reward += self.mistake_reward
+                print("BUG WITH MOVE TO BENCH MASK, TRIED TO MOVE EMPTY SPACE TO BENCH")
                 return False
             else:
                 if self.board[x][y] and not self.board[x][y].target_dummy:
@@ -485,6 +491,7 @@ class player:
                     self.update_team_tiers()
                     return True
         self.reward += self.mistake_reward
+        print("BUG WITH MOVE TO BENCH MASK", x, y)
         return False
 
     def move_board_to_board(self, x1, y1, x2, y2):
@@ -534,6 +541,7 @@ class player:
                 #BOARDMISS
                 return True
         self.reward += self.mistake_reward
+        print("BUG WITH MOVE BOARD BOARD MASK")
         return False
 
     # TO DO : Item combinations.
@@ -556,6 +564,7 @@ class player:
                     #ITEMMISS
                     #DECIDEMISS
                     return True
+                print("BUG WITH GIVE ITEM MASK and Kayn item ", xBench, x, y)
                 return False
             if self.item_bench[xBench] == 'champion_duplicator':
                 if not self.bench_full():
@@ -565,6 +574,7 @@ class player:
                     #ITEMMISS
                     #DECIDEMISS
                     return True
+                print("BUG WITH GIVE ITEM MASK and Champion Duplicator ", xBench, x, y)
                 return False
             if self.item_bench[xBench] == 'magnetic_remover':
                 if len(champ.items) > 0:
@@ -579,6 +589,7 @@ class player:
                         #ITEMMISS
                         #DECIDEMISS
                         return True
+                print("BUG WITH GIVE ITEM MASK and Magnetic Remover ", xBench, x, y)
                 return False
             if self.item_bench[xBench] == 'reforger':
                 return self.use_reforge(xBench, x, y)
@@ -591,6 +602,7 @@ class player:
                     #ITEMMISS
                     #DECIDEMISS
                     return True
+                print("BUG WITH GIVE ITEM MASK and TG, more than 1 item", xBench, x, y)
                 return False
             if ((len(champ.items) < 3 and self.item_bench[xBench] != "thieves_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
@@ -599,6 +611,7 @@ class player:
                     if self.item_bench[xBench] == name:
                         item_trait = list(trait_items.keys())[trait]
                         if item_trait in champ.origin:
+                            print("BUG WITH GIVE ITEM MASK and ITEM TRAITS, EXPECTED1", xBench, x, y)
                             return False
                         else:
                             champ.origin.append(item_trait)
@@ -619,12 +632,14 @@ class player:
                             if item_names[item_index] == names:
                                 item_trait = list(trait_items.keys())[trait]
                                 if item_trait in champ.origin:
+                                    print("BUG WITH GIVE ITEM MASK and ITEM TRAITS, EXPECTED2", xBench, x, y)
                                     return False
                                 else:
                                     champ.origin.append(item_trait)
                                     self.update_team_tiers()
                         if item_names[item_index] == "thieves_gloves":
                             if len(champ.items) != 1:
+                                print("BUG WITH GIVE ITEM MASK and TG combining gloves", xBench, x, y)
                                 return False
                             else:
                                 self.thieves_gloves_loc.append([x, y])
@@ -663,13 +678,14 @@ class player:
                 return True
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
+        print("BUG WITH GIVE ITEM MASK", xBench, x, y)
         return False
 
     def move_item_to_bench(self, xBench, x):
-        self.move_item(xBench, x, -1)
+        return self.move_item(xBench, x, -1)
 
     def move_item_to_board(self, xBench, x, y):
-        self.move_item(xBench, x, y)
+        return self.move_item(xBench, x, y)
 
     def num_in_triple_catelog(self, a_champion):
         num = 0
@@ -736,6 +752,7 @@ class player:
             self.print("Reward for refreshing shop is " + str(self.refresh_reward * self.refresh_cost))
             return True
         self.reward += self.mistake_reward
+        print("BUG WITH REFRESH MASK")
         return False
 
     # This is always going to be from the bench
@@ -837,6 +854,7 @@ class player:
                 s_champion.target_dummy):
             self.reward += self.mistake_reward
             self.print("Could not sell champion " + s_champion.name)
+            print("BUG IN SELL MASK from weird method", s_champion.name, s_champion.target_dummy)
             return False
         if not golden:
             self.gold += cost_star_values[s_champion.cost - 1][s_champion.stars - 1]
@@ -860,6 +878,7 @@ class player:
                 self.print("Mistake in sell from bench with {} and level {}".format(self.bench[location],
                                                                                     self.bench[location].stars))
                 self.reward += self.mistake_reward
+                print("BUG WITH SELL MASK from bench location")
                 return False
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
@@ -1056,14 +1075,17 @@ class player:
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
                     champion_info_array[6] = curr_champ.stars / 3
                     champion_info_array[7] = curr_champ.cost / 5
-                    for ind, item in enumerate(curr_champ.items):
-                        start = (ind * 6) + 7
-                        finish = start + 6
-                        if item in uncraftable_items:
-                            i_index = list(uncraftable_items).index(item) + 1
-                        elif item in item_builds.keys():
-                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
-                        champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+                    if COST[curr_champ.name] == 0:
+                        champion_info_array[8:26] = np.ones(18)
+                    else:
+                        for ind, item in enumerate(curr_champ.items):
+                            start = (ind * 6) + 8
+                            finish = start + 6
+                            if item in uncraftable_items:
+                                i_index = list(uncraftable_items).index(item) + 1
+                            elif item in item_builds.keys():
+                                i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
+                            champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
                 board += list(champion_info_array)
 
@@ -1076,7 +1098,7 @@ class player:
                 champion_info_array[6] = curr_champ.stars / 3
                 champion_info_array[7] = curr_champ.cost / 5
                 for ind, item in enumerate(curr_champ.items):
-                    start = (ind * 6) + 7
+                    start = (ind * 6) + 8
                     finish = start + 6
                     if item in uncraftable_items:
                         i_index = list(uncraftable_items).index(item) + 1
@@ -1088,10 +1110,11 @@ class player:
         items_bench = []
         for ind, item in enumerate(self.item_bench):
             item_info = np.zeros(6)
-            if item in uncraftable_items:
-                item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
-            elif item in item_builds.keys():
-                item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
+            if item is not None:
+                if item in uncraftable_items:
+                    item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+                elif item in item_builds.keys():
+                    item_info = utils.item_binary_encode(list(item_builds.keys()).index(item) + 1 + len(uncraftable_items))
             items_bench += list(item_info)
         
         return [hp, lvl, income, streak_lvl] + board + items_bench
@@ -1109,3 +1132,31 @@ class player:
         item = random.choice(self.item_pool)
         self.remove_from_pool(item)
         return item
+
+    @property
+    def gold(self):
+        return self._gold
+
+    @gold.setter
+    def gold(self, new_gold):
+        self._gold = new_gold
+        self.private_observation[1] = new_gold
+
+    def boardStr(self):
+        board = ""
+        for x in range(7): 
+                for y in range(4):
+                    if self.board[x][y]:
+                        board += f"[{self.board[x][y].name}.{len(self.board[x][y].items)}]"
+                    else:
+                        board += "[None]"
+        return board
+
+    def benchStr(self):
+        bench = ""
+        for i in range(len(self.bench)):
+            if self.bench[i]:
+                bench += f"[{self.bench[i].name}.{len(self.bench[i].items)}]"
+            else:
+                bench += "[None]"
+        return bench

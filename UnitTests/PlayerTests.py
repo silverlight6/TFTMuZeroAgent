@@ -4,6 +4,14 @@ from Simulator.champion import champion
 from Simulator import champion as c_object
 from Simulator.item_stats import trait_items, starting_items
 from Simulator.origin_class_stats import origin_class
+from Simulator.observation import Observation
+from Simulator.step_function import Step_Function
+from Models.MuZero_agent_2 import Batch_MCTSAgent
+import config
+import numpy as np
+from AI_interface import DataWorker
+import Simulator.utils as utils
+from Simulator.item_stats import item_builds, uncraftable_items
 
 
 def setup(player_num=0) -> player:
@@ -406,3 +414,115 @@ def list_of_tests():
 
     # I would like to go over move commands again before writing test code for that
     pass
+
+
+def mask_test():
+    game_observation = Observation()
+    base_pool = pool()
+    p1 = player(base_pool, 0)
+    step_function = Step_Function(base_pool, game_observation)
+    p1.level = 3
+    step_function.generate_shops({p1.player_num: p1})
+    p1.gold = 1000
+    p1.max_units = p1.level
+    p1.add_to_item_bench('sunfire_cape')
+    p1.add_to_item_bench('sparring_gloves')
+    p1.add_to_item_bench('redemption')
+    p1.add_to_item_bench('thieves_gloves')
+    p1.add_to_item_bench('sparring_gloves')
+    p1.add_to_item_bench('bf_sword')
+    p1.buy_champion(champion('tahmkench'))
+    # print(utils.item_binary_encode(list(item_builds.keys()).index('thieves_gloves') + 1 + len(uncraftable_items))) # == TG
+    # print(utils.item_binary_encode(list(uncraftable_items).index('sparring_gloves') + 1)) # == Normal Gloves
+    # p1.move_bench_to_board(0, 0, 0)
+    # p1.buy_champion(champion('nunu'))
+    # p1.move_bench_to_board(0, 4, 0)
+    # p1.buy_champion(champion('maokai'))
+    # p1.move_bench_to_board(0, 1, 0)
+    # p1.buy_champion(champion('sylas'))
+    # p1.move_bench_to_board(0, 2, 0)
+    # p1.buy_champion(champion('ashe'))
+    # p1.move_bench_to_board(0, 1, 3)
+    # p1.buy_champion(champion('aphelios'))
+    # p1.move_bench_to_board(0, 3, 3)
+    # p1.buy_champion(champion('lissandra'))
+    # p1.move_bench_to_board(0, 0, 2)
+    # print(step_function.shops[p1.player_num])
+    # step_function.batch_shop(0,p1,game_observation)
+    # step_function.batch_shop(1,p1,game_observation)
+    # step_function.batch_shop(2,p1,game_observation)
+    # step_function.batch_shop(3,p1,game_observation)
+    # step_function.batch_shop(4,p1,game_observation)
+    # step_function.shops[p1.player_num] = base_pool.sample(p1, 5)
+    # # print(step_function.shops[p1.player_num])
+    # step_function.batch_shop(0,p1,game_observation)
+    # step_function.batch_shop(1,p1,game_observation)
+    # step_function.batch_shop(2,p1,game_observation)
+    # step_function.batch_shop(3,p1,game_observation)
+    p1.gold = 0
+    # for x in range(7): 
+    #         for y in range(4):
+    #             if p1.board[x][y]:
+    #                 print("x: " + str(x) + " y: " + str(y) + ": " + p1.board[x][y].name)
+
+    obs = game_observation.get_lobo_observation(p1, step_function.shops[p1.player_num], {p1.player_num: p1})
+    v1 = [np.ones(config.ACTION_DIM[0])]
+    v2 = [np.ones(config.ACTION_DIM[1])]
+    v3 = [np.ones(config.ACTION_DIM[2])]
+
+    # print(p1.bench[0].name, p1.bench[1].name, p1.bench[2].name, p1.bench[3].name, 
+    # p1.bench[4].name, p1.bench[5].name, p1.bench[6].name, p1.bench[7].name)
+    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    print("t0 ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    one_hot = DataWorker.decode_action_to_one_hot("3_28_0")
+    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+
+    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    print("t1 ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    one_hot = DataWorker.decode_action_to_one_hot("3_28_1")
+    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    print("t2 ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    one_hot = DataWorker.decode_action_to_one_hot("3_28_2")
+    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+
+    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    print("t3 ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    print(p1.bench[0].items)
+    # print(p1.bench[0].items)
+    # print(one_hot)
+    # target_1 = np.argmax(one_hot[6:43])
+    # one_hot[target_1 + 6] = 0
+    # target_2 = np.argmax(one_hot[6:44])
+    # swap_loc_from = min(target_1, target_2)
+    # swap_loc_to = max(target_1, target_2)
+
+    # print(swap_loc_from, swap_loc_to)
+
+    # x1, y1 = utils.dcord_to_2dcord(swap_loc_from)
+    # print(x1, y1)
+
+
+
+
+    # print(p1.bench[0].name)
+    
+    # obs = game_observation.get_lobo_observation(p1, step_function.shops[p1.player_num], {p1.player_num: p1})
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # print("ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    # one_hot = DataWorker.decode_action_to_one_hot("2_31_37")
+    # step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+
+    # # print(p1.bench[0].name)
+    
+    # obs = game_observation.get_lobo_observation(p1, step_function.shops[p1.player_num], {p1.player_num: p1})
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # print("ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+
+    # print(step_function.shops[p1.player_num])

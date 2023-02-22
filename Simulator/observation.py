@@ -53,7 +53,7 @@ class Observation:
         output_array = []
         for x in range(0, len(shop)):
             input_array = np.zeros(7)
-            if shop[x]:
+            if shop[x] and shop[x] != ' ':
                 name = shop[x]
                 if name.endswith("_c"):
                     name = name.split('_')[0]

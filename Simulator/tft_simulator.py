@@ -161,7 +161,7 @@ class TFT_Simulator(AECEnv):
         if action.ndim == 0:
             return
         elif action.ndim == 1:
-            reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action,
+            reward, self.observations[self.agent_selection] = self.step_function.single_step_action_controller(action.copy(),
                                                                     self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                                     self.agent_selection, self.game_observations)
 
@@ -191,6 +191,9 @@ class TFT_Simulator(AECEnv):
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
                 self.game_round.play_game_round()
+                self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent],
+                             self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS)
+                             for agent in self.agents}
 
                 # Check if the game is over
                 if self.check_dead() == 1 or self.game_round.current_round > 48:
