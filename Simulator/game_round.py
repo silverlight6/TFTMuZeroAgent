@@ -89,9 +89,6 @@ class Game_Round:
     # of each fight
 
     def combat_phase(self, players, player_round):
-        random.shuffle(players)
-        player_nums = list(range(0, len(players)))
-        players_matched = 0
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
@@ -102,13 +99,13 @@ class Game_Round:
         for match in self.matchups:
             if not match[1] == "ghost":
                 # Assigning a battle
+                if not players[match[0]] or not players[match[1]]:
+                    print(match[0], match[1])
                 players[match[0]].opponent = players[match[1]]
                 players[match[1]].opponent = players[match[0]]
                 # Fixing the time signature to see how long battles take.
                 players[match[0]].start_time = time.time_ns()
                 players[match[1]].start_time = time.time_ns()
-                # Increment to see how many battles have happened
-                players_matched += 2
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
                 config.WARLORD_WINS['red'] = players[match[1]].win_streak
 
@@ -137,8 +134,6 @@ class Game_Round:
                 players[match[0]].combat = True
                 players[match[1]].combat = True
 
-            # This is here when there is an odd number of players
-            # Behavior is to fight a random player.
             else:
                 players[match[0]].start_time = time.time_ns()
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
@@ -159,7 +154,6 @@ class Game_Round:
                         for other in alive:
                             other.won_ghost(damage/len(alive))
                 players[match[0]].combat = True
-                players_matched += 1
         log_to_file_combat()
         return True
 
@@ -173,7 +167,7 @@ class Game_Round:
         for player in self.PLAYERS.values():
             if player:
                 player.start_round(self.current_round)
-        self.decide_player_combat(self.PLAYERS.values())
+        self.decide_player_combat(self.PLAYERS)
 
         # TO DO
         # Change this so it isn't tied to a player and can log as time proceeds
@@ -227,8 +221,6 @@ class Game_Round:
         # if self.check_dead(agent, buffer, game_episode):
         #     return True
         log_to_file_combat()
-        self.start_round()
-
         return False
 
     def carousel2_4(self):
@@ -303,14 +295,15 @@ class Game_Round:
     def decide_player_combat(self, players):
         player_list = []
         self.matchups = []
-        for player in players:
-            player_list.append(player.player_num)
+        for player in players.values():
+            if player:
+                player_list.append(player.player_num)
         random.shuffle(player_list)
         ghost = player_list[0]      # if there's a ghost combat, always use first player after shuffling
         while len(player_list) >= 2:
             index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
             weights = 0
-            player = list(players)[player_list[0]]
+            player = list(players.values())[player_list[0]]
             player.opponent_options = np.zeros(config.NUM_PLAYERS)
             for num in player_list:
                 if not num == player_list[0]:
@@ -334,7 +327,7 @@ class Game_Round:
                     if index == len(player_list):
                         index = 1
             self.matchups.append([player_list[0], player_list[index]])
-            opposition = list(players)[player_list[index]]
+            opposition = list(players.values())[player_list[index]]
             opposition.opponent_options = np.zeros(config.NUM_PLAYERS)
             for x in range(config.NUM_PLAYERS):
                 if player.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:

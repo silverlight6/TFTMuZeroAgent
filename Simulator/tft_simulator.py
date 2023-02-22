@@ -213,6 +213,7 @@ class TFT_Simulator(AECEnv):
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
 
                     self.terminations = {a: True for a in self.agents}
+                self.game_round.start_round()
 
             _live_agents = self.agents[:]
             for k in self.kill_list:

@@ -716,7 +716,7 @@ class player:
             if self.item_bench[xBench] == 'champion_duplicator':
                 if not self.bench_full():
                     self.gold += champ.cost
-                    self.buy_champion(champ)
+                    self.buy_champion(champ.name)
                     self.item_bench[xBench] = None
                     self.generate_item_vector()
                     self.decide_vector_generation(board)
