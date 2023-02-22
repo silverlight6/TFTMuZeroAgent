@@ -6,8 +6,12 @@ from Simulator.tft_simulator import parallel_env
 
 from TestInterface.test_replay_wrapper import BufferWrapper
 
-from Models.MCTS import MCTS
 from Simulator import utils
+
+if config.ARCHITECTURE == 'Pytorch':
+    from Models.MCTS_torch import MCTS
+else:
+    from Models.MCTS import MCTS
 
 
 class DataWorker(object):
