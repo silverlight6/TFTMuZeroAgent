@@ -2,6 +2,15 @@ import config
 import numpy as np
 import Simulator.champion as champion
 
+"""
+Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 
+              actions take effect in this object.
+Inputs      - pool_obj: Object pointer to the pool
+                Pool object pointer used for refreshing shops and generating shop vectors.
+              observation_obj: Object pointer to a Game_observation object
+                Used for generating shop_vector and other player vectors on pass options.
+"""
+
 
 class Step_Function:
     def __init__(self, pool_obj, observation_objs):
@@ -10,26 +19,58 @@ class Step_Function:
                       range(config.NUM_PLAYERS)}
         self.observation_objs = observation_objs
 
-    def generate_shop(self, player):
-        self.shops[player.player_num] = self.pool_obj.sample(None, 5)
+    """
+    Description - Method used for generating a new shop for all players
+    Inputs      - players: Dictionary of player objects
+                    All of the players in the game. Currently both alive or dead. Used at the start of turn.
+    """
 
     def generate_shops(self, players):
         for player in players.values():
             if player:
                 self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
+    """
+    Description - Method used for generating a new shop vector for the observation for all players
+    Inputs      - players: Dictionary of player objects
+                    All of the players in the game. Currently both alive or dead.
+    """
+
     def generate_shop_vectors(self, players):
         for player in players.keys():
             if players[player]:
                 self.observation_objs[player].generate_shop_vector(self.shops[player], players[player])
 
+    """
+    Description - Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
+    Inputs      - dcord: Int
+                    For example, 27 -> 6 for x and 3 for y
+    Outputs     - x: Int
+                    x_coord
+                  y: Int
+                    y_coord
+    """
+
     def dcord_to_2dcord(self, dcord):
-        # Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
         x = dcord % 7
         y = (dcord - x) // 7
         return x, y
 
-    # Input -> [Decision, shop, champion_bench, item_bench, x1, y1, x2, y2]
+    """
+    Description - Method for taking an action in the environment when using a 2d action type. 
+    Inputs      - action: List
+                    Action in the form of 55d array. First 5 for decision. Next 28 for board. Next 9 for bench.
+                    Position 43 for selling a champion, rest for item movements
+                  player: Player Object
+                    player whose turn it currently is. The None check is more of a safety. It should never be None.
+                  players: Dictionary of Players
+                    A dictionary containing all of the players, used when updating observation with other player info.
+                  key: String
+                    The key associated with the player. for example, "player_0"
+                  game_observations: Dictionary of Game_Observations
+                    Used for updating the observation after pass and shop actions.
+    """
+
     def batch_2d_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
