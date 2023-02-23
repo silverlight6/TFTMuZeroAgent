@@ -20,6 +20,7 @@ class Trainer(object):
         # self.value_loss = tf.keras.losses.MeanSquaredError()
 
     def create_optimizer(self):
+        # TODO: Change this to Adam
         optimizer = torch.optim.SGD(self.global_agent.parameters(), lr=config.SGD_LR_INIT, 
                                     momentum=config.MOMENTUM, weight_decay=config.SGD_WEIGHT_DECAY)
         return optimizer
@@ -231,6 +232,7 @@ class Trainer(object):
 
         summary_writer.add_scalar('episode_max/reward', torch.max(target_reward), train_step)
         summary_writer.add_scalar('episode_max/value', torch.max(target_value), train_step)
+        summary_writer.flush()
 
         return mean_loss
 
