@@ -65,7 +65,8 @@ class Observation:
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
 
         # Fetch and concatenate mask
-        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask)
+        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
+                player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask)
         return {"tensor": total_tensor_observation, "mask": mask}
 
     def generate_other_player_vectors(self, cur_player, players):
@@ -126,6 +127,7 @@ class Observation:
 
             # Input chosen mechanics once I go back and update the chosen mechanics.
             output_array[8 * x: 8 * (x + 1)] = input_array
+            self.shop_mask[x] = 0
         if shop_chosen:
             if shop_chosen == 'the':
                 shop_chosen = 'the_boss'

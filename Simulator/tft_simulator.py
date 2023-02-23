@@ -18,7 +18,7 @@ def env():
     """
     The env function often wraps the environment in wrappers by default.
     You can find full documentation for these methods
-    elsewhere in the developer documentation.
+    elsewhere in the developer pettingzoo documentation.
     """
     local_env = TFT_Simulator(env_config=None)
 
@@ -50,6 +50,9 @@ class TFT_Simulator(AECEnv):
         self.actions_taken = 0
         self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
+        for key, p in self.PLAYERS.items():
+            self.step_function.generate_shop(key, p)
+        self.step_function.generate_shop_vectors(self.PLAYERS)
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
         self.agents = self.possible_agents[:]
@@ -115,6 +118,7 @@ class TFT_Simulator(AECEnv):
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
+                    print("{} died".format(key))
                     self.PLAYERS[key] = None
                     self.kill_list.append(key)
                     self.game_round.update_players(self.PLAYERS)
@@ -137,7 +141,9 @@ class TFT_Simulator(AECEnv):
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
         self.game_round.play_game_round()
-        self.game_round.play_game_round()
+        for key, p in self.PLAYERS.items():
+            self.step_function.generate_shop(key, p)
+        self.step_function.generate_shop_vectors(self.PLAYERS)
 
         self.agents = self.possible_agents.copy()
         self._agent_selector = agent_selector(self.agents)

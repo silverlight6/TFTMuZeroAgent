@@ -53,3 +53,10 @@ def decode_action(str_actions):
             element_list[i] = int(split_action[i])
         actions.append(np.asarray(element_list))
     return np.asarray(actions)
+
+
+def x_y_to_1d_coord(x1, y1):
+    if y1 == -1:
+        return x1 + 28
+    else:
+        return 7 * y1 + x1

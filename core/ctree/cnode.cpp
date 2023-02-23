@@ -22,13 +22,10 @@ namespace tree {
     CNode::CNode() {
         this->prior = 0;
         this->action_num = 0;
-        this->best_action = -1;
 
-        this->is_reset = 0;
         this->visit_count = 0;
         this->value_sum = 0;
-        this->to_play = 0;
-        this->value_prefix = 0.0;
+        this->reward = 0.0;
         this->ptr_node_pool = nullptr;
         this->mappings = default_mapping;
     }
@@ -37,12 +34,9 @@ namespace tree {
         this->prior = prior;
         this->action_num = action_num;
 
-        this->is_reset = 0;
         this->visit_count = 0;
         this->value_sum = 0;
-        this->best_action = -1;
-        this->to_play = 0;
-        this->value_prefix = 0.0;
+        this->reward = 0.0;
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
@@ -51,26 +45,32 @@ namespace tree {
 
     CNode::~CNode(){}
 
-    void CNode::expand(int to_play, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
+    void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
                        const std::vector<float> &policy_logits, const std::vector<char*> mappings) {
-        this->to_play = to_play;
+        // Index for finding the hidden state on python side, x is player, y is search path location
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
-        this->value_prefix = value_prefix;
+        this->reward = reward;
+        // Mapping to map 1081 into 3 dimensional action for recurrent inference
         this->mappings = mappings;
 
+        // Number of actions, normally equal to sample size but can be less if less available actions
         int action_num = this->action_num;
         float temp_policy;
+        // sum is a float instead of a tensor since we handle 1 player at a time
         float policy_sum = 0.0;
         std::vector<float> policy(action_num);
         float policy_max = FLOAT_MIN;
+        // Find the maximum
         for(int a = 0; a < action_num; ++a){
             if(policy_max < policy_logits[a]){
                 policy_max = policy_logits[a];
             }
         }
 
+        // Calculate the sum and create a temp policy with the exp of each
         for(int a = 0; a < action_num; ++a) {
+            // exp is e ^ value and since all values are negative, all values in temp_policy are between 0 and 1
             temp_policy = exp(policy_logits[a] - policy_max);
             policy_sum += temp_policy;
             policy[a] = temp_policy;
@@ -79,10 +79,12 @@ namespace tree {
         float prior;
         std::vector<CNode>* ptr_node_pool = this->ptr_node_pool;
         for(int a = 0; a < action_num; ++a) {
+            // Normalizes the array
             prior = policy[a] / policy_sum;
             int index = ptr_node_pool->size();
             this->children_index.push_back(index);
 
+            // Add all of the nodes children to the ptr_node_pool
             ptr_node_pool->push_back(CNode(prior, action_num, ptr_node_pool));
         }
     }
@@ -98,35 +100,7 @@ namespace tree {
         }
     }
 
-    float CNode::get_mean_q(int isRoot, float parent_q, float discount) {
-        float total_unsigned_q = 0.0;
-        int total_visits = 0;
-        float parent_value_prefix = this->value_prefix;
-        for(int a = 0; a < this->action_num; ++a) {
-            CNode* child = this->get_child(a);
-            if(child->visit_count > 0) {
-                float true_reward = child->value_prefix - parent_value_prefix;
-                if(this->is_reset == 1) {
-                    true_reward = child->value_prefix;
-                }
-                float qsa = true_reward + discount * child->value();
-                total_unsigned_q += qsa;
-                total_visits += 1;
-            }
-        }
-
-        float mean_q = 0.0;
-        if(isRoot && total_visits > 0) {
-            mean_q = (total_unsigned_q) / (total_visits);
-        }
-        else {
-            mean_q = (parent_q + total_unsigned_q) / (total_visits + 1);
-        }
-        return mean_q;
-    }
-
-
-    int CNode::expanded(){
+    int CNode::expanded() {
         int child_num = this->children_index.size();
         if(child_num > 0) {
             return 1;
@@ -136,29 +110,17 @@ namespace tree {
         }
     }
 
-    float CNode::value(){
-        float true_value = 0.0;
-        if(this->visit_count == 0){
-            return true_value;
+    float CNode::value() {
+        if(this->visit_count == 0) {
+            return 0;
         }
         else{
-            true_value = this->value_sum / this->visit_count;
-            return true_value;
+            return this->value_sum / this->visit_count;
         }
     }
 
-    std::vector<int> CNode::get_trajectory(){
-        std::vector<int> traj;
-
-        CNode* node = this;
-        int best_action = node->best_action;
-        while(best_action >= 0){
-            traj.push_back(best_action);
-
-            node = node->get_child(best_action);
-            best_action = node->best_action;
-        }
-        return traj;
+    float CNode::qvalue(float discount) {
+        return discount * this->value() + this->reward;
     }
 
     std::vector<int> CNode::get_children_distribution(){
@@ -176,6 +138,8 @@ namespace tree {
         int index = this->children_index[action];
         return &((*(this->ptr_node_pool))[index]);
     }
+
+
 
     //*********************************************************
 
@@ -211,7 +175,7 @@ namespace tree {
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
                          const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i) {
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
             this->roots[i].visit_count += 1;
         }
@@ -221,7 +185,7 @@ namespace tree {
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings){
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, 0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
         }
     }
@@ -229,16 +193,6 @@ namespace tree {
     void CRoots::clear(){
         this->node_pools.clear();
         this->roots.clear();
-    }
-
-    std::vector<std::vector<int>> CRoots::get_trajectories(){
-        std::vector<std::vector<int>> trajs;
-        trajs.reserve(this->root_num);
-
-        for(int i = 0; i < this->root_num; ++i){
-            trajs.push_back(this->roots[i].get_trajectory());
-        }
-        return trajs;
     }
 
     std::vector<std::vector<int>> CRoots::get_distributions(){
@@ -259,39 +213,6 @@ namespace tree {
         return values;
     }
 
-    //*********************************************************
-
-    void update_tree_q(CNode* root, tools::CMinMaxStats &min_max_stats, float discount){
-        std::stack<CNode*> node_stack;
-        node_stack.push(root);
-        float parent_value_prefix = 0.0;
-        int is_reset = 0;
-
-        while(node_stack.size() > 0){
-            CNode* node = node_stack.top();
-            node_stack.pop();
-
-            if(node != root){
-                float true_reward = node->value_prefix - parent_value_prefix;
-                if(is_reset == 1){
-                    true_reward = node->value_prefix;
-                }
-                float qsa = true_reward + discount * node->value();
-                min_max_stats.update(qsa);
-            }
-
-            // This for statement checks an absolutely absurd number of nodes from start to finish (like 50k)
-            for(int a = 0; a < node->action_num; ++a){
-                CNode* child = node->get_child(a);
-                if(child->expanded()){
-                    node_stack.push(child);
-                }
-            }
-            parent_value_prefix = node->value_prefix;
-            is_reset = node->is_reset;
-        }
-    }
-
     std::vector<int> decode_action(char* &str_action) {
         std::string str(str_action);
         char* split_action = strtok(str_action, "_");
@@ -308,7 +229,7 @@ namespace tree {
 
     std::vector<char*> create_default_mapping() {
         std::vector<char*> mapping = std::vector<char*>{};
-//        mapping.reserve(1081);
+        // mapping.reserve(1081);
         std::string zero = "0";
         char *copyzero = new char[strlen(&zero[0]) + 1];
         strcpy(copyzero, &zero[0]);
@@ -328,9 +249,12 @@ namespace tree {
         }
 
         // Default encodings for the move / sell board / bench
-        for(int a = 0; a < 37; a++) {
+        for(int a = 0; a < 38; a++) {
             for(int b = a; b < 38; b++) {
                 if(a == b) {
+                    continue;
+                }
+                if((a > 27) && (b != 38)) {
                     continue;
                 }
                 std::string str = "2_" + std::to_string(a) + "_" + std::to_string(b);
@@ -361,8 +285,8 @@ namespace tree {
         return mapping;
     }
 
-    void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, int to_play,
-                         float value, float discount) {
+    void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
+                         float discount) {
         // Value from the dynamics network.
         float bootstrap_value = value;
         // How far from root we are.
@@ -376,130 +300,90 @@ namespace tree {
             node->value_sum += bootstrap_value;
             node->visit_count += 1;
 
-            float parent_value_prefix = 0.0;
-            int is_reset = 0;
-            // not really sure why this is here.
-            if(i >= 1){
-                CNode* parent = search_path[i - 1];
-                parent_value_prefix = parent->value_prefix;
-                is_reset = parent->is_reset;
-//                float qsa = (node->value_prefix - parent_value_prefix) + discount * node->value();
-//                min_max_stats.update(qsa);
-            }
-            // see if our value is higher in the current state than the previous state.
-            // originally named true_reward but changed to true_value since that is what this actually is.
-            float true_value = node->value_prefix - parent_value_prefix;
-            if(is_reset == 1){
-                // parent is reset
-                true_value = node->value_prefix;
-            }
+            // update minimum and maximum
+            min_max_stats.update(node->qvalue(discount));
 
-            bootstrap_value = true_value + discount * bootstrap_value;
+            // update bootstrap for the next value
+            bootstrap_value = node->reward + discount * bootstrap_value;
         }
-        min_max_stats.clear();
-        CNode* root = search_path[0];
-        update_tree_q(root, min_max_stats, discount);
-
+        // Not sure if this line is needed or not. It's not on the python side
+        // min_max_stats.clear();
     }
 
-    void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &value_prefixs,
+    void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<int> is_reset_lst, std::vector<std::vector<char*>> mappings){
+                               std::vector<std::vector<char*>> mappings){
         // For each player
         for(int i = 0; i < results.num; ++i){
-            results.nodes[i]->expand(0, hidden_state_index_x, i, value_prefixs[i], policy[i], mappings[i]);
-            // reset
-            results.nodes[i]->is_reset = is_reset_lst[i];
+            results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i]);
 
-            cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], 0, values[i], discount);
+            cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
     }
 
-    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init,
-                      float discount, float mean_q){
+    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
-        const float epsilon = 0.000001;
-        std::vector<int> max_index_lst;
+        int action_idx = -1;
         for(int a = 0; a < root->action_num; ++a){
             CNode* child = root->get_child(a);
-            float temp_score = cucb_score(child, min_max_stats, mean_q, root->is_reset, root->visit_count - 1,
-                                          root->value_prefix, pb_c_base, pb_c_init, discount);
-
+            // find the usb score
+            float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1,
+                                          pb_c_base, pb_c_init, discount);
+            // compare it to the max score and store index if it is the max
             if(max_score < temp_score){
                 max_score = temp_score;
-
-                max_index_lst.clear();
-                max_index_lst.push_back(a);
-            }
-            else if(temp_score >= max_score - epsilon){
-                max_index_lst.push_back(a);
+                action_idx = a;
             }
         }
-
-        int action = 0;
-        if(max_index_lst.size() > 0){
-            int rand_index = rand() % max_index_lst.size();
-            action = max_index_lst[rand_index];
-        }
-        return action;
+        return action_idx;
     }
 
-    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q, int is_reset,
-                     float total_children_visit_counts, float parent_value_prefix, float pb_c_base, float pb_c_init,
-                     float discount){
+    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
+                     float pb_c_base, float pb_c_init, float discount){
         float pb_c = 0.0, prior_score = 0.0, value_score = 0.0;
+        // the usb formula
         pb_c = log((total_children_visit_counts + pb_c_base + 1) / pb_c_base) + pb_c_init;
         pb_c *= (sqrt(total_children_visit_counts) / (child->visit_count + 1));
 
         prior_score = pb_c * child->prior;
         if (child->visit_count == 0){
-            value_score = parent_mean_q;
+            value_score = 0;
         }
         else {
-            float true_reward = child->value_prefix - parent_value_prefix;
-            if(is_reset == 1){
-                true_reward = child->value_prefix;
-            }
-            value_score = true_reward + discount * child->value();
+            // ensure that the value_score is between 0 and 1, (normally between -300 and 300)
+            value_score = min_max_stats.normalize(child->qvalue(discount));
         }
 
-        value_score = min_max_stats.normalize(value_score);
-
+        // Some testing should occur to see if this is helpful, I think I should delete these lines
         if (value_score < 0) value_score = 0;
         if (value_score > 1) value_score = 1;
 
-        float ucb_value = prior_score + value_score;
-        return ucb_value;
+        return prior_score + value_score;
     }
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
 
-        // Last action is a multidimensional action so a vector is required.
+        // Last action is a multidimensional action so a vector is required. 3 dimensions in our case
         std::vector<int> last_action{0};
-        float parent_q = 0.0;
+
         results.search_lens = std::vector<int>();
 
+        // For each player
         for(int i = 0; i < results.num; ++i) {
             CNode *node = &(roots->roots[i]);
-            int is_root = 1;
             int search_len = 0;
+            // Add current node to search path.
+            // This can be a node that has already been explored
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
-                float mean_q = node->get_mean_q(is_root, parent_q, discount);
-                is_root = 0;
-                parent_q = mean_q;
-
                 // pick the next action to simulate
-                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init,
-                                           discount, mean_q);
-                // Not sure what best_action is actually doing
-                node->best_action = action;
+                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
                 // Pick the action from the mappings.
                 char* str_action = node->mappings[action];
 
-                // next
+                // get next node
                 node = node->get_child(action);
                 // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);

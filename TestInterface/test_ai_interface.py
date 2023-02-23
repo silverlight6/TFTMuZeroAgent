@@ -13,7 +13,6 @@ if config.ARCHITECTURE == 'Pytorch':
     from Models.MCTS_torch import MCTS
     from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
     from Models import MuZero_torch_trainer as MuZero_trainer
-    import torch
     from torch.utils.tensorboard import SummaryWriter
 else:
     from Models.MCTS import MCTS
@@ -67,7 +66,7 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = self.decode_action_to_one_hot(actions[i], player_id)
                 i += 1
         return step_actions
 
@@ -79,7 +78,9 @@ class DataWorker(object):
             masks.append(obs["mask"])
         return [np.asarray(tensors), masks]
 
-    def decode_action_to_one_hot(self, str_action):
+    def decode_action_to_one_hot(self, str_action, key):
+        if key == "player_0":
+            print(str_action)
         num_items = str_action.count("_")
         split_action = str_action.split("_")
         element_list = [0, 0, 0]
@@ -93,8 +94,8 @@ class DataWorker(object):
             decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
 
         if element_list[0] == 2:
-            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + utils.one_hot_encode_number(
-                element_list[2], 38)
+            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + \
+                                   utils.one_hot_encode_number(element_list[2], 38)
 
         if element_list[0] == 3:
             decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
