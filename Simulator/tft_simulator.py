@@ -204,7 +204,7 @@ class TFT_Simulator(AECEnv):
                         agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
                 # Check if the game is over
-                if self.check_dead() == 1 or self.game_round.current_round > 48:
+                if self.check_dead() <= 1 or self.game_round.current_round > 48:
                     # Anyone left alive (should only be 1 player unless time limit) wins the game
                     for player_id in self.agents:
                         if self.PLAYERS[player_id]:

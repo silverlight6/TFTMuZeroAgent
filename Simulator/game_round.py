@@ -346,9 +346,11 @@ class Game_Round:
             opposition.possible_opponents[player_list[0]] = 0
             player_list.remove(player_list[index])
             player_list.remove(player_list[0])
-        if len(player_list) == 1:
+        if len(player_list) == 1:   # if there is only one player left to match, have it fight a ghost
             self.matchups.append([player_list[0], "ghost", ghost])
-            players[player_list[0]].opponent_options['possible_opponents'] = [ghost]
+            player = list(players.values())[player_list[0]]
+            player.opponent_options = np.zeros(config.NUM_PLAYERS)
+            player.opponent_options[ghost] = 1
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")
