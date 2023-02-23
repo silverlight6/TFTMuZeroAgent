@@ -2,6 +2,7 @@ import time
 import config
 import numpy as np
 import core.ctree.cytree as tree
+import torch
 from typing import Dict
 from scipy.stats import entropy
 
@@ -27,57 +28,60 @@ class MCTS:
         self.default_byte_mapping, self.default_string_mapping = self.create_default_mapping()
 
     def policy(self, observation):
-        self.NUM_ALIVE = observation[0].shape[0]
+        with torch.no_grad():
+          self.NUM_ALIVE = observation[0].shape[0]
 
-        # 0.02 seconds
-        network_output = self.network.initial_inference(observation[0])
+          # 0.02 seconds
+          # self.ckpt_time = time.time_ns()
+          network_output = self.network.initial_inference(observation[0])
+          # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
 
-        value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
-        policy_logits = network_output["policy_logits"].numpy()
+          value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
+          policy_logits = network_output["policy_logits"]
 
-        # 0.01 seconds
-        policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+          # 0.01 seconds
+          policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
-        # 0.003 seconds
-        policy_logits_pool, string_mapping, mapping, policy_sizes = \
-            self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
+          # 0.003 seconds
+          policy_logits_pool, string_mapping, mapping, policy_sizes = \
+              self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
 
-        # less than 0.0001 seconds
-        # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
-        # Number of agents, previous action, number of simulations for memory purposes
-        roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+          # less than 0.0001 seconds
+          # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
+          # Number of agents, previous action, number of simulations for memory purposes
+          roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
 
-        # 0.0002 seconds
-        # prepare the nodes to feed them into batch_mcts, for statement to deal with different lengths due to masking.
-        noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
-                                      len(policy_logits_pool[i])).astype(np.float32).tolist()
-                  for i in range(self.NUM_ALIVE)]
+          # 0.0002 seconds
+          # prepare the nodes to feed them into batch_mcts, for statement to deal with different lengths due to masking.
+          noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
+                                        len(policy_logits_pool[i])).astype(np.float32).tolist()
+                    for i in range(self.NUM_ALIVE)]
 
-        # 0.01 seconds
-        roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
+          # 0.01 seconds
+          roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
 
-        # Output for root node
-        hidden_state_pool = network_output["hidden_state"]
+          # Output for root node
+          hidden_state_pool = network_output["hidden_state"]
 
-        # set up nodes to be able to find and select actions
-        self.run_batch_mcts(roots_cpp, hidden_state_pool)
-        roots_distributions = roots_cpp.get_distributions()
+          # set up nodes to be able to find and select actions
+          self.run_batch_mcts(roots_cpp, hidden_state_pool)
+          roots_distributions = roots_cpp.get_distributions()
 
-        actions = []
-        target_policy = []
-        temp = self.visit_softmax_temperature()  # controls the way actions are chosen
-        for i in range(self.NUM_ALIVE):
-            deterministic = False  # False = sample distribution, True = argmax
-            distributions = roots_distributions[i]
-            action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
-            actions.append(string_mapping[i][action])
-            output_policy = self.map_sample_to_distribution(string_mapping[i],
-                                                            [x / config.NUM_SIMULATIONS for x in distributions])
-            target_policy.append(output_policy)
+          actions = []
+          target_policy = []
+          temp = self.visit_softmax_temperature()  # controls the way actions are chosen
+          for i in range(self.NUM_ALIVE):
+              deterministic = False  # False = sample distribution, True = argmax
+              distributions = roots_distributions[i]
+              action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
+              actions.append(string_mapping[i][action])
+              output_policy = self.map_sample_to_distribution(string_mapping[i],
+                                                              [x / config.NUM_SIMULATIONS for x in distributions])
+              target_policy.append(output_policy)
 
-        # Notes on possibilities for other dimensions at the bottom
-        self.num_actions += 1
-        return actions, target_policy
+          # Notes on possibilities for other dimensions at the bottom
+          self.num_actions += 1
+          return actions, target_policy
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -97,7 +101,6 @@ class MCTS:
         # go through the tree NUM_SIMULATIONS times
         for _ in range(config.NUM_SIMULATIONS):
             # prepare a result wrapper to transport results between python and c++ parts
-            hidden_states = []
             results = tree.ResultsWrapper(num)
 
             # 0.001 seconds
@@ -106,9 +109,12 @@ class MCTS:
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
             search_lens = results.get_search_len()
 
+            num_states = len(hidden_state_index_x_lst)
+            tensors_states = torch.empty((num_states, config.LAYER_HIDDEN_SIZE)).to('cuda')
+
             # obtain the states for leaf nodes
-            for ix, iy in zip(hidden_state_index_x_lst, hidden_state_index_y_lst):
-                hidden_states.append(hidden_state_pool[ix][iy])
+            for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
+                tensors_states[idx] = hidden_state_pool[ix][iy]
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
@@ -116,7 +122,9 @@ class MCTS:
             last_action = np.asarray(last_action)
 
             # 0.026 to 0.064 seconds
-            network_output = self.network.recurrent_inference(np.asarray(hidden_states), last_action)
+            # self.ckpt_time = time.time_ns()
+            network_output = self.network.recurrent_inference(tensors_states, last_action)
+            # print("recurrent inference took: {}".format(time.time_ns() - self.ckpt_time))
 
             value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()

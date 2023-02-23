@@ -11,14 +11,19 @@ from storage import Storage
 from global_buffer import GlobalBuffer
 from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
-from Models import MuZero_trainer
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_keras_agent import TFTNetwork
-from Models.MCTS import MCTS
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
+
+if config.ARCHITECTURE == 'Pytorch':
+    from Models.MCTS_torch import MCTS
+    from Models import MuZero_torch_trainer
+else:
+    from Models.MCTS import MCTS
+    from Models import MuZero_trainer
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference

@@ -1,4 +1,4 @@
-import AI_interface
+# import AI_interface
 import TestInterface.test_ai_interface as TestInterface
 import config
 from UnitTests.BaseUnitTest import runTest

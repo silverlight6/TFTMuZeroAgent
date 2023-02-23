@@ -1,6 +1,9 @@
 import torch
 import config
 import collections
+import numpy as np
+import time
+import os
 
 
 NetworkOutput = collections.namedtuple(
@@ -36,6 +39,22 @@ class AbstractNetwork(torch.nn.Module):
     def set_weights(self, weights):
         self.load_state_dict(weights)
 
+    # Renaming as to not override built-in functions
+    def tft_save_model(self, episode):
+        if not os.path.exists("./Checkpoints"):
+            os.makedirs("./Checkpoints")
+
+        path = f'./Checkpoints/checkpoint_{episode}'
+        torch.save(self.state_dict(), path)
+
+    # Renaming as to not override built-in functions
+    def tft_load_model(self, episode):
+        path = f'./Checkpoints/checkpoint_{episode}'
+        if os.path.isfile(path):
+          self.load_state_dict(torch.load(path))
+          print("Loading model episode {}".format(episode))
+        else:
+          print("Initializing model with new weights.")
 
 ##################################
 ######## Fully Connected #########
@@ -46,36 +65,37 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = torch.nn.parallel.DistributedDataParallel(
+        self.representation_network = torch.nn.DataParallel(
             mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.HIDDEN_STATE_SIZE)
+                config.LAYER_HIDDEN_SIZE)
         )
 
-        self.action_encodings = torch.nn.parallel.DistributedDataParallel(
-            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.HIDDEN_STATE_SIZE)
+        self.action_encodings = torch.nn.DataParallel(
+            mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                config.LAYER_HIDDEN_SIZE)
         )
 
         self.dynamics_encoded_state_network = [
-            torch.nn.LSTMCell(size, size) for size in config.RNN_SIZES]
+            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).to("cuda"), torch.nn.LSTMCell(256, 256).to("cuda")]
+  
 
-        self.dynamics_reward_network = torch.nn.parallel.DistributedDataParallel(
+        self.dynamics_reward_network = torch.nn.DataParallel(
             mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
         )
 
-        self.prediction_policy_network = torch.nn.parallel.DistributedDataParallel(
+        self.prediction_policy_network = torch.nn.DataParallel(
             mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 config.ACTION_ENCODING_SIZE)
         )
-        self.prediction_value_network = torch.nn.parallel.DistributedDataParallel(
+        self.prediction_value_network = torch.nn.DataParallel(
             mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
         )
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping,(-300., 300.))), 0)
 
     def prediction(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
@@ -83,9 +103,8 @@ class MuZeroNetwork(AbstractNetwork):
         return policy_logits, value
 
     def representation(self, observation):
-        encoded_state = self.representation_network(
-            observation.view(observation.shape[0], -1)
-        )
+        observation = torch.from_numpy(observation).float()
+        encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
         min_encoded_state = encoded_state.min(1, keepdim=True)[0]
         max_encoded_state = encoded_state.max(1, keepdim=True)[0]
@@ -97,18 +116,25 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
-        # Stack encoded_state with a game specific one hot encoded action (See paper appendix Network Architecture)
-        action_one_hot = (
-            torch.zeros((action.shape[0], self.action_space_size))
-            .to(action.device)
-            .float()
-        )
-        action_one_hot.scatter_(1, action.long(), 1.0)
+        action = torch.from_numpy(action).to('cuda')
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
+        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+
+        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+
         action_encodings = self.action_encodings(action_one_hot)
 
-        next_action_state = self.dynamics_encoded_state_network[0](action_encodings)
-        next_encoded_state = self.dynamics_encoded_state_network[0](encoded_state)
-        x = torch.cat((next_action_state, next_encoded_state), dim=1)
+        lstm_state = self.flat_to_lstm_input(encoded_state)
+
+        inputs = action_encodings
+        new_nested_states = []
+
+        for cell, states in zip(self.dynamics_encoded_state_network, lstm_state):
+          inputs, new_states = cell(inputs, states)
+          new_nested_states.append([inputs, new_states])
+        
+        next_encoded_state = self.rnn_to_flat(new_nested_states) # (8, 1024)
 
         reward = self.dynamics_reward_network(next_encoded_state)
 
@@ -126,18 +152,15 @@ class MuZeroNetwork(AbstractNetwork):
     def initial_inference(self, observation):
         hidden_state = self.representation(observation)
         policy_logits, value_logits = self.prediction(hidden_state)
-        # reward equal to 0 for consistency
-        reward = torch.log(
-            (
-                torch.zeros(1, self.full_support_size)
-                .scatter(1, torch.tensor([[self.full_support_size // 2]]).long(), 1.0)
-                .repeat(len(observation), 1)
-                .to(observation.device)
-            )
-        )
+
+        reward = np.zeros(observation.shape[0])
 
         reward_logits = self.reward_encoder.encode(reward)
-        value = self.value_encoder.decode(torch.nn.Softmax(value_logits))
+        value = support_to_scalar(value_logits, self.full_support_size)
+
+        value = value.detach().cpu().numpy()
+        value_logits = value_logits.detach().cpu().numpy()
+        policy_logits = policy_logits.detach().cpu().numpy()
 
         outputs = {
             "value": value,
@@ -149,12 +172,38 @@ class MuZeroNetwork(AbstractNetwork):
         }
         return outputs
 
+    def rnn_to_flat(self, state):
+        """Maps LSTM state to flat vector."""
+        states = []
+        for cell_state in state:
+            states.extend(cell_state)
+        return torch.cat(states, dim=-1)
 
-def recurrent_inference(self, encoded_state, action):
+    @staticmethod
+    def flat_to_lstm_input(state):
+        """Maps flat vector to LSTM state.""" 
+        tensors = []
+        cur_idx = 0
+        for size in config.RNN_SIZES:
+            states = (state[Ellipsis, cur_idx:cur_idx + size],
+                state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+
+            cur_idx += 2 * size
+            tensors.append(states)
+        # assert cur_idx == state.shape[-1]
+        return tensors
+
+
+    def recurrent_inference(self, encoded_state, action):
         hidden_state, reward_logits = self.dynamics(encoded_state, action)
         policy_logits, value_logits = self.prediction(hidden_state)
-        value = self.value_encoder.decode(torch.nn.Softmax(value_logits))
-        reward = self.reward_encoder.decode(torch.nn.Softmax(reward_logits))
+
+        policy_logits = policy_logits.detach().cpu()
+        value_logits = value_logits.detach().cpu().numpy()
+        reward_logits = reward_logits.detach().cpu().numpy()
+
+        value = self.value_encoder.decode(softmax_stable(value_logits))
+        reward = self.reward_encoder.decode(softmax_stable(reward_logits))
 
         outputs = {
             "value": value,
@@ -164,7 +213,6 @@ def recurrent_inference(self, encoded_state, action):
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
-        self.rec_count += 1
 
         return outputs
 
@@ -200,14 +248,14 @@ class ValueEncoder:
             max_value = contractive_mapping(max_value)
             min_value = contractive_mapping(min_value)
         if num_steps <= 0:
-            num_steps = torch.ceil(max_value) + 1 - torch.floor(min_value)
+            num_steps = np.ceil(max_value) + 1 - np.floor(min_value)
         self.min_value = min_value
         self.max_value = max_value
         self.value_range = max_value - min_value
         self.num_steps = num_steps
         self.step_size = self.value_range / (num_steps - 1)
-        self.step_range_int = torch.range(start=0, end=self.num_steps, dtype=torch.int32)
-        self.step_range_float = self.step_range_int.type(torch.float32)
+        self.step_range_int = np.arange(0, self.num_steps, dtype=int)
+        self.step_range_float = self.step_range_int.astype(float)
         self.use_contractive_mapping = use_contractive_mapping
 
     def encode(self, value):  # not worth optimizing
@@ -217,17 +265,17 @@ class ValueEncoder:
                     value.shape))
         if self.use_contractive_mapping:
             value = contractive_mapping(value)
-        value = torch.unsqueeze(value, -1)
-        clipped_value = torch.clamp(value, self.min_value, self.max_value)
+        value = np.expand_dims(value, -1)
+        clipped_value = np.clip(value, self.min_value, self.max_value)
         above_min = clipped_value - self.min_value
         num_steps = above_min / self.step_size
-        lower_step = torch.floor(num_steps)
+        lower_step = np.floor(num_steps)
         upper_mod = num_steps - lower_step
-        lower_step = lower_step.type(torch.int32)
+        lower_step = lower_step.astype(int)
         upper_step = lower_step + 1
         lower_mod = 1.0 - upper_mod
         lower_encoding, upper_encoding = (
-            torch.equal(step, self.step_range_int).type(torch.float32) * mod
+            np.equal(step, self.step_range_int).astype(float) * mod
             for step, mod in (
                 (lower_step, lower_mod),
                 (upper_step, upper_mod),)
@@ -239,7 +287,7 @@ class ValueEncoder:
             raise ValueError(
                 'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
                 .format(logits.shape))
-        num_steps = torch.sum(logits * self.step_range_float, -1)
+        num_steps = np.sum(logits * self.step_range_float, -1)
         above_min = num_steps * self.step_size
         value = above_min + self.min_value
         if self.use_contractive_mapping:
@@ -249,11 +297,38 @@ class ValueEncoder:
 
 # From the MuZero paper.
 def contractive_mapping(x, eps=0.001):
-    return torch.sign(x) * (torch.sqrt(torch.abs(x) + 1.) - 1.) + eps * x
+    return np.sign(x) * (np.sqrt(np.abs(x) + 1.) - 1.) + eps * x
 
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return torch.sign(x) * \
-           (torch.square((torch.sqrt(4 * eps * (torch.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+    return np.sign(x) * \
+           (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
+# Softmax function in np because we're converting it anyway
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def support_to_scalar(logits, full_support_size):
+    """
+    Transform a categorical representation to a scalar
+    See paper appendix Network Architecture
+    """
+    support_size = full_support_size // 2
+    # Decode to a scalar
+    probabilities = torch.softmax(logits, dim=1)
+    support = (
+        torch.as_tensor([x for x in range(-support_size, support_size + 1)])
+        .expand(probabilities.shape)
+        .float()
+        .to(device=probabilities.device)
+    )
+    x = torch.sum(support * probabilities, dim=1, keepdim=True)
+
+    # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
+    x = torch.sign(x) * (
+        ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
+        ** 2
+        - 1
+    )
+    return x
