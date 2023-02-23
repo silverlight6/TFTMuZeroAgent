@@ -229,7 +229,7 @@ namespace tree {
 
     std::vector<char*> create_default_mapping() {
         std::vector<char*> mapping = std::vector<char*>{};
-//        mapping.reserve(1081);
+        // mapping.reserve(1081);
         std::string zero = "0";
         char *copyzero = new char[strlen(&zero[0]) + 1];
         strcpy(copyzero, &zero[0]);
@@ -249,9 +249,12 @@ namespace tree {
         }
 
         // Default encodings for the move / sell board / bench
-        for(int a = 0; a < 37; a++) {
+        for(int a = 0; a < 38; a++) {
             for(int b = a; b < 38; b++) {
                 if(a == b) {
+                    continue;
+                }
+                if((a > 27) && (b != 38)) {
                     continue;
                 }
                 std::string str = "2_" + std::to_string(a) + "_" + std::to_string(b);

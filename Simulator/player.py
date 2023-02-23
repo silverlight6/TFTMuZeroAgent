@@ -102,7 +102,8 @@ class player:
         # util_mask[2] = 0 if item_bench is full, 1 if not
         self.util_mask = np.ones(3, dtype=np.int8)
         self.thieves_glove_mask = np.zeros(38, dtype=np.int8)
-        self.glove_mask = np.zeros(38, dtype=np.int8)
+        self.glove_item_mask = np.zeros(38, dtype=np.int8)
+        self.glove_mask = np.zeros(10, dtype=np.int8)
         self.shop_costs = np.ones(5)
 
         # Using this to track the reward gained by each player for the AI to train.
@@ -159,6 +160,13 @@ class player:
         # Context For Loot Orbs
         self.orb_history = []
 
+        # Call vector generation methods for first observation
+        self.generate_player_vector()
+        self.generate_board_vector()
+        self.generate_bench_vector()
+        self.generate_item_vector()
+        self.generate_chosen_vector()
+
     """
     Description - Main method used in buy_champion to add units to the bench
                   Treats buying a unit with a full bench as the same as buying and immediately selling it
@@ -212,6 +220,10 @@ class player:
             return False
         bench_loc = self.item_bench_vacancy()
         self.item_bench[bench_loc] = item
+        if item == "sparring_gloves":
+            self.glove_mask[bench_loc] = 1
+        else:
+            self.glove_mask[bench_loc] = 0
         self.generate_item_vector()
 
     """
@@ -339,6 +351,9 @@ class player:
         self.printComp()
         self.printBench()
         self.printItemBench()
+        self.generate_bench_vector()
+        self.generate_board_vector()
+        self.generate_player_vector()
 
     """
     Description -
@@ -755,7 +770,7 @@ class player:
                 self.update_team_tiers()
                 return True
         self.reward += self.mistake_reward
-        print("Outside board range")
+        print("Outside board move_bench_to_board bench_x {} board_x {} board_y {}".format(bench_x, board_x, board_y))
         return False
 
     """
@@ -803,7 +818,8 @@ class player:
                     self.update_team_tiers()
                     return True
         self.reward += self.mistake_reward
-        print("Outside board range")
+        print("Outside board move_board_to_bench board_x {} board_y {}".format(x, y))
+
         return False
 
     """
@@ -946,7 +962,7 @@ class player:
                     # implement the item combinations here. Make exception with thieves gloves
                     if champ.items[-1] in basic_items and self.item_bench[xBench] in basic_items:
                         coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                        self.glove_mask[coord] = 0
+                        self.glove_item_mask[coord] = 0
                         item_build_values = item_builds.values()
                         item_index = 0
                         item_names = list(item_builds.keys())
@@ -988,7 +1004,7 @@ class player:
                     else:
                         if self.item_bench[xBench] == "sparring_gloves":
                             coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                            self.glove_mask[coord] = 1
+                            self.glove_item_mask[coord] = 1
                         champ.items.append(self.item_bench[xBench])
                         self.item_bench[xBench] = None
                         champ.num_items += 1
@@ -1279,6 +1295,25 @@ class player:
                    + str(a_champion.stars) + " in the triple catelog")
         self.print("{}".format(self.triple_catalog))
         return False
+
+    """
+    Description - Used in unit tests to allow for a cleaner state.
+    """
+    def reset_state(self):
+        self.bench = [None for _ in range(9)]
+        self.board = [[None for _ in range(4)] for _ in range(7)]
+        self.item_bench = [None for _ in range(10)]
+        self.gold = 0
+        self.level = 1
+        self.exp = 0
+        self.health = 100
+        self.max_units = 1
+        self.num_units_in_play = 0
+        self.generate_board_vector()
+        self.generate_bench_vector()
+        self.generate_item_vector()
+        self.generate_player_vector()
+        self.generate_chosen_vector()
 
     """
     Description - This should only be called when trying to sell a champion from the field and the bench is full

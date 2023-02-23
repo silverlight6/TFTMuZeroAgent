@@ -50,8 +50,8 @@ class TFT_Simulator(AECEnv):
         self.actions_taken = 0
         self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
-        for p in self.PLAYERS.values():
-            self.step_function.generate_shop(p)
+        for key, p in self.PLAYERS.items():
+            self.step_function.generate_shop(key, p)
         self.step_function.generate_shop_vectors(self.PLAYERS)
 
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
@@ -140,8 +140,8 @@ class TFT_Simulator(AECEnv):
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
         self.game_round.play_game_round()
-        for p in self.PLAYERS.values():
-            self.step_function.generate_shop(p)
+        for key, p in self.PLAYERS.items():
+            self.step_function.generate_shop(key, p)
         self.step_function.generate_shop_vectors(self.PLAYERS)
 
         self.agents = self.possible_agents.copy()

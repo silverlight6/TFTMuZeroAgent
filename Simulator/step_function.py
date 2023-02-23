@@ -20,6 +20,16 @@ class Step_Function:
         self.observation_objs = observation_objs
 
     """
+    Description - Method used for generating a new shop for a given player
+    Inputs      - player: Player object
+                    Any alive player.
+    """
+    def generate_shop(self, key, player):
+        self.shops[key] = self.pool_obj.sample(player, 5)
+        self.observation_objs[key].generate_shop_vector(self.shops[key], player)
+
+
+    """
     Description - Method used for generating a new shop for all players
     Inputs      - players: Dictionary of player objects
                     All of the players in the game. Currently both alive or dead. Used at the start of turn.
@@ -28,6 +38,7 @@ class Step_Function:
         for player in players.values():
             if player:
                 self.shops[player.player_num] = self.pool_obj.sample(player, 5)
+        self.generate_shop_vectors(players)
 
     """
     Description - Method used for generating a new shop vector for the observation for all players

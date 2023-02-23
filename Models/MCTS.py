@@ -195,13 +195,16 @@ class MCTS:
                       values that get sent back to the AI_Interface
     """
     @staticmethod
-    def encode_action_to_str(policy_logits, mask) -> tuple[list[float], list[bytes], list[str]]:
+    def encode_action_to_str(policy_logits, mask):
         # mask[0] = decision mask
         # mask[1] = shop mask - 1 if can buy champ, 0 if can't
         # mask[2] = board mask - 1 if slot is occupied, 0 if not
         # mask[3] = bench mask - 1 if slot is occupied, 0 if not
         # mask[4] = item mask - 1 if slot is occupied, 0 if not
         # mask[5] = util mask
+        # mask[6] = thieves glove mask - 1 if slot has a thieves glove, 0 if not
+        # mask[7] = sparring glove + item mask
+        # mask[8] = glove mask
         actions = []
         mappings = []
         second_mappings = []
@@ -221,23 +224,19 @@ class MCTS:
                 local_counter += 1
             # for all board + bench slots...
             for a in range(37):
-                # rest of board slot locs for moving, last for sell
+                # rest of board slot locs for moving, last for sale
                 for b in range(a, 38):
                     if a == b:
                         continue
-                    if a > 27 and b != 38:
+                    if a > 27 and b != 37:
                         continue
-                    # This does not account for max units yet
                     # if we are trying to move a non-existent champion, skip
-                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
+                            ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
                         local_counter += 1
                         continue
                     # if we're doing a bench to board move and board is full and there is no champ at destination, skip
-                    if a < 28 and b > 27 and b != 38 and mask[idx][5][0] and not mask[idx][2][a]:
-                        local_counter += 1
-                        continue
-                    # filter out bench-to-bench movements
-                    if a > 27 and b > 27 and b != 38:
+                    if a < 28 and b > 27 and b != 37 and mask[idx][5][0] and not mask[idx][2][a]:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
@@ -248,7 +247,12 @@ class MCTS:
             for a in range(37):
                 # for every item slot...
                 for b in range(10):
-                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
+                    # if there is a unit and there is an item
+                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
+                        local_counter += 1
+                        continue
+                    # if it is a legal action to put that item on the unit
+                    if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
@@ -287,11 +291,11 @@ class MCTS:
         for i in range(5):
             mappings.append(bytes(f"1_{i}", "utf-8"))
             second_mappings.append(f"1_{i}")
-        for a in range(37):
+        for a in range(38):
             for b in range(a, 38):
                 if a == b:
                     continue
-                if a > 27 and b != 38:
+                if a > 27 and b != 37:
                     continue
                 mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
                 second_mappings.append(f"2_{a}_{b}")
