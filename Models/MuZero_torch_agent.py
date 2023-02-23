@@ -3,6 +3,7 @@ import config
 import collections
 import numpy as np
 import time
+import os
 
 
 NetworkOutput = collections.namedtuple(
@@ -38,14 +39,22 @@ class AbstractNetwork(torch.nn.Module):
     def set_weights(self, weights):
         self.load_state_dict(weights)
 
-       # Renaming as to not override built-in functions
+    # Renaming as to not override built-in functions
     def tft_save_model(self, episode):
-        torch.save(self.state_dict(), f"./Checkpoints/checkpoint_{episode}")
+        if not os.path.exists("./Checkpoints"):
+            os.makedirs("./Checkpoints")
+
+        path = f'./Checkpoints/checkpoint_{episode}'
+        torch.save(self.state_dict(), path)
 
     # Renaming as to not override built-in functions
     def tft_load_model(self, episode):
-        self.load_state_dict(torch.load(f".Checkpoints/checkpoint_{episode}"))
-        print("Loading model episode {}".format(episode))
+        path = f'./Checkpoints/checkpoint_{episode}'
+        if os.path.isfile(path):
+          self.load_state_dict(torch.load(path))
+          print("Loading model episode {}".format(episode))
+        else:
+          print("Initializing model with new weights.")
 
 ##################################
 ######## Fully Connected #########
@@ -94,7 +103,7 @@ class MuZeroNetwork(AbstractNetwork):
         return policy_logits, value
 
     def representation(self, observation):
-        observation = torch.tensor(observation, dtype=torch.float32)
+        observation = torch.from_numpy(observation).float()
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
         min_encoded_state = encoded_state.min(1, keepdim=True)[0]
@@ -107,7 +116,7 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
-        action = torch.as_tensor(action).to('cuda')
+        action = torch.from_numpy(action).to('cuda')
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
         one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
@@ -149,6 +158,7 @@ class MuZeroNetwork(AbstractNetwork):
         reward_logits = self.reward_encoder.encode(reward)
         value = support_to_scalar(value_logits, self.full_support_size)
 
+        value = value.detach().cpu().numpy()
         value_logits = value_logits.detach().cpu().numpy()
         policy_logits = policy_logits.detach().cpu().numpy()
 

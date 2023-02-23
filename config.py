@@ -27,7 +27,7 @@ ACTION_DIM = [6, 38, 10]
 # ACTION_DIM = 10
 ENCODER_NUM_STEPS = 601
 SELECTED_SAMPLES = True
-ARCHITECTURE = "Pytorch" # "Tensorflow is the other option
+ARCHITECTURE = "Pytorch" # Either "Tensorflow" or "Pytorch"
 
 # Still used in MuZero_torch_agent.py
 HEAD_HIDDEN_SIZE = 1024
@@ -50,6 +50,12 @@ LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
+# Copied these from the EfficientZero repo
+SGD_LR_INIT = 0.2
+SGD_WEIGHT_DECAY = 1e-4
+MOMENTUM = 0.9
+SGD_LR_DECAY_RATE = 0.1
+SGD_LR_DECAY_STEPS = 350e3
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
 # I'll add a mathematical way of generating these numbers later.
