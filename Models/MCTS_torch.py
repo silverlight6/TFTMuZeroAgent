@@ -28,7 +28,6 @@ class MCTS:
         self.default_byte_mapping, self.default_string_mapping = self.create_default_mapping()
 
     def policy(self, observation):
-        start_time = time.time()
         with torch.no_grad():
           self.NUM_ALIVE = observation[0].shape[0]
 
@@ -82,8 +81,6 @@ class MCTS:
 
           # Notes on possibilities for other dimensions at the bottom
           self.num_actions += 1
-          end_time = time.time()
-          print(end_time - start_time)
           return actions, target_policy
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):

@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 from TestInterface.test_global_buffer import GlobalBuffer
 from Simulator.tft_simulator import parallel_env
+import time
 
 from TestInterface.test_replay_wrapper import BufferWrapper
 
@@ -10,8 +11,8 @@ from Simulator import utils
 
 if config.ARCHITECTURE == 'Pytorch':
     from Models.MCTS_torch import MCTS
-    from Models import Muzero_torch_agent as TFTNetwork
-    from Models import MuZero_torch_trainer as MuZeroTrainer
+    from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+    from Models import MuZero_torch_trainer as MuZero_trainer
     import torch
     from torch.utils.tensorboard import SummaryWriter
 else:
@@ -24,10 +25,6 @@ else:
 
 class DataWorker(object):
     def __init__(self, rank):
-        if config.ARCHITECTURE == "Tensorflow":
-            from Models.MuZero_keras_agent import TFTNetwork
-        else:
-            from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
         self.agent_network = TFTNetwork()
         self.prev_actions = [0 for _ in range(config.NUM_PLAYERS)]
         self.rank = rank
@@ -115,30 +112,39 @@ class AIInterface:
     def train_model(self, starting_train_step=0):
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        if config.ARCHITECTURE == "Tensorflow":
-            tf.config.optimizer.set_jit(True)
-            train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-        else:
-            train_summary_writer = SummaryWriter(train_log_dir)
         train_step = starting_train_step
 
         global_buffer = GlobalBuffer()
-
-        trainer = MuZero_trainer.Trainer()
 
         env = parallel_env()
         data_workers = DataWorker(0)
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
+        if config.ARCHITECTURE == "Pytorch":
+            trainer = MuZero_trainer.Trainer(global_agent)
+            train_summary_writer = SummaryWriter(train_log_dir)
+        else:
+            trainer = MuZero_trainer.Trainer()
+            tf.config.optimizer.set_jit(True)
+            train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+
         while True:
             weights = global_agent.get_weights()
             buffers = BufferWrapper(global_buffer)
+            print('starting experience')
+            start = time.time()
             data_workers.collect_gameplay_experience(env, buffers, weights)
+            end = time.time()
+            print(f'finished experience in: {end - start}s')
 
             while global_buffer.available_batch():
+                print('starting training')
+                start = time.time()
                 gameplay_experience_batch = global_buffer.sample_batch()
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 train_step += 1
                 if train_step % 10 == 0:
                     global_agent.tft_save_model(train_step)
+                end = time.time()
+                print(f'finished training in: {end - start}s')
