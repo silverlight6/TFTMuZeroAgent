@@ -68,7 +68,8 @@ class Observation:
         # util_mask[0] = 0 if board is full, 1 if not
 
         # Fetch and concatenate mask
-        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask, player.util_mask)
+        mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
+                player.util_mask, player.thieves_glove_mask, player.glove_mask)
         return {"tensor": total_tensor_observation, "mask": mask}
 
     def generate_other_player_vectors(self, cur_player, players):
