@@ -38,6 +38,14 @@ class AbstractNetwork(torch.nn.Module):
     def set_weights(self, weights):
         self.load_state_dict(weights)
 
+       # Renaming as to not override built-in functions
+    def tft_save_model(self, episode):
+        torch.save(self.state_dict(), f"./Checkpoints/checkpoint_{episode}")
+
+    # Renaming as to not override built-in functions
+    def tft_load_model(self, episode):
+        self.load_state_dict(torch.load(f".Checkpoints/checkpoint_{episode}"))
+        print("Loading model episode {}".format(episode))
 
 ##################################
 ######## Fully Connected #########
