@@ -2,6 +2,7 @@ import torch
 import config
 import collections
 import numpy as np
+import time
 
 
 NetworkOutput = collections.namedtuple(
@@ -98,7 +99,7 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
-        action = torch.tensor(action)
+        action = torch.as_tensor(action).to('cuda')
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
         one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
@@ -142,7 +143,6 @@ class MuZeroNetwork(AbstractNetwork):
 
         value_logits = value_logits.detach().cpu().numpy()
         policy_logits = policy_logits.detach().cpu().numpy()
-        hidden_state = hidden_state.detach().cpu().numpy()
 
         outputs = {
             "value": value,
@@ -164,12 +164,12 @@ class MuZeroNetwork(AbstractNetwork):
     @staticmethod
     def flat_to_lstm_input(state):
         """Maps flat vector to LSTM state.""" 
-        state = torch.tensor(state).to("cuda")
         tensors = []
         cur_idx = 0
         for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+                state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+
             cur_idx += 2 * size
             tensors.append(states)
         # assert cur_idx == state.shape[-1]
@@ -177,27 +177,26 @@ class MuZeroNetwork(AbstractNetwork):
 
 
     def recurrent_inference(self, encoded_state, action):
-            hidden_state, reward_logits = self.dynamics(encoded_state, action)
-            policy_logits, value_logits = self.prediction(hidden_state)
+        hidden_state, reward_logits = self.dynamics(encoded_state, action)
+        policy_logits, value_logits = self.prediction(hidden_state)
 
-            value = self.value_encoder.decode(torch.nn.functional.softmax(value_logits).detach().cpu().numpy())
-            reward = self.reward_encoder.decode(torch.nn.functional.softmax(reward_logits).detach().cpu().numpy())
+        policy_logits = policy_logits.detach().cpu()
+        value_logits = value_logits.detach().cpu().numpy()
+        reward_logits = reward_logits.detach().cpu().numpy()
 
-            hidden_state = hidden_state.detach().cpu().numpy()
-            policy_logits = policy_logits.detach().cpu()
-            value_logits = value_logits.detach().cpu().numpy()
-            reward_logits = reward_logits.detach().cpu().numpy()
+        value = self.value_encoder.decode(softmax_stable(value_logits))
+        reward = self.reward_encoder.decode(softmax_stable(reward_logits))
 
-            outputs = {
-                "value": value,
-                "value_logits": value_logits,
-                "reward": reward,
-                "reward_logits": reward_logits,
-                "policy_logits": policy_logits,
-                "hidden_state": hidden_state
-            }
+        outputs = {
+            "value": value,
+            "value_logits": value_logits,
+            "reward": reward,
+            "reward_logits": reward_logits,
+            "policy_logits": policy_logits,
+            "hidden_state": hidden_state
+        }
 
-            return outputs
+        return outputs
 
 
 def mlp(
@@ -288,6 +287,10 @@ def inverse_contractive_mapping(x, eps=0.001):
     return np.sign(x) * \
            (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
+# Softmax function in np because we're converting it anyway
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
 def support_to_scalar(logits, full_support_size):
     """
     Transform a categorical representation to a scalar
@@ -297,7 +300,7 @@ def support_to_scalar(logits, full_support_size):
     # Decode to a scalar
     probabilities = torch.softmax(logits, dim=1)
     support = (
-        torch.tensor([x for x in range(-support_size, support_size + 1)])
+        torch.as_tensor([x for x in range(-support_size, support_size + 1)])
         .expand(probabilities.shape)
         .float()
         .to(device=probabilities.device)
