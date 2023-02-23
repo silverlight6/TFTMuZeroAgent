@@ -16,11 +16,13 @@ from scipy.stats import entropy
 5. Select path with highest value
 """
 
+"""
+Description - Implementation of the Monte Carlo Search Tree
+Inputs      - Network: Model class
+                The model that has initial_inference and recurrent_inference
+"""
 
-"""
-Description -
-Inputs      -
-"""
+
 class MCTS:
     def __init__(self, network):
         self.network = network
@@ -76,8 +78,14 @@ class MCTS:
             distributions = roots_distributions[i]
             action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
             actions.append(string_mapping[i][action])
-            output_policy = self.map_sample_to_distribution(string_mapping[i],
-                                                            [x / config.NUM_SIMULATIONS for x in distributions])
+            if len(string_mapping[i]) != 1:
+                output_policy = self.map_sample_to_distribution(string_mapping[i],
+                                                                [x / config.NUM_SIMULATIONS for x in distributions])
+            else:
+                # There is only one possible action (empty board bench and no gold)
+                output_policy = [0 for _ in range(config.ACTION_ENCODING_SIZE)]
+                # Only action is to pass.
+                output_policy[0] = 1
             target_policy.append(output_policy)
 
         # Notes on possibilities for other dimensions at the bottom
@@ -158,12 +166,7 @@ class MCTS:
     Outputs     - 
     """
     @staticmethod
-    def select_action(visit_counts, temperature=1, deterministic=True):
-        """
-        Parameters
-        ----------
-
-        """
+    def select_action(visit_counts, temperature=1.0, deterministic=True):
         action_probs = [visit_count_i ** (1 / temperature) for visit_count_i in visit_counts]
         total_count = sum(action_probs)
         action_probs = [x / total_count for x in action_probs]
@@ -423,6 +426,8 @@ class MCTS:
             if mapping[local_counter] == f"1_{i}":
                 output_policy.append(sample_dist[local_counter])
                 local_counter += 1
+                if local_counter == len(mapping):
+                    local_counter -= 1
             else:
                 output_policy.append(0)
         # Movement options

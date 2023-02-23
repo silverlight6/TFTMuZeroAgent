@@ -415,7 +415,7 @@ class player:
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
-                    self.board_mask[4 * x + y] = 1
+                    self.board_mask[7 * y + x] = 1
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
@@ -431,7 +431,8 @@ class player:
                             i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                         champion_info_array[start:finish] = utils.item_binary_encode(i_index)
                 else:
-                    self.board_mask[4 * x + y] = 0
+                    # Different from the board vector because it needs to match the MCTS encoder
+                    self.board_mask[7 * y + x] = 0
 
                 # Fit the area into the designated spot in the vector
                 self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
@@ -440,6 +441,7 @@ class player:
             self.util_mask[0] = 0
         else:
             self.util_mask[0] = 1
+
 
     """
     Description - Generates the bench vector. The same encoding style for the board is used for the bench.
@@ -770,7 +772,8 @@ class player:
                 self.update_team_tiers()
                 return True
         self.reward += self.mistake_reward
-        print("Outside board move_bench_to_board bench_x {} board_x {} board_y {}".format(bench_x, board_x, board_y))
+        if self.player_num == 0:
+            print("Outside board move_bench_to_board bench_x {} board_x {} board_y {}".format(bench_x, board_x, board_y))
         return False
 
     """
@@ -818,7 +821,8 @@ class player:
                     self.update_team_tiers()
                     return True
         self.reward += self.mistake_reward
-        print("Outside board move_board_to_bench board_x {} board_y {}".format(x, y))
+        if self.player_num == 0:
+            print("Outside board move_board_to_bench board_x {} board_y {}".format(x, y))
 
         return False
 
@@ -1173,9 +1177,11 @@ class player:
             self.gold -= self.refresh_cost
             self.reward += self.refresh_reward * self.refresh_cost
             self.print("Refreshing shop")
+            self.generate_player_vector()
             return True
         self.reward += self.mistake_reward
-        print("Could not refresh")
+        if self.player_num == 0:
+            print("Could not refresh")
         return False
 
     """

@@ -59,4 +59,4 @@ def x_y_to_1d_coord(x1, y1):
     if y1 == -1:
         return x1 + 28
     else:
-        return 4 * x1 + y1
+        return 7 * y1 + x1
