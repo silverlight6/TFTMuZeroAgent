@@ -294,7 +294,7 @@ class MCTS:
         for i in range(5):
             mappings.append(bytes(f"1_{i}", "utf-8"))
             second_mappings.append(f"1_{i}")
-        for a in range(38):
+        for a in range(37):
             for b in range(a, 38):
                 if a == b:
                     continue
@@ -434,6 +434,8 @@ class MCTS:
         for a in range(37):
             for b in range(a, 38):
                 if a == b:
+                    continue
+                if a > 27 and b != 37:
                     continue
                 if mapping[local_counter] == f"2_{a}_{b}":
                     output_policy.append(sample_dist[local_counter])
