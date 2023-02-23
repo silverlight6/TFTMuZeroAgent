@@ -10,8 +10,16 @@ from Simulator import utils
 
 if config.ARCHITECTURE == 'Pytorch':
     from Models.MCTS_torch import MCTS
+    from Models import Muzero_torch_agent as TFTNetwork
+    from Models import MuZero_torch_trainer as MuZeroTrainer
+    import torch
+    from torch.utils.tensorboard import SummaryWriter
 else:
     from Models.MCTS import MCTS
+    from Models.MuZero_keras_agent import TFTNetwork
+    from Models import MuZero_trainer
+    import tensorflow as tf
+
 
 
 class DataWorker(object):
@@ -108,33 +116,29 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         if config.ARCHITECTURE == "Tensorflow":
-            import tensorflow as tf
-            from Models.MuZero_keras_agent import TFTNetwork
             tf.config.optimizer.set_jit(True)
             train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         else:
-            from torch.utils.tensorboard import SummaryWriter
-            from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
             train_summary_writer = SummaryWriter(train_log_dir)
         train_step = starting_train_step
 
         global_buffer = GlobalBuffer()
 
-        # trainer = MuZero_trainer.Trainer()
+        trainer = MuZero_trainer.Trainer()
 
         env = parallel_env()
         data_workers = DataWorker(0)
         global_agent = TFTNetwork()
-        # global_agent.tft_load_model(train_step)
+        global_agent.tft_load_model(train_step)
 
         while True:
             weights = global_agent.get_weights()
             buffers = BufferWrapper(global_buffer)
             data_workers.collect_gameplay_experience(env, buffers, weights)
 
-            # while global_buffer.available_batch():
-                # gameplay_experience_batch = global_buffer.sample_batch()
-                # trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                # train_step += 1
-                # if train_step % 10 == 0:
-                #     global_agent.tft_save_model(train_step)
+            while global_buffer.available_batch():
+                gameplay_experience_batch = global_buffer.sample_batch()
+                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                train_step += 1
+                if train_step % 10 == 0:
+                    global_agent.tft_save_model(train_step)
