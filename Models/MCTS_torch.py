@@ -6,7 +6,6 @@ import torch
 from typing import Dict
 from scipy.stats import entropy
 
-
 # EXPLANATION OF MCTS:
 """
 1. select leaf node with maximum value using method called UCB1 
@@ -126,7 +125,7 @@ class MCTS:
             network_output = self.network.recurrent_inference(tensors_states, last_action)
             # print("recurrent inference took: {}".format(time.time_ns() - self.ckpt_time))
 
-            value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
+            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
             # 0.002 seconds
