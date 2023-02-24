@@ -35,9 +35,9 @@ class Step_Function:
                     All of the players in the game. Currently both alive or dead. Used at the start of turn.
     """
     def generate_shops(self, players):
-        for player in players.values():
+        for player_id, player in players.items():
             if player:
-                self.shops[player.player_num] = self.pool_obj.sample(player, 5)
+                self.shops[player_id] = self.pool_obj.sample(player, 5)
         self.generate_shop_vectors(players)
 
     """
@@ -46,9 +46,9 @@ class Step_Function:
                     All of the players in the game. Currently both alive or dead.
     """
     def generate_shop_vectors(self, players):
-        for player in players.keys():
-            if players[player]:
-                self.observation_objs[player].generate_shop_vector(self.shops[player], players[player])
+        for player_id, player in players.items():
+            if player:
+                self.observation_objs[player_id].generate_shop_vector(self.shops[player_id], player)
 
     """
     Description - Calculates the 2 dimensional position in the board, from the 1 dimensional position on the list
@@ -144,6 +144,7 @@ class Step_Function:
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken
+    # TODO: Update if we're using this for UI Interface
     def multi_step(self, action, player, game_observation, agent, buffer, players):
         if action == 0:
             action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])

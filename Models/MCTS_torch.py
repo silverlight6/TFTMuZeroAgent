@@ -28,59 +28,66 @@ class MCTS:
 
     def policy(self, observation):
         with torch.no_grad():
-          self.NUM_ALIVE = observation[0].shape[0]
+            self.NUM_ALIVE = observation[0].shape[0]
 
-          # 0.02 seconds
-          # self.ckpt_time = time.time_ns()
-          network_output = self.network.initial_inference(observation[0])
-          # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
+            # 0.02 seconds
+            # self.ckpt_time = time.time_ns()
+            network_output = self.network.initial_inference(observation[0])
+            # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
 
-          value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
-          policy_logits = network_output["policy_logits"]
+            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
+            policy_logits = network_output["policy_logits"]
 
-          # 0.01 seconds
-          policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+            # 0.01 seconds
+            policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
-          # 0.003 seconds
-          policy_logits_pool, string_mapping, mapping, policy_sizes = \
-              self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
+            # 0.003 seconds
+            policy_logits_pool, string_mapping, mappings, policy_sizes = \
+                self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
 
-          # less than 0.0001 seconds
-          # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
-          # Number of agents, previous action, number of simulations for memory purposes
-          roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+            # less than 0.0001 seconds
+            # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
+            # Number of agents, previous action, number of simulations for memory purposes
+            roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
 
-          # 0.0002 seconds
-          # prepare the nodes to feed them into batch_mcts, for statement to deal with different lengths due to masking.
-          noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
-                                        len(policy_logits_pool[i])).astype(np.float32).tolist()
-                    for i in range(self.NUM_ALIVE)]
+            # 0.0002 seconds
+            # prepare the nodes to feed them into batch_mcts,
+            # for statement to deal with different lengths due to masking.
+            noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
+                                          len(policy_logits_pool[i])).astype(np.float32).tolist()
+                      for i in range(self.NUM_ALIVE)]
 
-          # 0.01 seconds
-          roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
+            # 0.01 seconds
+            roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, reward_pool, policy_logits_pool, mappings)
 
-          # Output for root node
-          hidden_state_pool = network_output["hidden_state"]
+            # Output for root node
+            hidden_state_pool = network_output["hidden_state"]
 
-          # set up nodes to be able to find and select actions
-          self.run_batch_mcts(roots_cpp, hidden_state_pool)
-          roots_distributions = roots_cpp.get_distributions()
+            # set up nodes to be able to find and select actions
+            self.run_batch_mcts(roots_cpp, hidden_state_pool)
+            roots_distributions = roots_cpp.get_distributions()
 
-          actions = []
-          target_policy = []
-          temp = self.visit_softmax_temperature()  # controls the way actions are chosen
-          for i in range(self.NUM_ALIVE):
-              deterministic = False  # False = sample distribution, True = argmax
-              distributions = roots_distributions[i]
-              action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
-              actions.append(string_mapping[i][action])
-              output_policy = self.map_sample_to_distribution(string_mapping[i],
-                                                              [x / config.NUM_SIMULATIONS for x in distributions])
-              target_policy.append(output_policy)
+            actions = []
+            target_policy = []
+            temp = self.visit_softmax_temperature()  # controls the way actions are chosen
+            for i in range(self.NUM_ALIVE):
+                deterministic = False  # False = sample distribution, True = argmax
+                distributions = roots_distributions[i]
+                action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
+                actions.append(string_mapping[i][action])
+                if len(string_mapping[i]) != 1:
+                    output_policy = self.map_sample_to_distribution(string_mapping[i],
+                                                                    [x / config.NUM_SIMULATIONS for x in distributions])
+                else:
+                    # There is only one possible action (empty board bench and no gold)
+                    output_policy = [0 for _ in range(config.ACTION_ENCODING_SIZE)]
+                    # Only action is to pass.
+                    output_policy[0] = 1
+                target_policy.append(output_policy)
 
-          # Notes on possibilities for other dimensions at the bottom
-          self.num_actions += 1
-          return actions, target_policy
+            # Notes on possibilities for other dimensions at the bottom
+            self.num_actions += 1
+            return actions, target_policy
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -93,9 +100,7 @@ class MCTS:
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2)  # config.MINIMUM_REWARD *2
-        # self.config.lstm_horizon_len, seems to be the number of timesteps predicted in the future
-        horizons = 1
+        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2 + 1)  # config.MINIMUM_REWARD * 2
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
         for _ in range(config.NUM_SIMULATIONS):
@@ -106,7 +111,6 @@ class MCTS:
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
-            search_lens = results.get_search_len()
 
             num_states = len(hidden_state_index_x_lst)
             tensors_states = torch.empty((num_states, config.LAYER_HIDDEN_SIZE)).to('cuda')
@@ -120,10 +124,8 @@ class MCTS:
 
             last_action = np.asarray(last_action)
 
-            # 0.026 to 0.064 seconds
-            # self.ckpt_time = time.time_ns()
+            # 0.003 seconds
             network_output = self.network.recurrent_inference(tensors_states, last_action)
-            # print("recurrent inference took: {}".format(time.time_ns() - self.ckpt_time))
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
@@ -137,15 +139,12 @@ class MCTS:
             hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
 
-            reset_idx = (np.array(search_lens) % horizons == 0)
-            is_reset_lst = reset_idx.astype(np.int32).tolist()
-            # tree node.isreset = is_reset_list[node]
             hidden_state_index_x += 1
 
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
-            tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
-                                      min_max_stats_lst, results, is_reset_lst, mappings)
+            tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
+                                      min_max_stats_lst, results, mappings)
 
     """
     Description - select action from the root visit counts.
@@ -171,8 +170,36 @@ class MCTS:
         count_entropy = entropy(action_probs, base=2)
         return action_pos, count_entropy
 
+    """
+    Description - Turns a 1081 action into a policy that includes only actions that are legal in the current state
+                  This also creates a mask for both the c++ side and python side to convert the legal action set into
+                  a single action that we can give to the buffers and the trainer.
+                  Masks for this method are generated in the player and observation classes.
+                  This is only called by the root node since that is the only node that has access to the observation
+    Inputs      - Policy logits: List
+                      output of the prediction network, initial_inference in this case
+                  Mappings: List
+                      A mask of binary values that tell the policy what actions are legal and what actions are not.
+    Outputs     - Actions: List
+                      A policy including actions that are legal in the field.
+                  Mappings: List
+                      A byte mapping that maps those actions to a single 3 dimensional action that can be used in the 
+                      simulator as well as in the recurrent inference. This gets sent to the c++ side
+                  Seconds Mappings: List
+                      A string mapping that is used in the same way but for the python side. This gets used on the 
+                      values that get sent back to the AI_Interface
+    """
     @staticmethod
     def encode_action_to_str(policy_logits, mask):
+        # mask[0] = decision mask
+        # mask[1] = shop mask - 1 if can buy champ, 0 if can't
+        # mask[2] = board mask - 1 if slot is occupied, 0 if not
+        # mask[3] = bench mask - 1 if slot is occupied, 0 if not
+        # mask[4] = item mask - 1 if slot is occupied, 0 if not
+        # mask[5] = util mask
+        # mask[6] = thieves glove mask - 1 if slot has a thieves glove, 0 if not
+        # mask[7] = sparring glove + item mask
+        # mask[8] = glove mask
         actions = []
         mappings = []
         second_mappings = []
@@ -180,40 +207,60 @@ class MCTS:
             local_counter = 0
             local_action = [policy_logits[idx][local_counter]]
             local_mappings = [bytes("0", "utf-8")]
+            # do nothing
             second_local_mappings = ["0"]
             local_counter += 1
+            # for every shop index...
             for i in range(5):
                 if mask[idx][1][i]:
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
                     second_local_mappings.append(f"1_{i}")
                 local_counter += 1
+            # for all board + bench slots...
             for a in range(37):
+                # rest of board slot locs for moving, last for sale
                 for b in range(a, 38):
                     if a == b:
                         continue
-                    # This does not account for max units yet
-                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                    if a > 27 and b != 37:
+                        continue
+                    # if we are trying to move a non-existent champion, skip
+                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
+                            ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
+                        local_counter += 1
+                        continue
+                    # if we're doing a bench to board move and board is full and there is no champ at destination, skip
+                    if a < 28 and b > 27 and b != 37 and mask[idx][5][0] and not mask[idx][2][a]:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
                     second_local_mappings.append(f"2_{a}_{b}")
                     local_counter += 1
+            # for all board + bench slots...
             for a in range(37):
+                # for every item slot...
                 for b in range(10):
-                    if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28]) and mask[idx][4][b]):
+                    # if there is a unit and there is an item
+                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
+                        local_counter += 1
+                        continue
+                    # if it is a legal action to put that item on the unit
+                    if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
                     second_local_mappings.append(f"3_{a}_{b}")
                     local_counter += 1
+            # level
             if mask[idx][0][4]:
                 local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("4", "utf-8"))
                 second_local_mappings.append("4")
             local_counter += 1
+            # roll
             if mask[idx][0][5]:
                 local_action.append(policy_logits[idx][local_counter])
                 local_mappings.append(bytes("5", "utf-8"))
@@ -235,6 +282,8 @@ class MCTS:
             for b in range(a, 38):
                 if a == b:
                     continue
+                if a > 27 and b != 37:
+                    continue
                 mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
                 second_mappings.append(f"2_{a}_{b}")
         for a in range(37):
@@ -245,10 +294,35 @@ class MCTS:
         second_mappings.append("4")
         mappings.append(bytes("5", "utf-8"))
         second_mappings.append("5")
+        # converting mappings to batch size for all players in a game
         mappings = [mappings for _ in range(config.NUM_PLAYERS)]
         second_mappings = [second_mappings for _ in range(config.NUM_PLAYERS)]
         return mappings, second_mappings
 
+    """
+    Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
+                  total number of actions based off of the current policy to expand on each turn. There are two options
+                  as to how the samples are chosen. You can either set num_pass_shop_actions and refresh_level_actions
+                  to 0 and comment out the following for loops or keep those variables at 6 and 2 and leave the for
+                  loops in. The first option is a pure sample with no specific core actions. The second option gives 
+                  you a set of core options to use. 
+    Inputs      - policy_logits - List
+                      Output to either initial_inference or recurrent_inference for policy
+                  string_mapping - List
+                      A map that is equal to policy_logits.shape[-1] in size to map to the specified action
+                  byte_mapping - List
+                      Same as string mapping but used on the c++ side of the code
+                  num_samples - Int
+                      Typically set to config.NUM_SAMPLES. Number of samples to use per expansion of the tree
+    Outputs     - output_logits - List
+                      The sampled policy logits 
+                  output_string_mapping - List
+                      The sampled string mapping. Size = output.logits.shape
+                  output_byte_mapping - List
+                      Same as output_string_mapping but for c++ side
+                  policy_sizes - List
+                      Number of samples per player, can change if legal actions < num_samples
+    """
     def sample(self, policy_logits, string_mapping, byte_mapping, num_samples):
         output_logits = []
         output_string_mapping = []
@@ -314,6 +388,16 @@ class MCTS:
                 policy_sizes.append(num_samples)
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
+    """
+    Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
+                  to train on the improved policy. 0s for everywhere that was not sampled.
+    Inputs      - mapping - List
+                      A string mapping to know which values were sampled and which ones were not
+                  sample_dist - List
+                      The improved policy output of the MCTS with size [batch, num_samples]
+    Outputs     - output_policy - List
+                      The improved policy output of the MCTS with size [batch, encoding_size] 
+    """
     def map_sample_to_distribution(self, mapping, sample_dist):
         local_counter = 0
         output_policy = []
@@ -324,23 +408,31 @@ class MCTS:
         # else add 0 to indicate probability 0.
         else:
             output_policy.append(0)
+        # Shop options
         for i in range(5):
             if mapping[local_counter] == f"1_{i}":
                 output_policy.append(sample_dist[local_counter])
                 local_counter += 1
+                if local_counter == len(mapping):
+                    local_counter -= 1
             else:
                 output_policy.append(0)
+        # Movement options
         for a in range(37):
             for b in range(a, 38):
                 if a == b:
                     continue
+                if a > 27 and b != 37:
+                    continue
                 if mapping[local_counter] == f"2_{a}_{b}":
                     output_policy.append(sample_dist[local_counter])
                     local_counter += 1
+                    # This line ensures that we do not error out if we found all of our samples
                     if local_counter == len(mapping):
                         local_counter -= 1
                 else:
                     output_policy.append(0)
+        # Item options
         for a in range(37):
             for b in range(10):
                 if mapping[local_counter] == f"3_{a}_{b}":
@@ -350,6 +442,7 @@ class MCTS:
                         local_counter -= 1
                 else:
                     output_policy.append(0)
+        # Level and refresh options.
         if mapping[local_counter] == "4":
             output_policy.append(sample_dist[local_counter])
             local_counter += 1
@@ -387,7 +480,8 @@ class MCTS:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 0.9
+        return 1.0
+
 
 def masked_distribution(x, use_exp, mask=None):
     if mask is None:
