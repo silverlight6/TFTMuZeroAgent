@@ -53,8 +53,6 @@ class TFT_Simulator(AECEnv):
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
         self.agents = self.possible_agents.copy()
         self.kill_list = []
-        self.agent_name_mapping = dict(
-            zip(self.possible_agents, list(range(len(self.possible_agents)))))
         self._agent_selector = agent_selector(self.possible_agents)
         self.agent_selection = self.possible_agents[0]
 
@@ -65,7 +63,6 @@ class TFT_Simulator(AECEnv):
         self.infos = {agent: {} for agent in self.agents}
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
-        self.actions = {agent: {} for agent in self.agents}
 
         self.observation_spaces = dict(
             zip(
@@ -124,14 +121,11 @@ class TFT_Simulator(AECEnv):
         self.game_round.play_game_round()
 
         self.agents = self.possible_agents.copy()
-        self._agent_selector = agent_selector(self.agents)
-        self.agent_selection = self._agent_selector.next()
 
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
 
         self.infos = {agent: {} for agent in self.agents}
-        self.actions = {agent: {} for agent in self.agents}
 
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
@@ -140,8 +134,8 @@ class TFT_Simulator(AECEnv):
                              self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS)
                              for agent in self.agents}
 
-        self._agent_selector.reinit(self.agents)
-        self.agent_selection = self._agent_selector.next()
+        self._agent_selector = agent_selector(self.possible_agents)
+        self.agent_selection = self.possible_agents[0]
 
         super().__init__()
         return self.observations
@@ -156,6 +150,9 @@ class TFT_Simulator(AECEnv):
         # step for dead agents
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
+            self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent],
+                             self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS)
+                             for agent in self.agents if self.PLAYERS[agent] is not None}
             return
         action = np.asarray(action)
         if action.ndim == 0:

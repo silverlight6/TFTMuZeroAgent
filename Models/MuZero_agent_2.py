@@ -858,7 +858,7 @@ class Batch_MCTSAgent(MCTSAgent):
         #SELL UNITS
         for a in range(37):
             if board_bench[a]:
-                if 3 - free_slots[a] + items.count(True) > 11:
+                if 3 - free_slots[a] + items.count(True) < 11:
                     targets.append((f"2_{a}_37", action[0][2] * target[0][a]  * target[0][37] / actions_sum))
                     target_sum += target[0][a]  * target[0][37]
         for i in range(len(targets)):

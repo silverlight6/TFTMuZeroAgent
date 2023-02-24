@@ -60,7 +60,7 @@ class Step_Function:
                 # Buy from shop
                 champ_shop_target = np.argmax(action[6:11])
                 if not self.batch_shop(champ_shop_target, player, game_observations[key]):
-                    print(self.shops[player.player_num], action, player.gold)
+                    print(self.shops[player.player_num], action, player.gold, player.benchStr())
             elif action_selector == 2:
                 # Swap champ place
                 target_1 = np.argmax(action[6:43])
@@ -74,9 +74,11 @@ class Step_Function:
                     if swap_loc_from < 28:
                         x, y = self.dcord_to_2dcord(swap_loc_from)
                         if player.board[x][y]:
-                            player.sell_champion(player.board[x][y], field=True)
+                            if not player.sell_champion(player.board[x][y], field=True):
+                                print(player.boardStr(), player.item_bench)
                     else:
-                        player.sell_from_bench(swap_loc_from - 28)
+                        if not player.sell_from_bench(swap_loc_from - 28):
+                            print(player.benchStr(), player.item_bench)
                 else:
                     # Swap from swap_loc_from to swap_loc_to
                     if swap_loc_from < 28:

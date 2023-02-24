@@ -428,13 +428,19 @@ def mask_test():
     p1.add_to_item_bench('sunfire_cape')
     p1.add_to_item_bench('sparring_gloves')
     p1.add_to_item_bench('redemption')
-    p1.add_to_item_bench('thieves_gloves')
-    p1.add_to_item_bench('sparring_gloves')
+    # p1.add_to_item_bench('thieves_gloves')
+    # p1.add_to_item_bench('sparring_gloves')
+    p1.add_to_item_bench('bf_sword')
+    p1.add_to_item_bench('bf_sword')
+    p1.add_to_item_bench('bf_sword')
+    p1.add_to_item_bench('bf_sword')
+    p1.add_to_item_bench('bf_sword')
+    p1.add_to_item_bench('bf_sword')
     p1.add_to_item_bench('bf_sword')
     p1.buy_champion(champion('tahmkench'))
     # print(utils.item_binary_encode(list(item_builds.keys()).index('thieves_gloves') + 1 + len(uncraftable_items))) # == TG
     # print(utils.item_binary_encode(list(uncraftable_items).index('sparring_gloves') + 1)) # == Normal Gloves
-    # p1.move_bench_to_board(0, 0, 0)
+    p1.move_bench_to_board(0, 0, 0)
     # p1.buy_champion(champion('nunu'))
     # p1.move_bench_to_board(0, 4, 0)
     # p1.buy_champion(champion('maokai'))
@@ -459,6 +465,8 @@ def mask_test():
     # step_function.batch_shop(1,p1,game_observation)
     # step_function.batch_shop(2,p1,game_observation)
     # step_function.batch_shop(3,p1,game_observation)
+    # step_function.batch_shop(4,p1,game_observation)
+    # print(p1.benchStr())
     p1.gold = 0
     # for x in range(7): 
     #         for y in range(4):
@@ -475,24 +483,34 @@ def mask_test():
     actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
     print("t0 ACTIONS AVAILABLE", list(zip(*actions))[0])
 
-    one_hot = DataWorker.decode_action_to_one_hot("3_28_0")
-    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+    # one_hot = DataWorker.decode_action_to_one_hot("3_0_0")
+    # _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
 
-    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
-    print("t1 ACTIONS AVAILABLE", list(zip(*actions))[0])
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # # print("t1 ACTIONS AVAILABLE", list(zip(*actions))[0])
 
-    one_hot = DataWorker.decode_action_to_one_hot("3_28_1")
-    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
-    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
-    print("t2 ACTIONS AVAILABLE", list(zip(*actions))[0])
+    # one_hot = DataWorker.decode_action_to_one_hot("3_0_1")
+    # _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # # print("t2 ACTIONS AVAILABLE", list(zip(*actions))[0])
+    # # p1.add_to_item_bench('bf_sword')
+    # # p1.add_to_item_bench('bf_sword')
+    # # p1.add_to_item_bench('bf_sword')
 
-    one_hot = DataWorker.decode_action_to_one_hot("3_28_2")
-    _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+    # one_hot = DataWorker.decode_action_to_one_hot("3_0_2")
+    # _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
 
-    actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
-    print("t3 ACTIONS AVAILABLE", list(zip(*actions))[0])
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # # print("t3 ACTIONS AVAILABLE", list(zip(*actions))[0])
 
-    print(p1.bench[0].items)
+    # one_hot = DataWorker.decode_action_to_one_hot("2_0_37")
+    # _, obs = step_function.single_step_action_controller(one_hot, p1, {p1.player_num: p1}, p1.player_num, {p1.player_num: game_observation})
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+    # print("t4 ACTIONS AVAILABLE", list(zip(*actions))[0])
+
+    # actions = Batch_MCTSAgent.encode_action_to_str(None, v1, v2, v3, obs)
+
+    # print(p1.board)
     # print(p1.bench[0].items)
     # print(one_hot)
     # target_1 = np.argmax(one_hot[6:43])
