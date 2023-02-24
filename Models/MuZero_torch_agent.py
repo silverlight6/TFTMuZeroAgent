@@ -5,10 +5,10 @@ import numpy as np
 import time
 import os
 
-
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
     'value reward policy_logits hidden_state')
+
 
 def dict_to_cpu(dictionary):
     cpu_dict = {}
@@ -51,13 +51,10 @@ class AbstractNetwork(torch.nn.Module):
     def tft_load_model(self, episode):
         path = f'./Checkpoints/checkpoint_{episode}'
         if os.path.isfile(path):
-          self.load_state_dict(torch.load(path))
-          print("Loading model episode {}".format(episode))
+            self.load_state_dict(torch.load(path))
+            print("Loading model episode {}".format(episode))
         else:
-          print("Initializing model with new weights.")
-
-##################################
-######## Fully Connected #########
+            print("Initializing model with new weights.")
 
 
 class MuZeroNetwork(AbstractNetwork):
@@ -81,7 +78,7 @@ class MuZeroNetwork(AbstractNetwork):
         ]
 
         self.dynamics_encoded_state_network = [
-          torch.nn.DataParallel(cell) for cell in lstm_cells
+            torch.nn.DataParallel(cell) for cell in lstm_cells
         ]
 
         self.dynamics_reward_network = torch.nn.DataParallel(
@@ -100,7 +97,7 @@ class MuZeroNetwork(AbstractNetwork):
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping,(-300., 300.))), 0)
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
     def prediction(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
@@ -116,8 +113,8 @@ class MuZeroNetwork(AbstractNetwork):
         scale_encoded_state = max_encoded_state - min_encoded_state
         scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
         encoded_state_normalized = (
-            encoded_state - min_encoded_state
-        ) / scale_encoded_state
+                                           encoded_state - min_encoded_state
+                                   ) / scale_encoded_state
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
@@ -136,10 +133,10 @@ class MuZeroNetwork(AbstractNetwork):
         new_nested_states = []
 
         for cell, states in zip(self.dynamics_encoded_state_network, lstm_state):
-          inputs, new_states = cell(inputs, states)
-          new_nested_states.append([inputs, new_states])
-        
-        next_encoded_state = self.rnn_to_flat(new_nested_states) # (8, 1024)
+            inputs, new_states = cell(inputs, states)
+            new_nested_states.append([inputs, new_states])
+
+        next_encoded_state = self.rnn_to_flat(new_nested_states)  # (8, 1024)
 
         reward = self.dynamics_reward_network(next_encoded_state)
 
@@ -149,8 +146,8 @@ class MuZeroNetwork(AbstractNetwork):
         scale_next_encoded_state = max_next_encoded_state - min_next_encoded_state
         scale_next_encoded_state[scale_next_encoded_state < 1e-5] += 1e-5
         next_encoded_state_normalized = (
-            next_encoded_state - min_next_encoded_state
-        ) / scale_next_encoded_state
+                                                next_encoded_state - min_next_encoded_state
+                                        ) / scale_next_encoded_state
 
         return next_encoded_state_normalized, reward
 
@@ -186,18 +183,17 @@ class MuZeroNetwork(AbstractNetwork):
 
     @staticmethod
     def flat_to_lstm_input(state):
-        """Maps flat vector to LSTM state.""" 
+        """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
         for size in config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
-                state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
 
             cur_idx += 2 * size
             tensors.append(states)
         # assert cur_idx == state.shape[-1]
         return tensors
-
 
     def recurrent_inference(self, encoded_state, action):
         hidden_state, reward_logits = self.dynamics(encoded_state, action)
@@ -223,11 +219,11 @@ class MuZeroNetwork(AbstractNetwork):
 
 
 def mlp(
-    input_size,
-    layer_sizes,
-    output_size,
-    output_activation=torch.nn.Identity,
-    activation=torch.nn.ELU,
+        input_size,
+        layer_sizes,
+        output_size,
+        output_activation=torch.nn.Identity,
+        activation=torch.nn.ELU,
 ):
     sizes = [input_size] + layer_sizes + [output_size]
     layers = []
@@ -282,8 +278,8 @@ class ValueEncoder:
         lower_encoding, upper_encoding = (
             np.equal(step, self.step_range_int).astype(float) * mod
             for step, mod in (
-                (lower_step, lower_mod),
-                (upper_step, upper_mod),)
+            (lower_step, lower_mod),
+            (upper_step, upper_mod),)
         )
         return lower_encoding + upper_encoding
 
@@ -310,9 +306,11 @@ def inverse_contractive_mapping(x, eps=0.001):
     return np.sign(x) * \
            (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
+
 # Softmax function in np because we're converting it anyway
 def softmax_stable(x):
     return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
 
 def support_to_scalar(logits, full_support_size):
     """
@@ -332,8 +330,8 @@ def support_to_scalar(logits, full_support_size):
 
     # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
     x = torch.sign(x) * (
-        ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
-        ** 2
-        - 1
+            ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
+            ** 2
+            - 1
     )
     return x
