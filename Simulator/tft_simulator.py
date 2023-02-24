@@ -121,6 +121,8 @@ class TFT_Simulator(AECEnv):
         self.game_round.play_game_round()
 
         self.agents = self.possible_agents.copy()
+        self._agent_selector.reinit(self.agents)
+        self.agent_selection = self._agent_selector.next()
 
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
@@ -133,9 +135,6 @@ class TFT_Simulator(AECEnv):
         self.observations = {agent: self.game_observations[agent].get_lobo_observation(self.PLAYERS[agent],
                              self.step_function.shops[self.PLAYERS[agent].player_num], self.PLAYERS)
                              for agent in self.agents}
-
-        self._agent_selector = agent_selector(self.possible_agents)
-        self.agent_selection = self.possible_agents[0]
 
         super().__init__()
         return self.observations
