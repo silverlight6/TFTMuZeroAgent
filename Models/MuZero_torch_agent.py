@@ -92,7 +92,7 @@ class MuZeroNetwork(AbstractNetwork):
         return policy_logits, value
 
     def representation(self, observation):
-        observation = torch.from_numpy(observation).float()
+        observation = torch.from_numpy(observation).float().cuda()
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
         min_encoded_state = encoded_state.min(1, keepdim=True)[0]

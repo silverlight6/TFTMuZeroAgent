@@ -28,7 +28,7 @@ else:
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.2)
+@ray.remote(num_gpus=0.195)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -230,7 +230,7 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
-                if train_step % 100 == 0:
+                if train_step % 500 == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 
