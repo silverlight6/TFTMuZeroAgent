@@ -1,5 +1,5 @@
+import Simulator.config as config
 import time
-import config
 import random
 import numpy as np
 # import multiprocessing
@@ -329,6 +329,7 @@ class Game_Round:
             self.matchups.append([player_list[0], player_list[index]])
             opposition = list(players.values())[player_list[index]]
             opposition.opponent_options = np.zeros(config.NUM_PLAYERS)
+            # giving the players the possible opponents
             for x in range(config.NUM_PLAYERS):
                 if player.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:
                     player.opponent_options[x] = 1
@@ -342,6 +343,7 @@ class Game_Round:
                 player.opponent_options[player_list[index]] = 1
             if 1 not in opposition.opponent_options:
                 opposition.opponent_options[player_list[0]] = 1
+            # resetting the weights for the player and opponent
             player.possible_opponents[player_list[index]] = 0
             opposition.possible_opponents[player_list[0]] = 0
             player_list.remove(player_list[index])

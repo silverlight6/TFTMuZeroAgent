@@ -1,8 +1,8 @@
+import Simulator.config as config
 import Simulator.origin_class_stats as origin_class_stats
 from Simulator import field, item_stats, items, champion_functions
 import Simulator.stats as stats
 import random
-import config
 import time
 
 # ORIGINS AND CLASSES

@@ -1,3 +1,4 @@
+import Simulator.config as config
 import Simulator.stats as stats
 import Simulator.field as field
 import Simulator.champion_functions as champion_functions
@@ -5,7 +6,6 @@ import Simulator.item_stats as item_stats
 import Simulator.origin_class as origin_class
 import Simulator.items as items
 import random
-import config
 from math import ceil, floor
 
 

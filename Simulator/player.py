@@ -1,11 +1,10 @@
 import math
-import config
 import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
 import Simulator.utils as utils
-
+import Simulator.config as config
 from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
     starting_items, trait_items, uncraftable_items
 
@@ -25,18 +24,7 @@ Inputs      - pool_pointer: Pool object pointer
 
 
 class player:
-
-    # TODO: Move this these globals over to the simulator side of the config.
-    # TODO: Create a config inside the simulator folder for all simulator based configurations.
     # Explanation - We may switch to a class config for the AI side later so separating the two now is highly useful.
-    CHAMPION_INFORMATION = 12
-    BOARD_SIZE = 28
-    BENCH_SIZE = 9
-    MAX_CHAMPION_IN_SET = 58
-    UNCRAFTABLE_ITEM = len(uncraftable_items)
-    MAX_BENCH_SPACE = 10
-    CHAMP_ENCODING_SIZE = 26
-
     def __init__(self, pool_pointer, player_num):
 
         self.gold = 0
@@ -76,7 +64,7 @@ class player:
         self.max_level = 9
 
         # 2 spot for each item(2 component) 10 slots
-        self.item_vector = np.zeros(self.MAX_BENCH_SPACE * 6)
+        self.item_vector = np.zeros(config.MAX_BENCH_SPACE * 6)
 
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
@@ -87,7 +75,7 @@ class player:
 
         # Encoding board as an image, so we can run convolutions on it.
         self.board_vector = np.zeros(728)  # 26 size on each unit, 28 squares
-        self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
@@ -233,10 +221,8 @@ class player:
     Outputs     - True: Champion purchase successful
                   False: not enough gold to buy champion
     """
-    # TODO: I'm pretty sure we can get rid of that self.gold == 0 but can someone remove it and run the unit tests.
     def buy_champion(self, a_champion):
-        if self.gold == 0 or cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold \
-                or a_champion.cost == 0:
+        if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
@@ -326,9 +312,9 @@ class player:
         self.printItemBench()
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Finds locations to put azir's sandguards when he first gets put on the field
+    Inputs      - Azir's x and y coordinates
+    Outputs     - Two sets of coordinates
     """
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
@@ -351,9 +337,9 @@ class player:
         return coords
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Finds free squares around a coordinate
+    Inputs      - Coordinate
+    Outputs     - Free squares surrounding the coordinate
     """
     def find_free_squares(self, x, y):
         if x < 0 or x > 6 or y < 0 or y > 3:
@@ -410,7 +396,7 @@ class player:
     Description - Generates the bench vector. The same encoding style for the board is used for the bench.
     """
     def generate_bench_vector(self):
-        bench = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
         for x_bench in range(len(self.bench)):
             # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
             champion_info_array = np.zeros(6 * 4 + 2)
@@ -433,8 +419,8 @@ class player:
                 if x_bench == 9:
                     print(len(self.bench))
                 self.bench_mask[x_bench] = 0
-            bench[x_bench*self.CHAMP_ENCODING_SIZE:
-                    x_bench*self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
+            bench[x_bench*config.CHAMP_ENCODING_SIZE:
+                    x_bench*config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
         self.bench_vector = bench
 
     """
@@ -456,7 +442,7 @@ class player:
     """
     # return output_array
     def generate_item_vector(self):
-        item_arr = np.zeros(self.MAX_BENCH_SPACE * 6)
+        item_arr = np.zeros(config.MAX_BENCH_SPACE * 6)
         for ind, item in enumerate(self.item_bench):
             item_info = np.zeros(6)
             if item in uncraftable_items:
@@ -487,6 +473,8 @@ class player:
             self.player_private_vector[6] = self.match_history[-3]
             self.player_private_vector[7] = self.match_history[-2]
             self.player_private_vector[8] = self.match_history[-1]
+        for x in range(9, 16):
+            self.player_private_vector[x] = self.opponent_options[x - 9]
 
         # Decision mask parameters
         if self.gold < 4:
@@ -606,9 +594,9 @@ class player:
         self.generate_player_vector()
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Checks if there's enough room on the item bench for a given number of items
+    Inputs      - number of items to add to item bench
+    Outputs     - boolean whether there's enough room
     """
     # num of items to be added to bench, set 0 if not adding.
     # I need to redo this to see how many slots within the length of the array are currently full.
@@ -622,6 +610,10 @@ class player:
         else:
             return False
 
+    """
+    Description - Finds a free slot on the item bench
+    """
+
     def item_bench_vacancy(self):
         for free_slot, u in enumerate(self.item_bench):
             if not u:
@@ -629,11 +621,8 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Checks if there's a kayn on the board
     """
-    # checking if kayn is on the board
     def kayn_check(self):
         for x in range(0, 7):
             for y in range(0, 4):
@@ -643,9 +632,8 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Gives the player the kayn items that allow the player to select kayn's form
+    Outputs     - Sets kayn_transformed to true so it only happens once
     """
     def kayn_transform(self):
         if not self.kayn_transformed:
@@ -655,9 +643,8 @@ class player:
                 self.kayn_transformed = True
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - This function gets called everytime the player buys exp,
+     it checks if the player should level up and handles everything related to leveling
     """
     def level_up(self):
         if self.level < self.max_level and self.exp >= self.level_costs[self.level]:
@@ -674,9 +661,8 @@ class player:
             self.exp = 0
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Handles all variables related to losing rounds
+    Inputs      - The amount of damage resulting from the loss (calculated in game_round)
     """
     def loss_round(self, damage):
         if not self.combat:
@@ -737,9 +723,9 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Moves a champion from the board onto the bench, kills azir sandguards if unit is azir
+    Inputs      - board coordinate to be moved
+    Outputs     - boolean of whether the move was successful
     """
     # automatically put the champion at the end of the open bench
     def move_board_to_bench(self, x, y):
@@ -782,9 +768,9 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Moves a unit to elsewhere on the board, will swap units of both locations are occupied
+    Inputs      - two x, y coordinate pairs to be moved
+    Outputs     - boolean whether or not the move was successful
     """
     def move_board_to_board(self, x1, y1, x2, y2):
         if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
@@ -836,12 +822,10 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Moves an item or consumable from the item bench to either the player bench or player board
+    Inputs      - item bench slot to move, [x, y] location to be moved to (y = -1 for the bench)
+    Outputs     - boolean whether or not the move was successful
     """
-    # TO DO : Item combinations.
-    # Move item from item_bench to champion_bench
     def move_item(self, xBench, x, y):
         board = False
         if y >= 0:
@@ -969,23 +953,23 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Uses the move_item method to move an item or consumable from the item bench to the player bench
+    Inputs      - see move_item
+    Outputs     - see move_item
     """
     def move_item_to_bench(self, xBench, x):
         self.move_item(xBench, x, -1)
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Uses the move_item method to move an item or consumable from the item bench to the board
+    Inputs      - see move_item
+    Outputs     - see move_item
     """
     def move_item_to_board(self, xBench, x, y):
         self.move_item(xBench, x, y)
 
     """
-    Description -
+    Description - 
     Inputs      -
     Outputs     - 
     """
@@ -1270,9 +1254,9 @@ class player:
         return False
 
     """
-    Description - 
-    Inputs      -
-    Outputs     - 
+    Description - Gives new thieves gloves items to a champion in thieves_gloves_loc
+    Inputs      - thieves_gloves_loc coordinates
+    Outputs     - 2 completed items
     """
     def thieves_gloves(self, x, y):
         r1 = random.randint(0, len(thieves_gloves_items) - 1)
@@ -1294,9 +1278,9 @@ class player:
             return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Checks if either of 2 coordinates is in thieves_gloves_loc and swaps it for the one that isn't
+    Inputs      - 2 x, y coordinates
+    Outputs     - modified thieves_gloves_loc list
     """
     def thieves_gloves_loc_update(self, x1, y1, x2, y2):
         if [x1, y1] in self.thieves_gloves_loc and [x2, y2] in self.thieves_gloves_loc:
@@ -1309,9 +1293,9 @@ class player:
             self.thieves_gloves_loc.append([x1, y1])
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Transforms Kayn into either shadowassassin or rhast based on which item the player used
+    Inputs      - kayn item (either shadowassassin or rhast)
+    Outputs     - Transforms all Kayns (board, bench and shop)
     """
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
@@ -1375,9 +1359,9 @@ class player:
         return False, True
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Handles all reforger functions
+    Inputs      - reforger's slot on the item bench, champion coordinates (y = -1 for bench)
+    Outputs     - Reforges the items if there's room on item bench, otherwise returns false
     """
     def use_reforge(self, xBench, x, y):
         board = False

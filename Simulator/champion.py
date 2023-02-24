@@ -1,8 +1,8 @@
+import Simulator.config as config
 import Simulator.origin_class as origin_class
 import Simulator.origin_class_stats as origin_class_stats
 import Simulator.champion_functions as champion_functions
 import time
-import config
 import random
 
 from math import ceil
