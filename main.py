@@ -3,6 +3,7 @@ import TestInterface.test_ai_interface as TestInterface
 import config
 from UnitTests.BaseUnitTest import runTest
 import argparse
+import AI_interface
 
 
 def main():
@@ -18,15 +19,15 @@ def main():
                              'disables loading if = 0')
     args = parser.parse_args()
 
-    # interface = AI_interface.AIInterface()
+    interface = AI_interface.AIInterface()
     # interface.train_model(starting_train_step=args.starting_episode)
-    # interface.train_torch_model(starting_train_step=args.starting_episode)
+    interface.train_torch_model(starting_train_step=args.starting_episode)
     # interface.collect_dummy_data()
     # interface.testEnv()
     # interface.PPO_algorithm()
 
-    test_interface = TestInterface.AIInterface()
-    test_interface.train_model(starting_train_step=args.starting_episode)
+    # test_interface = TestInterface.AIInterface()
+    # test_interface.train_model(starting_train_step=args.starting_episode)
 
 
 if __name__ == "__main__":
