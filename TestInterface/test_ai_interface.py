@@ -132,19 +132,11 @@ class AIInterface:
         while True:
             weights = global_agent.get_weights()
             buffers = BufferWrapper(global_buffer)
-            print('starting experience')
-            start = time.time()
             data_workers.collect_gameplay_experience(env, buffers, weights)
-            end = time.time()
-            print(f'finished experience in: {end - start}s')
 
             while global_buffer.available_batch():
-                print('starting training')
-                start = time.time()
                 gameplay_experience_batch = global_buffer.sample_batch()
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 train_step += 1
                 if train_step % 10 == 0:
                     global_agent.tft_save_model(train_step)
-                end = time.time()
-                print(f'finished training in: {end - start}s')

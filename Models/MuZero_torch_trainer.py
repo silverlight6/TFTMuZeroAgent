@@ -97,6 +97,7 @@ class Trainer(object):
             'policy': target_policy_mask,
             # 'action': target_policy_mask,
         }
+
         def name_to_mask(name):
             return next(k for k in masks if k in name)
 

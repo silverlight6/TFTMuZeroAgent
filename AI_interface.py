@@ -269,6 +269,7 @@ class AIInterface:
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(2)
+        ray.get(workers)
 
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())

@@ -450,6 +450,7 @@ class player:
                 for ind, item in enumerate(curr_champ.items):
                     start = (ind * 6) + 8
                     finish = start + 6
+                    i_index = 0
                     if item in uncraftable_items:
                         i_index = list(uncraftable_items).index(item) + 1
                     elif item in item_builds.keys():
@@ -1347,8 +1348,8 @@ class player:
             self.board[s_champion.x][s_champion.y] = None
         if field:
             self.num_units_in_play -= 1
-        self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars) + " from position {"
-                   + str(s_champion.x) + ", " + str(s_champion.y) + "}")
+        self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars) + " from position ["
+                   + str(s_champion.x) + ", " + str(s_champion.y) + "]")
         return True
 
     """
@@ -1565,7 +1566,8 @@ class player:
         if self.kayn_turn_count >= 3:
             self.kayn_transform()
         for x in self.thieves_gloves_loc:
-            self.thieves_gloves(x[0], x[1])
+            if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
+                self.thieves_gloves(x[0], x[1])
 
     """
     Description - Called at the conclusion of the game to the player who won the game
