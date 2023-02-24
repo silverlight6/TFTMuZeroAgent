@@ -44,6 +44,7 @@ class MCTS:
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
                 self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
+            # print(string_mapping)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations

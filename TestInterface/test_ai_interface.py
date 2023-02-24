@@ -79,8 +79,8 @@ class DataWorker(object):
         return [np.asarray(tensors), masks]
 
     def decode_action_to_one_hot(self, str_action, key):
-        if key == "player_0":
-            print(str_action)
+        # if key == "player_0":
+        #     print(str_action)
         num_items = str_action.count("_")
         split_action = str_action.split("_")
         element_list = [0, 0, 0]
