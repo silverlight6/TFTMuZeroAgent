@@ -20,22 +20,31 @@ class Step_Function:
         self.observation_objs = observation_objs
 
     """
+    Description - Method used for generating a new shop for a given player
+    Inputs      - player: Player object
+                    Any alive player.
+    """
+    def generate_shop(self, key, player):
+        self.shops[key] = self.pool_obj.sample(player, 5)
+        self.observation_objs[key].generate_shop_vector(self.shops[key], player)
+
+
+    """
     Description - Method used for generating a new shop for all players
     Inputs      - players: Dictionary of player objects
                     All of the players in the game. Currently both alive or dead. Used at the start of turn.
     """
-
     def generate_shops(self, players):
         for player in players.values():
             if player:
                 self.shops[player.player_num] = self.pool_obj.sample(player, 5)
+        self.generate_shop_vectors(players)
 
     """
     Description - Method used for generating a new shop vector for the observation for all players
     Inputs      - players: Dictionary of player objects
                     All of the players in the game. Currently both alive or dead.
     """
-
     def generate_shop_vectors(self, players):
         for player in players.keys():
             if players[player]:
@@ -50,7 +59,6 @@ class Step_Function:
                   y: Int
                     y_coord
     """
-
     def dcord_to_2dcord(self, dcord):
         x = dcord % 7
         y = (dcord - x) // 7
@@ -70,7 +78,6 @@ class Step_Function:
                   game_observations: Dictionary of Game_Observations
                     Used for updating the observation after pass and shop actions.
     """
-
     def batch_2d_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
@@ -80,11 +87,11 @@ class Step_Function:
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()
                 game_observations[key].generate_other_player_vectors(player, players)
-                player.print("passing action")
+                player.print(f"pass action")
             elif action_selector == 1:
                 # Buy from shop
                 champ_shop_target = np.argmax(action[6:11])
-                self.batch_shop(champ_shop_target, player, game_observations[key])
+                self.batch_shop(champ_shop_target, player, game_observations[key], key)
             elif action_selector == 2:
                 # Swap champ place
                 target_1 = np.argmax(action[6:43])
@@ -433,9 +440,9 @@ class Step_Function:
             # Python doesn't allow comparisons between arrays,
             # so we're just checking if the nth value is 1 (true) or 0 (false)
             if player.action_vector[0]:
-                self.batch_multi_step(action, player, players, game_observations[key])
+                self.batch_multi_step(action, player, players, game_observations[key], key)
             if player.action_vector[1]:
-                self.batch_shop(action, player, game_observations[key])
+                self.batch_shop(action, player, game_observations[key], key)
                 player.action_vector = np.array([1, 0, 0, 0, 0, 0, 0, 0])
             # Move item to board
             if player.current_action == 3:
@@ -519,7 +526,7 @@ class Step_Function:
             # Some function that evens out rewards to all other players
         return 0
 
-    def batch_multi_step(self, action, player, players, game_observation):
+    def batch_multi_step(self, action, player, players, game_observation, player_id):
         player.current_action = action
         if action == 0:
             player.action_vector = np.array([0, 1, 0, 0, 0, 0, 0, 0])
@@ -527,8 +534,8 @@ class Step_Function:
         # action vector already == np.array([1, 0, 0, 0, 0, 0, 0, 0]) by this point
         elif action == 1:
             if player.refresh():
-                self.shops[player.player_num] = self.pool_obj.sample(player, 5)
-                game_observation.generate_shop_vector(self.shops[player.player_num], player)
+                self.shops[player_id] = self.pool_obj.sample(player, 5)
+                game_observation.generate_shop_vector(self.shops[player_id], player)
 
         elif action == 2:
             player.buy_exp()
@@ -556,21 +563,21 @@ class Step_Function:
             # This would normally be end turn but figure it out later
             pass
 
-    def batch_shop(self, shop_action, player, game_observation):
+    def batch_shop(self, shop_action, player, game_observation, player_id):
         if shop_action > 4:
             shop_action = int(np.floor(np.random.rand(1, 1) * 5))
 
-        if self.shops[player.player_num][shop_action] == " ":
+        if self.shops[player_id][shop_action] == " ":
             player.reward += player.mistake_reward
             return
-        if self.shops[player.player_num][shop_action].endswith("_c"):
-            c_shop = self.shops[player.player_num][shop_action].split('_')
+        if self.shops[player_id][shop_action].endswith("_c"):
+            c_shop = self.shops[player_id][shop_action].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
         else:
-            a_champion = champion.champion(self.shops[player.player_num][shop_action])
+            a_champion = champion.champion(self.shops[player_id][shop_action])
         success = player.buy_champion(a_champion)
         if success:
-            self.shops[player.player_num][shop_action] = " "
-            game_observation.generate_shop_vector(self.shops[player.player_num], player)
+            self.shops[player_id][shop_action] = " "
+            game_observation.generate_shop_vector(self.shops[player_id], player)
         else:
             return
