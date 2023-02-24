@@ -11,49 +11,37 @@ Prediction = collections.namedtuple(
 class Trainer(object):
     def __init__(self, global_agent):
         self.global_agent = global_agent
+        self.init_learning_rate = config.INIT_LEARNING_RATE
+        self.decay_steps = config.WEIGHT_DECAY
+        self.alpha = config.LR_DECAY_FUNCTION
         self.optimizer = self.create_optimizer()
-        self.loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-        # self.value_loss = tf.keras.losses.MeanSquaredError()
 
     def create_optimizer(self):
-        # TODO: Change this to Adam
-        optimizer = torch.optim.SGD(self.global_agent.parameters(), lr=config.SGD_LR_INIT, 
-                                    momentum=config.MOMENTUM, weight_decay=config.SGD_WEIGHT_DECAY)
+        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
+                                     weight_decay=config.WEIGHT_DECAY)
         return optimizer
-    
+
+    def decayed_learning_rate(self, step):
+        step = min(step, self.decay_steps)
+        cosine_decay = 0.5 * (1 + np.cos(np.pi * step / self.decay_steps))
+        decayed = (1 - self.alpha) * cosine_decay + self.alpha
+        return self.init_learning_rate * decayed
+
     # Same as muzero-general
     def adjust_lr(self, train_step):
-        # adjust learning rate, step lr every lr_decay_steps
-        lr = config.SGD_LR_INIT * config.SGD_LR_DECAY_RATE ** (
-            train_step / config.SGD_LR_DECAY_STEPS
-        )
+        lr = self.decayed_learning_rate(train_step)
 
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
 
     def train_network(self, batch, agent, train_step, summary_writer):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy = batch
-        # if i % config.checkpoint_interval == 0:
-        #     storage.save_network(i, network)
-        # with tf.GradientTape() as tape:
-        #     loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
-        #                              value, reward, policy, train_step, summary_writer)
-
-        # grads = tape.gradient(loss, agent.get_rl_training_variables())
-
-        # self.optimizer.apply_gradients(zip(grads, agent.get_rl_training_variables()))
-
-        # loss = self.compute_loss(...)
-        # optimizer.zero_grad()
-        # loss.backward()
-        # optimizer.step()
         self.adjust_lr(train_step)
         self.optimizer.zero_grad()
 
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, train_step, summary_writer)
-        # loss.backward()
-        # Apparently this works? i don't know if this is supposed to be mean or sum
+
         loss.mean().backward()
         self.optimizer.step()
 
@@ -141,11 +129,13 @@ class Trainer(object):
                 else torch.tensor(prediction.policy_logits)
 
             accs['value_loss'].append(
-                self.scale_gradient(self.loss_fct(value_logits, target_value_encoded[:, tstep]),
+                self.scale_gradient((-target_value_encoded[:, tstep] * torch.nn.LogSoftmax(dim=1)(value_logits)).sum(1),
                                     gradient_scales['value'][tstep])
             )
+
             accs['reward_loss'].append(
-                self.scale_gradient(self.loss_fct(reward_logits, target_reward_encoded[:, tstep]),
+                self.scale_gradient((-target_reward_encoded[:, tstep] *
+                                     torch.nn.LogSoftmax(dim=1)(reward_logits)).sum(1),
                                     gradient_scales['value'][tstep])
             )
 
@@ -156,7 +146,8 @@ class Trainer(object):
             # entropy_loss = -tfd.Independent(tfd.Categorical(
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
-            policy_loss = self.loss_fct(policy_logits, torch.tensor([i[tstep] for i in target_policy]))
+            policy_loss = (- torch.tensor([i[tstep] for i in target_policy]) *
+                           torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(1)
             # policy_loss = tf.reduce_sum(-tf.convert_to_tensor([i[tstep] for i in target_policy]) *
             #                             tf.nn.log_softmax(logits=prediction.policy_logits), -1)
 
