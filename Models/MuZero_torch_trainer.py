@@ -57,7 +57,6 @@ class Trainer(object):
         target_reward = torch.from_numpy(target_reward)
         target_value = torch.from_numpy(target_value)
 
-        print(next(agent.parameters()).is_cuda)
         # initial step
         output = agent.initial_inference(observation)
 
@@ -116,7 +115,7 @@ class Trainer(object):
             torch.from_numpy(enc.encode(torch.reshape(v, (-1,)))),
             (-1, num_target_steps,
              int(enc.num_steps))) for enc, v in ((agent.reward_encoder, target_reward),
-                                            (agent.value_encoder, target_value)))
+                                                 (agent.value_encoder, target_value)))
 
         accs = collections.defaultdict(list)
         for tstep, prediction in enumerate(predictions):
@@ -127,14 +126,15 @@ class Trainer(object):
             reward = torch.from_numpy(prediction.reward)
             value_logits = torch.from_numpy(prediction.value_logits)
             reward_logits = torch.from_numpy(prediction.reward_logits)
-            policy_logits = prediction.policy_logits if torch.is_tensor(prediction.policy_logits) else torch.tensor(prediction.policy_logits)
+            policy_logits = prediction.policy_logits if torch.is_tensor(prediction.policy_logits) \
+                else torch.tensor(prediction.policy_logits)
 
             accs['value_loss'].append(
-                self.scale_gradient(self.loss_fct(value_logits,target_value_encoded[:, tstep]),
+                self.scale_gradient(self.loss_fct(value_logits, target_value_encoded[:, tstep]),
                                     gradient_scales['value'][tstep])
             )
             accs['reward_loss'].append(
-                self.scale_gradient(self.loss_fct(reward_logits,target_reward_encoded[:, tstep]),
+                self.scale_gradient(self.loss_fct(reward_logits, target_reward_encoded[:, tstep]),
                                     gradient_scales['value'][tstep])
             )
 
@@ -151,11 +151,11 @@ class Trainer(object):
 
             accs['policy_loss'].append(
                 self.scale_gradient(policy_loss, gradient_scales['policy'][tstep]))
-
             accs['value_diff'].append(
                 torch.abs(torch.squeeze(value) - target_value[:, tstep]))
             accs['reward_diff'].append(
                 torch.abs(torch.squeeze(reward) - target_reward[:, tstep]))
+
             # accs['policy_acc'].append(
             #     tf.keras.metrics.categorical_accuracy(
             #         target_policy[:, tstep],

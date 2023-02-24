@@ -49,7 +49,6 @@ class GlobalBuffer:
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
-            time.sleep(1)
             self.storage_ptr.set_trainer_busy.remote(True)
             return True
         time.sleep(20)

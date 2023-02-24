@@ -1207,6 +1207,7 @@ class player:
                   False: Item was not able to be returned. No unit at specified bench location
     """
     # TODO: Handle case where item_bench if full
+    # TODO: Thieves_gloves bug appeared again on self.thieves_gloves_loc.remove([x, -1])
     def return_item_from_bench(self, x) -> bool:
         # if the unit exists
         if self.bench[x]:
