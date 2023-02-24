@@ -37,12 +37,13 @@ class Trainer(object):
     def train_network(self, batch, agent, train_step, summary_writer):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy = batch
         self.adjust_lr(train_step)
-        self.optimizer.zero_grad()
 
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, train_step, summary_writer)
 
-        loss.mean().backward()
+        loss.mean()
+        self.optimizer.zero_grad()
+        loss.backward()
         self.optimizer.step()
 
         # storage.save_network(config.training_steps, network)\
@@ -130,14 +131,15 @@ class Trainer(object):
                 else torch.tensor(prediction.policy_logits)
 
             accs['value_loss'].append(
-                self.scale_gradient((-target_value_encoded[:, tstep] * torch.nn.LogSoftmax(dim=1)(value_logits)).sum(1),
+                self.scale_gradient((-target_value_encoded[:, tstep] *
+                                     torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1),
                                     gradient_scales['value'][tstep])
             )
-
+            
             accs['reward_loss'].append(
                 self.scale_gradient((-target_reward_encoded[:, tstep] *
-                                     torch.nn.LogSoftmax(dim=1)(reward_logits)).sum(1),
-                                    gradient_scales['value'][tstep])
+                                     torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1),
+                                    gradient_scales['reward'][tstep])
             )
 
             # predictions.policy_logits is (actiondims, batch) 
@@ -147,13 +149,11 @@ class Trainer(object):
             # entropy_loss = -tfd.Independent(tfd.Categorical(
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
-            policy_loss = (- torch.tensor([i[tstep] for i in target_policy]) *
-                           torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(1)
-            # policy_loss = tf.reduce_sum(-tf.convert_to_tensor([i[tstep] for i in target_policy]) *
-            #                             tf.nn.log_softmax(logits=prediction.policy_logits), -1)
 
             accs['policy_loss'].append(
-                self.scale_gradient(policy_loss, gradient_scales['policy'][tstep]))
+                self.scale_gradient((-torch.tensor([i[tstep] for i in target_policy]) *
+                                    torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1),
+                                    gradient_scales['policy'][tstep]))
             accs['value_diff'].append(
                 torch.abs(torch.squeeze(value) - target_value[:, tstep]))
             accs['reward_diff'].append(
