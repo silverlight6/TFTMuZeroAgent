@@ -13,6 +13,7 @@ import time
 import Simulator.utils as utils
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
+import config
 
 ##########################
 ####### Helpers ##########
@@ -607,7 +608,7 @@ class MCTSAgent:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 1.0
+        return config.TEMPERATURE
 
 
 class Batch_MCTSAgent(MCTSAgent):
