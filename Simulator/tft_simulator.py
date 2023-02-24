@@ -118,7 +118,6 @@ class TFT_Simulator(AECEnv):
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
-                    print("{} died".format(key))
                     self.PLAYERS[key] = None
                     self.kill_list.append(key)
                     self.game_round.update_players(self.PLAYERS)

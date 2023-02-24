@@ -201,11 +201,11 @@ class AIInterface:
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         train_step = starting_train_step
         # tf.config.optimizer.set_jit(True)
+        storage = Storage.remote(train_step)
 
-        global_buffer = GlobalBuffer.remote()
+        global_buffer = GlobalBuffer.remote(storage)
 
         trainer = MuZero_trainer.Trainer()
-        storage = Storage.remote(train_step)
 
         env = parallel_env()
 
@@ -246,14 +246,14 @@ class AIInterface:
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_summary_writer = SummaryWriter(train_log_dir)
         train_step = starting_train_step
-        # tf.config.optimizer.set_jit(True)
 
-        global_buffer = GlobalBuffer.remote()
-
-        global_agent = MuZeroNetwork()
         storage = Storage.remote(train_step)
+        global_buffer = GlobalBuffer.remote(storage)
+
+        global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
+        global_agent.to("cuda")
 
         trainer = MuZero_trainer.Trainer(global_agent)
 
@@ -279,6 +279,7 @@ class AIInterface:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
                 if train_step % 100 == 0:

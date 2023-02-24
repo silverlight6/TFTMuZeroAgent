@@ -7,9 +7,10 @@ from collections import deque
 
 @ray.remote
 class GlobalBuffer:
-    def __init__(self):
+    def __init__(self, storage_ptr):
         self.gameplay_experiences = deque(maxlen=25000)
         self.batch_size = config.BATCH_SIZE
+        self.storage_ptr = storage_ptr
 
     # Might be a bug with the action_batch not always having correct dims
     def sample_batch(self):
@@ -47,8 +48,9 @@ class GlobalBuffer:
 
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
-        if queue_length >= self.batch_size:
-            time.sleep(5)
+        if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
+            time.sleep(1)
+            self.storage_ptr.set_trainer_busy.remote(True)
             return True
         time.sleep(20)
         return False

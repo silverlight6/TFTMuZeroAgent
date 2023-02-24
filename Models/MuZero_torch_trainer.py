@@ -1,11 +1,7 @@
 import config
 import collections
 import torch
-import torch.nn.functional as F
 import numpy as np
-from torch.nn import L1Loss
-from torch.cuda.amp import autocast as autocast
-from torch.cuda.amp import GradScaler as GradScaler
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -72,6 +68,7 @@ class Trainer(object):
         target_reward = torch.from_numpy(target_reward)
         target_value = torch.from_numpy(target_value)
 
+        print(next(agent.parameters()).is_cuda)
         # initial step
         output = agent.initial_inference(observation)
 
