@@ -144,10 +144,9 @@ class MuZeroNetwork(AbstractNetwork):
 
         reward = np.zeros(observation.shape[0])
 
+        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
         reward_logits = self.reward_encoder.encode(reward)
-        value = support_to_scalar(value_logits, self.full_support_size)
 
-        value = value.detach().cpu().numpy()
         value_logits = value_logits.detach().cpu().numpy()
         policy_logits = policy_logits.detach().cpu().numpy()
 
@@ -186,12 +185,13 @@ class MuZeroNetwork(AbstractNetwork):
         hidden_state, reward_logits = self.dynamics(encoded_state, action)
         policy_logits, value_logits = self.prediction(hidden_state)
 
-        policy_logits = policy_logits.detach().cpu()
+        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
+        reward = self.reward_encoder.decode(torch.softmax(reward_logits, dim=-1).detach().cpu().numpy())
+
         value_logits = value_logits.detach().cpu().numpy()
         reward_logits = reward_logits.detach().cpu().numpy()
 
-        value = self.value_encoder.decode(softmax_stable(value_logits))
-        reward = self.reward_encoder.decode(softmax_stable(reward_logits))
+        policy_logits = policy_logits.detach().cpu()
 
         outputs = {
             "value": value,
@@ -292,33 +292,3 @@ def contractive_mapping(x, eps=0.001):
 def inverse_contractive_mapping(x, eps=0.001):
     return np.sign(x) * \
            (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
-
-
-# Softmax function in np because we're converting it anyway
-def softmax_stable(x):
-    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
-
-
-def support_to_scalar(logits, full_support_size):
-    """
-    Transform a categorical representation to a scalar
-    See paper appendix Network Architecture
-    """
-    support_size = full_support_size // 2
-    # Decode to a scalar
-    probabilities = torch.softmax(logits, dim=1)
-    support = (
-        torch.as_tensor([x for x in range(-support_size, support_size + 1)])
-        .expand(probabilities.shape)
-        .float()
-        .to(device=probabilities.device)
-    )
-    x = torch.sum(support * probabilities, dim=1, keepdim=True)
-
-    # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
-    x = torch.sign(x) * (
-            ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
-            ** 2
-            - 1
-    )
-    return x

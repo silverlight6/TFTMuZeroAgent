@@ -80,7 +80,7 @@ class ReplayBuffer:
                         value_set.append(value)
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
-                        reward_set.append(self.rewards[current_index])
+                        reward_set.append(reward_correction[current_index])
                         policy_set.append(self.policy_distributions[current_index])
                     elif current_index == num_steps - 1:
                         action_set.append([0, 0, 0])
@@ -91,7 +91,7 @@ class ReplayBuffer:
                         # The value of the terminal state should equal
                         # the value of the cumulative reward at the given state.
                         value_set.append(0.0)
-                        reward_set.append(self.rewards[current_index])
+                        reward_set.append(reward_correction[current_index])
                         # 0 is ok here because this get masked out anyway
                         policy_set.append(self.policy_distributions[0])
                     else:
