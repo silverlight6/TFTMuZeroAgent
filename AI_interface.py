@@ -18,10 +18,15 @@ from Simulator import utils
 
 if config.ARCHITECTURE == 'Pytorch':
     from Models.MCTS_torch import MCTS
+    from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+    import Models.MuZero_torch_trainer as MuZero_trainer
+    from torch.utils.tensorboard import SummaryWriter
+    import torch
 else:
     from Models.MCTS import MCTS
     from Models import MuZero_trainer
     from Models.MuZero_keras_agent import TFTNetwork
+    import tensorflow as tf
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
@@ -187,11 +192,9 @@ class AIInterface:
         ...
 
     def train_model(self, starting_train_step=0):
-        import tensorflow as tf
-        import Models.MuZero_trainer
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=len(gpus), num_cpus=28)
+        ray.init(num_gpus=len(gpus), num_cpus=config.NUM_CPUS)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -232,12 +235,8 @@ class AIInterface:
                     global_agent.tft_save_model(train_step)
 
     def train_torch_model(self, starting_train_step=0):
-        from torch.utils.tensorboard import SummaryWriter
-        from Models.MuZero_torch_agent import MuZeroNetwork
-        import Models.MuZero_torch_trainer as MuZero_trainer
-
-        os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-        ray.init(num_gpus=4, num_cpus=28)
+        gpus = torch.cuda.device_count()
+        ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -247,12 +246,7 @@ class AIInterface:
 
         global_buffer = GlobalBuffer.remote()
 
-        global_agent = MuZeroNetwork()
         storage = Storage.remote(train_step)
-        global_agent_weights = ray.get(storage.get_target_model.remote())
-        global_agent.set_weights(global_agent_weights)
-
-        trainer = MuZero_trainer.Trainer(global_agent)
 
         env = parallel_env()
 
@@ -270,6 +264,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
+        trainer = MuZero_trainer.Trainer(global_agent)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
