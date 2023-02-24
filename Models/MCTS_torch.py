@@ -148,19 +148,19 @@ class MCTS:
             tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, is_reset_lst, mappings)
 
+    """
+    Description - select action from the root visit counts.
+    Inputs      - visit_counts: list
+                      visit counts for each child
+                  temperature: float
+                      the temperature for the distribution
+                  deterministic: bool
+                      True -> select the argmax
+                      False -> sample from the distribution
+    Outputs     - 
+    """
     @staticmethod
-    def select_action(visit_counts, temperature=1, deterministic=True):
-        """select action from the root visit counts.
-        Parameters
-        ----------
-        visit_counts: list
-            visit counts for each child
-        temperature: float
-            the temperature for the distribution
-        deterministic: bool
-            True -> select the argmax
-            False -> sample from the distribution
-        """
+    def select_action(visit_counts, temperature=1.0, deterministic=True):
         action_probs = [visit_count_i ** (1 / temperature) for visit_count_i in visit_counts]
         total_count = sum(action_probs)
         action_probs = [x / total_count for x in action_probs]
