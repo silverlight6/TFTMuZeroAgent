@@ -35,7 +35,7 @@ class MCTS:
             network_output = self.network.initial_inference(observation[0])
             # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
 
-            value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
+            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             policy_logits = network_output["policy_logits"]
 
             # 0.01 seconds
@@ -58,7 +58,7 @@ class MCTS:
                       for i in range(self.NUM_ALIVE)]
 
             # 0.01 seconds
-            roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, value_prefix_pool, policy_logits_pool, mappings)
+            roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, reward_pool, policy_logits_pool, mappings)
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
@@ -127,7 +127,7 @@ class MCTS:
             # 0.003 seconds
             network_output = self.network.recurrent_inference(tensors_states, last_action)
 
-            value_prefix_pool = np.array(network_output["value_logits"]).reshape(-1).tolist()
+            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
             # 0.002 seconds
@@ -143,7 +143,7 @@ class MCTS:
 
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
-            tree.batch_back_propagate(hidden_state_index_x, discount, value_prefix_pool, value_pool, policy_logits,
+            tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings)
 
     """
