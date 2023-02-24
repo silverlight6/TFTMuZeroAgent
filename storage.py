@@ -2,7 +2,7 @@ import ray
 import config
 
 
-@ray.remote
+@ray.remote(num_gpus=0.01)
 class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()

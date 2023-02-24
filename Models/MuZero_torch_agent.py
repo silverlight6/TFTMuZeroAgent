@@ -62,38 +62,25 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = torch.nn.DataParallel(
-            mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 config.LAYER_HIDDEN_SIZE)
-        )
 
-        self.action_encodings = torch.nn.DataParallel(
-            mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 config.LAYER_HIDDEN_SIZE)
-        )
-
-        lstm_cells = [
-            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256),
-            torch.nn.LSTMCell(256, 256)
-        ]
 
         self.dynamics_encoded_state_network = [
-            torch.nn.DataParallel(cell) for cell in lstm_cells
+            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).cuda(),
+            torch.nn.LSTMCell(256, 256).cuda()
         ]
 
-        self.dynamics_reward_network = torch.nn.DataParallel(
-            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
-        )
 
-        self.prediction_policy_network = torch.nn.DataParallel(
-            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 config.ACTION_ENCODING_SIZE)
-        )
-        self.prediction_value_network = torch.nn.DataParallel(
-            mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+
+        self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                 self.full_support_size)
-        )
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
@@ -230,7 +217,7 @@ def mlp(
     for i in range(len(sizes) - 1):
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
-    return torch.nn.Sequential(*layers)
+    return torch.nn.Sequential(*layers).cuda()
 
 
 class ValueEncoder:
