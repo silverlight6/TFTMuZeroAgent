@@ -62,25 +62,25 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.LAYER_HIDDEN_SIZE)
+        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] *
+                                          config.N_HEAD_HIDDEN_LAYERS, config.LAYER_HIDDEN_SIZE)
 
         self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.LAYER_HIDDEN_SIZE)
+                                    config.LAYER_HIDDEN_SIZE)
 
         self.dynamics_encoded_state_network = [
             torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).cuda(),
             torch.nn.LSTMCell(256, 256).cuda()
         ]
 
-        self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                self.full_support_size)
+        self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+                                           config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                config.ACTION_ENCODING_SIZE)
+        self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+                                             config.N_HEAD_HIDDEN_LAYERS, config.ACTION_ENCODING_SIZE)
 
-        self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                self.full_support_size)
+        self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
@@ -201,7 +201,6 @@ class MuZeroNetwork(AbstractNetwork):
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
-
         return outputs
 
 
@@ -265,8 +264,8 @@ class ValueEncoder:
         lower_encoding, upper_encoding = (
             np.equal(step, self.step_range_int).astype(float) * mod
             for step, mod in (
-            (lower_step, lower_mod),
-            (upper_step, upper_mod),)
+                (lower_step, lower_mod),
+                (upper_step, upper_mod),)
         )
         return lower_encoding + upper_encoding
 
@@ -290,8 +289,7 @@ def contractive_mapping(x, eps=0.001):
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return np.sign(x) * \
-           (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+    return np.sign(x) * (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 
 # Softmax function in np because we're converting it anyway
@@ -316,9 +314,5 @@ def support_to_scalar(logits, full_support_size):
     x = torch.sum(support * probabilities, dim=1, keepdim=True)
 
     # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
-    x = torch.sign(x) * (
-            ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
-            ** 2
-            - 1
-    )
+    x = torch.sign(x) * (((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001)) ** 2 - 1)
     return x

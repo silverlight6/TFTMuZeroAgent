@@ -350,6 +350,9 @@ def cassiopeia(champion):
         if includes_all:
             line_end_point.append([f[0], f[1]])
 
+    if not line_end_point[0]:
+        print("Someone figure out why cassiopeia is dying")
+        return
     line_end_point = line_end_point[0]
     # line_end_point = line_end_point[random.randint(0,len(line_end_point) - 1)]
 
@@ -2751,6 +2754,10 @@ def yuumi(champion):
         allies.append([e, e.health / e.max_health])
 
     allies = sorted(allies, key=lambda x: x[1])
+    # If the allied already died. Should basically never need to return
+    if not allies:
+        print("some dead yummi allies. Should never really see this.")
+        return
     first_target = allies[0][0]
 
     # heal and change AS for the first target

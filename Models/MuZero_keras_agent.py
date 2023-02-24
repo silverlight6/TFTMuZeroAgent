@@ -108,8 +108,6 @@ class Network(tf.keras.Model):
                  prediction: tf.keras.Model
                  ) -> None:
         super().__init__(name='MuZeroAgent')
-        # temp
-        self.rec_count = 0
 
         self.config = config
         self.representation: tf.keras.Model = representation
@@ -193,8 +191,6 @@ class Network(tf.keras.Model):
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
-        self.rec_count += 1
-
         return outputs
 
     def rnn_to_flat(self, state):
