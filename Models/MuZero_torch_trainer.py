@@ -41,7 +41,7 @@ class Trainer(object):
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, train_step, summary_writer)
 
-        loss = loss.mean()
+        loss.mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -136,17 +136,17 @@ class Trainer(object):
             value_loss = (-target_value_encoded[:, tstep] *
                           torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1).requires_grad_(True)
             value_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['value'][tstep]))
-            
+
             accs['value_loss'].append(
-              value_loss
+                self.scale_gradient((-target_value_encoded[:, tstep] *
+                                     torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1),
+                                    gradient_scales['value'][tstep])
             )
-            
-            reward_loss = (-target_reward_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1).requires_grad_(True)
-            reward_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['reward'][tstep]))
 
             accs['reward_loss'].append(
-              reward_loss
+                self.scale_gradient((-target_reward_encoded[:, tstep] *
+                                     torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1),
+                                    gradient_scales['reward'][tstep])
             )
 
             # predictions.policy_logits is (actiondims, batch) 
@@ -157,15 +157,10 @@ class Trainer(object):
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
 
-            policy_loss = (-torch.tensor([i[tstep] for i in target_policy]) *
-                          torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1).requires_grad_(True)
-            policy_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['policy'][tstep]))
-
             accs['policy_loss'].append(
-              policy_loss
-            )
-                                    
-
+                self.scale_gradient((-torch.tensor([i[tstep] for i in target_policy]) *
+                                    torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1),
+                                    gradient_scales['policy'][tstep]))
             accs['value_diff'].append(
                 torch.abs(torch.squeeze(value) - target_value[:, tstep]))
             accs['reward_diff'].append(

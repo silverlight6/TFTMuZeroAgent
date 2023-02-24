@@ -448,9 +448,9 @@ class player:
                 champion_info_array[6] = curr_champ.stars / 3
                 champion_info_array[7] = curr_champ.cost / 5
                 for ind, item in enumerate(curr_champ.items):
-                    start = (ind * 6) + 8
+                    start = (ind * 6) + 7
                     finish = start + 6
-                    i_index = 0
+                    i_index = []
                     if item in uncraftable_items:
                         i_index = list(uncraftable_items).index(item) + 1
                     elif item in item_builds.keys():

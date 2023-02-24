@@ -138,5 +138,5 @@ class AIInterface:
                 gameplay_experience_batch = global_buffer.sample_batch()
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 train_step += 1
-                if train_step % 10 == 0:
+                if train_step % 100 == 0:
                     global_agent.tft_save_model(train_step)
