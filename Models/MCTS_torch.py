@@ -42,7 +42,7 @@ class MCTS:
             policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
             # 0.003 seconds
-            policy_logits_pool, string_mapping, mapping, policy_sizes = \
+            policy_logits_pool, string_mapping, mappings, policy_sizes = \
                 self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
@@ -158,7 +158,7 @@ class MCTS:
     Outputs     - 
     """
     @staticmethod
-    def select_action(visit_counts, temperature=1, deterministic=True):
+    def select_action(visit_counts, temperature=1.0, deterministic=True):
         action_probs = [visit_count_i ** (1 / temperature) for visit_count_i in visit_counts]
         total_count = sum(action_probs)
         action_probs = [x / total_count for x in action_probs]
