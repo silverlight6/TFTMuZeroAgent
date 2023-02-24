@@ -15,7 +15,6 @@ class Trainer(object):
         self.decay_steps = config.WEIGHT_DECAY
         self.alpha = config.LR_DECAY_FUNCTION
         self.optimizer = self.create_optimizer()
-        self.loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
 
     def create_optimizer(self):
         optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
@@ -130,11 +129,13 @@ class Trainer(object):
                 else torch.tensor(prediction.policy_logits)
 
             accs['value_loss'].append(
-                self.scale_gradient(self.loss_fct(value_logits, target_value_encoded[:, tstep]),
+                self.scale_gradient((-target_value_encoded[:, tstep] * torch.nn.LogSoftmax(dim=1)(value_logits)).sum(1),
                                     gradient_scales['value'][tstep])
             )
+
             accs['reward_loss'].append(
-                self.scale_gradient(self.loss_fct(reward_logits, target_reward_encoded[:, tstep]),
+                self.scale_gradient((-target_reward_encoded[:, tstep] *
+                                     torch.nn.LogSoftmax(dim=1)(reward_logits)).sum(1),
                                     gradient_scales['value'][tstep])
             )
 
@@ -145,7 +146,8 @@ class Trainer(object):
             # entropy_loss = -tfd.Independent(tfd.Categorical(
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
-            policy_loss = self.loss_fct(policy_logits, torch.tensor([i[tstep] for i in target_policy]))
+            policy_loss = (- torch.tensor([i[tstep] for i in target_policy]) *
+                           torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(1)
             # policy_loss = tf.reduce_sum(-tf.convert_to_tensor([i[tstep] for i in target_policy]) *
             #                             tf.nn.log_softmax(logits=prediction.policy_logits), -1)
 
