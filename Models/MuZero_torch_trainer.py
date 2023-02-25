@@ -51,11 +51,11 @@ class Trainer(object):
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, train_step, summary_writer):
 
-        target_value_mask = torch.from_numpy(target_value_mask)
-        target_reward_mask = torch.from_numpy(target_reward_mask)
-        target_policy_mask = torch.from_numpy(target_policy_mask)
-        target_reward = torch.from_numpy(target_reward)
-        target_value = torch.from_numpy(target_value)
+        target_value_mask = torch.from_numpy(target_value_mask).to('cuda')
+        target_reward_mask = torch.from_numpy(target_reward_mask).to('cuda')
+        target_policy_mask = torch.from_numpy(target_policy_mask).to('cuda')
+        target_reward = torch.from_numpy(target_reward).to('cuda')
+        target_value = torch.from_numpy(target_value).to('cuda')
 
         # initial step
         output = agent.initial_inference(observation)
@@ -106,16 +106,16 @@ class Trainer(object):
 
         # This is more rigorous than the MuZero paper.
         gradient_scales = {
-            k: torch.div(torch.tensor(1.0), torch.maximum(torch.sum(m[:, 1:], -1), torch.tensor(1)))
+            k: torch.div(torch.tensor(1.0).to('cuda'), torch.maximum(torch.sum(m[:, 1:], -1).to('cuda'), torch.tensor(1).to('cuda')))
             for k, m in masks.items()
         }
         gradient_scales = {
-            k: [torch.ones_like(s)] + [s] * (num_target_steps - 1)
+            k: [torch.ones_like(s).to('cuda')] + [s] * (num_target_steps - 1)
             for k, s in gradient_scales.items()
         }
 
         target_reward_encoded, target_value_encoded = (torch.reshape(
-            torch.tensor(enc.encode(torch.reshape(v, (-1,)))),
+            torch.tensor(enc.encode(torch.reshape(v, (-1,)).to('cpu'))).to('cuda'),
             (-1, num_target_steps,
              int(enc.num_steps))) for enc, v in ((agent.reward_encoder, target_reward),
                                                  (agent.value_encoder, target_value)))
@@ -126,12 +126,13 @@ class Trainer(object):
             # prediction.value_logits is [batch_size, 601]
 
             # TODO: Possibly keep them as tensors in the inference functions
-            value = torch.from_numpy(prediction.value)
-            reward = torch.from_numpy(prediction.reward)
-            value_logits = torch.from_numpy(prediction.value_logits)
-            reward_logits = torch.from_numpy(prediction.reward_logits)
-            policy_logits = prediction.policy_logits if torch.is_tensor(prediction.policy_logits) \
-                else torch.tensor(prediction.policy_logits)
+            value = torch.from_numpy(prediction.value).to('cuda')
+            reward = torch.from_numpy(prediction.reward).to('cuda')
+            value_logits = prediction.value_logits.to('cuda')
+            reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
+                else torch.tensor(prediction.reward_logits).to('cuda')
+            policy_logits = prediction.policy_logits.to('cuda') if torch.is_tensor(prediction.policy_logits) \
+                else torch.tensor(prediction.policy_logits).to('cuda')
 
             value_loss = (-target_value_encoded[:, tstep] *
                           torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1).requires_grad_(True)
@@ -157,7 +158,7 @@ class Trainer(object):
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
 
-            policy_loss = (-torch.tensor([i[tstep] for i in target_policy]) *
+            policy_loss = (-torch.tensor([i[tstep] for i in target_policy]).to('cuda') *
                           torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1).requires_grad_(True)
             policy_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['policy'][tstep]))
 
@@ -238,7 +239,7 @@ class Trainer(object):
         return mean_loss
 
     def scale_gradient(self, grad, scale):
-        return scale * grad + (1 - scale) * grad.detach()
+        return scale * grad + (1 - scale) * grad
 
     def l2_loss(self, t):
         return torch.sum(t ** 2) / 2

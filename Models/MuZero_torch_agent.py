@@ -105,7 +105,7 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
-        action = torch.from_numpy(action).to('cuda')
+        action = torch.from_numpy(action).to('cuda').to(torch.int64)
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
         one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
@@ -147,9 +147,6 @@ class MuZeroNetwork(AbstractNetwork):
         value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
         reward_logits = self.reward_encoder.encode(reward)
 
-        value_logits = value_logits.detach().cpu().numpy()
-        policy_logits = policy_logits.detach().cpu().numpy()
-
         outputs = {
             "value": value,
             "value_logits": value_logits,
@@ -187,11 +184,6 @@ class MuZeroNetwork(AbstractNetwork):
 
         value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
         reward = self.reward_encoder.decode(torch.softmax(reward_logits, dim=-1).detach().cpu().numpy())
-
-        value_logits = value_logits.detach().cpu().numpy()
-        reward_logits = reward_logits.detach().cpu().numpy()
-
-        policy_logits = policy_logits.detach().cpu()
 
         outputs = {
             "value": value,
