@@ -65,6 +65,7 @@ class Observation:
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
 
         # Fetch and concatenate mask
+        # silver and the magic maskstalk
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
                 player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask)
         return {"tensor": total_tensor_observation, "mask": mask}

@@ -90,8 +90,11 @@ class player:
         # util_mask[1] = 0 if bench is full, 1 if not
         # util_mask[2] = 0 if item_bench is full, 1 if not
         self.util_mask = np.ones(3, dtype=np.int8)
-        self.thieves_glove_mask = np.zeros(38, dtype=np.int8)
-        self.glove_item_mask = np.zeros(38, dtype=np.int8)
+        # thieves_glove_mask = 1 if unit has thieves glove, 0 if not
+        self.thieves_glove_mask = np.zeros(37, dtype=np.int8)
+        # glove_item_mask = 1 if unit has sparring glove + item, 0 if not
+        self.glove_item_mask = np.zeros(37, dtype=np.int8)
+        # glove_mask = 1 if there is a sparring glove in that item slot, 0 if not
         self.glove_mask = np.zeros(10, dtype=np.int8)
         self.shop_costs = np.ones(5)
 
@@ -181,7 +184,7 @@ class player:
             self.sell_champion(a_champion, field=False)
             self.reward += self.mistake_reward
             if DEBUG:
-                print("Trying to buy a unit with bench full")
+                self.print("Trying to buy a unit with bench full")
             return False
         bench_loc = self.bench_vacancy()
         self.bench[bench_loc] = a_champion
@@ -225,9 +228,9 @@ class player:
     def bench_full(self):
         for u in self.bench:
             if not u:
-                self.util_mask[1] = 0
+                self.util_mask[1] = 1
                 return False
-        self.util_mask[1] = 1
+        self.util_mask[1] = 0
         return True
 
     """
@@ -441,6 +444,7 @@ class player:
     Description - Generates the bench vector. The same encoding style for the board is used for the bench.
     """
     def generate_bench_vector(self):
+        space = 0
         bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
         for x_bench in range(len(self.bench)):
             # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
@@ -465,9 +469,11 @@ class player:
                 if x_bench == 9:
                     print("length of bench = {}".format(len(self.bench)))
                 self.bench_mask[x_bench] = 0
+                space = 1
             bench[x_bench*config.CHAMP_ENCODING_SIZE:
-                    x_bench*config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
+                  x_bench*config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
         self.bench_vector = bench
+        self.util_mask[1] = space
 
     """
     Description - Generates the chosen vector, this uses binary encoding of the index in possible chosen traits. 
