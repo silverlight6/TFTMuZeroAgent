@@ -115,7 +115,7 @@ class Trainer(object):
         }
 
         target_reward_encoded, target_value_encoded = (torch.reshape(
-            enc.encode(torch.reshape(v, (-1,))),
+            torch.tensor(enc.encode(torch.reshape(v, (-1,)))),
             (-1, num_target_steps,
              int(enc.num_steps))) for enc, v in ((agent.reward_encoder, target_reward),
                                                  (agent.value_encoder, target_value)))
