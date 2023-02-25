@@ -198,9 +198,19 @@ class MCTS:
         # mask[3] = bench mask - 1 if slot is occupied, 0 if not
         # mask[4] = item mask - 1 if slot is occupied, 0 if not
         # mask[5] = util mask
+        # mask[5][0] = board mask, mask[5][1] = bench mask, mask[5][2] item_bench mask
         # mask[6] = thieves glove mask - 1 if slot has a thieves glove, 0 if not
         # mask[7] = sparring glove + item mask
         # mask[8] = glove mask
+        # TODO: add 7 more masks for:
+        # 1. Kayn items on bench
+        # 2. Kayn champions on board
+        # 3. Reforger on bench
+        # 4. thieves glove on bench
+        # 5. if champion has items
+        # 6. if champion has FULL items
+        # 7. if champion is azir sandguard
+        # 
         actions = []
         mappings = []
         second_mappings = []
@@ -213,7 +223,7 @@ class MCTS:
             local_counter += 1
             # for every shop index...
             for i in range(5):
-                if mask[idx][1][i]:
+                if mask[idx][1][i] and mask[idx][5][1]:
                     local_action.append(policy_logits[idx][local_counter])
                     local_mappings.append(bytes(f"1_{i}", "utf-8"))
                     second_local_mappings.append(f"1_{i}")
