@@ -884,7 +884,7 @@ class Batch_MCTSAgent(MCTSAgent):
             item_actions[i] = (temp_action, temp_prob/items_sum)
         actions += item_actions
 
-        if gold >= 4:
+        if gold >= 4 and level < 9:
             actions.append(("4", action[0][4] / actions_sum))
         if gold >= 2:
             actions.append(("5", action[0][5] / actions_sum))
