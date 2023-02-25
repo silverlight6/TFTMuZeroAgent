@@ -36,7 +36,7 @@ class MCTS:
             # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
-            policy_logits = network_output["policy_logits"]
+            policy_logits = network_output["policy_logits"].detach().cpu().numpy()
 
             # 0.01 seconds
             policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
@@ -131,7 +131,7 @@ class MCTS:
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
             # 0.002 seconds
-            policy_logits, _, mappings, _ = self.sample(network_output["policy_logits"].numpy(),
+            policy_logits, _, mappings, _ = self.sample(network_output["policy_logits"].detach().cpu().numpy(),
                                                         self.default_string_mapping, self.default_byte_mapping,
                                                         config.NUM_SAMPLES)
             # These assignments take 0.0001 > time

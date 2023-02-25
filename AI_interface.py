@@ -28,7 +28,7 @@ else:
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.195)
+@ray.remote(num_gpus=0.10)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
