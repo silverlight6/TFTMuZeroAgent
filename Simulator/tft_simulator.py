@@ -66,7 +66,7 @@ class TFT_Simulator(AECEnv):
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
-        self.infos = {agent: {} for agent in self.agents}
+        self.infos = {agent: {"state_empty": False} for agent in self.agents}
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
@@ -86,8 +86,10 @@ class TFT_Simulator(AECEnv):
                     Dict({
                         "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
                         "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8), 
-                                MultiDiscrete(np.ones(5) * 2, dtype=np.int8), MultiDiscrete(np.ones(28) * 2, dtype=np.int8), 
-                                MultiDiscrete(np.ones(9) * 2, dtype=np.int8), MultiDiscrete(np.ones(10) * 2, dtype=np.int8)))
+                                       MultiDiscrete(np.ones(5) * 2, dtype=np.int8),
+                                       MultiDiscrete(np.ones(28) * 2, dtype=np.int8),
+                                       MultiDiscrete(np.ones(9) * 2, dtype=np.int8),
+                                       MultiDiscrete(np.ones(10) * 2, dtype=np.int8)))
                     }) for _ in self.agents
                 ],
             )
@@ -151,7 +153,7 @@ class TFT_Simulator(AECEnv):
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
 
-        self.infos = {agent: {} for agent in self.agents}
+        self.infos = {agent: {"state_empty": False} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
 
         self.rewards = {agent: 0 for agent in self.agents}
@@ -188,7 +190,7 @@ class TFT_Simulator(AECEnv):
         # if we don't use this line, rewards will compound per step
         # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
         self._clear_rewards()
-        self.infos[self.agent_selection] = {}
+        self.infos[self.agent_selection] = {"state_empty": self.PLAYERS[self.agent_selection].state_empty()}
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
@@ -218,6 +220,8 @@ class TFT_Simulator(AECEnv):
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
 
                     self.terminations = {a: True for a in self.agents}
+
+                self.infos = {a: {"state_empty": False} for a in self.agents}
 
             _live_agents = self.agents[:]
             for k in self.kill_list:

@@ -1387,14 +1387,17 @@ class player:
         if not golden:
             self.gold += cost_star_values[s_champion.cost - 1][s_champion.stars - 1]
             self.pool_obj.update_pool(s_champion, 1)
+            self.generate_player_vector()
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
             self.board[s_champion.x][s_champion.y] = None
+            self.generate_board_vector()
         if field:
             self.num_units_in_play -= 1
         self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars) + " from position ["
                    + str(s_champion.x) + ", " + str(s_champion.y) + "]")
+
         return True
 
     """
@@ -1426,9 +1429,31 @@ class player:
                        str(self.bench[location].stars) + " from bench_location " + str(location))
             self.bench[location] = None
             self.generate_bench_vector()
+            self.generate_player_vector()
             return return_champ
         # print("Nothing at bench location")
         return False
+
+    """
+    Description - Returns true if there are no possible actions in the state
+    Outputs     - True: No possible actions
+                  False: There are actions possible
+    """
+    # TODO: Check case where gold == 1 and no champions with cost available to buy
+    def state_empty(self):
+        if self.gold == 0:
+            for xbench in self.bench:
+                if xbench:
+                    return False
+            for x_board in range(len(self.board)):
+                for y_board in range(len(self.board[0])):
+                    if self.board[x_board][y_board]:
+                        return False
+            return True
+        else:
+            return False
+
+
 
     """
     Description - 

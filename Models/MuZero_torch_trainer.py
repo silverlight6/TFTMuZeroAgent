@@ -120,7 +120,6 @@ class Trainer(object):
              int(enc.num_steps))) for enc, v in ((agent.reward_encoder, target_reward),
                                                  (agent.value_encoder, target_value)))
 
-
         accs = collections.defaultdict(list)
         for tstep, prediction in enumerate(predictions):
             # prediction.value_logits is [batch_size, 601]
@@ -143,7 +142,7 @@ class Trainer(object):
             )
             
             reward_loss = (-target_reward_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1).requires_grad_(True)
+                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1).requires_grad_(True)
             reward_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['reward'][tstep]))
 
             accs['reward_loss'].append(
@@ -165,7 +164,6 @@ class Trainer(object):
             accs['policy_loss'].append(
               policy_loss
             )
-                                    
 
             accs['value_diff'].append(
                 torch.abs(torch.squeeze(value) - target_value[:, tstep]))
