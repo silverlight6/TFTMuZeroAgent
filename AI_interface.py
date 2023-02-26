@@ -28,7 +28,7 @@ else:
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.10)
+@ray.remote(num_gpus=0.18)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -60,9 +60,10 @@ class DataWorker(object):
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
-                    # Store the information in a buffer to train on later.
-                    buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i], reward[key],
-                                                       policy[i])
+                    if not info[key]["state_empty"]:
+                        # Store the information in a buffer to train on later.
+                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i], reward[key],
+                                                           policy[i])
 
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
