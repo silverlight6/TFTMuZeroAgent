@@ -201,7 +201,7 @@ def mlp(
         layer_sizes,
         output_size,
         output_activation=torch.nn.Identity,
-        activation=torch.nn.ELU,
+        activation=torch.nn.ReLU,
 ):
     sizes = [input_size] + layer_sizes + [output_size]
     layers = []
