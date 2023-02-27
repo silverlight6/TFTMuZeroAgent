@@ -70,8 +70,8 @@ class MCTS:
             actions = []
             target_policy = []
             temp = self.visit_softmax_temperature()  # controls the way actions are chosen
+            deterministic = False  # False = sample distribution, True = argmax
             for i in range(self.NUM_ALIVE):
-                deterministic = False  # False = sample distribution, True = argmax
                 distributions = roots_distributions[i]
                 action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
@@ -386,7 +386,8 @@ class MCTS:
                 for sample in samples:
                     # Add the base value for the sample
                     # +6 because we have to skip the first 6 values but never want to hit the last 2
-                    local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
+                    # local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
+                    local_logits.append(1 / (num_samples - num_core_actions))
                     # Add the name of the string action
                     local_string.append(string_mapping[i][sample + num_pass_shop_actions])
                     # Same but for the c++ side
@@ -472,21 +473,6 @@ class MCTS:
 
     def fill_metadata(self) -> Dict[str, str]:
         return {'network_id': str(self.network.training_steps())}
-
-    @staticmethod
-    def histogram_sample(distribution, temperature, use_softmax=False, mask=None):
-        actions = [d[1] for d in distribution]
-        visit_counts = np.array([d[0] for d in distribution], dtype=np.float64)
-        if temperature == 0.:
-            probs = masked_count_distribution(visit_counts, mask=mask)
-            return actions[np.argmax(probs)]
-        if use_softmax:
-            logits = visit_counts / temperature
-            probs = masked_softmax(logits, mask)
-        else:
-            logits = visit_counts ** (1. / temperature)
-            probs = masked_count_distribution(logits, mask)
-        return np.random.choice(actions, p=probs)
 
     @staticmethod
     def visit_softmax_temperature():

@@ -51,7 +51,7 @@ INIT_LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
-REWARD_LOSS_SCALING = 0
+REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.

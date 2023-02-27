@@ -532,11 +532,8 @@ class player:
         # if gold < 4, do not allow to level
         if self.gold < 4:
             self.decision_mask[4] = 0
-            # if gold < 2, do not allow to roll
-            if self.gold < 2:
-                self.decision_mask[5] = 0
-            else:
-                self.decision_mask[5] = 1
+            # Can not roll down to 0 gold
+            self.decision_mask[5] = 0
         else:
             self.decision_mask[4] = 1
             self.decision_mask[5] = 1
@@ -1414,9 +1411,9 @@ class player:
     Outputs     - True: No possible actions
                   False: There are actions possible
     """
-    # TODO: Check case where gold == 1 and no champions with cost available to buy
     def state_empty(self):
-        if self.gold == 0:
+        # Need both in case of an empty shop.
+        if self.gold == 0 or self.gold < min(self.shop_costs):
             for xbench in self.bench:
                 if xbench:
                     return False
@@ -1427,7 +1424,6 @@ class player:
             return True
         else:
             return False
-
 
 
     """
