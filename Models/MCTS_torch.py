@@ -348,10 +348,12 @@ class MCTS:
             # Add samples for pass and the 5 shop options
             # Note that if there are not 5 available shop options, the sample here will be move options
             if len(policy_logits[i]) <= num_samples:
-                output_logits.append(policy_logits[i])
+                for j in range(len(policy_logits[i])):
+                    local_logits.append(policy_logits[i][j] / len(policy_logits[i]))
                 output_string_mapping.append(string_mapping[i])
                 output_byte_mapping.append(byte_mapping[i])
                 policy_sizes.append(len(policy_logits[i]))
+                output_logits.append(local_logits)
             else:
                 # for fixed_sample in range(0, 6):
                 #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
@@ -387,7 +389,9 @@ class MCTS:
                     # Add the base value for the sample
                     # +6 because we have to skip the first 6 values but never want to hit the last 2
                     # local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
-                    local_logits.append(1 / (num_samples - num_core_actions))
+                    local_logits.append(policy_logits[i][sample + num_pass_shop_actions] /
+                                        (num_samples - num_core_actions))
+                    # local_logits.append(1 / (num_samples - num_core_actions))
                     # Add the name of the string action
                     local_string.append(string_mapping[i][sample + num_pass_shop_actions])
                     # Same but for the c++ side
