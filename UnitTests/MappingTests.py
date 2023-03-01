@@ -11,5 +11,5 @@ def mapping_test():
         index = utils.flatten_action(action)
         assert default_mapping[index] == action
         
-def list_of_actions():
+def list_of_tests():
     mapping_test()
