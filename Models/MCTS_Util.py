@@ -32,11 +32,10 @@ def create_default_mapping():
     return mappings, second_mappings
 
 
-_, default_mapping = create_default_mapping()
-default_mapping = default_mapping[0]
+# _, default_mapping = create_default_mapping()
+# default_mapping = default_mapping[0]
 
-# TODO: make a permanent tests for these in case something changes
-# Takes in an action in array format [0, 0, 0] and outputs the default mapping index
+# Takes in an action in string format "0" or "2_0_1" and outputs the default mapping index
 action_dimensions = [1, 5, 667, 370, 1, 1]
 def flatten_action(str_action):
     # Decode action
