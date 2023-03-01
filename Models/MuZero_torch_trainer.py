@@ -39,12 +39,12 @@ class Trainer(object):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
 
+        self.optimizer.zero_grad()
+
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
         loss = loss.mean()
-        print(loss)
-        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
@@ -132,15 +132,16 @@ class Trainer(object):
             # TODO: Possibly keep them as tensors in the inference functions
             value = torch.from_numpy(prediction.value).to('cuda')
             reward = torch.from_numpy(prediction.reward).to('cuda')
-            value_logits = prediction.value_logits.to('cuda')
+            value_logits = prediction.value_logits.to('cuda').requires_grad_(True)
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
                 else torch.tensor(prediction.reward_logits).to('cuda')
+            reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits
             # policy_logits = prediction.policy_logits.to('cuda') if torch.is_tensor(prediction.policy_logits) \
                 # else torch.tensor(prediction.policy_logits).to('cuda')
 
             value_loss = (-target_value_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1).requires_grad_(True)
+                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
             value_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['value'][tstep]))
             
             accs['value_loss'].append(
@@ -148,7 +149,7 @@ class Trainer(object):
             )
             
             reward_loss = (-target_reward_encoded[:, tstep] *
-                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1).requires_grad_(True)
+                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
             reward_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['reward'][tstep]))
 
             accs['reward_loss'].append(
@@ -163,8 +164,8 @@ class Trainer(object):
             #     * config.policy_loss_entropy_regularizer
             policy_loss = []
             for i in range(len(target_policy)):
-              policy_loss.append((-torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
-            policy_loss = torch.stack(policy_loss).cuda()
+              policy_loss.append((-torch.tensor(target_policy[i][tstep]).cuda() * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
+            policy_loss = torch.stack(policy_loss)
 
             # policy_loss = (-(
             #   [torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])
@@ -252,7 +253,7 @@ class Trainer(object):
         return mean_loss
 
     def scale_gradient(self, grad, scale):
-        return scale * grad + (1 - scale) * grad
+        return scale * grad
 
     def l2_loss(self, t):
         return torch.sum(t ** 2) / 2
