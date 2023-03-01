@@ -43,6 +43,7 @@ class Trainer(object):
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
         loss = loss.mean()
+        print(loss)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -134,8 +135,9 @@ class Trainer(object):
             value_logits = prediction.value_logits.to('cuda')
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
                 else torch.tensor(prediction.reward_logits).to('cuda')
-            policy_logits = prediction.policy_logits.to('cuda') if torch.is_tensor(prediction.policy_logits) \
-                else torch.tensor(prediction.policy_logits).to('cuda')
+            policy_logits = prediction.policy_logits
+            # policy_logits = prediction.policy_logits.to('cuda') if torch.is_tensor(prediction.policy_logits) \
+                # else torch.tensor(prediction.policy_logits).to('cuda')
 
             value_loss = (-target_value_encoded[:, tstep] *
                           torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1).requires_grad_(True)
@@ -152,7 +154,6 @@ class Trainer(object):
             accs['reward_loss'].append(
               reward_loss
             )
-
             # predictions.policy_logits is (actiondims, batch) 
             # target_policy is (batch,unrollsteps+1,action_dims)
 
@@ -160,11 +161,19 @@ class Trainer(object):
             # entropy_loss = -tfd.Independent(tfd.Categorical(
             #     logits = logits, dtype=float), reinterpreted_batch_ndims=1).entropy()
             #     * config.policy_loss_entropy_regularizer
-            print(len(target_policy))
-            print(len(target_policy[0]))
-            print(len(target_policy[0][0]))
-            policy_loss = (-torch.tensor([i[tstep] for i in target_policy]).to('cuda') *
-                           torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1).requires_grad_(True)
+            policy_loss = []
+            for i in range(len(target_policy)):
+              policy_loss.append((-torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
+            policy_loss = torch.stack(policy_loss).cuda()
+
+            # policy_loss = (-(
+            #   [torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])
+            #   for i in range(len(target_policy)])
+            # )).sum(-1).requires_grad_(True)
+
+            # policy_loss = (-torch.tensor([i[tstep] for i in target_policy]).to('cuda') *
+            #                torch.nn.LogSoftmax(dim=-1)(policy_logits)).sum(-1).requires_grad_(True)
+
             policy_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['policy'][tstep]))
 
             accs['policy_loss'].append(
