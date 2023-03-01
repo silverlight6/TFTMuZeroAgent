@@ -3,7 +3,6 @@ import collections
 import torch
 import numpy as np
 from Models.MCTS_Util import map_distribution_to_sample
-import time
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -40,15 +39,13 @@ class Trainer(object):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
 
+        self.optimizer.zero_grad()
+
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
-        loss.mean()
-        self.optimizer.zero_grad()
-        start = time.time()
+        loss = loss.mean()
         loss.backward()
-        end = time.time()
-        print(f'loss.backward {end - start}')
         self.optimizer.step()
 
         # storage.save_network(config.training_steps, network)\
@@ -135,29 +132,29 @@ class Trainer(object):
             # TODO: Possibly keep them as tensors in the inference functions
             value = torch.from_numpy(prediction.value).to('cuda')
             reward = torch.from_numpy(prediction.reward).to('cuda')
-            value_logits = prediction.value_logits.to('cuda')
+            value_logits = prediction.value_logits.to('cuda').requires_grad_(True)
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
                 else torch.tensor(prediction.reward_logits).to('cuda')
+            reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits
             # policy_logits = prediction.policy_logits.to('cuda') if torch.is_tensor(prediction.policy_logits) \
                 # else torch.tensor(prediction.policy_logits).to('cuda')
 
             value_loss = (-target_value_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1).requires_grad_(True)
+                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
             value_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['value'][tstep]))
-
+            
             accs['value_loss'].append(
               value_loss
             )
-
+            
             reward_loss = (-target_reward_encoded[:, tstep] *
-                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1).requires_grad_(True)
+                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
             reward_loss.register_hook(lambda grad: self.scale_gradient(grad, gradient_scales['reward'][tstep]))
 
             accs['reward_loss'].append(
               reward_loss
             )
-
             # predictions.policy_logits is (actiondims, batch) 
             # target_policy is (batch,unrollsteps+1,action_dims)
 
@@ -256,7 +253,7 @@ class Trainer(object):
         return mean_loss
 
     def scale_gradient(self, grad, scale):
-        return scale * grad + (1 - scale) * grad
+        return scale * grad
 
     def l2_loss(self, t):
         return torch.sum(t ** 2) / 2
