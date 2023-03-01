@@ -1,4 +1,5 @@
 import config
+import torch
 
 def create_default_mapping():
     mappings = [bytes("0", "utf-8")]
@@ -42,15 +43,19 @@ Outputs     - output_policy - List
                   The improved policy output of the MCTS with size [batch, encoding_size] 
 """
 def map_distribution_to_sample(mapping, policy_logits):
+    # print(policy_logits.shape)
     output_policy = []
     for i in range(policy_logits.shape[0]):
         local_counter = 0
-        local_policy = []
+        local_policy = torch.empty(len(mapping[i]))
+        # local_policy_original = []
         for j in range(len(default_mapping)):
             if default_mapping[j] == mapping[i][local_counter]:
-                local_policy.append(policy_logits[i][local_counter])
+                local_policy[local_counter] = policy_logits[i][j]
+                # local_policy_original.append(policy_logits[i][j])
                 local_counter += 1
                 if local_counter == len(mapping[i]):
                     break
         output_policy.append(local_policy)
+
     return output_policy
