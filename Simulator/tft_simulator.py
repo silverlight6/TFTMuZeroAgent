@@ -218,6 +218,7 @@ class TFT_Simulator(AECEnv):
                             self.PLAYERS[player_id].won_game()
                             self.rewards[player_id] = 300
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
+                            self.PLAYERS[player_id] = None # Without this the reward is reset
 
                     self.terminations = {a: True for a in self.agents}
                 self.game_round.start_round()
