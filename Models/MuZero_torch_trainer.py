@@ -3,6 +3,7 @@ import collections
 import torch
 import numpy as np
 from Models.MCTS_Util import map_distribution_to_sample
+import time
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -45,7 +46,10 @@ class Trainer(object):
         loss = loss.mean()
         print(loss)
         self.optimizer.zero_grad()
+        start = time.time()
         loss.backward()
+        end = time.time()
+        print(f'loss.backward {end - start}')
         self.optimizer.step()
 
         # storage.save_network(config.training_steps, network)\
@@ -163,8 +167,8 @@ class Trainer(object):
             #     * config.policy_loss_entropy_regularizer
             policy_loss = []
             for i in range(len(target_policy)):
-              policy_loss.append((-torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
-            policy_loss = torch.stack(policy_loss).cuda()
+              policy_loss.append((-torch.tensor(target_policy[i][tstep]).cuda() * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
+            policy_loss = torch.stack(policy_loss)
 
             # policy_loss = (-(
             #   [torch.tensor(target_policy[i][tstep]) * torch.nn.LogSoftmax(dim=-1)(policy_logits[i])

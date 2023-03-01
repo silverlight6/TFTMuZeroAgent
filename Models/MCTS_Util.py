@@ -1,5 +1,8 @@
 import config
 import torch
+from Simulator import utils
+import numpy as np
+import time
 
 def create_default_mapping():
     mappings = [bytes("0", "utf-8")]
@@ -32,6 +35,38 @@ def create_default_mapping():
 _, default_mapping = create_default_mapping()
 default_mapping = default_mapping[0]
 
+# TODO: make a permanent tests for these in case something changes
+# Takes in an action in array format [0, 0, 0] and outputs the default mapping index
+action_dimensions = [1, 5, 667, 370, 1, 1]
+def flatten_action(str_action):
+    # Decode action
+    num_items = str_action.count("_") # 1
+    split_action = str_action.split("_") # [1, 0]
+    
+    action = [0, 0, 0]
+    for i in range(num_items + 1):
+        action[i] = int(split_action[i])
+
+    # To index
+    action_type = action[0]
+    index = sum(action_dimensions[:action_type])
+    if action_type == 1:
+        index += action[1]
+    elif action_type == 2:
+        a = action[1]
+        b = action[2]
+        if a < 28:
+            prev = sum([37 - i for i in range(a)])
+            index += prev + (b - a - 1)
+        else:
+            index += action_dimensions[2] - (37 - a)
+    elif action_type == 3:
+        a = action[1]
+        b = action[2]
+        index += (10 * a) + b
+    # No change needed for 4 and 5
+    return index
+
 """
 Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
               to train on the improved policy. 0s for everywhere that was not sampled.
@@ -45,17 +80,8 @@ Outputs     - output_policy - List
 def map_distribution_to_sample(mapping, policy_logits):
     # print(policy_logits.shape)
     output_policy = []
+    mapping_indicies = [np.asarray([flatten_action(m) for m in batch]) for batch in mapping]
     for i in range(policy_logits.shape[0]):
-        local_counter = 0
-        local_policy = torch.empty(len(mapping[i]))
-        # local_policy_original = []
-        for j in range(len(default_mapping)):
-            if default_mapping[j] == mapping[i][local_counter]:
-                local_policy[local_counter] = policy_logits[i][j]
-                # local_policy_original.append(policy_logits[i][j])
-                local_counter += 1
-                if local_counter == len(mapping[i]):
-                    break
-        output_policy.append(local_policy)
-
+        sampled_policy = torch.index_select(policy_logits[i], -1, torch.from_numpy(mapping_indicies[i]).cuda())
+        output_policy.append(sampled_policy)
     return output_policy
