@@ -216,7 +216,7 @@ class AIInterface:
         for i, worker in enumerate(data_workers):
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
-            time.sleep(2)
+            time.sleep(0.5)
         # ray.get(workers)
 
         while True:
