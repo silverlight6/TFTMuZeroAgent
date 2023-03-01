@@ -3,6 +3,7 @@ import config
 import numpy as np
 import core.ctree.cytree as tree
 import torch
+import Models.MCTS_Util as util
 from typing import Dict
 from scipy.stats import entropy
 
@@ -24,7 +25,7 @@ class MCTS:
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
-        self.default_byte_mapping, self.default_string_mapping = self.create_default_mapping()
+        self.default_byte_mapping, self.default_string_mapping = util.create_default_mapping()
 
     def policy(self, observation):
         with torch.no_grad():
@@ -41,6 +42,12 @@ class MCTS:
             # 0.01 seconds
             policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
+            noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
+                                          len(policy_logits_pool[i])).astype(np.float32).tolist()
+                      for i in range(self.NUM_ALIVE)]
+
+            policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
+
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
                 self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
@@ -53,12 +60,7 @@ class MCTS:
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
             # for statement to deal with different lengths due to masking.
-            noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
-                                          len(policy_logits_pool[i])).astype(np.float32).tolist()
-                      for i in range(self.NUM_ALIVE)]
-
-            # 0.01 seconds
-            roots_cpp.prepare(config.ROOT_EXPLORATION_FRACTION, noises, reward_pool, policy_logits_pool, mappings)
+            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool, mappings)
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
@@ -75,19 +77,11 @@ class MCTS:
                 distributions = roots_distributions[i]
                 action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
-                if len(string_mapping[i]) != 1:
-                    output_policy = self.map_sample_to_distribution(string_mapping[i],
-                                                                    [x / config.NUM_SIMULATIONS for x in distributions])
-                else:
-                    # There is only one possible action (empty board bench and no gold)
-                    output_policy = [0 for _ in range(config.ACTION_ENCODING_SIZE)]
-                    # Only action is to pass.
-                    output_policy[0] = 1
-                target_policy.append(output_policy)
+                target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
-            return actions, target_policy
+            return actions, target_policy, string_mapping
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -145,6 +139,14 @@ class MCTS:
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings)
+
+    def add_exploration_noise(self, noise, policy_logits):
+        exploration_fraction = config.ROOT_EXPLORATION_FRACTION
+        for i in range(len(noise)):
+            for j in range(len(noise[i])):
+                policy_logits[i][j] = policy_logits[i][j] * (1 - exploration_fraction) + \
+                                      noise[i][j] * exploration_fraction
+        return policy_logits
 
     """
     Description - select action from the root visit counts.
@@ -281,34 +283,6 @@ class MCTS:
             second_mappings.append(second_local_mappings)
         return actions, mappings, second_mappings
 
-    @staticmethod
-    def create_default_mapping():
-        mappings = [bytes("0", "utf-8")]
-        second_mappings = ["0"]
-        for i in range(5):
-            mappings.append(bytes(f"1_{i}", "utf-8"))
-            second_mappings.append(f"1_{i}")
-        for a in range(37):
-            for b in range(a, 38):
-                if a == b:
-                    continue
-                if a > 27 and b != 37:
-                    continue
-                mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
-                second_mappings.append(f"2_{a}_{b}")
-        for a in range(37):
-            for b in range(10):
-                mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
-                second_mappings.append(f"3_{a}_{b}")
-        mappings.append(bytes("4", "utf-8"))
-        second_mappings.append("4")
-        mappings.append(bytes("5", "utf-8"))
-        second_mappings.append("5")
-        # converting mappings to batch size for all players in a game
-        mappings = [mappings for _ in range(config.NUM_PLAYERS)]
-        second_mappings = [second_mappings for _ in range(config.NUM_PLAYERS)]
-        return mappings, second_mappings
-
     """
     Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
                   total number of actions based off of the current policy to expand on each turn. There are two options
@@ -350,10 +324,11 @@ class MCTS:
             if len(policy_logits[i]) <= num_samples:
                 for j in range(len(policy_logits[i])):
                     local_logits.append(policy_logits[i][j] / len(policy_logits[i]))
+                output_logits.append(local_logits)
                 output_string_mapping.append(string_mapping[i])
                 output_byte_mapping.append(byte_mapping[i])
                 policy_sizes.append(len(policy_logits[i]))
-                output_logits.append(local_logits)
+
             else:
                 # for fixed_sample in range(0, 6):
                 #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
@@ -389,8 +364,7 @@ class MCTS:
                     # Add the base value for the sample
                     # +6 because we have to skip the first 6 values but never want to hit the last 2
                     # local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
-                    local_logits.append(policy_logits[i][sample + num_pass_shop_actions] /
-                                        (num_samples - num_core_actions))
+                    local_logits.append(policy_logits[i][sample + num_pass_shop_actions] / num_samples)
                     # local_logits.append(1 / (num_samples - num_core_actions))
                     # Add the name of the string action
                     local_string.append(string_mapping[i][sample + num_pass_shop_actions])
@@ -402,74 +376,6 @@ class MCTS:
                 output_byte_mapping.append(local_byte)
                 policy_sizes.append(num_samples)
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
-
-    """
-    Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
-                  to train on the improved policy. 0s for everywhere that was not sampled.
-    Inputs      - mapping - List
-                      A string mapping to know which values were sampled and which ones were not
-                  sample_dist - List
-                      The improved policy output of the MCTS with size [batch, num_samples]
-    Outputs     - output_policy - List
-                      The improved policy output of the MCTS with size [batch, encoding_size] 
-    """
-    def map_sample_to_distribution(self, mapping, sample_dist):
-        local_counter = 0
-        output_policy = []
-        # If 0 is part of our sampling (will always be true if using specified sampling)
-        if mapping[local_counter] == "0":
-            output_policy.append(sample_dist[local_counter])
-            local_counter += 1
-        # else add 0 to indicate probability 0.
-        else:
-            output_policy.append(0)
-        # Shop options
-        for i in range(5):
-            if mapping[local_counter] == f"1_{i}":
-                output_policy.append(sample_dist[local_counter])
-                local_counter += 1
-                if local_counter == len(mapping):
-                    local_counter -= 1
-            else:
-                output_policy.append(0)
-        # Movement options
-        for a in range(37):
-            for b in range(a, 38):
-                if a == b:
-                    continue
-                if a > 27 and b != 37:
-                    continue
-                if mapping[local_counter] == f"2_{a}_{b}":
-                    output_policy.append(sample_dist[local_counter])
-                    local_counter += 1
-                    # This line ensures that we do not error out if we found all of our samples
-                    if local_counter == len(mapping):
-                        local_counter -= 1
-                else:
-                    output_policy.append(0)
-        # Item options
-        for a in range(37):
-            for b in range(10):
-                if mapping[local_counter] == f"3_{a}_{b}":
-                    output_policy.append(sample_dist[local_counter])
-                    local_counter += 1
-                    if local_counter == len(mapping):
-                        local_counter -= 1
-                else:
-                    output_policy.append(0)
-        # Level and refresh options.
-        if mapping[local_counter] == "4":
-            output_policy.append(sample_dist[local_counter])
-            local_counter += 1
-            if local_counter == len(mapping):
-                local_counter -= 1
-        else:
-            output_policy.append(0)
-        if mapping[local_counter] == "5":
-            output_policy.append(sample_dist[local_counter])
-        else:
-            output_policy.append(0)
-        return output_policy
 
     @staticmethod
     def softmax_stable(x):
