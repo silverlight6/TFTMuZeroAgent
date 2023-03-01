@@ -9,10 +9,11 @@ class ReplayBuffer:
         self.gameplay_experiences = []
         self.rewards = []
         self.policy_distributions = []
+        self.string_samples = []
         self.action_history = []
         self.g_buffer = g_buffer
 
-    def store_replay_buffer(self, observation, action, reward, policy):
+    def store_replay_buffer(self, observation, action, reward, policy, string_samples):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
@@ -20,6 +21,7 @@ class ReplayBuffer:
         self.action_history.append(action)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
+        self.string_samples.append(string_samples)
 
     def get_prev_action(self):
         if self.action_history:
@@ -58,6 +60,7 @@ class ReplayBuffer:
                 value_set = []
                 reward_set = []
                 policy_set = []
+                sample_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
                     value = 0.0
@@ -80,7 +83,7 @@ class ReplayBuffer:
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(reward_correction[current_index])
                         policy_set.append(self.policy_distributions[current_index])
-
+                        sample_set.append(self.string_samples[current_index])
                     elif current_index == num_steps - 1:
                         action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
@@ -93,7 +96,7 @@ class ReplayBuffer:
                         reward_set.append(reward_correction[current_index])
                         # 0 is ok here because this get masked out anyway
                         policy_set.append(self.policy_distributions[0])
-
+                        sample_set.append(self.string_samples[0])
                     else:
                         # States past the end of games is treated as absorbing states.
                         action_set.append([0, 0, 0])
@@ -103,6 +106,7 @@ class ReplayBuffer:
                         value_set.append(0.0)
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
-                sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                              policy_mask_set, value_set, reward_set, policy_set]
-                self.g_buffer.store_replay_sequence.remote(sample_set)
+                        sample_set.append(self.string_samples[0])
+                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
+                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]
+                self.g_buffer.store_replay_sequence.remote(output_sample_set)

@@ -47,7 +47,7 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy = agent.policy(player_observation)
+                actions, policy, string_samples = agent.policy(player_observation)
 
                 step_actions = self.getStepActions(terminated, actions)
                 storage_actions = utils.decode_action(actions)
@@ -58,8 +58,8 @@ class DataWorker(object):
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
                         # Store the information in a buffer to train on later.
-                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i], reward[key],
-                                                           policy[i])
+                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
+                                                           reward[key], policy[i], string_samples[i])
 
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
