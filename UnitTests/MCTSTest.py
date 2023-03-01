@@ -4,7 +4,7 @@ import config
 import collections
 from Simulator.tft_simulator import TFT_Simulator
 from Simulator.champion import champion
-from Models.MCTS import MCTS
+from Models.MCTS_torch import MCTS
 
 
 """
