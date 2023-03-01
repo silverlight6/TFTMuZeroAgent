@@ -103,6 +103,7 @@ class ReplayBuffer:
                         value_set.append(0.0)
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
+                
                 sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                               policy_mask_set, value_set, reward_set, policy_set]
                 self.g_buffer.store_replay_sequence.remote(sample_set)
