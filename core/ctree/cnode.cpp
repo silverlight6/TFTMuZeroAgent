@@ -325,7 +325,7 @@ namespace tree {
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
         int action_idx = -1;
-        for(int a = 0; a < root->action_num; ++a){
+        for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
             // find the usb score
             float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1,
@@ -340,7 +340,7 @@ namespace tree {
     }
 
     float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
-                     float pb_c_base, float pb_c_init, float discount){
+                     float pb_c_base, float pb_c_init, float discount) {
         float pb_c = 0.0, prior_score = 0.0, value_score = 0.0;
         // the usb formula
         pb_c = log((total_children_visit_counts + pb_c_base + 1) / pb_c_base) + pb_c_init;

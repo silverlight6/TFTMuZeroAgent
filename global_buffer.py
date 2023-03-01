@@ -16,10 +16,11 @@ class GlobalBuffer:
     def sample_batch(self):
         # Returns: a batch of gameplay experiences without regard to which agent.
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
-        target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch, = [], [], [], []
+        target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
+        sample_set_batch = []
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask, \
-                value, reward, policy = self.gameplay_experiences.popleft()
+            value, reward, policy, sample_set = self.gameplay_experiences.popleft()
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -28,6 +29,7 @@ class GlobalBuffer:
             target_value_batch.append(value)
             target_reward_batch.append(reward)
             target_policy_batch.append(policy)
+            sample_set_batch.append(sample_set)
 
         observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
         action_history_batch = np.asarray(action_history_batch)
@@ -38,7 +40,7 @@ class GlobalBuffer:
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
 
         return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
-                target_value_batch, target_reward_batch, target_policy_batch]
+                target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch]
 
     def store_replay_sequence(self, sample):
         # Records a single step of gameplay experience
@@ -50,6 +52,7 @@ class GlobalBuffer:
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
             self.storage_ptr.set_trainer_busy.remote(True)
+            print(queue_length)
             return True
         time.sleep(20)
         return False
