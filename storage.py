@@ -1,6 +1,6 @@
 import ray
 import config
-from Models.MuZero_agent_2 import TFTNetwork
+from Models.MuZero_agent_keras import TFTNetwork
 
 
 @ray.remote

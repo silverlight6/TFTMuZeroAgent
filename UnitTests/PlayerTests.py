@@ -6,7 +6,7 @@ from Simulator.item_stats import trait_items, starting_items
 from Simulator.origin_class_stats import origin_class
 from Simulator.observation import Observation
 from Simulator.step_function import Step_Function
-from Models.MuZero_agent_2 import Batch_MCTSAgent
+from Models.MCTS_keras import Batch_MCTSAgent
 import config
 import numpy as np
 from AI_interface import DataWorker

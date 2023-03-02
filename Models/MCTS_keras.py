@@ -1,0 +1,583 @@
+from typing import Dict, List
+import math
+import numpy as np
+import tensorflow as tf
+import time
+import Simulator.utils as utils
+from Simulator.stats import COST
+from Simulator.pool_stats import cost_star_values
+from Models.MuZero_agent_keras import Network
+import config
+
+def normalize2(value, minimum, maximum):  # faster implementation of normalization
+    if minimum != maximum:
+        ans = (value - minimum) / (maximum - minimum)
+        return ans
+    else:
+        return maximum
+
+
+def update2(value, maximum, minimum):
+    if value > maximum:
+        maximum = value 
+    elif value < minimum:
+        minimum = value
+    return maximum, minimum
+
+class MinMaxStats(object):
+    """A class that holds the min-max values of the tree."""
+
+    def __init__(self, minimum: float, maximum: float):
+        self.maximum = minimum
+        self.minimum = maximum
+        self.set = False
+
+    def update(self, value: float):
+        self.maximum, self.minimum = update2(float(value), float(self.maximum), float(self.minimum))
+        self.set = True       
+
+    def normalize(self, value: float) -> float:
+
+        if self.set is True:
+
+            # We normalize only when we have set the maximum and minimum values (signified by self.set = True).
+            if value == 0:
+                value = 0.0
+            maximum = self.maximum
+            minimum = self.minimum
+            # Convert from 1d tensor to float if needed (JIT function requires float)
+            if type(maximum) != int and type(maximum) != float:
+                maximum = float(maximum)
+            if type(minimum) != int and type(minimum) != float:
+                minimum = float(minimum)
+            if type(value) != int and type(value) != float:
+                value = float(value)
+            ans = normalize2(value, maximum, minimum)
+            return ans
+
+        return value
+
+
+class Node(object):
+
+    # initialize a new node with given prior probability
+    def __init__(self, prior: float):
+        self.visit_count = 0
+        self.to_play = 1
+        self.prior = prior
+        self.value_sum = 0
+        # Initialize empty dictionart to store children nodes
+        # 5 because there are 5 separate actions.
+        self.children = {}
+        self.hidden_state = None
+        self.reward = 0
+
+    # check if the node has been expanded (i.e has children)
+    def expanded(self) -> bool:
+        return len(self.children) > 0
+
+    # calculate the value of the node as an average of visited nodes.
+    def value(self) -> float:
+        if self.visit_count == 0:
+            return 0
+        return self.value_sum / self.visit_count
+
+class ActionHistory(object):
+    """Simple history container used inside the search.
+  Only used to keep track of the actions executed.
+  """
+
+    def __init__(self, history: List):
+        self.history = [history]
+
+    def clone(self):
+        return ActionHistory(self.history)
+
+    def add_action(self, action: List):
+        self.history.append(action)
+
+    def last_action(self) -> List:
+        return self.history[-1]
+
+def expand_node2(network_output, action_dim):
+    policy = [{b: math.exp(network_output[b]) for b in range(action_dim)}]
+    return policy
+
+
+# EXPLANATION OF MCTS:
+"""
+1. select leaf node with maximum value using method called UCB1 
+2. expand the leaf node, adding children for each possible action
+3. Update leaf node and ancestor values using the values learnt from the children
+ - values for the children are generated using neural network 
+4. Repeat above steps a given number of times
+5. Select path with highest value
+"""
+
+
+class MCTSAgent:
+    """
+    Use Monte-Carlo Tree-Search to select moves.
+    """
+
+    def __init__(self,
+                 network: Network,
+                 agent_id: int
+                 ) -> None:
+        self.network: Network = network
+        self.agent_id = agent_id
+
+        self.action_dim = 10
+        self.num_actions = 0
+        self.ckpt_time = time.time_ns()
+
+    def expand_node(self, node: Node, network_output):  # takes negligible time
+        node.to_play = 0
+        node.hidden_state = network_output["hidden_state"]
+        node.reward = network_output["reward"]
+
+        # policy_probs = np.array(masked_softmax(network_output["policy_logits"].numpy()[0]))
+        policy_probs = network_output["policy_logits"].numpy()[0]
+
+        policy = expand_node2(policy_probs, config.ACTION_DIM)
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        policy_sum = sum(policy[0].values())
+        for action, p in policy[0].items():
+            node.children[action] = Node(p / policy_sum)
+
+    def expand_node_old(self, node: Node, network_output):  # old version of expand_node for a failsafe
+        policy = {b: math.exp(network_output["policy_logits"][0][b]) for b in range(self.action_dim)}
+        policy_sum = sum(policy.values())
+        for action, p in policy.items():
+            node.children[action] = Node(p / policy_sum)
+
+    def add_exploration_noise(self, node: dict, key):  # takes 0 time
+        actions = list(node[key].children.keys())
+        noise = np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(actions))
+        frac = config.ROOT_EXPLORATION_FRACTION
+        for a, n in zip(actions, noise):
+            node[node[key].children[a]].prior = node[node[key].children[a]].prior * (1 - frac) + n * frac
+
+    # Select the child with the highest UCB score.
+    def select_child(self, node: dict, key, min_max_stats: MinMaxStats):
+        _, action, max_child = max((self.ucb_score(node, child, min_max_stats, key), action,
+                                child) for action, child in node[key].children.items())
+        return action, max_child
+
+    # The score for a node is based on its value, plus an exploration bonus based on
+    # the prior.
+    @staticmethod
+    def ucb_score(node: dict, child: int, min_max_stats: MinMaxStats, key) -> float:  # Takes aprx 0 time
+        pb_c = math.log((node[key].visit_count + config.PB_C_BASE + 1) /
+                        config.PB_C_BASE) + config.PB_C_INIT
+        pb_c *= math.sqrt(node[key].visit_count) / (node[child].visit_count + 1)
+        prior_score = pb_c * node[child].prior
+        value_score = min_max_stats.normalize(node[child].value())
+        return prior_score + value_score
+
+    # At the end of a simulation, we propagate the evaluation all the way up the
+    # tree to the root.
+    @staticmethod
+    def backpropagate(node: dict, search_path: List[dict], value: float,
+                      min_max_stats: MinMaxStats):  # takes lots of time
+        last_value = value
+        for key in search_path:
+            
+            node[key].value_sum += last_value  # 2.72s
+            node[key].visit_count += 1
+        
+            min_max_stats.update(node[key].value())  # 1.48s
+            
+            last_value = node[key].reward + config.DISCOUNT * value  # 1.76s
+
+    # Core Monte Carlo Tree Search algorithm.
+    # To decide on an action, we run N simulations, always starting at the root of
+    # the search tree and traversing the tree according to the UCB formula until we
+    # reach a leaf node.
+    def run_mcts(self, root: Node, action: List, player_num: int):
+        min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
+
+        for _ in range(config.NUM_SIMULATIONS):
+            history = ActionHistory(action)
+            node = root
+            search_path = [node]
+
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            while node.expanded():
+                action, node = self.select_child(node, min_max_stats)
+                history.add_action(action)
+                search_path.append(node)
+
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = search_path[-2]
+
+            network_output = self.network. \
+                recurrent_inference(parent.hidden_state, np.expand_dims(np.asarray(history.last_action()), axis=0))
+            self.expand_node(node, network_output)
+            self.backpropagate(search_path, network_output["value"], min_max_stats)
+
+    def select_action(self, node: dict):
+        visit_counts = [
+            (node[child].visit_count, action) for action, child in node[0].children.items()
+        ]
+        t = self.visit_softmax_temperature()
+        return self.histogram_sample(visit_counts, t, use_softmax=False)
+
+    def policy(self, observation, previous_action):
+        root = Node(0)
+
+        network_output = self.network.initial_inference(observation)
+        self.expand_node(root, network_output)
+        self.add_exploration_noise(root)
+
+        self.run_mcts(root, network_output["policy_logits"].numpy(), previous_action)
+
+        action = int(self.select_action(root))
+
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+
+        return action, network_output["policy_logits"]
+
+    def fill_metadata(self) -> Dict[str, str]:
+        return {'network_id': str(self.network.training_steps())}
+
+    @staticmethod
+    def histogram_sample(distribution, temperature, use_softmax=False, mask=None):
+        actions = [d[1] for d in distribution]
+        visit_counts = np.array([d[0] for d in distribution], dtype=np.float64)
+        if temperature == 0.:
+            probs = masked_count_distribution(visit_counts, mask=mask)
+            return actions[np.argmax(probs)]
+        if use_softmax:
+            logits = visit_counts / temperature
+            probs = masked_softmax(logits, mask)
+        else:
+            logits = visit_counts ** (1. / temperature)
+            probs = masked_count_distribution(logits, mask)
+        return np.random.choice(actions, p=probs)
+
+    @staticmethod
+    def player_to_play(player_num, action):
+        if action == 7:
+            if player_num == config.NUM_PLAYERS - 1:
+                return 0
+            else:
+                return player_num + 1
+        return player_num
+
+    @staticmethod
+    def visit_softmax_temperature():
+        return config.TEMPERATURE
+
+
+class Batch_MCTSAgent(MCTSAgent):
+    """
+    Use Monte-Carlo Tree-Search to select moves.
+    """
+
+    def __init__(self, network: Network) -> None:
+        super().__init__(network, 0)
+        self.NUM_ALIVE = config.NUM_PLAYERS
+
+    # Core Monte Carlo Tree Search algorithm.
+    # To decide on an action, we run N simulations, always starting at the root of
+    # the search tree and traversing the tree according to the UCB formula until we
+    # reach a leaf node.
+    def run_batch_mcts(self, node: list, action: List):
+        # run_batch_mcts took 5.652412176132202 seconds to finish
+        min_max_stats = [MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD) for _ in range(config.NUM_PLAYERS)]
+        
+        for _ in range(config.NUM_SIMULATIONS):
+            history = [ActionHistory(action[i]) for i in range(self.NUM_ALIVE)]
+            search_path = [[0] for i in range(self.NUM_ALIVE)]
+            
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            
+            for i in range(self.NUM_ALIVE):
+                curr_node = 0  # Starting at root
+                while node[i][curr_node].expanded():
+                    selected_action, curr_node = self.select_child(node[i], curr_node, min_max_stats[i])
+                    history[i].add_action(selected_action)
+                    search_path[i].append(curr_node)
+            
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = [search_path[i][-2] for i in range(self.NUM_ALIVE)]
+            hidden_state = np.asarray([node[i][parent[i]].hidden_state for i in range(self.NUM_ALIVE)])
+            last_action = [history[i].last_action() for i in range(self.NUM_ALIVE)]
+
+            network_output = self.network.recurrent_inference(hidden_state, last_action)  # 11.05s
+            for i in range(self.NUM_ALIVE):
+                self.batch_expand_node(node[i], node[i][search_path[i][-1]].to_play, network_output, search_path[i][-1])
+                
+                self.backpropagate(node[i], search_path[i], network_output["value"].numpy()[i], min_max_stats[i])
+
+    def batch_policy(self, observation, prev_action):
+        # batch_policy took 6.422544717788696 seconds to finish
+        # observation.shape = (8, 8246)
+        self.NUM_ALIVE = observation.shape[0]
+        root = [{0: Node(0)} for _ in range(self.NUM_ALIVE)]
+        network_output = self.network.initial_inference(observation)  # 2.1 seconds
+        
+        for i in range(self.NUM_ALIVE):
+            self.batch_expand_node(root[i], i, network_output, 0, obs=observation[i])  # 0.39 seconds
+            self.add_exploration_noise(root[i], 0)
+            
+        self.run_batch_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
+
+        action = [(self.select_action(root[i])) for i in range(self.NUM_ALIVE)]
+        
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+       
+        return action, network_output["policy_logits"]
+
+    def policy(self, observation, prev_action):
+        # observation.shape = (8246)
+        root = {0: Node(0)}
+        network_output = self.network.initial_inference(observation.reshape(1, 8246))
+        
+        self.expand_node(root, network_output, 0, obs=observation)
+        self.add_exploration_noise(root, 0)
+            
+        self.run_mcts(root, prev_action)  # 24.3 s (3 seconds not in that)
+
+        action = self.select_action(root)
+        
+        # Masking only if training is based on the actions taken in the environment.
+        # Training in MuZero is mostly based on the predicted actions rather than the real ones.
+        # network_output["policy_logits"], action = self.maskInput(network_output["policy_logits"], action)
+
+        # Notes on possibilities for other dimensions at the bottom
+        self.num_actions += 1
+       
+        return action, network_output["policy_logits"]
+
+    def batch_expand_node(self, node: dict, to_play: int, network_output, key, obs=None):
+        # batch_expand_node took 0.021803855895996094 seconds to finish
+        node[key].to_play = to_play
+        node[key].hidden_state = network_output["hidden_state"][to_play]
+        node[key].reward = network_output["reward"][to_play]
+
+        policy_action_probs = network_output["policy_logits"][0][to_play].numpy()
+        policy_target_probs = network_output["policy_logits"][1][to_play].numpy()
+        policy_item_probs = network_output["policy_logits"][2][to_play].numpy()
+
+        policy_action = expand_node2(policy_action_probs, config.ACTION_DIM[0])
+        policy_target = expand_node2(policy_target_probs, config.ACTION_DIM[1])
+        policy_item = expand_node2(policy_item_probs, config.ACTION_DIM[2])
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        # policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+
+        actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
+
+        for action, p in actions_p:
+            children_key = len(node.keys())
+            node[key].children[action] = children_key
+            node[children_key] = Node(p)
+    
+    def expand_node(self, node: dict, network_output, key, obs=None):
+        # batch_expand_node took 0.021803855895996094 seconds to finish
+        node[key].to_play = 0
+        node[key].hidden_state = network_output["hidden_state"]
+        node[key].reward = network_output["reward"]
+
+        policy_action_probs = network_output["policy_logits"][0].numpy()
+        policy_target_probs = network_output["policy_logits"][1].numpy()
+        policy_item_probs = network_output["policy_logits"][2].numpy()
+
+        policy_action = expand_node2(policy_action_probs.reshape(config.ACTION_DIM[0],), config.ACTION_DIM[0])
+        policy_target = expand_node2(policy_target_probs.reshape(config.ACTION_DIM[1],), config.ACTION_DIM[1])
+        policy_item = expand_node2(policy_item_probs.reshape(config.ACTION_DIM[2],), config.ACTION_DIM[2])
+        # This policy sum is not in the Google's implementation. Not sure if required.
+        # policy_sum = sum(policy_action[0].values()) + sum(policy_target[0].values()) + sum(policy_item[0].values())
+
+        actions_p = self.encode_action_to_str(policy_action, policy_target, policy_item, obs)
+
+        for action, p in actions_p:
+            children_key = len(node.keys())
+            node[key].children[action] = children_key
+            node[children_key] = Node(p)
+
+    def run_mcts(self, node: list, action):
+        # run_batch_mcts took 5.652412176132202 seconds to finish
+        min_max_stats = MinMaxStats(config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
+        
+        for _ in range(config.NUM_SIMULATIONS):
+            history = ActionHistory(action)
+            search_path = [0]
+            
+            # There is a chance I am supposed to check if the tree for the non-main-branch
+            # Decision paths (axis 1-4) should be expanded. I am currently only expanding on the
+            # main decision axis.
+            
+            curr_node = 0  # Starting at root
+            while node[curr_node].expanded():
+                selected_action, curr_node = self.select_child(node, curr_node, min_max_stats)
+                history.add_action(selected_action)
+                search_path.append(curr_node)
+            
+            # Inside the search tree we use the dynamics function to obtain the next
+            # hidden state given an action and the previous hidden state.
+            parent = search_path[-2]
+            hidden_state = np.asarray(node[parent].hidden_state)
+            last_action = history.last_action()
+
+            network_output = self.network.recurrent_inference(hidden_state, [last_action])  # 11.05s
+            self.expand_node(node, network_output, search_path[-1])
+            
+            self.backpropagate(node, search_path, network_output["value"].numpy(), min_max_stats)
+
+    def encode_action_to_str(self, action, target, item, obs=None):
+        gold = 100
+        level = 10
+        unit_count = 0
+        shop = [True for _ in range(5)]
+        shop_price = [0 for _ in range(5)]
+        board_bench = [True for _ in range(37)]
+        free_slots = [3 for _ in range(37)]
+        items = [True for _ in range(10)]
+        thieves_gloves = [False for _ in range(10)]
+        normal_gloves = [False for _ in range(10)]
+        error_tg = [False for _ in range(37)]
+        if obs is not None:
+            gold = int(obs[1027])
+            if gold < 2:
+                action[0][5] = 0.
+            if gold < 4:
+                action[0][4] = 0.
+            level = int(obs[1])
+            shop = [np.any(obs[(1029 + i*7):(1036 + i*7)]) for i in range(5)]
+            list_champs = list(COST.keys())
+            shop_price = [cost_star_values[COST[list_champs[utils.champ_binary_decode(obs[(1029 + i*7):(1036 + i*7)])]] - 1]
+                            [int(obs[1035 + i*7] * 1)] for i in range(5)]
+            board_bench = [np.any(obs[(4 + i*26):(30 + i*26)]) for i in range(37)]
+            free_slots = [(not np.any(obs[(12 + i*26):(18 + i*26)])) 
+                            + (not np.any(obs[(18 + i*26):(24 + i*26)])) 
+                            + (not np.any(obs[(24 + i*26):(30 + i*26)])) for i in range(37)]
+            for unit in board_bench[0:28]:
+                if unit:
+                    unit_count += 1  ##TODO THIS IS MISSING SANDGUARDS
+            items = [np.any(obs[(966 + i*6):(972 + i*6)]) for i in range(10)]
+            thieves_gloves = [np.all(obs[(966 + i*6):(972 + i*6)] == np.array([1, 1, 0, 0, 1, 0])) for i in range(10)] #110010 TG encoding, fix magic number
+            normal_gloves = [np.all(obs[(966 + i*6):(972 + i*6)] == np.array([0, 0, 0, 1, 1, 1])) for i in range(10)]
+            error_tg = [np.all(obs[(18 + i*26):(24 + i*26)] == np.array([0, 0, 0, 1, 1, 1]))
+                        or np.all(obs[(24 + i*26):(30 + i*26)] == np.array([0, 0, 0, 1, 1, 1])) for i in range(37)]
+        board_bench.append(False)
+
+        # print("BOARD AND BENCH", board_bench)
+        # print("GOLD", gold)
+        # print("level", level)
+        # print("unit count", unit_count)
+        # print("Shop price", shop_price)
+        # print(error_tg)
+        # print(normal_gloves)
+
+        actions = []
+        actions_sum = action[0][0] + action[0][1] + action[0][2] + action[0][3] + action[0][4] +action[0][5]
+        actions.append(("0",action[0][0] / actions_sum))
+
+        # Hard way of properly calculating probabilities
+        shop_sum = 0.
+        shops = []
+        for i in range(5): #TODO check if there is space in bench
+            if shop[i] and gold >= shop_price[i] and board_bench[-10:-1].count(True) < 9:
+                shops.append((f"1_{i}", action[0][1] * target[0][i] / actions_sum))
+                shop_sum += target[0][i]
+        for i in range(len(shops)):
+            temp_action, temp_prob = shops[i]
+            shops[i] = (temp_action, temp_prob/shop_sum)
+        actions += shops
+
+        target_sum = 0.
+        targets = []
+        # MOVE CHAMPS ON BOARD
+        for a in range(27):
+            for b in range(a+1, 28):
+                if board_bench[a] or board_bench[b]:
+                    targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                    target_sum += target[0][a]  * target[0][b]
+        # SWAP WITH BENCH
+        swaped = {}
+        for a in range(28):
+            for b in range(28, 37):
+                if board_bench[b]:
+                    if board_bench[a] or unit_count < level:
+                        targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                        target_sum += target[0][a]  * target[0][b]
+                elif board_bench[a] and not a in swaped.keys():
+                    targets.append((f"2_{a}_{b}", action[0][2] * target[0][a]  * target[0][b] / actions_sum))
+                    target_sum += target[0][a]  * target[0][b]
+                    swaped[a] = True
+        #SELL UNITS
+        for a in range(37):
+            if board_bench[a]:
+                if 3 - free_slots[a] + items.count(True) < 11:
+                    targets.append((f"2_{a}_37", action[0][2] * target[0][a]  * target[0][37] / actions_sum))
+                    target_sum += target[0][a]  * target[0][37]
+        for i in range(len(targets)):
+            temp_action, temp_prob = targets[i]
+            targets[i] = (temp_action, temp_prob/target_sum)
+        actions += targets
+
+        items_sum = 0.
+        item_actions = []
+        for a in range(37):
+            for b in range(10):
+                if board_bench[a] and free_slots[a] and items[b]:
+                    if thieves_gloves[b]:
+                        if free_slots[a] == 3:
+                            item_actions.append((f"3_{a}_{b}", action[0][3] * target[0][a] * item[0][b] / actions_sum))
+                            items_sum +=  target[0][a] * item[0][b]
+                    elif not (normal_gloves[b] and error_tg[a]):
+                        item_actions.append((f"3_{a}_{b}", action[0][3] * target[0][a] * item[0][b] / actions_sum))
+                        items_sum +=  target[0][a] * item[0][b]
+        for i in range(len(item_actions)):
+            temp_action, temp_prob = item_actions[i]
+            item_actions[i] = (temp_action, temp_prob/items_sum)
+        actions += item_actions
+
+        if gold >= 4 and level < 9:
+            actions.append(("4", action[0][4] / actions_sum))
+        if gold >= 2:
+            actions.append(("5", action[0][5] / actions_sum))
+        return actions
+
+
+def masked_distribution(x, use_exp, mask=None):
+    if mask is None:
+        mask = [1] * len(x)
+    assert sum(mask) > 0, 'Not all values can be masked.'
+    assert len(mask) == len(x), (
+        'The dimensions of the mask and x need to be the same.')
+    x = np.exp(x) if use_exp else np.array(x, dtype=np.float64)
+    mask = np.array(mask, dtype=np.float64)
+    x *= mask
+    if sum(x) == 0:
+        # No unmasked value has any weight. Use uniform distribution over unmasked
+        # tokens.
+        x = mask
+    return x / np.sum(x, keepdims=True)
+
+
+def masked_softmax(x, mask=None):
+    x = np.array(x) - np.max(x, axis=-1)  # to avoid overflow
+    return masked_distribution(x, use_exp=True, mask=mask)
+
+
+def masked_count_distribution(x, mask=None):
+    return masked_distribution(x, use_exp=False, mask=mask)

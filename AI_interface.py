@@ -11,9 +11,10 @@ from global_buffer import GlobalBuffer
 from Models.replay_muzero_buffer import ReplayBuffer
 from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
 from ray.rllib.algorithms.ppo import PPOConfig
-from Models import MuZero_trainer
+from Models import MuZero_trainer_keras
 from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_agent_2 import Batch_MCTSAgent, TFTNetwork
+from Models.MuZero_agent_keras import TFTNetwork
+from Models.MCTS_keras import Batch_MCTSAgent
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
@@ -192,7 +193,7 @@ class AIInterface:
 
         global_buffer = GlobalBuffer.remote()
 
-        trainer = MuZero_trainer.Trainer()
+        trainer = MuZero_trainer_keras.Trainer()
         storage = Storage.remote(train_step)
 
         env = parallel_env()
