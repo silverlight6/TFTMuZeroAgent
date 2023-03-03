@@ -18,6 +18,7 @@ class Observation:
                                                                 config.OBSERVATION_TIME_STEP_INTERVAL)
         self.other_player_observations = {"player_" + str(player_id): np.zeros(306)
                                           for player_id in range(config.NUM_PLAYERS)}
+        self.turn_since_update = 0.01
 
     def observation(self, player_id, player, action_vector=np.array([])):
         # Fetch the shop vector and game comp vector
@@ -32,7 +33,8 @@ class Observation:
                                             player.player_private_vector,
                                             player.board_vector,
                                             game_state_vector,
-                                            action_vector], axis=-1)
+                                            action_vector,
+                                            np.expand_dims(self.turn_since_update, axis=-1)], axis=-1)
 
         # Initially fill the queue with duplicates of first observation
         # so we can still sample when there aren't enough time steps yet
@@ -68,6 +70,7 @@ class Observation:
         # silver and the magic maskstalk
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
                 player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask)
+        self.turn_since_update += 0.01
         return {"tensor": total_tensor_observation, "mask": mask}
 
     def generate_other_player_vectors(self, cur_player, players):
@@ -79,6 +82,7 @@ class Observation:
                                                       other_player.item_vector,
                                                       other_player.player_public_vector], axis=-1)
                 self.other_player_observations[player_id] = other_player_vector
+        self.turn_since_update = 0
 
     def generate_game_comps_vector(self):
         output = np.zeros(208)
