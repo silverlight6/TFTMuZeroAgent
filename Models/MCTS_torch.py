@@ -55,7 +55,7 @@ class MCTS:
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+            roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, max(policy_sizes))
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
@@ -371,6 +371,9 @@ class MCTS:
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
+            if len(local_logits) == 0:
+                print("just how")
+        # print(policy_sizes)
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
