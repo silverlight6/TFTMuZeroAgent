@@ -154,7 +154,6 @@ namespace tree {
     // Setting this to be the number of samples for now but someone should check if that is correct
     CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
-//        std::cout << "Inside root_init" << std::endl;
         this->root_num = root_num;
         this->action_num = action_num;
         this->pool_size = pool_size;
@@ -185,7 +184,6 @@ namespace tree {
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings) {
-//        std::cout << "Inside prepare_no_noise" << std::endl;
         for(int i = 0; i < this->root_num; ++i){
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
@@ -318,7 +316,6 @@ namespace tree {
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
                                std::vector<std::vector<char*>> mappings) {
-//        std::cout << "Inside backpropagate" << std::endl;
         // For each player
         for(int i = 0; i < results.num; ++i){
             results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i]);
@@ -369,7 +366,6 @@ namespace tree {
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results) {
-//        std::cout << "Inside batch_traverse" << std::endl;
 
         // Last action is a multidimensional action so a vector is required. 3 dimensions in our case
         std::vector<int> last_action{0};
