@@ -194,6 +194,9 @@ class TFT_Simulator(AECEnv):
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
+        for agent in self.agents:
+            self.observations[agent] = self.game_observations[agent].observation(
+                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
