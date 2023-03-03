@@ -321,60 +321,56 @@ class MCTS:
             refresh_level_actions = 0
             # Add samples for pass and the 5 shop options
             # Note that if there are not 5 available shop options, the sample here will be move options
-            if len(policy_logits[i]) <= num_samples:
-                for j in range(len(policy_logits[i])):
-                    local_logits.append(policy_logits[i][j] / len(policy_logits[i]))
-                output_logits.append(local_logits)
-                output_string_mapping.append(string_mapping[i])
-                output_byte_mapping.append(byte_mapping[i])
-                policy_sizes.append(len(policy_logits[i]))
 
-            else:
-                # for fixed_sample in range(0, 6):
-                #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
-                #             and config.SELECTED_SAMPLES:
-                #         local_logits.append(policy_logits[i][fixed_sample])
-                #         local_string.append(string_mapping[i][fixed_sample])
-                #         local_byte.append(byte_mapping[i][fixed_sample])
-                #     else:
-                #         num_pass_shop_actions -= 1
-                # # Add samples for refresh and level
-                # # Note if either refresh or level is not available, the samples here will be move options
-                # for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
-                #     if (string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5") \
-                #             and config.SELECTED_SAMPLES:
-                #         local_logits.append(policy_logits[i][last_sample])
-                #         local_string.append(string_mapping[i][last_sample])
-                #         local_byte.append(byte_mapping[i][last_sample])
-                #     else:
-                #         refresh_level_actions -= 1
-                num_core_actions = num_pass_shop_actions + refresh_level_actions
-                # Get the softmax of the policy output
-                probs = self.softmax_stable(policy_logits[i][num_pass_shop_actions:
-                                                             len(policy_logits[i]) - refresh_level_actions])
-                # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
-                # We are removing 8 samples initially because those are the most important actions
-                policy_range = np.arange(stop=len(policy_logits[i]) - num_core_actions)
-                # If we have less options than samples, use all options.
-                # -8 here because we already added 8 samples above
-                samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, replace=False, p=probs)
-                # Sort now so the mapping back to 1081 later is much faster
-                samples.sort()
-                for sample in samples:
+            # for fixed_sample in range(0, 6):
+            #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
+            #             and config.SELECTED_SAMPLES:
+            #         local_logits.append(policy_logits[i][fixed_sample])
+            #         local_string.append(string_mapping[i][fixed_sample])
+            #         local_byte.append(byte_mapping[i][fixed_sample])
+            #     else:
+            #         num_pass_shop_actions -= 1
+            # # Add samples for refresh and level
+            # # Note if either refresh or level is not available, the samples here will be move options
+            # for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
+            #     if (string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5") \
+            #             and config.SELECTED_SAMPLES:
+            #         local_logits.append(policy_logits[i][last_sample])
+            #         local_string.append(string_mapping[i][last_sample])
+            #         local_byte.append(byte_mapping[i][last_sample])
+            #     else:
+            #         refresh_level_actions -= 1
+            num_core_actions = num_pass_shop_actions + refresh_level_actions
+            # Get the softmax of the policy output
+            probs = self.softmax_stable(policy_logits[i][num_pass_shop_actions:
+                                                         len(policy_logits[i]) - refresh_level_actions])
+            # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
+            # We are removing 8 samples initially because those are the most important actions
+            policy_range = np.arange(stop=len(policy_logits[i]) - num_core_actions)
+            # If we have less options than samples, use all options.
+            # -8 here because we already added 8 samples above
+            samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, replace=True, p=probs)
+            # Sort now so the mapping back to 1081 later is much faster
+            samples.sort()
+            prev_sample = -1
+            for sample in samples:
+                if sample == prev_sample:
+                    local_logits[-1] += 1 / (num_samples - num_core_actions)
+                else:
                     # Add the base value for the sample
                     # +6 because we have to skip the first 6 values but never want to hit the last 2
                     # local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
-                    local_logits.append(policy_logits[i][sample + num_pass_shop_actions] / num_samples)
-                    # local_logits.append(1 / (num_samples - num_core_actions))
+                    # local_logits.append(policy_logits[i][sample + num_pass_shop_actions] / num_samples)
+                    local_logits.append(1 / (num_samples - num_core_actions))
                     # Add the name of the string action
                     local_string.append(string_mapping[i][sample + num_pass_shop_actions])
                     # Same but for the c++ side
                     local_byte.append(byte_mapping[i][sample + num_pass_shop_actions])
-                # Need to separate to keep batch_dim the same
-                output_logits.append(local_logits)
-                output_string_mapping.append(local_string)
-                output_byte_mapping.append(local_byte)
-                policy_sizes.append(num_samples)
+                prev_sample = sample
+            output_logits.append(local_logits)
+            output_string_mapping.append(local_string)
+            output_byte_mapping.append(local_byte)
+            policy_sizes.append(len(local_logits))
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
