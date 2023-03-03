@@ -154,6 +154,7 @@ namespace tree {
     // Setting this to be the number of samples for now but someone should check if that is correct
     CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
+//        std::cout << "Inside root_init" << std::endl;
         this->root_num = root_num;
         this->action_num = action_num;
         this->pool_size = pool_size;
@@ -173,7 +174,7 @@ namespace tree {
 
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
-                         const std::vector<std::vector<char*>> &mappings){
+                         const std::vector<std::vector<char*>> &mappings) {
         for(int i = 0; i < this->root_num; ++i) {
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
@@ -183,7 +184,8 @@ namespace tree {
 
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
-                                  const std::vector<std::vector<char*>> &mappings){
+                                  const std::vector<std::vector<char*>> &mappings) {
+//        std::cout << "Inside prepare_no_noise" << std::endl;
         for(int i = 0; i < this->root_num; ++i){
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
@@ -195,17 +197,18 @@ namespace tree {
         this->roots.clear();
     }
 
-    std::vector<std::vector<int>> CRoots::get_distributions(){
+    std::vector<std::vector<int>> CRoots::get_distributions() {
+//        std::cout << "Inside get_distribution" << std::endl;
         std::vector<std::vector<int>> distributions;
         distributions.reserve(this->root_num);
 
-        for(int i = 0; i < this->root_num; ++i){
+        for(int i = 0; i < this->root_num; ++i) {
             distributions.push_back(this->roots[i].get_children_distribution());
         }
         return distributions;
     }
 
-    std::vector<float> CRoots::get_values(){
+    std::vector<float> CRoots::get_values() {
         std::vector<float> values;
         for(int i = 0; i < this->root_num; ++i){
             values.push_back(this->roots[i].value());
@@ -287,6 +290,7 @@ namespace tree {
 
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
                          float discount) {
+
         // Value from the dynamics network.
         float bootstrap_value = value;
         // How far from root we are.
@@ -313,7 +317,8 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> mappings){
+                               std::vector<std::vector<char*>> mappings) {
+//        std::cout << "Inside backpropagate" << std::endl;
         // For each player
         for(int i = 0; i < results.num; ++i){
             results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i]);
@@ -363,7 +368,8 @@ namespace tree {
     }
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
-                         tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results){
+                         tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results) {
+//        std::cout << "Inside batch_traverse" << std::endl;
 
         // Last action is a multidimensional action so a vector is required. 3 dimensions in our case
         std::vector<int> last_action{0};
