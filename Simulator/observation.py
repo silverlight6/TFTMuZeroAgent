@@ -143,5 +143,6 @@ class Observation:
                     output_array[45 - z] = 1
                     i_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
+        self.shop_vector = output_array
         player.shop_costs = shop_costs
         player.shop_mask = self.shop_mask

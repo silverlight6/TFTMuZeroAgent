@@ -350,7 +350,7 @@ def cassiopeia(champion):
         if includes_all:
             line_end_point.append([f[0], f[1]])
 
-    if not line_end_point[0]:
+    if not line_end_point:
         print("Someone figure out why cassiopeia is dying")
         return
     line_end_point = line_end_point[0]
