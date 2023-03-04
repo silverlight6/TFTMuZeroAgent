@@ -538,12 +538,6 @@ class player:
             self.decision_mask[4] = 1
             self.decision_mask[5] = 1
 
-        for idx, cost in enumerate(self.shop_costs):
-            if self.gold < cost or self.bench_full():
-                self.shop_mask[idx] = 0
-            elif cost != 0 and self.gold >= cost:
-                self.shop_mask[idx] = 1
-
     """
     Description - All game state information that other players have access to is stored here..
     """
