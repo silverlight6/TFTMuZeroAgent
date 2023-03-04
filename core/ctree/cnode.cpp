@@ -210,13 +210,17 @@ namespace tree {
     }
 
     std::vector<int> decode_action(char* &str_action) {
-        std::cout << str_action << std::endl;
-        std::string str(str_action);
-        char* split_action = strtok(str_action, "_");
+        std::string action(str_action);
+        size_t index = action.find("_");
         std::vector<int> element_list;
-        while(split_action != NULL) {
-            element_list.push_back(std::stoi(split_action));
-            split_action = strtok(NULL, "_");
+        while (index != std::string::npos){
+            std::string newstr = action.substr(index-1,1);
+            element_list.push_back(std::stoi(newstr));
+            index = action.find("_",index+1);
+        }
+        if (index != std::string::npos){
+            std::string newstr = action.substr(index+1,1);
+            element_list.push_back(std::stoi(newstr));
         }
         while(element_list.size() < 3) {
             element_list.push_back(0);
@@ -378,14 +382,17 @@ namespace tree {
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
                 // Pick the action from the mappings.
                 char* str_action = node->mappings[action];
-                for(int i=0; i < node->mappings.size(); i++)
-                    std::cout << node->mappings.at(i) << ' ';
-                std::cout << std::endl;
+                // for(int i=0; i < node->mappings.size(); i++)
+                //     std::cout << node->mappings.at(i) << ' ';
+                // std::cout << std::endl;
 
                 // get next node
                 node = node->get_child(action);
                 // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);
+                // for(int i=0; i < node->mappings.size(); i++)
+                //     std::cout << node->mappings.at(i) << ' ';
+                // std::cout << std::endl;
                 // Add Node to the search path for exploration purposes
                 results.search_paths[i].push_back(node);
                 search_len += 1;

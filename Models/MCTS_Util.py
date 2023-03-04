@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 def create_default_mapping():
+    print("OK2")
     string_mapping = ["0"]
     for i in range(5):
         string_mapping.append(f"1_{i}")
