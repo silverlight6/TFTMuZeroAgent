@@ -146,7 +146,6 @@ class Observation:
 
         player.shop_costs = shop_costs
 
-
         for idx, cost in enumerate(player.shop_costs):
             if player.gold < cost or cost == 0:
                 self.shop_mask[idx] = 0

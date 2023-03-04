@@ -94,7 +94,6 @@ class MCTS:
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2 + 1)  # config.MINIMUM_REWARD * 2
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
         for _ in range(config.NUM_SIMULATIONS):
@@ -347,9 +346,7 @@ class MCTS:
             # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
             # We are removing 8 samples initially because those are the most important actions
             policy_range = np.arange(stop=len(policy_logits[i]) - num_core_actions)
-            # If we have less options than samples, use all options.
-            # -8 here because we already added 8 samples above
-            samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, replace=True, p=probs)
+            samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, p=probs)
             # Sort now so the mapping back to 1081 later is much faster
             samples.sort()
             prev_sample = -1
@@ -358,9 +355,6 @@ class MCTS:
                     local_logits[-1] += 1 / (num_samples - num_core_actions)
                 else:
                     # Add the base value for the sample
-                    # +6 because we have to skip the first 6 values but never want to hit the last 2
-                    # local_logits.append(policy_logits[i][sample + num_pass_shop_actions])
-                    # local_logits.append(policy_logits[i][sample + num_pass_shop_actions] / num_samples)
                     local_logits.append(1 / (num_samples - num_core_actions))
                     # Add the name of the string action
                     local_string.append(string_mapping[i][sample + num_pass_shop_actions])
@@ -371,9 +365,6 @@ class MCTS:
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
-            if len(local_logits) == 0:
-                print("just how")
-        # print(policy_sizes)
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod

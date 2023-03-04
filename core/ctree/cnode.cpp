@@ -123,10 +123,11 @@ namespace tree {
         return discount * this->value() + this->reward;
     }
 
-    std::vector<int> CNode::get_children_distribution(){
+    std::vector<int> CNode::get_children_distribution() {
         std::vector<int> distribution;
+        distribution.reserve(this->action_num);
         if(this->expanded()){
-            for(int a = 0; a < this->action_num; ++a){
+            for(int a = 0; a < this->action_num; ++a) {
                 CNode* child = this->get_child(a);
                 distribution.push_back(child->visit_count);
             }
@@ -154,7 +155,6 @@ namespace tree {
     // Setting this to be the number of samples for now but someone should check if that is correct
     CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
         // For whatever reason, print statements do not work inside this function.
-//        std::cout << "Inside root_init" << std::endl;
         this->root_num = root_num;
         this->action_num = action_num;
         this->pool_size = pool_size;
@@ -185,7 +185,6 @@ namespace tree {
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings) {
-//        std::cout << "Inside prepare_no_noise" << std::endl;
         for(int i = 0; i < this->root_num; ++i){
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
@@ -198,7 +197,6 @@ namespace tree {
     }
 
     std::vector<std::vector<int>> CRoots::get_distributions() {
-//        std::cout << "Inside get_distribution" << std::endl;
         std::vector<std::vector<int>> distributions;
         distributions.reserve(this->root_num);
 
@@ -310,15 +308,13 @@ namespace tree {
             // update bootstrap for the next value
             bootstrap_value = node->reward + discount * bootstrap_value;
         }
-        // Not sure if this line is needed or not. It's not on the python side
-        // min_max_stats.clear();
+//        min_max_stats.clear();
     }
 
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
                                std::vector<std::vector<char*>> mappings) {
-//        std::cout << "Inside backpropagate" << std::endl;
         // For each player
         for(int i = 0; i < results.num; ++i){
             results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i]);
@@ -369,7 +365,6 @@ namespace tree {
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results) {
-//        std::cout << "Inside batch_traverse" << std::endl;
 
         // Last action is a multidimensional action so a vector is required. 3 dimensions in our case
         std::vector<int> last_action{0};

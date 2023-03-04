@@ -19,9 +19,6 @@ cdef class MinMaxStatsList:
     def __cinit__(self, int num):
         self.cmin_max_stats_lst = new CMinMaxStatsList(num)
 
-    def set_delta(self, float value_delta_max):
-        self.cmin_max_stats_lst[0].set_delta(value_delta_max)
-
     def get_max(self, int num):
         return self.cmin_max_stats_lst[0].get_max(num)
 

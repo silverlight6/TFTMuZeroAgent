@@ -41,7 +41,7 @@ CONCURRENT_GAMES = 20
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 50
 NUM_SIMULATIONS = 50
-SAMPLES_PER_PLAYER = 16  # Normal is 128
+SAMPLES_PER_PLAYER = 128  # Normal is 128
 UNROLL_STEPS = 5
 
 #### TRAINING ####
