@@ -144,7 +144,7 @@ namespace tree {
 
     //*********************************************************
 
-    CRoots::CRoots(){
+    CRoots::CRoots() {
         this->root_num = 0;
         this->action_num = std::vector<int>{0};
         this->pool_size = 0;
@@ -153,7 +153,7 @@ namespace tree {
     // root_num is the number of agents in the batch (NUM_PLAYERS in our base case)
     // pool_size is in place to speed up the vectors and to allocate a given amount of memory at the start
     // Setting this to be the number of samples for now but someone should check if that is correct
-    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size){
+    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size) {
         // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
         this->action_num = action_num;
@@ -170,7 +170,7 @@ namespace tree {
         }
     }
 
-    CRoots::~CRoots(){}
+    CRoots::~CRoots() {}
 
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
@@ -189,11 +189,6 @@ namespace tree {
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
             this->roots[i].visit_count += 1;
         }
-    }
-
-    void CRoots::clear(){
-        this->node_pools.clear();
-        this->roots.clear();
     }
 
     std::vector<std::vector<int>> CRoots::get_distributions() {
@@ -215,6 +210,7 @@ namespace tree {
     }
 
     std::vector<int> decode_action(char* &str_action) {
+        std::cout << str_action << std::endl;
         std::string str(str_action);
         char* split_action = strtok(str_action, "_");
         std::vector<int> element_list;
@@ -250,7 +246,7 @@ namespace tree {
         }
 
         // Default encodings for the move / sell board / bench
-        for(int a = 0; a < 38; a++) {
+        for(int a = 0; a < 37; a++) {
             for(int b = a; b < 38; b++) {
                 if(a == b) {
                     continue;
@@ -294,7 +290,7 @@ namespace tree {
         // How far from root we are.
         int path_len = search_path.size();
         // For each node on our path back to root.
-        for(int i = path_len - 1; i >= 0; --i){
+        for(int i = path_len - 1; i >= 0; --i) {
             // Our current node
             CNode* node = search_path[i];
             // Update the value of our node.
@@ -308,7 +304,6 @@ namespace tree {
             // update bootstrap for the next value
             bootstrap_value = node->reward + discount * bootstrap_value;
         }
-//        min_max_stats.clear();
     }
 
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
@@ -365,7 +360,6 @@ namespace tree {
 
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results) {
-
         // Last action is a multidimensional action so a vector is required. 3 dimensions in our case
         std::vector<int> last_action{0};
 
@@ -380,9 +374,13 @@ namespace tree {
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
                 // pick the next action to simulate
+
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
                 // Pick the action from the mappings.
                 char* str_action = node->mappings[action];
+                for(int i=0; i < node->mappings.size(); i++)
+                    std::cout << node->mappings.at(i) << ' ';
+                std::cout << std::endl;
 
                 // get next node
                 node = node->get_child(action);
@@ -392,6 +390,7 @@ namespace tree {
                 results.search_paths[i].push_back(node);
                 search_len += 1;
             }
+
             // These are all for return values back to the python code. Defined in the cytree.pyx file.
             CNode* parent = results.search_paths[i][results.search_paths[i].size() - 2];
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);

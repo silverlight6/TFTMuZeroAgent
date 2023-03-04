@@ -32,9 +32,7 @@ class MCTS:
             self.NUM_ALIVE = observation[0].shape[0]
 
             # 0.02 seconds
-            # self.ckpt_time = time.time_ns()
             network_output = self.network.initial_inference(observation[0])
-            # print("initial inference took: {}".format(time.time_ns() - self.ckpt_time))
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             policy_logits = network_output["policy_logits"].detach().cpu().numpy()
@@ -123,8 +121,10 @@ class MCTS:
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
+            print("Default string mapping {}".format(self.default_string_mapping[0]))
+            print("Default string mapping {}".format(self.default_byte_mapping[0]))
             # 0.002 seconds
-            policy_logits, _, mappings, _ = self.sample(network_output["policy_logits"].detach().cpu().numpy(),
+            policy_logits, _, mappings, _ = self.sample(network_output["policy_logits"].cpu().numpy(),
                                                         self.default_string_mapping, self.default_byte_mapping,
                                                         config.NUM_SAMPLES)
             # These assignments take 0.0001 > time
@@ -134,6 +134,7 @@ class MCTS:
 
             hidden_state_index_x += 1
 
+            print("Python mapping - {}".format(mappings))
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,

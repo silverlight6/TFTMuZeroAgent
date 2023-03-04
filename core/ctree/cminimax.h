@@ -17,7 +17,6 @@ namespace tools {
             ~CMinMaxStats();
 
             void update(float value);
-            void clear();
             float normalize(float value);
 
             float get_max();

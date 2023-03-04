@@ -18,15 +18,9 @@ namespace tools {
         }
     }
 
-    void CMinMaxStats::clear() {
-        this->maximum = FLOAT_MIN;
-        this->minimum = FLOAT_MAX;
-    }
-
     float CMinMaxStats::normalize(float value) {
         float norm_value = value;
         float delta = this->maximum - this->minimum;
-        std::cout << "delta: " << delta << std::endl;
         if(delta > 0) {
             norm_value = (norm_value - this->minimum) / delta;
         }
@@ -51,6 +45,7 @@ namespace tools {
         this->num = 0;
     }
 
+    // Push back a new CMinMaxStats for each player.
     CMinMaxStatsList::CMinMaxStatsList(int num) {
         this->num = num;
         for(int i = 0; i < num; ++i) {

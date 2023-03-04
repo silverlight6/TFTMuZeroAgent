@@ -62,9 +62,6 @@ cdef class Roots:
     def get_values(self):
         return self.roots[0].get_values()
 
-    def clear(self):
-        self.roots[0].clear()
-
     def __dealloc__(self):
         del self.roots
 
