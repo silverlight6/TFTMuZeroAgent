@@ -730,8 +730,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0 * damage
-            self.print(str(-0 * damage) + " reward for losing round")
+            self.reward -= 0.5 * damage
+            self.print(str(-0.5 * damage) + " reward for losing round")
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1653,8 +1653,8 @@ class player:
     # TODO - split the negative reward here among the rest of the players to maintain a net equal reward
     # TODO - move the 0.5 to the list of other reward controllers for each of the won / loss round methods
     def won_ghost(self, damage):
-        self.reward -= 0 * damage
-        self.print(str(0 * damage) + " reward for someone losing to ghost")
+        self.reward -= 0.5 * damage
+        self.print(str(0.5 * damage) + " reward for someone losing to ghost")
 
     """
     Description - Keeps track of win_streaks, rewards, gold and other values related to winning a combat round.
@@ -1666,8 +1666,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0 * damage
-            self.print(str(0 * damage) + " reward for winning round")
+            self.reward += 0.5 * damage
+            self.print(str(0.5 * damage) + " reward for winning round")
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:

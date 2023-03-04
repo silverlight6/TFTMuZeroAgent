@@ -10,7 +10,6 @@ cdef extern from "cminimax.h" namespace "tools":
         float maximum, minimum
 
         void update(float value)
-        void clear()
         float normalize(float value)
         float get_max()
         float get_min()
@@ -60,7 +59,6 @@ cdef extern from "cnode.h" namespace "tree":
                      vector[vector[char*]] mappings)
         void prepare_no_noise(const vector[float] &value_prefixs, const vector[vector[float]] &policies,
                               vector[vector[char*]] mappings)
-        void clear()
         vector[vector[int]] get_distributions()
         vector[float] get_values()
 

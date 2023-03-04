@@ -56,7 +56,6 @@ namespace tree {
             void prepare_no_noise(const std::vector<float> &rewards,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings);
-            void clear();
             std::vector<std::vector<int>> get_distributions();
             std::vector<float> get_values();
 
