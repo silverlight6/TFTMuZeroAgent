@@ -3,7 +3,6 @@ import torch
 import numpy as np
 
 def create_default_mapping():
-    print("OK2")
     string_mapping = ["0"]
     for i in range(5):
         string_mapping.append(f"1_{i}")
@@ -33,8 +32,8 @@ def create_default_mapping():
 action_dimensions = [1, 5, 667, 370, 1, 1]
 def flatten_action(str_action):
     # Decode action
-    num_items = str_action.count("_") # 1
-    split_action = str_action.split("_") # [1, 0]
+    num_items = str_action.count("_")  # 1
+    split_action = str_action.split("_")  # [1, 0]
     
     action = [0, 0, 0]
     for i in range(num_items + 1):

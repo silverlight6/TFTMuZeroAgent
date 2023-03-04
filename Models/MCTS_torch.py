@@ -26,7 +26,6 @@ class MCTS:
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
         self.default_byte_mapping, self.default_string_mapping = util.create_default_mapping()
-        print("Ok")
 
     def policy(self, observation):
         with torch.no_grad():
@@ -124,7 +123,7 @@ class MCTS:
             # 0.002 seconds
 
             policy_logits, _, mappings, _ = self.sample(network_output["policy_logits"].cpu().numpy(),
-                                                        copy.deepcopy(self.default_string_mapping), copy.deepcopy(self.default_byte_mapping),
+                                                        self.default_string_mapping, self.default_byte_mapping,
                                                         config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
