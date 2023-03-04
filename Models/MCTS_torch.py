@@ -94,7 +94,6 @@ class MCTS:
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
-        min_max_stats_lst.set_delta(config.MAXIMUM_REWARD * 2 + 1)  # config.MINIMUM_REWARD * 2
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
         for _ in range(config.NUM_SIMULATIONS):
@@ -366,7 +365,6 @@ class MCTS:
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
-        print(policy_sizes)
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
