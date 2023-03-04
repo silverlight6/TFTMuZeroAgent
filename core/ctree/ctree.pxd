@@ -7,9 +7,8 @@ cdef extern from "cminimax.cpp":
 cdef extern from "cminimax.h" namespace "tools":
     cdef cppclass CMinMaxStats:
         CMinMaxStats() except +
-        float maximum, minimum, value_delta_max
+        float maximum, minimum
 
-        void set_delta(float value_delta_max)
         void update(float value)
         void clear()
         float normalize(float value)
@@ -22,7 +21,6 @@ cdef extern from "cminimax.h" namespace "tools":
         int num
         vector[CMinMaxStats] stats_lst
 
-        void set_delta(float value_delta_max)
         float get_max(int index)
         float get_min(int index)
 

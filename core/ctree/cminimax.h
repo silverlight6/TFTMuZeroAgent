@@ -11,12 +11,11 @@ namespace tools {
 
     class CMinMaxStats {
         public:
-            float maximum, minimum, value_delta_max;
+            float maximum, minimum;
 
             CMinMaxStats();
             ~CMinMaxStats();
 
-            void set_delta(float value_delta_max);
             void update(float value);
             void clear();
             float normalize(float value);
@@ -33,8 +32,6 @@ namespace tools {
             CMinMaxStatsList();
             CMinMaxStatsList(int num);
             ~CMinMaxStatsList();
-
-            void set_delta(float value_delta_max);
 
             float get_max(int index);
             float get_min(int index);

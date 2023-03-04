@@ -123,10 +123,11 @@ namespace tree {
         return discount * this->value() + this->reward;
     }
 
-    std::vector<int> CNode::get_children_distribution(){
+    std::vector<int> CNode::get_children_distribution() {
         std::vector<int> distribution;
+        distribution.reserve(this->action_num);
         if(this->expanded()){
-            for(int a = 0; a < this->action_num; ++a){
+            for(int a = 0; a < this->action_num; ++a) {
                 CNode* child = this->get_child(a);
                 distribution.push_back(child->visit_count);
             }
@@ -196,7 +197,6 @@ namespace tree {
     }
 
     std::vector<std::vector<int>> CRoots::get_distributions() {
-//        std::cout << "Inside get_distribution" << std::endl;
         std::vector<std::vector<int>> distributions;
         distributions.reserve(this->root_num);
 
@@ -308,8 +308,7 @@ namespace tree {
             // update bootstrap for the next value
             bootstrap_value = node->reward + discount * bootstrap_value;
         }
-        // Not sure if this line is needed or not. It's not on the python side
-        // min_max_stats.clear();
+//        min_max_stats.clear();
     }
 
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
