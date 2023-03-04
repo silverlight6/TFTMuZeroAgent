@@ -143,5 +143,18 @@ class Observation:
                     output_array[45 - z] = 1
                     i_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
+
         player.shop_costs = shop_costs
+
+
+        for idx, cost in enumerate(player.shop_costs):
+            if player.gold < cost or cost == 0:
+                self.shop_mask[idx] = 0
+            elif player.gold >= cost:
+                self.shop_mask[idx] = 1
+
+        if player.bench_full():
+            self.shop_mask = np.zeros(5)
+
+        self.shop_vector = output_array
         player.shop_mask = self.shop_mask
