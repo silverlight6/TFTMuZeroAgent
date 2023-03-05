@@ -155,7 +155,7 @@ def encodeTest():
     obs = observation_obj.observation("player_1", player1)
     _, _, mapping_str = mcts_obj.encode_action_to_str(np.random.rand(1, config.ACTION_ENCODING_SIZE), [obs["mask"]])
 
-    print(mapping_str)
+    # print(mapping_str)
     assert "1_0" in mapping_str[0]
 
 
