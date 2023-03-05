@@ -43,12 +43,11 @@ namespace tree {
     class CRoots{
         public:
             int root_num, pool_size;
-            std::vector<int> action_num;
             std::vector<CNode> roots;
             std::vector<std::vector<CNode>> node_pools;
 
             CRoots();
-            CRoots(int root_num, std::vector<int> action_num, int pool_size);
+            CRoots(int root_num, int pool_size);
             ~CRoots();
 
             void prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
