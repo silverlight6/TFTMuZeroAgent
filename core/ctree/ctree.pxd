@@ -29,7 +29,7 @@ cdef extern from "cnode.cpp":
 cdef extern from "cnode.h" namespace "tree":
     cdef cppclass CNode:
         CNode() except +
-        CNode(float prior, int action_num, vector[CNode]* ptr_node_pool) except +
+        CNode(float prior, vector[CNode]* ptr_node_pool) except +
         int visit_count, action_num, hidden_state_index_x, hidden_state_index_y
         float reward, prior, value_sum
         vector[int] children_index
@@ -37,7 +37,7 @@ cdef extern from "cnode.h" namespace "tree":
         vector[char*] mappings
 
         void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                    vector[float] policy_logits, vector[char*] mappings)
+                    vector[float] policy_logits, vector[char*] mappings, int act_num)
         void add_exploration_noise(float exploration_fraction, vector[float] noises)
 
         int expanded()
@@ -56,9 +56,9 @@ cdef extern from "cnode.h" namespace "tree":
 
         void prepare(float root_exploration_fraction, const vector[vector[float]] &noises,
                      const vector[float] &value_prefixs, const vector[vector[float]] &policies,
-                     vector[vector[char*]] mappings)
+                     vector[vector[char*]] mappings, vector[int] action_nums)
         void prepare_no_noise(const vector[float] &value_prefixs, const vector[vector[float]] &policies,
-                              vector[vector[char*]] mappings)
+                              vector[vector[char*]] mappings, vector[int] action_nums)
         vector[vector[int]] get_distributions()
         vector[float] get_values()
 
@@ -73,6 +73,6 @@ cdef extern from "cnode.h" namespace "tree":
     cdef void cback_propagate(vector[CNode*] &search_path, CMinMaxStats &min_max_stats, float value, float discount)
     void cbatch_back_propagate(int hidden_state_index_x, float discount, vector[float] rewards,
                                vector[float] values, vector[vector[float]] policy, CMinMaxStatsList *min_max_stats_lst,
-                               CSearchResults &results, vector[vector[char*]] mappings)
+                               CSearchResults &results, vector[vector[char*]] mappings, vector[int] action_nums)
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          CMinMaxStatsList *min_max_stats_lst, CSearchResults &results)
