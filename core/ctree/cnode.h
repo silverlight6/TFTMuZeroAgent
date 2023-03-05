@@ -23,11 +23,12 @@ namespace tree {
             std::vector<char*> mappings;
 
             CNode();
-            CNode(float prior, int action_num, std::vector<CNode> *ptr_node_pool);
+            CNode(float prior, std::vector<CNode> *ptr_node_pool);
             ~CNode();
 
             void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                        const std::vector<float> &policy_logits, const std::vector<char*> mappings);
+                        const std::vector<float> &policy_logits, const std::vector<char*> mappings,
+                        int act_num);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
 
             int expanded();
@@ -52,10 +53,9 @@ namespace tree {
 
             void prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &rewards, const std::vector<std::vector<float>> &policies,
-                         const std::vector<std::vector<char*>> &mappings);
-            void prepare_no_noise(const std::vector<float> &rewards,
-                                  const std::vector<std::vector<float>> &policies,
-                                  const std::vector<std::vector<char*>> &mappings);
+                         const std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums);
+            void prepare_no_noise(const std::vector<float> &rewards, const std::vector<std::vector<float>> &policies,
+                                  const std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums);
             std::vector<std::vector<int>> get_distributions();
             std::vector<float> get_values();
 
@@ -84,7 +84,7 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> mappings);
+                               std::vector<std::vector<char*>> mappings, const std::vector<int> &action_nums);
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount);
     float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
                      float pb_c_base, float pb_c_init, float discount);

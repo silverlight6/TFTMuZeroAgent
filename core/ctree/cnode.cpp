@@ -22,7 +22,6 @@ namespace tree {
     CNode::CNode() {
         this->prior = 0;
         this->action_num = 0;
-
         this->visit_count = 0;
         this->value_sum = 0;
         this->reward = 0.0;
@@ -30,10 +29,9 @@ namespace tree {
         this->mappings = default_mapping;
     }
 
-    CNode::CNode(float prior, int action_num, std::vector<CNode>* ptr_node_pool) {
+    CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool) {
         this->prior = prior;
-        this->action_num = action_num;
-
+        this->action_num = 0;
         this->visit_count = 0;
         this->value_sum = 0;
         this->reward = 0.0;
@@ -46,16 +44,16 @@ namespace tree {
     CNode::~CNode(){}
 
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                       const std::vector<float> &policy_logits, const std::vector<char*> mappings) {
+                       const std::vector<float> &policy_logits, const std::vector<char*> mappings, int act_num) {
         // Index for finding the hidden state on python side, x is player, y is search path location
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
         // Mapping to map 1081 into 3 dimensional action for recurrent inference
         this->mappings = mappings;
+        this->action_num = act_num;
+        int action_num = act_num;
 
-        // Number of actions, normally equal to sample size but can be less if less available actions
-        int action_num = this->action_num;
         float temp_policy;
         // sum is a float instead of a tensor since we handle 1 player at a time
         float policy_sum = 0.0;
@@ -75,9 +73,12 @@ namespace tree {
             policy_sum += temp_policy;
             policy[a] = temp_policy;
         }
+        std::cout << policy.size() << std::endl;
+        std::cout << action_num << std::endl;
 
         float prior;
         std::vector<CNode>* ptr_node_pool = this->ptr_node_pool;
+//        ptr_node_pool.reserve(action_num)
         for(int a = 0; a < action_num; ++a) {
             // Normalizes the array
             prior = policy[a] / policy_sum;
@@ -85,8 +86,9 @@ namespace tree {
             this->children_index.push_back(index);
 
             // Add all of the nodes children to the ptr_node_pool
-            ptr_node_pool->push_back(CNode(prior, action_num, ptr_node_pool));
+            ptr_node_pool->push_back(CNode(prior, ptr_node_pool));
         }
+        std::cout << "Checkpoint 6 " << std::endl;
     }
 
     void CNode::add_exploration_noise(float exploration_fraction, const std::vector<float> &noises){
@@ -166,7 +168,7 @@ namespace tree {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, action_num[i], &this->node_pools[i]));
+            this->roots.push_back(CNode(0, &this->node_pools[i]));
         }
     }
 
@@ -174,9 +176,9 @@ namespace tree {
 
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
-                         const std::vector<std::vector<char*>> &mappings) {
+                         const std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums) {
         for(int i = 0; i < this->root_num; ++i) {
-            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i], action_nums[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
             this->roots[i].visit_count += 1;
         }
@@ -184,9 +186,10 @@ namespace tree {
 
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
-                                  const std::vector<std::vector<char*>> &mappings) {
+                                  const std::vector<std::vector<char*>> &mappings,
+                                  const std::vector<int> &action_nums) {
         for(int i = 0; i < this->root_num; ++i){
-            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i], action_nums[i]);
             this->roots[i].visit_count += 1;
         }
     }
@@ -210,17 +213,14 @@ namespace tree {
     }
 
     std::vector<int> decode_action(char* &str_action) {
-        std::cout << str_action << std::endl;
         std::string action(str_action);
         size_t index = action.find("_");
         std::vector<int> element_list;
-        std::cout << "Checkpoint 3" << std::endl;
         while (index != std::string::npos){
             std::string newstr = action.substr(index-1,1);
             element_list.push_back(std::stoi(newstr));
             index = action.find("_",index+1);
         }
-        std::cout << "Checkpoint 4" << std::endl;
         if (index != std::string::npos){
             std::string newstr = action.substr(index+1,1);
             element_list.push_back(std::stoi(newstr));
@@ -291,7 +291,6 @@ namespace tree {
 
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
                          float discount) {
-
         // Value from the dynamics network.
         float bootstrap_value = value;
         // How far from root we are.
@@ -316,10 +315,10 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> mappings) {
+                               std::vector<std::vector<char*>> mappings, const std::vector<int> &action_nums) {
         // For each player
         for(int i = 0; i < results.num; ++i){
-            results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i]);
+            results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i], action_nums[i]);
 
             cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
@@ -331,8 +330,7 @@ namespace tree {
         for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
             // find the usb score
-            float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1,
-                                          pb_c_base, pb_c_init, discount);
+            float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1, pb_c_base, pb_c_init, discount);
             // compare it to the max score and store index if it is the max
             if(max_score < temp_score){
                 max_score = temp_score;
@@ -381,13 +379,9 @@ namespace tree {
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
                 // pick the next action to simulate
-
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
                 // Pick the action from the mappings.
                 char* str_action = node->mappings[action];
-//                for(int i=0; i < node->mappings.size(); i++)
-//                    std::cout << node->mappings.at(i) << ' ';
-//                std::cout << std::endl;
 
                 // get next node
                 node = node->get_child(action);
