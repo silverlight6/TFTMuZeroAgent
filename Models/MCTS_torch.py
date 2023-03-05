@@ -53,7 +53,7 @@ class MCTS:
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, policy_sizes, config.NUM_SIMULATIONS, max(policy_sizes))
+            roots_cpp = tree.Roots(self.NUM_ALIVE, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
@@ -119,7 +119,6 @@ class MCTS:
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
             # 0.002 seconds
-
             policy_logits, _, mappings, policy_sizes = \
                 self.sample(network_output["policy_logits"].cpu().numpy(), self.default_string_mapping,
                             self.default_byte_mapping, config.NUM_SAMPLES)
@@ -130,9 +129,9 @@ class MCTS:
             hidden_state_pool.append(hidden_states_nodes)
 
             hidden_state_index_x += 1
+
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
-            
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings, policy_sizes)
 

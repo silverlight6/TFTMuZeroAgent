@@ -41,7 +41,7 @@ namespace tree {
         this->mappings = default_mapping;
     }
 
-    CNode::~CNode(){}
+    CNode::~CNode() {}
 
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
                        const std::vector<float> &policy_logits, const std::vector<char*> mappings, int act_num) {
@@ -52,7 +52,6 @@ namespace tree {
         // Mapping to map 1081 into 3 dimensional action for recurrent inference
         this->mappings = mappings;
         this->action_num = act_num;
-        int action_num = act_num;
 
         float temp_policy;
         // sum is a float instead of a tensor since we handle 1 player at a time
@@ -60,26 +59,23 @@ namespace tree {
         std::vector<float> policy(action_num);
         float policy_max = FLOAT_MIN;
         // Find the maximum
-        for(int a = 0; a < action_num; ++a){
+        for(int a = 0; a < act_num; ++a){
             if(policy_max < policy_logits[a]){
                 policy_max = policy_logits[a];
             }
         }
 
         // Calculate the sum and create a temp policy with the exp of each
-        for(int a = 0; a < action_num; ++a) {
+        for(int a = 0; a < act_num; ++a) {
             // exp is e ^ value and since all values are negative, all values in temp_policy are between 0 and 1
             temp_policy = exp(policy_logits[a] - policy_max);
             policy_sum += temp_policy;
             policy[a] = temp_policy;
         }
-        std::cout << policy.size() << std::endl;
-        std::cout << action_num << std::endl;
 
         float prior;
         std::vector<CNode>* ptr_node_pool = this->ptr_node_pool;
-//        ptr_node_pool.reserve(action_num)
-        for(int a = 0; a < action_num; ++a) {
+        for(int a = 0; a < act_num; ++a) {
             // Normalizes the array
             prior = policy[a] / policy_sum;
             int index = ptr_node_pool->size();
@@ -88,7 +84,6 @@ namespace tree {
             // Add all of the nodes children to the ptr_node_pool
             ptr_node_pool->push_back(CNode(prior, ptr_node_pool));
         }
-        std::cout << "Checkpoint 6 " << std::endl;
     }
 
     void CNode::add_exploration_noise(float exploration_fraction, const std::vector<float> &noises){
@@ -148,17 +143,15 @@ namespace tree {
 
     CRoots::CRoots() {
         this->root_num = 0;
-        this->action_num = std::vector<int>{0};
         this->pool_size = 0;
     }
 
     // root_num is the number of agents in the batch (NUM_PLAYERS in our base case)
     // pool_size is in place to speed up the vectors and to allocate a given amount of memory at the start
     // Setting this to be the number of samples for now but someone should check if that is correct
-    CRoots::CRoots(int root_num, std::vector<int> action_num, int pool_size) {
+    CRoots::CRoots(int root_num, int pool_size) {
         // For whatever reason, print statements do not work inside this function.
         this->root_num = root_num;
-        this->action_num = action_num;
         this->pool_size = pool_size;
 
         this->node_pools.reserve(root_num);
