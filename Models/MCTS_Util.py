@@ -1,34 +1,27 @@
 import config
 import torch
-from Simulator import utils
 import numpy as np
-import time
 
 def create_default_mapping():
-    mappings = [bytes("0", "utf-8")]
-    second_mappings = ["0"]
+    string_mapping = ["0"]
     for i in range(5):
-        mappings.append(bytes(f"1_{i}", "utf-8"))
-        second_mappings.append(f"1_{i}")
+        string_mapping.append(f"1_{i}")
     for a in range(37):
         for b in range(a, 38):
             if a == b:
                 continue
             if a > 27 and b != 37:
                 continue
-            mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
-            second_mappings.append(f"2_{a}_{b}")
+            string_mapping.append(f"2_{a}_{b}")
     for a in range(37):
         for b in range(10):
-            mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
-            second_mappings.append(f"3_{a}_{b}")
-    mappings.append(bytes("4", "utf-8"))
-    second_mappings.append("4")
-    mappings.append(bytes("5", "utf-8"))
-    second_mappings.append("5")
+            string_mapping.append(f"3_{a}_{b}")
+    string_mapping.append("4")
+    string_mapping.append("5")
     # converting mappings to batch size for all players in a game
+    mappings = [value.encode("utf-8") for value in string_mapping]
     mappings = [mappings for _ in range(config.NUM_PLAYERS)]
-    second_mappings = [second_mappings for _ in range(config.NUM_PLAYERS)]
+    second_mappings = [string_mapping for _ in range(config.NUM_PLAYERS)]
     return mappings, second_mappings
 
 
@@ -39,8 +32,8 @@ def create_default_mapping():
 action_dimensions = [1, 5, 667, 370, 1, 1]
 def flatten_action(str_action):
     # Decode action
-    num_items = str_action.count("_") # 1
-    split_action = str_action.split("_") # [1, 0]
+    num_items = str_action.count("_")  # 1
+    split_action = str_action.split("_")  # [1, 0]
     
     action = [0, 0, 0]
     for i in range(num_items + 1):
@@ -77,7 +70,6 @@ Outputs     - output_policy - List
                   The improved policy output of the MCTS with size [batch, encoding_size] 
 """
 def map_distribution_to_sample(mapping, policy_logits):
-    # print(policy_logits.shape)
     output_policy = []
     mapping_indicies = [np.asarray([flatten_action(m) for m in batch]) for batch in mapping]
     for i in range(policy_logits.shape[0]):

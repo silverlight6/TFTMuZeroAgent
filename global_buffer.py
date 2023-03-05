@@ -54,7 +54,7 @@ class GlobalBuffer:
             self.storage_ptr.set_trainer_busy.remote(True)
             print(queue_length)
             return True
-        time.sleep(20)
+        time.sleep(5)
         return False
 
     # Leaving this transpose method here in case some model other than
