@@ -146,13 +146,16 @@ class MCTS:
     """
     Description - select action from the root visit counts.
     Inputs      - visit_counts: list
-                      visit counts for each child
+                    visit counts for each child
                   temperature: float
-                      the temperature for the distribution
+                    the temperature for the distribution
                   deterministic: bool
-                      True -> select the argmax
-                      False -> sample from the distribution
-    Outputs     - 
+                    True -> select the argmax
+                    False -> sample from the distribution
+    Outputs     - action_pos
+                    position of the action in the policy and string array.
+                  count_entropy
+                    entropy of the improved policy.
     """
     @staticmethod
     def select_action(visit_counts, temperature=1.0, deterministic=True):

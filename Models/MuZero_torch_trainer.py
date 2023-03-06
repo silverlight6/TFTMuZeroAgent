@@ -46,6 +46,7 @@ class Trainer(object):
 
         loss = loss.mean()
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(agent.parameters(), config.MAX_GRAD_NORM)
         self.optimizer.step()
 
         # storage.save_network(config.training_steps, network)\
