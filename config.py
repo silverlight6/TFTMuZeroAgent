@@ -30,17 +30,18 @@ ACTION_DIM = [6, 38, 10]
 # ACTION_DIM = 10
 ENCODER_NUM_STEPS = 601
 SELECTED_SAMPLES = True
+MAX_GRAD_NORM = 5
 
 # Still used in MuZero_torch_agent.py
 HEAD_HIDDEN_SIZE = 1024
 N_HEAD_HIDDEN_LAYERS = 1
 
 ### TIME RELATED VALUES ###
-ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 20
+ACTIONS_PER_TURN = 10
+CONCURRENT_GAMES = 24
 NUM_PLAYERS = 8 
-NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 50
-NUM_SIMULATIONS = 50
+NUM_SAMPLES = 300
+NUM_SIMULATIONS = 400
 SAMPLES_PER_PLAYER = 128  # Normal is 128
 UNROLL_STEPS = 5
 
@@ -50,7 +51,7 @@ INIT_LEARNING_RATE = 0.01
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
-REWARD_LOSS_SCALING = 0
+REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.

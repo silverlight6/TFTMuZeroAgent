@@ -77,7 +77,6 @@ namespace tree {
 
     //*********************************************************
     std::vector<int> decode_action(char* &str_action);
-    std::vector<char*> create_default_mapping();
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
                          float discount);
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
