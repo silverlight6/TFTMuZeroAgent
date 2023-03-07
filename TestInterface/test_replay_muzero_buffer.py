@@ -5,13 +5,14 @@ from global_buffer import GlobalBuffer
 
 
 class ReplayBuffer:
-    def __init__(self, g_buffer: GlobalBuffer):
+    def __init__(self, g_buffer: GlobalBuffer, key: str):
         self.gameplay_experiences = []
         self.rewards = []
         self.policy_distributions = []
         self.string_samples = []
         self.action_history = []
         self.g_buffer = g_buffer
+        self.key = key
 
     def store_replay_buffer(self, observation, action, reward, policy, string_samples):
         # Records a single step of gameplay experience
@@ -42,6 +43,7 @@ class ReplayBuffer:
             if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
         if samples_per_player > 0:
+
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
             samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
             num_steps = len(self.gameplay_experiences)

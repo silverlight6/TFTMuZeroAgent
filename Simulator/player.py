@@ -184,7 +184,7 @@ class player:
             self.sell_champion(a_champion, field=False)
             self.reward += self.mistake_reward
             if DEBUG:
-                self.print("Trying to buy a unit with bench full")
+                print("Trying to buy a unit with bench full")
             return False
         bench_loc = self.bench_vacancy()
         self.bench[bench_loc] = a_champion
@@ -211,6 +211,8 @@ class player:
     def add_to_item_bench(self, item):
         if self.item_bench_full(1):
             self.reward += self.mistake_reward
+            if DEBUG:
+                print("Failed to add item to item bench")
             return False
         bench_loc = self.item_bench_vacancy()
         self.item_bench[bench_loc] = item
@@ -254,8 +256,8 @@ class player:
     def buy_champion(self, a_champion):
         if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
-            # if self.player_num == 0:
-            #     print("No gold to buy champion")
+            if DEBUG:
+                print("No gold to buy champion")
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         if a_champion.name == 'kayn':
@@ -344,10 +346,6 @@ class player:
             if self.bench[x]:
                 self.bench[x].participated_in_combat = False
                 self.bench[x].survive_combat = False
-        # print comp and bench for log purposes at end of turn
-        self.printComp()
-        self.printBench()
-        self.printItemBench()
         self.generate_bench_vector()
         self.generate_board_vector()
         self.generate_player_vector()
@@ -438,7 +436,6 @@ class player:
             self.util_mask[0] = 0
         else:
             self.util_mask[0] = 1
-
 
     """
     Description - Generates the bench vector. The same encoding style for the board is used for the bench.
@@ -561,6 +558,17 @@ class player:
     def generate_player_vector(self):
         self.generate_public_player_vector()
         self.generate_private_player_vector()
+
+    """
+    Description - Same as loss_round but if the opponent was a ghost
+    Inputs      - damage: Int
+                    amount of damage inflicted in the combat round
+    """
+    # TODO - split the negative reward here among the rest of the players to maintain a net equal reward
+    # TODO - move the 0.5 to the list of other reward controllers for each of the won / loss round methods
+    def ghost_won(self, damage):
+        self.reward -= 0 * damage
+        self.print(str(0 * damage) + " reward for someone losing to a ghost")
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.
@@ -709,12 +717,13 @@ class player:
     Description - Handles all variables related to losing rounds
     Inputs      - The amount of damage resulting from the loss (calculated in game_round)
     """
+    # TODO: Separate losing a combat round and a minion round. They have differences related to win_streaks and classes
     def loss_round(self, damage):
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 0.5 * damage
-            self.print(str(-0.5 * damage) + " reward for losing round")
+            self.reward -= 2 * damage
+            self.print(str(-2 * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -768,12 +777,8 @@ class player:
                 self.update_team_tiers()
                 return True
         self.reward += self.mistake_reward
-        # if self.player_num == 0:
-        #     print("Outside board move_bench_to_board bench_x {} board_x {} board_y {}".format(bench_x, board_x, board_y))
-        #     if self.bench[bench_x]:
-        #         print("{} at bench location".format(self.bench[bench_x].name))
-        #     else:
-        #         print("nothing at board")
+        if DEBUG:
+            print("Outside board range")
         return False
 
     """
@@ -789,6 +794,8 @@ class player:
                 if self.board[x][y]:
                     if not self.sell_champion(self.board[x][y], field=True):
                         self.print("Failed to sell {} from board [{}, {}]".format(self.board[x][y].name, x, y))
+                        if DEBUG:
+                            print("Failed to sell {} from board [{}, {}]".format(self.board[x][y].name, x, y))
                         return False
                     self.print("sold from board [{}, {}]".format(x, y))
                     self.generate_board_vector()
@@ -821,19 +828,18 @@ class player:
                     self.update_team_tiers()
                     return True
         self.reward += self.mistake_reward
-        # if self.player_num == 0:
-        #     print("Outside board move_board_to_bench board_x {} board_y {}".format(x, y))
-        #     if self.board[x][y]:
-        #         print("{} at board location".format(self.board[x][y].name))
-        #     else:
-        #         print("nothing at board")
-
+        if DEBUG:
+            print("Move board to bench outside board limits")
         return False
 
     """
-    Description - Moves a unit to elsewhere on the board, will swap units of both locations are occupied
-    Inputs      - two x, y coordinate pairs to be moved
-    Outputs     - boolean whether or not the move was successful
+    Description - Switches the contents of two squares on the board
+    Inputs      - x1, y1: Int
+                    coords on the board for square 1
+                  x2, y2: Int
+                    coords on the board for square 2
+    Outputs     - True if successful
+                  False if outside board limit or nothing on either square
     """
     def move_board_to_board(self, x1, y1, x2, y2) -> bool:
         if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
@@ -937,7 +943,6 @@ class player:
                         return True
                 if DEBUG:
                     print("Applying magnetic remover to a champion with no items")
-
                 return False
             if self.item_bench[xBench] == 'reforger':
                 return self.use_reforge(xBench, x, y)
@@ -985,14 +990,16 @@ class player:
                             if item_names[item_index] == names:
                                 item_trait = list(trait_items.keys())[trait]
                                 if item_trait in champ.origin:
-                                    print("trying to add trait item to unit with that trait")
+                                    if DEBUG:
+                                        print("trying to add trait item to unit with that trait")
                                     return False
                                 else:
                                     champ.origin.append(item_trait)
                                     self.update_team_tiers()
                         if item_names[item_index] == "thieves_gloves":
                             if champ.num_items != 1:
-                                print("Trying to add thieves gloves to unit with a separate item")
+                                if DEBUG:
+                                    print("Trying to add thieves gloves to unit with a separate item")
                                 return False
                             else:
                                 self.thieves_gloves_loc.append([x, y])
@@ -1028,16 +1035,13 @@ class player:
                 self.item_bench[xBench] = None
                 self.generate_item_vector()
                 self.decide_vector_generation(board)
-                self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
-                                                                      champ.items))
+                self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
                 self.thieves_gloves_loc.append([x, -1])
                 return True
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
-        # if self.player_num == 0:
-        #     print("Failed to add item")
-        #     if champ.target_dummy:
-        #         print("because I be dummy")
+        if DEBUG:
+            print("Failed to add item")
         return False
 
     """
@@ -1100,7 +1104,6 @@ class player:
         keys = list(self.team_composition.keys())
         values = list(self.team_composition.values())
         tier_values = list(self.team_tiers.values())
-        self.print("Reward gained last round = {}".format(self.reward - self.prev_rewards))
         self.prev_rewards = self.reward
         for i in range(len(self.team_composition)):
             if values[i] != 0:
@@ -1184,8 +1187,8 @@ class player:
             self.generate_player_vector()
             return True
         self.reward += self.mistake_reward
-        # if self.player_num == 0:
-        #     print("Could not refresh")
+        if DEBUG:
+            print("Could not refresh")
         return False
 
     """
@@ -1305,6 +1308,9 @@ class player:
         self.print("could not find champion " + a_champion.name + " with star = "
                    + str(a_champion.stars) + " in the triple catelog")
         self.print("{}".format(self.triple_catalog))
+        if DEBUG:
+            print("could not find champion " + a_champion.name + " with star = "
+                  + str(a_champion.stars) + " in the triple catelog")
         return False
 
     """
@@ -1340,8 +1346,8 @@ class player:
                     False: don't decrement units in play
     Outputs     - True: Unit successful sold
                   False: Was unable to sell unit due to remove from triple catalog, return item or target dummy.
-    TO DO: Varify that the bench / board vectors are being updated somewhere in the same operation as this method call.
     """
+    # TODO: Varify that the bench / board vectors are being updated somewhere in the same operation as this method call.
     def sell_champion(self, s_champion, golden=False, field=True) -> bool:
         # Need to add the behavior that on carousel when bench is full, add to board.
         if not (self.remove_triple_catalog(s_champion, golden=golden) and self.return_item(s_champion) and not
@@ -1383,7 +1389,8 @@ class player:
                 self.print("Mistake in sell from bench with {} and level {}".format(self.bench[location],
                                                                                     self.bench[location].stars))
                 self.reward += self.mistake_reward
-                # print("Could not remove from triple catalog or return item")
+                if DEBUG:
+                    print("Could not remove from triple catalog or return item")
                 return False
             if not golden:
                 self.gold += cost_star_values[self.bench[location].cost - 1][self.bench[location].stars - 1]
@@ -1397,7 +1404,8 @@ class player:
             self.generate_bench_vector()
             self.generate_player_vector()
             return return_champ
-        # print("Nothing at bench location")
+        if DEBUG:
+            print("Nothing at bench location")
         return False
 
     """
@@ -1606,6 +1614,10 @@ class player:
             if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
                 self.thieves_gloves(x[0], x[1])
 
+        self.printComp()
+        self.printBench()
+        self.printItemBench()
+
     """
     Description - Called at the conclusion of the game to the player who won the game
     """
@@ -1620,9 +1632,22 @@ class player:
     """
     # TODO - split the negative reward here among the rest of the players to maintain a net equal reward
     # TODO - move the 0.5 to the list of other reward controllers for each of the won / loss round methods
-    def won_ghost(self, damage):
-        self.reward -= 0.5 * damage
-        self.print(str(0.5 * damage) + " reward for someone losing to ghost")
+    def won_ghost(self):
+        if not self.combat:
+            self.win_streak += 1
+            self.loss_streak = 0
+            self.gold += 1
+            self.print("won round against a ghost")
+            self.match_history.append(1)
+
+            if self.team_tiers['fortune'] > 0:
+                if self.fortune_loss_streak >= len(fortune_returns):
+                    self.gold += math.ceil(fortune_returns[len(fortune_returns) - 1] +
+                                           15 * (self.fortune_loss_streak - len(fortune_returns)))
+                    self.fortune_loss_streak = 0
+                    return
+                self.gold += math.ceil(fortune_returns[self.fortune_loss_streak])
+                self.fortune_loss_streak = 0
 
     """
     Description - Keeps track of win_streaks, rewards, gold and other values related to winning a combat round.
@@ -1634,8 +1659,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 0.5 * damage
-            self.print(str(0.5 * damage) + " reward for winning round")
+            self.reward += 2 * damage
+            self.print(str(2 * damage) + " reward for winning round against player " + str(self.opponent.player_num))
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:

@@ -130,7 +130,7 @@ namespace tree {
         return distribution;
     }
 
-    CNode* CNode::get_child(int action){
+    CNode* CNode::get_child(int action) {
         int index = this->children_index[action];
         return &((*(this->ptr_node_pool))[index]);
     }
@@ -155,7 +155,7 @@ namespace tree {
         this->node_pools.reserve(root_num);
         this->roots.reserve(root_num);
 
-        for(int i = 0; i < root_num; ++i){
+        for(int i = 0; i < root_num; ++i) {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
@@ -207,13 +207,13 @@ namespace tree {
         std::string action(str_action);
         size_t index = action.find("_");
         std::vector<int> element_list;
-        while (index != std::string::npos){
-            std::string newstr = action.substr(index-1,1);
+        while(index != std::string::npos) {
+            std::string newstr = action.substr(index - 1, 1);
             element_list.push_back(std::stoi(newstr));
-            index = action.find("_",index+1);
+            index = action.find("_", index + 1);
         }
-        if (index != std::string::npos){
-            std::string newstr = action.substr(index+1,1);
+        if(index != std::string::npos) {
+            std::string newstr = action.substr(index + 1, 1);
             element_list.push_back(std::stoi(newstr));
         }
         while(element_list.size() < 3) {

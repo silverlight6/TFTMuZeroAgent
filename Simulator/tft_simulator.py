@@ -120,9 +120,7 @@ class TFT_Simulator(AECEnv):
                     self.NUM_DEAD += 1
                     self.game_round.NUM_DEAD = self.NUM_DEAD
                     self.pool_obj.return_hero(player)
-                    self.PLAYERS[key] = None
                     self.kill_list.append(key)
-                    self.game_round.update_players(self.PLAYERS)
                 else:
                     num_alive += 1
         return num_alive
@@ -217,9 +215,9 @@ class TFT_Simulator(AECEnv):
                 if self.check_dead() <= 1 or self.game_round.current_round > 48:
                     # Anyone left alive (should only be 1 player unless time limit) wins the game
                     for player_id in self.agents:
-                        if self.PLAYERS[player_id]:
+                        if self.PLAYERS[player_id] and self.PLAYERS[player_id].health > 0:
                             self.PLAYERS[player_id].won_game()
-                            self.rewards[player_id] = 8.75
+                            self.rewards[player_id] = 35 + self.PLAYERS[player_id].reward
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
                             self.PLAYERS[player_id] = None  # Without this the reward is reset
 
@@ -232,8 +230,10 @@ class TFT_Simulator(AECEnv):
             for k in self.kill_list:
                 self.terminations[k] = True
                 _live_agents.remove(k)
-                self.rewards[k] = (3 - len(_live_agents)) * 2.5 - 1.25
+                self.rewards[k] = (3 - len(_live_agents)) * 10 + 5 + self.PLAYERS[k].reward
                 self._cumulative_rewards[k] = self.rewards[k]
+                self.PLAYERS[k] = None
+                self.game_round.update_players(self.PLAYERS)
 
             if len(self.kill_list) > 0:
                 self._agent_selector.reinit(_live_agents)

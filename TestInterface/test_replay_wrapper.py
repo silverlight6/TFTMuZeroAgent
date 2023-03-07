@@ -6,7 +6,8 @@ from sklearn import preprocessing
 
 class BufferWrapper:
     def __init__(self, global_buffer):
-        self.buffers = {"player_" + str(i): ReplayBuffer(global_buffer) for i in range(config.NUM_PLAYERS)}
+        self.buffers = {"player_" + str(i): ReplayBuffer(global_buffer, "player_" + str(i))
+                        for i in range(config.NUM_PLAYERS)}
 
     def store_replay_buffer(self, key, *args):
         self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4])

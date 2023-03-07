@@ -2,7 +2,6 @@ import Simulator.config as config
 import time
 import random
 import numpy as np
-# import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
