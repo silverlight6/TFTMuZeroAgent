@@ -1,7 +1,6 @@
 import time
 import config
 import random
-# import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
@@ -174,10 +173,13 @@ class Game_Round:
                                 alive.append(other)
                     if index_won == 2 or index_won == 0:
                         players[num].health -= damage
-                        players[num].loss_round(player_round)
-                        if len(alive) > 0:
-                            for other in alive:
-                                other.won_ghost(damage/len(alive))
+                        players[num].ghost_won(player_round)
+                        # Silver messed this code up.
+                        # if len(alive) > 0:
+                        #     for other in alive:
+                        #         other.ghost_won(damage / len(alive))
+                    if index_won == 1:
+                        players[num].won_ghost()
                     players[num].combat = True
                     players_matched += 1
                 else:

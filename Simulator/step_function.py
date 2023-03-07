@@ -564,6 +564,10 @@ class Step_Function:
             # This would normally be end turn but figure it out later
             pass
 
+    '''
+    Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 
+                  player class. Also updates the observation.
+    '''
     def batch_shop(self, shop_action, player, game_observation, player_id):
         if shop_action > 4:
             shop_action = int(np.floor(np.random.rand(1, 1) * 5))
@@ -581,4 +585,6 @@ class Step_Function:
             self.shops[player_id][shop_action] = " "
             game_observation.generate_shop_vector(self.shops[player_id], player)
         else:
+            # I get that this does nothing, but it tells whoever writes in this method next that there should be
+            # Nothing that follows this line.
             return

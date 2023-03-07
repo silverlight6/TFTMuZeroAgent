@@ -16,7 +16,7 @@ class Observation:
         self.game_comp_vector = np.zeros(208)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
-                                                                config.OBSERVATION_TIME_STEP_INTERVAL)
+                                                         config.OBSERVATION_TIME_STEP_INTERVAL)
         self.other_player_observations = {"player_" + str(player_id): np.zeros(306)
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
@@ -106,10 +106,10 @@ class Observation:
         self.turn_since_update = 0
 
     """
-    Description - 
-    Inputs      - 
-    Outputs     - 
+    Description - Generates the vector for a comp tier for a given player. This is equal to the game compositions bar 
+                  on the left in TFT. 
     """
+    # TODO: Add other player's compositions to the list of other player's vectors.
     def generate_game_comps_vector(self):
         output = np.zeros(208)
         for i in range(len(game_comp_tiers)):
@@ -120,6 +120,14 @@ class Observation:
             output[i * 26: i * 26 + 26] = tiers
         self.game_comp_vector = output
 
+    '''
+    Description - Generates the shop vector and information for the shop mask. This is a binary encoding of the champ
+                  costs list for each shop location. 0s if there is no shop option available.
+    Inputs      - shop: List of strings
+                    shop to transform into a vector
+                  player: Player Object
+                    player who the shop belongs to.
+    '''
     def generate_shop_vector(self, shop, player):
         # each champion has 6 bit for the name, 1 bit for the chosen.
         # 5 of them makes it 35.
