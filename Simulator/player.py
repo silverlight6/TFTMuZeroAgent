@@ -211,6 +211,7 @@ class player:
             self.thieves_gloves_loc.append([bench_loc, -1])
             self.thieves_gloves(bench_loc, -1)
         self.generate_bench_vector()
+        self.generate_item_vector()
         return True
 
     """
@@ -504,11 +505,15 @@ class player:
     Description - Generates the item vector. This is done using binary encoding.
     """
     # return output_array
+    # TODO: Make champion_duplicator work when bench is full and can upgrade rank
     def generate_item_vector(self):
         item_arr = np.zeros(self.MAX_BENCH_SPACE * 6)
         for ind, item in enumerate(self.item_bench):
             item_info = np.zeros(6)
-            if item in uncraftable_items:
+            if item == 'champion_duplicator' and self.bench_full():
+                item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
+                self.item_mask[ind] = 0
+            elif item in uncraftable_items:
                 item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
                 self.item_mask[ind] = 1
             elif item in item_builds.keys():
@@ -791,7 +796,7 @@ class player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Outside board range, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}")
+            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
         return False
 
     """
@@ -838,11 +843,12 @@ class player:
                         self.thieves_gloves_loc_update(bench_loc, -1, x, y)
                     self.generate_bench_vector()
                     self.generate_board_vector()
+                    self.generate_item_vector()
                     self.update_team_tiers()
                     return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print("Move board to bench outside board limits")
+            print(f"Move board to bench outside board limits: {x}, {y}")
         return False
 
     """
@@ -942,7 +948,7 @@ class player:
                     self.decide_vector_generation(board)
                     return True
                 if DEBUG:
-                    print("Applying champion duplicator with the bench full")
+                    print(f"Applying champion duplicator with the bench full")
                 return False
             if self.item_bench[xBench] == 'magnetic_remover':
                 if len(champ.items) > 0:
@@ -1063,7 +1069,7 @@ class player:
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         if DEBUG:
-            print("Failed to add item")
+            print(f"Failed to add item {self.item_bench[xBench]}")
         return False
 
     """
@@ -1429,6 +1435,7 @@ class player:
                        str(self.bench[location].stars) + " from bench_location " + str(location))
             self.bench[location] = None
             self.generate_bench_vector()
+            self.generate_item_vector()
             self.generate_player_vector()
             return return_champ
         if DEBUG:
