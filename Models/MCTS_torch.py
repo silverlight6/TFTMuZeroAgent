@@ -241,7 +241,7 @@ class MCTS:
                         local_counter += 1
                         continue
                     # if we're doing a bench to board move and board is full and there is no champ at destination, skip
-                    if a < 28 and b > 27 and b != 37 and mask[idx][5][0] and not mask[idx][2][a]:
+                    if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
                         local_counter += 1
                         continue
                     local_action.append(policy_logits[idx][local_counter])
