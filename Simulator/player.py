@@ -170,7 +170,7 @@ class player:
     """
     # TODO: Verify that the units received carousel round are not bugging out.
     #       Check the logs in the simulator discord channel
-    def add_to_bench(self, a_champion):  # add champion to reduce confusion over champion from import
+    def add_to_bench(self, a_champion, from_carousel=False):  # add champion to reduce confusion over champion from import
         # try to triple second
         golden, triple_success = self.update_triple_catalog(a_champion)
         if not triple_success:
@@ -182,10 +182,12 @@ class player:
             return True
         if self.bench_full():
             self.sell_champion(a_champion, field=False)
-            self.reward += self.mistake_reward
-            if DEBUG:
-                print("Trying to buy a unit with bench full")
-            return False
+            if not from_carousel:
+                self.reward += self.mistake_reward
+                if DEBUG:
+                    print("Trying to buy a unit with bench full")
+                return False
+            return True
         bench_loc = self.bench_vacancy()
         self.bench[bench_loc] = a_champion
         a_champion.bench_loc = bench_loc
@@ -778,7 +780,7 @@ class player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print("Outside board range")
+            print(f"Outside board range, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}")
         return False
 
     """

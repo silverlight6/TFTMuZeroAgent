@@ -228,7 +228,7 @@ class Game_Round:
             ran_cost_3 = champion.champion(ran_cost_3,
                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
             self.pool_obj.update_pool(ran_cost_3, -1)
-            player.add_to_bench(ran_cost_3)
+            player.add_to_bench(ran_cost_3, True)
             player.refill_item_pool()
 
     def carousel3_4(self):
@@ -238,7 +238,7 @@ class Game_Round:
                 ran_cost_3 = champion.champion(ran_cost_3,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
                 self.pool_obj.update_pool(ran_cost_3, -1)
-                player.add_to_bench(ran_cost_3)
+                player.add_to_bench(ran_cost_3, True)
                 player.refill_item_pool()
 
     def carousel4_4(self):
@@ -248,7 +248,7 @@ class Game_Round:
                 ran_cost_4 = champion.champion(ran_cost_4,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
                 self.pool_obj.update_pool(ran_cost_4, -1)
-                player.add_to_bench(ran_cost_4)
+                player.add_to_bench(ran_cost_4, True)
                 player.refill_item_pool()
 
     def carousel5_4(self):
@@ -258,7 +258,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel6_4(self):
@@ -268,7 +268,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel7_4(self):
@@ -278,7 +278,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel8_4(self):
@@ -288,7 +288,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def decide_player_combat(self, players):
