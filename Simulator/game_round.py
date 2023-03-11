@@ -212,6 +212,8 @@ class Game_Round:
     def combat_round(self):
         for player in self.PLAYERS.values():
             if player:
+                player.end_turn_actions()
+                player.combat = False
                 log_to_file(player)
         log_end_turn(self.current_round)
 
