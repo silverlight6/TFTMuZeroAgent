@@ -59,6 +59,13 @@ def flatten_action(str_action):
     # No change needed for 4 and 5
     return index
 
+def action_str_to_idx(sample_set):
+    return [[[flatten_action(m) for m in batch] for batch in player] for player in sample_set]
+
+# God forgive me
+def flatten_sample_set(sample_set):
+    return [item for player in sample_set for batch in player for item in batch]
+
 """
 Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
               to train on the improved policy. 0s for everywhere that was not sampled.
@@ -71,8 +78,7 @@ Outputs     - output_policy - List
 """
 def map_distribution_to_sample(mapping, policy_logits):
     output_policy = []
-    mapping_indicies = [np.asarray([flatten_action(m) for m in batch]) for batch in mapping]
     for i in range(policy_logits.shape[0]):
-        sampled_policy = torch.index_select(policy_logits[i], -1, torch.from_numpy(mapping_indicies[i]).cuda())
+        sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).cuda())
         output_policy.append(sampled_policy)
     return output_policy

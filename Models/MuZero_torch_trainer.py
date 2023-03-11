@@ -2,7 +2,7 @@ import config
 import collections
 import torch
 import numpy as np
-from Models.MCTS_Util import map_distribution_to_sample
+from Models.MCTS_Util import map_distribution_to_sample, action_str_to_idx, flatten_sample_set
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -39,14 +39,28 @@ class Trainer(object):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
 
+        sample_set = action_str_to_idx(sample_set)
+
         self.optimizer.zero_grad()
 
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
         loss = loss.mean()
+
+        unique = torch.unique(torch.tensor(flatten_sample_set(sample_set))).cuda()
+                
+        def filter_grad(grad):
+            zeros = torch.zeros(grad.shape).cuda()
+            filtered = torch.index_select(grad, 0, unique).cuda()
+            return zeros.index_copy_(0, unique, filtered)
+
+        self.global_agent.prediction_policy_network[2].weight.register_hook(lambda grad: filter_grad(grad))
+        self.global_agent.prediction_policy_network[2].bias.register_hook(lambda grad: filter_grad(grad))
+
+
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(agent.parameters(), config.MAX_GRAD_NORM)
+
         self.optimizer.step()
 
         # storage.save_network(config.training_steps, network)\
