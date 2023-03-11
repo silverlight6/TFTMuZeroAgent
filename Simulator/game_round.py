@@ -92,10 +92,6 @@ class Game_Round:
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
-        for player in players:
-            if player:
-                player.end_turn_actions()
-                player.combat = False
         for num in player_nums:
             # make sure I am dealing with one of the players who has yet to fight.
             if players[num] and not players[num].combat:
@@ -242,6 +238,8 @@ class Game_Round:
     def combat_round(self):
         for player in self.PLAYERS.values():
             if player:
+                player.end_turn_actions()
+                player.combat = False
                 log_to_file(player)
         log_end_turn(self.current_round)
 

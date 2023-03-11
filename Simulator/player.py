@@ -181,7 +181,7 @@ class player:
     """
     # TODO: Verify that the units received carousel round are not bugging out.
     #       Check the logs in the simulator discord channel
-    def add_to_bench(self, a_champion, from_carousel=False):  # add champion to reduce confusion over champion from import
+    def add_to_bench(self, a_champion, from_carousel=False):
         # try to triple second
         golden, triple_success = self.update_triple_catalog(a_champion)
         if not triple_success:
