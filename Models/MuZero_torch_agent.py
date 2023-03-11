@@ -77,7 +77,7 @@ class MuZeroNetwork(AbstractNetwork):
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
         self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
-                                             config.N_HEAD_HIDDEN_LAYERS, config.ACTION_ENCODING_SIZE)
+                                             config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
 
         self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
@@ -85,7 +85,6 @@ class MuZeroNetwork(AbstractNetwork):
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
-
 
     def prediction(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
@@ -158,7 +157,8 @@ class MuZeroNetwork(AbstractNetwork):
         }
         return outputs
 
-    def rnn_to_flat(self, state):
+    @staticmethod
+    def rnn_to_flat(state):
         """Maps LSTM state to flat vector."""
         states = []
         for cell_state in state:

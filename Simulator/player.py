@@ -740,8 +740,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 2 * damage
-            self.print(str(-2 * damage) + " reward for losing round against player " + str(self.opponent.player_num))
+            self.reward -= 0 * damage
+            self.print(str(0 * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1637,8 +1637,15 @@ class player:
     # TODO Organize methods to be alphabetical so people can find what they are looking for in this file. This file only
     def start_round(self, t_round):
         self.start_time = time.time_ns()
-        self.round = t_round
         self.reward += self.num_units_in_play * self.minion_count_reward
+
+        # Print the comps
+        self.printComp()
+        self.printBench()
+        self.printItemBench()
+
+        # Increment reward, gold and exp
+        self.round = t_round
         self.gold_income(self.round)
         self.generate_player_vector()
         if self.kayn_check():
@@ -1648,10 +1655,6 @@ class player:
         for x in self.thieves_gloves_loc:
             if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
                 self.thieves_gloves(x[0], x[1])
-
-        self.printComp()
-        self.printBench()
-        self.printItemBench()
 
     """
     Description - Called at the conclusion of the game to the player who won the game
@@ -1694,8 +1697,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 2 * damage
-            self.print(str(2 * damage) + " reward for winning round against player " + str(self.opponent.player_num))
+            self.reward += 0 * damage
+            self.print(str(0 * damage) + " reward for winning round against player " + str(self.opponent.player_num))
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
