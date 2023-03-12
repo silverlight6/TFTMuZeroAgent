@@ -62,7 +62,7 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i], player_id)
+                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
                 i += 1
         return step_actions
 
@@ -74,10 +74,7 @@ class DataWorker(object):
             masks.append(obs["mask"])
         return [np.asarray(tensors), masks]
 
-    def decode_action_to_one_hot(self, str_action, key):
-        # if key == "player_0":
-        #     print(str_action)
-        print(str_action)
+    def decode_action_to_one_hot(self, str_action):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
         element_list = [0, 0, 0]

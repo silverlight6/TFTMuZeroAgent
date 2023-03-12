@@ -130,7 +130,7 @@ class MCTS:
 
             policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
 
-            # 0.002 seconds
+            # 0.014 seconds
             policy_logits, _, mappings, policy_sizes = \
                 self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
 
@@ -148,8 +148,8 @@ class MCTS:
 
     def add_exploration_noise(self, policy_logits, noises):
         exploration_fraction = config.ROOT_EXPLORATION_FRACTION
-        for i in range(len(noises)): # Batch
-            for j in range(len(noises[i])): # Policy Dims
+        for i in range(len(noises)):  # Batch
+            for j in range(len(noises[i])):  # Policy Dims
                 for k in range(len(noises[i][j])):
                     policy_logits[i][j][k] = policy_logits[i][j][k] * (1 - exploration_fraction) + \
                                              noises[i][j][k] * exploration_fraction
