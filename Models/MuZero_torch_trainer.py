@@ -47,11 +47,9 @@ class Trainer(object):
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
         loss = loss.mean()
-        samples = torch.zeros(config.ACTION_ENCODING_SIZE).cuda()
-        for i in flatten_sample_set(sample_set):
-            samples[i] += 1 
+        flat = torch.tensor(flatten_sample_set(sample_set))
+        samples = torch.bincount(flat, minlength=config.ACTION_ENCODING_SIZE).cuda()
 
-                
         def filter_grad(grad):
             if len(grad.shape) == 1:
                 grad = grad * samples
@@ -60,10 +58,8 @@ class Trainer(object):
             grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
             return grad
 
-
         handle1 = self.global_agent.prediction_policy_network[2].weight.register_hook(lambda grad: filter_grad(grad))
         handle2 = self.global_agent.prediction_policy_network[2].bias.register_hook(lambda grad: filter_grad(grad))
-
 
         loss.backward()
 
