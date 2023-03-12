@@ -135,7 +135,7 @@ class MCTS:
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings, policy_sizes)
 
-    def add_exploration_noise(self, noise, policy_logits):
+    def add_exploration_noise(self, policy_logits, noise):
         exploration_fraction = config.ROOT_EXPLORATION_FRACTION
         for i in range(len(noise)):
             for j in range(len(noise[i])):
