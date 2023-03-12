@@ -482,8 +482,8 @@ class player:
             else:
                 self.bench_mask[x_bench] = 0
                 space = 1
-            bench[x_bench*self.CHAMP_ENCODING_SIZE:
-                    x_bench*self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
+            bench[x_bench * self.CHAMP_ENCODING_SIZE:
+                  x_bench * self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
         self.bench_vector = bench
         self.util_mask[1] = space
 
