@@ -230,8 +230,10 @@ class MultiMlp(torch.nn.Module):
         super().__init__()
 
         # One linear that encodes the observation
-        self.encoding_layer = torch.nn.Linear(input_size, layer_size)
-        self.activation = activation()
+        self.encoding_layer = torch.nn.Sequential(
+            torch.nn.Linear(input_size, layer_size),
+            activation()
+        ).cuda()
 
         self.output_heads = []
 
@@ -239,13 +241,12 @@ class MultiMlp(torch.nn.Module):
             output_layer = torch.nn.Sequential(
                 torch.nn.Linear(layer_size, size),
                 output_activation()
-            )
+            ).cuda()
             self.output_heads.append(output_layer)
     
     def forward(self, x):
         # Encode the hidden state
         x = self.encoding_layer(x)
-        x = self.activation(x)
 
         # Pass x into all output heads
         output = []
