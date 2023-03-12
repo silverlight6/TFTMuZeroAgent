@@ -224,18 +224,18 @@ class MCTS:
         # 
 
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
-        batch_size = policy_logits[0].shape[0] # 8
-        masked_policy_logits = [ [] ] # Start with empty type_dim
-        masked_policy_mappings = [ [] ]
+        batch_size = policy_logits[0].shape[0]  # 8
+        masked_policy_logits = [[]]  # Start with empty type_dim
+        masked_policy_mappings = [[]]
 
-        for dim in range(len(policy_logits)): # 5
-            masked_dim = [] # (8, ?)
+        for dim in range(len(policy_logits)):  # 5
+            masked_dim = []  # (8, ?)
             masked_dim_mapping = []
 
-            if dim == 0: # We deal with type masking at the end
+            if dim == 0:  # We deal with type masking at the end
                 continue
 
-            if dim == 1: # Shop Masking
+            if dim == 1:  # Shop Masking
                 for idx in range(batch_size):
                     local_shop = []
                     local_shop_mapping = []
@@ -246,7 +246,7 @@ class MCTS:
                     masked_dim.append(local_shop)
                     masked_dim_mapping.append(local_shop_mapping)
 
-            elif dim == 2: # Board Masking
+            elif dim == 2:  # Board Masking
                 for idx in range(batch_size):
                     local_board = []
                     local_board_mapping = []
@@ -265,7 +265,8 @@ class MCTS:
                                     ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
                                 board_counter += 1
                                 continue
-                            # if we're doing a bench to board move and board is full and there is no champ at destination, skip
+                            # if we're doing a bench to board move and board is full
+                            # and there is no champ at destination, skip
                             if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
                                 board_counter += 1
                                 continue
@@ -275,7 +276,7 @@ class MCTS:
                     masked_dim.append(local_board)
                     masked_dim_mapping.append(local_board_mapping)
 
-            elif dim == 3: # Item masking
+            elif dim == 3:  # Item masking
                 for idx in range(batch_size):
                     local_item = []
                     local_item_mapping = []
@@ -298,10 +299,10 @@ class MCTS:
                     masked_dim.append(local_item)
                     masked_dim_mapping.append(local_item_mapping)
             
-            elif dim == 4: # Sell unit masking
+            elif dim == 4:  # Sell unit masking
                 local_sell = []
                 local_sell_mapping = []
-                            # Sell unit masking
+                #  Sell unit masking
                 for idx in range(batch_size):
                     for a in range(37):
                         # If unit exists and TODO: Is sellable unit
@@ -347,7 +348,6 @@ class MCTS:
         masked_policy_mappings[0] = type_dim_mapping
         
         return masked_policy_logits, masked_policy_mappings
-
 
     """
     Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
