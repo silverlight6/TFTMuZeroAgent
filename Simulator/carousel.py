@@ -1,6 +1,7 @@
 import config
 from Simulator.item_stats import item_builds as item_builds, basic_items, starting_items, offensive_items, defensive_items
-from Simulator import champion, pool, pool_stats
+from Simulator.champion import champion
+from Simulator.pool_stats import COST_1, COST_2, COST_3, COST_4, COST_5
 import random
 
 # TODO:
@@ -10,11 +11,12 @@ def carousel(players, round, pool_obj):
     # probability of certain arrangements during certain carousels
     # https://leagueoflegends.fandom.com/wiki/Carousel_(Teamfight_Tactics)
     alive = []
-    alive.append(players[0])
     # sort the list of alive players with the lowest HP player at the beginning
     for player in players:
         if player:
-            if player.health <= alive[0].health and player != alive[0]:
+            if len(alive) == 0:
+                alive.append(player)
+            elif player.health <= alive[0].health and player != alive[0]:
                 alive.insert(0, player)
 
     champions = generateChampions(round, pool_obj)
@@ -23,7 +25,6 @@ def carousel(players, round, pool_obj):
     # give all champions on the carousel an item
     for i, champ in enumerate(champions):
         champ.add_item(items[i])
-    
     # player will choose the highest cost available regardless of item
     # needs to be changed to choose the "best" choice for each player
 
@@ -31,22 +32,24 @@ def carousel(players, round, pool_obj):
     for player in alive:
         current = champions[0]
         for champ in champions:
-            if champ.COST > current.COST:
+            if champ.cost > current.cost:
                 current = champ
         player.add_to_bench(current)
+        player.generate_bench_vector()
+        champions.remove(current)
     # pool updating should be handled upon a player choosing a champion
     # much easier this way
-        pool_obj.update(current, -1)
+        pool_obj.update_pool(current, -1)
 
 # this will handle champion generation based on the current round
 def generateChampions(round, pool_obj):
-    oneCosts = pool_obj.COST_1.items()
-    twoCosts = pool_obj.COST_2.items()
-    threeCosts = pool_obj.COST_3.items()
-    fourCosts = pool_obj.COST_4.items()
-    fiveCosts = pool_obj.COST_5.items()
+    oneCosts = list(COST_1.items())
+    twoCosts = list(COST_2.items())
+    threeCosts = list(COST_3.items())
+    fourCosts = list(COST_4.items())
+    fiveCosts = list(COST_5.items())
     # remove champions from the list that have been exhausted from the pool (checking COST_1, COST_2, etc)
-    for champ, count  in oneCosts:
+    for champ, count in oneCosts:
         if count <= 0:
             oneCosts.pop(champ)
     for champ, count in twoCosts:
@@ -65,34 +68,34 @@ def generateChampions(round, pool_obj):
     # first carousel - all 1 costs
     if round == 0:
         for _ in range(9):
-            carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+            carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
     # second carousel - 1 one cost, 4 two costs, 4 three costs
     elif round == 6:
-        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(4):
-            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
         for _ in range(4):
-            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))[0]))
     # third carousel - 1 one cost, 2 two costs, 3 three costs, 3 four costs
-    elif round == 12:
-        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+    elif round == 13:
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
-            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
         for _ in range(3):
-            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))[0]))
         for _ in range(3):
-            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))))
+            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))[0]))
     # fourth carousel and beyond - 1 one cost, 2 two costs, 2 three costs, 2 four costs, 2 five costs
-    elif round >= 18:
-        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))))
+    elif round >= 20:
+        carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
-            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))))
+            carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
         for _ in range(2):
-            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))))
+            carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))[0]))
         for _ in range(2):
-            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))))
+            carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))[0]))
         for _ in range(2):
-            carouselChamps.append(champion(fiveCosts.pop(random.randint(0, len(fiveCosts) - 1))))
+            carouselChamps.append(champion(fiveCosts.pop(random.randint(0, len(fiveCosts) - 1))[0]))
     return carouselChamps
 
 # handles the item generation based on the current round
@@ -119,7 +122,7 @@ def generateHeldItems(round):
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 12:
+    elif round == 13:
         if roll < 0.50:
             return generateAllRandomComponents()
         elif roll < 0.80:
@@ -128,16 +131,16 @@ def generateHeldItems(round):
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 18:
+    elif round == 20:
         if roll < 0.80:
             return generateAllComponents()
         elif roll < 0.95:
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 24:
+    elif round == 27:
         if roll < 0.50:
-            return generateComponentItems()
+            return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         elif roll < 0.754:
             return generateFullItems()
         # 3% chance for a full set of items made with each component = 24% chance for all components
@@ -146,7 +149,7 @@ def generateHeldItems(round):
             return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         else:
             return generateFONs()
-    elif round >= 30:
+    elif round >= 34:
         return generateHalfItems()
 
 # random helper methods for generation of item sets for carousel below
@@ -215,7 +218,7 @@ def generateFullItems():
     # generate an item list of completely random items
     items = []
     # list of all possible completed items
-    fullitems = list(item_builds.items())
+    fullitems = list(item_builds.keys())
     for _ in range(9):
         # randomly choose an item from the full items list and simultaneously remove it (prevents duplicates)
         items.append(fullitems.pop(random.randint(0, len(fullitems) - 1)))
@@ -227,13 +230,13 @@ def generateComponentItems(component):
     items = []
     for item in item_builds:
         if component in item_builds[item]:
-            items.append(item_builds[item])
+            items.append(item)
     return items
 
 def generateHalfItems():
     # generate an item list of half full items, half random components
     items = []
-    fullitems = list(item_builds.items())
+    fullitems = list(item_builds.keys())
     for _ in range(5):
         items.append(fullitems.pop(random.randint(0, len(fullitems) - 1)))
     

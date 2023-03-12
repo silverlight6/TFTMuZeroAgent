@@ -5,6 +5,7 @@ from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
 from Simulator.champion_functions import MILLIS
+from Simulator.carousel import carousel
 
 
 class Game_Round:
@@ -34,49 +35,49 @@ class Game_Round:
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel2_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel3_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel4_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel5_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel6_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel7_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
             self.minion_round,
             self.combat_round,
             self.combat_round,
             self.combat_round,
-            self.carousel8_4,
+            self.carousel_round,
             self.combat_round,
             self.combat_round,
         ]
@@ -198,14 +199,8 @@ class Game_Round:
         # Change this so it isn't tied to a player and can log as time proceeds
 
     def round_1(self):
+        carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-            if player:
-                # first carousel
-                ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
-                ran_cost_1 = champion.champion(ran_cost_1,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_1, -1)
-                player.add_to_bench(ran_cost_1)
                 log_to_file(player)
 
         for player in self.PLAYERS.values():
@@ -252,74 +247,13 @@ class Game_Round:
 
         return False
 
-    def carousel2_4(self):
+    # executes carousel round for all players
+    def carousel_round(self):
+        carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-            ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-            ran_cost_3 = champion.champion(ran_cost_3,
-                                           itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-            self.pool_obj.update_pool(ran_cost_3, -1)
-            player.add_to_bench(ran_cost_3, True)
-            player.refill_item_pool()
-
-    def carousel3_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-                ran_cost_3 = champion.champion(ran_cost_3,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_3, -1)
-                player.add_to_bench(ran_cost_3, True)
-                player.refill_item_pool()
-
-    def carousel4_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_4 = list(pool_stats.COST_4.items())[random.randint(0, len(pool_stats.COST_4) - 1)][0]
-                ran_cost_4 = champion.champion(ran_cost_4,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_4, -1)
-                player.add_to_bench(ran_cost_4, True)
-                player.refill_item_pool()
-
-    def carousel5_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel6_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel7_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel8_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
+                if player:
+                    log_to_file(player)
+                    player.refill_item_pool()
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")
