@@ -44,13 +44,13 @@ class MCTS:
         
             noises = [
                 [
-                  np.random.dirichlet(
-                [config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j]))
-                    .astype(np.float32).tolist()
-                for j in range(len(policy_logits_pool[i]))
+                    np.random.dirichlet(
+                        [config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
+                    ).astype(np.float32).tolist()
+                    for j in range(self.NUM_ALIVE)
                 ]
-                for i in range(self.NUM_ALIVE)
-                ]
+                for i in range(len(policy_logits_pool))
+            ]
             
             # Policy Logits -> [ [], [], [], [], [], [], [], [],]
 
@@ -258,7 +258,7 @@ class MCTS:
                         for b in range(a, 37):
                             if a == b:
                                 continue
-                            if a > 27 and b != 37:
+                            if a > 27:
                                 continue
                             # if we are trying to move a non-existent champion, skip
                             if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
@@ -376,7 +376,8 @@ class MCTS:
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
 
-        batch_size = policy_logits[0].shape[0]
+        batch_size = len(policy_logits[0]) # 8
+
         output_logits = []
         output_string_mapping = []
         output_byte_mapping = []
@@ -404,8 +405,6 @@ class MCTS:
                     policy_range_2nd_dim = np.arange(stop=len(policy_logits[sample][idx]))
 
                     sample_2nd_dim = np.random.choice(a=policy_range_2nd_dim, p=probs_2nd_dim)
-
-                
                     local_string_action += string_mapping[sample][idx][sample_2nd_dim]
                     
                 local_byte_action = bytes(local_string_action, "utf-8")

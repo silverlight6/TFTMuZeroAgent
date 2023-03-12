@@ -3,10 +3,15 @@ import torch
 import numpy as np
 
 def create_default_mapping():
-    local_mapping = [[],[],[],[],[]]
+    local_type = []
+    local_shop = []
+    local_board = []
+    local_item = []
+    local_sell = []
+
     # Shop masking
     for i in range(5):
-        local_mapping[1].append(f"_{i}")
+        local_shop.append(f"_{i}")
 
     # Board masking
     # For all board + bench slots...
@@ -17,25 +22,31 @@ def create_default_mapping():
                 continue
             if a > 27:
                 continue
-            local_mapping[2].append(f"_{a}_{b}")
+            local_board.append(f"_{a}_{b}")
     # Item masking
     # For all board + bench slots...
     for a in range(37):
         # For every item slot...
         for b in range(10):
             # if there is a unit and there is an item
-            local_mapping[3].append(f"_{a}_{b}")
+            local_item.append(f"_{a}_{b}")
     # Sell unit masking
     for a in range(37):
-        local_mapping[4].append(f"_{a}")
+        local_sell.append(f"_{a}")
 
     # All Type mappings
     for i in range(7):
-        local_mapping[0].append(f"{i}")
-            
-    mappings = [local_mapping for _ in range(config.NUM_PLAYERS)]
+        local_type.append(f"{i}")
+        
+    mappings = []
 
-    return mappings 
+    mappings.append([local_type]*config.NUM_PLAYERS)
+    mappings.append([local_shop]*config.NUM_PLAYERS)
+    mappings.append([local_board]*config.NUM_PLAYERS)
+    mappings.append([local_item]*config.NUM_PLAYERS)
+    mappings.append([local_sell]*config.NUM_PLAYERS)
+    
+    return mappings
 
 # _, default_mapping = create_default_mapping()
 # default_mapping = default_mapping[0]
