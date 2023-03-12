@@ -12,6 +12,24 @@ def setup(player_num=0) -> player:
     player1 = player(base_pool, player_num)
     return player1
 
+
+def azir_test():
+    p1 = setup()
+    p1.gold = 1000
+    p1.max_units = 4
+    p1.buy_champion(champion('azir'))
+    p1.move_bench_to_board(0, 0, 0)
+    coords = p1.board[0][0].sandguard_overlord_coordinates
+    assert p1.board[coords[0][0]][coords[0][1]].name == 'sandguard'
+    assert p1.board[coords[1][0]][coords[1][1]].name == 'sandguard'
+    p1.move_board_to_board(1, 1, 5, 3)
+    assert [5, 3] in p1.board[0][0].sandguard_overlord_coordinates
+    p1.move_board_to_bench(0, 0)
+    for x in range(7):
+        for y in range(4):
+            assert p1.board[x][y] is None
+
+
 def chosen_test():
     p1 = setup()
     p1.gold = 1000
@@ -378,6 +396,7 @@ def incomeTest4():
 
 def list_of_tests():
     """tests all test cases"""
+    azir_test()
     chosen_test()
     end_of_turn_actions_test()
 

@@ -1,7 +1,6 @@
 import time
 import config
 import random
-# import multiprocessing
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
 from Simulator.player import player as player_class
@@ -93,10 +92,6 @@ class Game_Round:
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
-        for player in players:
-            if player:
-                player.end_turn_actions()
-                player.combat = False
         for num in player_nums:
             # make sure I am dealing with one of the players who has yet to fight.
             if players[num] and not players[num].combat:
@@ -174,10 +169,13 @@ class Game_Round:
                                 alive.append(other)
                     if index_won == 2 or index_won == 0:
                         players[num].health -= damage
-                        players[num].loss_round(player_round)
-                        if len(alive) > 0:
-                            for other in alive:
-                                other.won_ghost(damage/len(alive))
+                        players[num].ghost_won(player_round)
+                        # Silver messed this code up.
+                        # if len(alive) > 0:
+                        #     for other in alive:
+                        #         other.ghost_won(damage / len(alive))
+                    if index_won == 1:
+                        players[num].won_ghost()
                     players[num].combat = True
                     players_matched += 1
                 else:
@@ -227,6 +225,11 @@ class Game_Round:
 
         for player in self.PLAYERS.values():
             if player:
+                player.end_turn_actions()
+                player.combat = False
+
+        for player in self.PLAYERS.values():
+            if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
         self.start_round()
         return False
@@ -235,6 +238,8 @@ class Game_Round:
     def combat_round(self):
         for player in self.PLAYERS.values():
             if player:
+                player.end_turn_actions()
+                player.combat = False
                 log_to_file(player)
         log_end_turn(self.current_round)
 
@@ -253,7 +258,7 @@ class Game_Round:
             ran_cost_3 = champion.champion(ran_cost_3,
                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
             self.pool_obj.update_pool(ran_cost_3, -1)
-            player.add_to_bench(ran_cost_3)
+            player.add_to_bench(ran_cost_3, True)
             player.refill_item_pool()
 
     def carousel3_4(self):
@@ -263,7 +268,7 @@ class Game_Round:
                 ran_cost_3 = champion.champion(ran_cost_3,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
                 self.pool_obj.update_pool(ran_cost_3, -1)
-                player.add_to_bench(ran_cost_3)
+                player.add_to_bench(ran_cost_3, True)
                 player.refill_item_pool()
 
     def carousel4_4(self):
@@ -273,7 +278,7 @@ class Game_Round:
                 ran_cost_4 = champion.champion(ran_cost_4,
                                                itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
                 self.pool_obj.update_pool(ran_cost_4, -1)
-                player.add_to_bench(ran_cost_4)
+                player.add_to_bench(ran_cost_4, True)
                 player.refill_item_pool()
 
     def carousel5_4(self):
@@ -283,7 +288,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel6_4(self):
@@ -293,7 +298,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel7_4(self):
@@ -303,7 +308,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def carousel8_4(self):
@@ -313,7 +318,7 @@ class Game_Round:
                 item_list = list(full_items.keys())
                 ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
                 self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5)
+                player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
 
     def terminate_game(self):

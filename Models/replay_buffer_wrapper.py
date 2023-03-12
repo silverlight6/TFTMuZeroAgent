@@ -4,22 +4,14 @@ import ray
 from Models.replay_muzero_buffer import ReplayBuffer
 from sklearn import preprocessing
 
+
 @ray.remote
 class BufferWrapper:
     def __init__(self, global_buffer):
         self.buffers = {"player_" + str(i): ReplayBuffer(global_buffer) for i in range(config.NUM_PLAYERS)}
     
     def store_replay_buffer(self, key, *args):
-        self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3])
-    
-    def store_observation(self, key, *args):
-        self.buffers[key].store_observation(args[0])
-
-    def len_observation_buffer(self, key):
-        self.buffers[key].len_observation_buffer()
-
-    def get_prev_observation(self, key):
-        self.buffers[key].get_prev_observation()
+        self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4])
 
     def get_prev_action(self, key):
         self.buffers[key].get_prev_action()

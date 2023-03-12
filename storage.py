@@ -1,10 +1,9 @@
 import ray
-
 import config
-from Models.MuZero_agent_2 import TFTNetwork
+from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 
 
-@ray.remote
+@ray.remote(num_gpus=0.01)
 class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()
@@ -14,6 +13,7 @@ class Storage:
         self.episode_played = 0
         self.placements = {"player_" + str(r): [0 for _ in range(config.NUM_PLAYERS)]
                            for r in range(config.NUM_PLAYERS)}
+        self.trainer_busy = False
 
     def get_model(self):
         return self.model.get_weights()
@@ -36,6 +36,12 @@ class Storage:
 
     def increment_episode_played(self):
         self.episode_played += 1
+
+    def set_trainer_busy(self, status):
+        self.trainer_busy = status
+
+    def get_trainer_busy(self):
+        return self.trainer_busy
 
     def record_placements(self, placement):
         print(placement)

@@ -30,7 +30,7 @@ test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 
 class champion:
     def __init__(self, name, team=None, y=-1, x=-1, stars=1, itemlist=None, overlord=None,
-                 sandguard_overlord_coordinates=None, chosen=False, kayn_form=None):
+                 sandguard_overlord_coordinates=None, chosen=False, kayn_form=None, target_dummy=False):
 
         if itemlist is None:
             itemlist = []
@@ -134,6 +134,8 @@ class champion:
         self.chosen = origin_class.chosen(self, chosen)
 
         self.kayn_form = kayn_form
+
+        self.target_dummy = target_dummy
 
         if chosen:
             self.health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1), 1)
@@ -527,22 +529,14 @@ def run(champion_q, player_1, player_2, round_damage=0):
     for x in range(0, 7):
         for y in range(0, 4):
             if player_1.board[x][y]:
-                daddy_coordinates = False
-                if player_1.board[x][y].name == 'sandguard':
-                    daddy_coordinates = [int(player_1.board[x][y].overlord_coordinates[0]),
-                                         int(player_1.board[x][y].overlord_coordinates[1])]
                 blue.append(champion_q(player_1.board[x][y].name, 'blue', y, x, player_1.board[x][y].stars,
-                                       player_1.board[x][y].items, False, daddy_coordinates, player_1.board[x][y].chosen
-                                       , player_1.board[x][y].kayn_form))
+                                       player_1.board[x][y].items, False, None, player_1.board[x][y].chosen
+                                       , player_1.board[x][y].kayn_form, player_1.board[x][y].target_dummy))
             if player_2.board[x][y]:
-                daddy_coordinates = False
-                if player_2.board[x][y].name == 'sandguard':
-                    daddy_coordinates = [6 - int(player_2.board[x][y].overlord_coordinates[0]),
-                                         int(7 - player_2.board[x][y].overlord_coordinates[1])]
                 # Inverting because the combat system uses the whole board and does not mirror at start.
                 red.append(champion_q(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars,
-                                      player_2.board[x][y].items, False, daddy_coordinates, player_2.board[x][y].chosen,
-                                      player_2.board[x][y].kayn_form))
+                                      player_2.board[x][y].items, False, None, player_2.board[x][y].chosen,
+                                      player_2.board[x][y].kayn_form, player_2.board[x][y].target_dummy))
 
     if len(blue) == 0 or len(red) == 0:
         if len(red) == 0 and len(blue) == 0:
@@ -592,10 +586,12 @@ def run(champion_q, player_1, player_2, round_damage=0):
                 origin_class_stats.threshold['hunter'][origin_class.get_origin_class_tier('red', 'hunter')] == 0:
             origin_class.hunter(red)  # hunter -trait
         for b in blue:
-            field.action(b)
+            if not b.target_dummy:
+                field.action(b)
 
         for o in red:
-            field.action(o)
+            if not o.target_dummy:
+                field.action(o)
 
         while len(que) > 0 and MILLIS() > que[0][2]:
             champion_q = que[0][1]
@@ -670,7 +666,7 @@ def run(champion_q, player_1, player_2, round_damage=0):
                 return 2, (round_damage + DAMAGE_PER_UNIT[len(red)])
             break
         if MILLIS() > 150000:
-            print("Round has gone on too long")
+            # print("Round has gone on too long")
             return 0, round_damage
     return 0, round_damage
 

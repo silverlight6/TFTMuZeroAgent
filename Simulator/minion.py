@@ -1,7 +1,7 @@
 import config
-import numpy as np
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
+
 
 # TODO
 # add better randomness to drops
@@ -13,6 +13,8 @@ from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give
 # These should function similar to player objects except simplified for minion combat
 class Minion:
     def __init__(self):
+        # Used in print statements
+        self.player_num = -1
         # array of champions, since order does not matter, can be unordered list
         self.bench = [None for _ in range(9)]
         # Champion array, this is a 7 by 4 array.
@@ -27,6 +29,7 @@ class Minion:
 class FirstMinion(Minion):
     def __init__(self):
         super().__init__()
+        self.player_num = -1
         self.board[2][1] = champion.champion('meleeminion')
         self.board[5][1] = champion.champion('meleeminion')
 
@@ -99,7 +102,6 @@ class ThirdMinion(Minion):
         else:
             # common == 2
             orbs += [LootOrb.COMMON, LootOrb.UNCOMMON]
-        
 
         history += orbs
 
@@ -175,6 +177,7 @@ class Nexus(Minion):
         loot += gen_loot(choices, probabilities, count, history)
 
         return loot
+
 
 # Drops 1 random full item and 2 random orbs
 class Herald(Minion):
@@ -264,7 +267,7 @@ def minion_combat(player, enemy, round, others):
     if index_won == 0:
         player.loss_round(damage)
         for p in alive:
-            p.won_ghost(damage/len(alive))
+            p.ghost_won(damage / len(alive))
         player.health -= damage
     # player wins!
     if index_won == 1:
@@ -276,5 +279,5 @@ def minion_combat(player, enemy, round, others):
         player.loss_round(damage)
         if len(alive) > 0:
             for p in alive:
-                p.won_ghost(damage/len(alive))
+                p.ghost_won(damage / len(alive))
         player.health -= damage
