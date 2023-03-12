@@ -76,8 +76,11 @@ class MuZeroNetwork(AbstractNetwork):
         self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
-                                             config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        # self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+        #                                      config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+    
+        self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, config.HEAD_HIDDEN_SIZE,
+                                                  config.POLICY_HEAD_SIZES)
 
         self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
@@ -210,6 +213,50 @@ def mlp(
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
     return torch.nn.Sequential(*layers).cuda()
+
+# Cursed? Idk
+# Linear(input, layer_size) -> RELU 
+#      -> Linear -> Identity -> 0
+#      -> Linear -> Identity -> 1
+#      ... for each size in output_size 
+#  -> output -> [0, 1, ... n]    
+class MultiMlp(torch.nn.Module):
+    def __init__(self,
+                 input_size,
+                 layer_size,
+                 output_sizes,
+                 output_activation=torch.nn.Identity,
+                 activation=torch.nn.ReLU):
+        super().__init__()
+
+        # One linear that encodes the observation
+        self.encoding_layer = torch.nn.Linear(input_size, layer_size)
+        self.activation = activation()
+
+        self.output_heads = []
+
+        for size in output_sizes:
+            output_layer = torch.nn.Sequential(
+                torch.nn.Linear(layer_size, size),
+                output_activation()
+            )
+            self.output_heads.append(output_layer)
+    
+    def forward(self, x):
+        # Encode the hidden state
+        x = self.encoding_layer(x)
+        x = self.activation(x)
+
+        # Pass x into all output heads
+        output = []
+
+        for head in self.output_heads:
+            output.append(head(x))
+        
+        return output
+
+    def __call__(self, x):
+        return self.forward(x)
 
 
 class ValueEncoder:
