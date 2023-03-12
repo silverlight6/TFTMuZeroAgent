@@ -178,8 +178,8 @@ class Game_Round:
         return True
     # r being the round
     def play_game_round(self):
-        for r in self.game_rounds[self.current_round]():
-            self.game_rounds[self.current_round][r]()
+        for i in range(len(self.game_rounds[self.current_round])):
+            self.game_rounds[self.current_round][i]()
         self.current_round += 1
 
     def start_round(self):
