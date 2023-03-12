@@ -24,8 +24,9 @@ class MCTS:
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
+        self.needs_2nd_dim = [1,2,3,4]
         self.ckpt_time = time.time_ns()
-        self.default_byte_mapping, self.default_string_mapping = util.create_default_mapping()
+        self.default_string_mapping = util.create_default_mapping()
 
     def policy(self, observation):
         with torch.no_grad():
@@ -35,20 +36,29 @@ class MCTS:
             network_output = self.network.initial_inference(observation[0])
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
-            policy_logits = network_output["policy_logits"].detach().cpu().numpy()
+
+            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
 
             # 0.01 seconds
-            policy_logits_pool, mappings, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
-
-            noises = [np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] *
-                                          len(policy_logits_pool[i])).astype(np.float32).tolist()
-                      for i in range(self.NUM_ALIVE)]
+            policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+        
+            noises = [
+                [
+                    np.random.dirichlet(
+                        [config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
+                    ).astype(np.float32).tolist()
+                    for j in range(self.NUM_ALIVE)
+                ]
+                for i in range(len(policy_logits_pool))
+            ]
+            
+            # Policy Logits -> [ [], [], [], [], [], [], [], [],]
 
             policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
             # time.sleep(0.5)
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
+                self.sample(policy_logits_pool, string_mapping, config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
@@ -118,10 +128,11 @@ class MCTS:
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
 
+            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
+
             # 0.002 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(network_output["policy_logits"].cpu().numpy(), self.default_string_mapping,
-                            self.default_byte_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -135,12 +146,13 @@ class MCTS:
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings, policy_sizes)
 
-    def add_exploration_noise(self, noise, policy_logits):
+    def add_exploration_noise(self, policy_logits, noises):
         exploration_fraction = config.ROOT_EXPLORATION_FRACTION
-        for i in range(len(noise)):
-            for j in range(len(noise[i])):
-                policy_logits[i][j] = policy_logits[i][j] * (1 - exploration_fraction) + \
-                                      noise[i][j] * exploration_fraction
+        for i in range(len(noises)): # Batch
+            for j in range(len(noises[i])): # Policy Dims
+                for k in range(len(noises[i][j])):
+                    policy_logits[i][j][k] = policy_logits[i][j][k] * (1 - exploration_fraction) + \
+                                             noises[i][j][k] * exploration_fraction
         return policy_logits
 
     """
@@ -210,76 +222,132 @@ class MCTS:
         # 6. if champion has FULL items
         # 7. if champion is azir sandguard
         # 
-        actions = []
-        mappings = []
-        second_mappings = []
-        for idx in range(len(policy_logits)):
-            local_counter = 0
-            local_action = [policy_logits[idx][local_counter]]
-            local_mappings = [bytes("0", "utf-8")]
-            # do nothing
-            second_local_mappings = ["0"]
-            local_counter += 1
-            # for every shop index...
-            for i in range(5):
-                if mask[idx][1][i] and mask[idx][5][1]:
-                    local_action.append(policy_logits[idx][local_counter])
-                    local_mappings.append(bytes(f"1_{i}", "utf-8"))
-                    second_local_mappings.append(f"1_{i}")
-                local_counter += 1
-            # for all board + bench slots...
-            for a in range(37):
-                # rest of board slot locs for moving, last for sale
-                for b in range(a, 38):
-                    if a == b:
-                        continue
-                    if a > 27 and b != 37:
-                        continue
-                    # if we are trying to move a non-existent champion, skip
-                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
-                            ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
-                        local_counter += 1
-                        continue
-                    # if we're doing a bench to board move and board is full and there is no champ at destination, skip
-                    if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
-                        local_counter += 1
-                        continue
-                    local_action.append(policy_logits[idx][local_counter])
-                    local_mappings.append(bytes(f"2_{a}_{b}", "utf-8"))
-                    second_local_mappings.append(f"2_{a}_{b}")
-                    local_counter += 1
-            # for all board + bench slots...
-            for a in range(37):
-                # for every item slot...
-                for b in range(10):
-                    # if there is a unit and there is an item
-                    if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
-                        local_counter += 1
-                        continue
-                    # if it is a legal action to put that item on the unit
-                    if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
-                        local_counter += 1
-                        continue
-                    local_action.append(policy_logits[idx][local_counter])
-                    local_mappings.append(bytes(f"3_{a}_{b}", "utf-8"))
-                    second_local_mappings.append(f"3_{a}_{b}")
-                    local_counter += 1
-            # level
-            if mask[idx][0][4]:
-                local_action.append(policy_logits[idx][local_counter])
-                local_mappings.append(bytes("4", "utf-8"))
-                second_local_mappings.append("4")
-            local_counter += 1
-            # roll
-            if mask[idx][0][5]:
-                local_action.append(policy_logits[idx][local_counter])
-                local_mappings.append(bytes("5", "utf-8"))
-                second_local_mappings.append("5")
 
-            actions.append(local_action)
-            mappings.append(local_mappings)
-            second_mappings.append(second_local_mappings)
-        return actions, mappings, second_mappings
+        # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
+        batch_size = policy_logits[0].shape[0] # 8
+        masked_policy_logits = [ [] ] # Start with empty type_dim
+        masked_policy_mappings = [ [] ]
+
+        for dim in range(len(policy_logits)): # 5
+            masked_dim = [] # (8, ?)
+            masked_dim_mapping = []
+
+            if dim == 0: # We deal with type masking at the end
+                continue
+
+            if dim == 1: # Shop Masking
+                for idx in range(batch_size):
+                    local_shop = []
+                    local_shop_mapping = []
+                    for i in range(5):
+                        if mask[idx][1][i] and mask[idx][5][1]:
+                            local_shop.append(policy_logits[dim][idx][i])
+                            local_shop_mapping.append(f"_{i}")
+                    masked_dim.append(local_shop)
+                    masked_dim_mapping.append(local_shop_mapping)
+
+            elif dim == 2: # Board Masking
+                for idx in range(batch_size):
+                    local_board = []
+                    local_board_mapping = []
+                    board_counter = 0
+                    # Board masking
+                    # For all board + bench slots...
+                    for a in range(37):
+                        # rest of board slot locs for moving, last for sale
+                        for b in range(a, 37):
+                            if a == b:
+                                continue
+                            if a > 27:
+                                continue
+                            # if we are trying to move a non-existent champion, skip
+                            if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
+                                    ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
+                                board_counter += 1
+                                continue
+                            # if we're doing a bench to board move and board is full and there is no champ at destination, skip
+                            if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
+                                board_counter += 1
+                                continue
+                            local_board.append(policy_logits[dim][idx][board_counter])
+                            local_board_mapping.append(f"_{a}_{b}")
+                            board_counter += 1
+                    masked_dim.append(local_board)
+                    masked_dim_mapping.append(local_board_mapping)
+
+            elif dim == 3: # Item masking
+                for idx in range(batch_size):
+                    local_item = []
+                    local_item_mapping = []
+                    # For all board + bench slots...
+                    item_counter = 0
+                    for a in range(37):
+                        # For every item slot...
+                        for b in range(10):
+                            # if there is a unit and there is an item
+                            if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
+                                item_counter += 1
+                                continue
+                            # if it is a legal action to put that item on the unit
+                            if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
+                                item_counter += 1
+                                continue
+                            local_item.append(policy_logits[dim][idx][item_counter])
+                            local_item_mapping.append(f"_{a}_{b}")
+                            item_counter += 1
+                    masked_dim.append(local_item)
+                    masked_dim_mapping.append(local_item_mapping)
+            
+            elif dim == 4: # Sell unit masking
+                local_sell = []
+                local_sell_mapping = []
+                            # Sell unit masking
+                for idx in range(batch_size):
+                    for a in range(37):
+                        # If unit exists and TODO: Is sellable unit
+                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                            continue
+                        local_sell.append(policy_logits[dim][idx][a])
+                        local_sell_mapping.append(f"_{a}")
+                    masked_dim.append(local_sell)
+                    masked_dim_mapping.append(local_sell_mapping)
+                    
+            masked_policy_logits.append(masked_dim)
+            masked_policy_mappings.append(masked_dim_mapping)
+
+        type_dim = []
+        type_dim_mapping = []
+
+        for idx in range(batch_size):
+            local_type_dim = []
+            local_type_dim_mapping = []
+
+            # Always append pass action
+            local_type_dim.append(policy_logits[0][idx][0])
+            local_type_dim_mapping.append("0")
+            
+            # For shop, board, item, and sell
+            for i in range(1, 5):
+                if masked_policy_logits[i][idx]:
+                    local_type_dim.append(policy_logits[0][idx][i])
+                    local_type_dim_mapping.append(f"{i}")
+
+            if mask[idx][0][4]:
+                local_type_dim.append(policy_logits[0][idx][5])
+                local_type_dim_mapping.append("5")
+
+            if mask[idx][0][5]:
+                local_type_dim.append(policy_logits[0][idx][6])
+                local_type_dim_mapping.append("6")
+                
+            type_dim.append(local_type_dim)
+            type_dim_mapping.append(local_type_dim_mapping)
+
+        masked_policy_logits[0] = type_dim
+        masked_policy_mappings[0] = type_dim_mapping
+        
+        return masked_policy_logits, masked_policy_mappings
+
 
     """
     Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
@@ -305,65 +373,59 @@ class MCTS:
                   policy_sizes - List
                       Number of samples per player, can change if legal actions < num_samples
     """
-    def sample(self, policy_logits, string_mapping, byte_mapping, num_samples):
+    def sample(self, policy_logits, string_mapping, num_samples):
+        # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
+
+        batch_size = len(policy_logits[0]) # 8
+
         output_logits = []
         output_string_mapping = []
         output_byte_mapping = []
         policy_sizes = []
-        for i in range(len(policy_logits)):
+
+        for idx in range(batch_size):
             local_logits = []
             local_string = []
             local_byte = []
-            # Switch this to 6 and refresh to 2 if using specified sampling.
-            num_pass_shop_actions = 0
-            refresh_level_actions = 0
-            # Add samples for pass and the 5 shop options
-            # Note that if there are not 5 available shop options, the sample here will be move options
 
-            # for fixed_sample in range(0, 6):
-            #     if (string_mapping[i][fixed_sample][0] == "0" or string_mapping[i][fixed_sample][0] == "1") \
-            #             and config.SELECTED_SAMPLES:
-            #         local_logits.append(policy_logits[i][fixed_sample])
-            #         local_string.append(string_mapping[i][fixed_sample])
-            #         local_byte.append(byte_mapping[i][fixed_sample])
-            #     else:
-            #         num_pass_shop_actions -= 1
-            # # Add samples for refresh and level
-            # # Note if either refresh or level is not available, the samples here will be move options
-            # for last_sample in range(len(policy_logits[i]) - 2, len(policy_logits[i])):
-            #     if (string_mapping[i][last_sample][0] == "4" or string_mapping[i][last_sample][0] == "5") \
-            #             and config.SELECTED_SAMPLES:
-            #         local_logits.append(policy_logits[i][last_sample])
-            #         local_string.append(string_mapping[i][last_sample])
-            #         local_byte.append(byte_mapping[i][last_sample])
-            #     else:
-            #         refresh_level_actions -= 1
-            num_core_actions = num_pass_shop_actions + refresh_level_actions
-            # Get the softmax of the policy output
-            probs = self.softmax_stable(policy_logits[i][num_pass_shop_actions:
-                                                         len(policy_logits[i]) - refresh_level_actions])
-            # array of size [action_dim] with [0, 1, 2, 3... action_dim - 8]
-            # We are removing 8 samples initially because those are the most important actions
-            policy_range = np.arange(stop=len(policy_logits[i]) - num_core_actions)
-            samples = np.random.choice(a=policy_range, size=num_samples - num_core_actions, p=probs)
-            # Sort now so the mapping back to 1081 later is much faster
-            samples.sort()
-            prev_sample = -1
-            for sample in samples:
-                if sample == prev_sample:
-                    local_logits[-1] += 1 / (num_samples - num_core_actions)
-                else:
-                    # Add the base value for the sample
-                    local_logits.append(1 / (num_samples - num_core_actions))
-                    # Add the name of the string action
-                    local_string.append(string_mapping[i][sample + num_pass_shop_actions])
-                    # Same but for the c++ side
-                    local_byte.append(byte_mapping[i][sample + num_pass_shop_actions])
-                prev_sample = sample
+
+            probs = self.softmax_stable(policy_logits[0][idx])
+            policy_range = np.arange(stop=len(policy_logits[0][idx]))
+
+            for _ in range(num_samples):
+                # Sample the first array
+                sample = np.random.choice(a=policy_range, p=probs)
+
+                local_string_action = string_mapping[0][idx][sample]
+                sample = int(local_string_action)
+                
+                if sample in self.needs_2nd_dim:
+
+                    probs_2nd_dim = self.softmax_stable(policy_logits[sample][idx])
+                    policy_range_2nd_dim = np.arange(stop=len(policy_logits[sample][idx]))
+
+                    sample_2nd_dim = np.random.choice(a=policy_range_2nd_dim, p=probs_2nd_dim)
+                    local_string_action += string_mapping[sample][idx][sample_2nd_dim]
+                    
+                local_byte_action = bytes(local_string_action, "utf-8")
+
+                isSampled = False    
+                for i, action in enumerate(local_string):
+                    if local_string_action == action:
+                        local_logits[i] += (1 / num_samples)
+                        isSampled = True
+                        break
+
+                if not isSampled:
+                    local_string.append(local_string_action)
+                    local_logits.append(1 / num_samples)
+                    local_byte.append(local_byte_action)
+            
             output_logits.append(local_logits)
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
+            
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod

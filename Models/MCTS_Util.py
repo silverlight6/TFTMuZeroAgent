@@ -3,27 +3,50 @@ import torch
 import numpy as np
 
 def create_default_mapping():
-    string_mapping = ["0"]
+    local_type = []
+    local_shop = []
+    local_board = []
+    local_item = []
+    local_sell = []
+
+    # Shop masking
     for i in range(5):
-        string_mapping.append(f"1_{i}")
+        local_shop.append(f"_{i}")
+
+    # Board masking
+    # For all board + bench slots...
     for a in range(37):
-        for b in range(a, 38):
+        # rest of board slot locs for moving, last for sale
+        for b in range(a, 37):
             if a == b:
                 continue
-            if a > 27 and b != 37:
+            if a > 27:
                 continue
-            string_mapping.append(f"2_{a}_{b}")
+            local_board.append(f"_{a}_{b}")
+    # Item masking
+    # For all board + bench slots...
     for a in range(37):
+        # For every item slot...
         for b in range(10):
-            string_mapping.append(f"3_{a}_{b}")
-    string_mapping.append("4")
-    string_mapping.append("5")
-    # converting mappings to batch size for all players in a game
-    mappings = [value.encode("utf-8") for value in string_mapping]
-    mappings = [mappings for _ in range(config.NUM_PLAYERS)]
-    second_mappings = [string_mapping for _ in range(config.NUM_PLAYERS)]
-    return mappings, second_mappings
+            # if there is a unit and there is an item
+            local_item.append(f"_{a}_{b}")
+    # Sell unit masking
+    for a in range(37):
+        local_sell.append(f"_{a}")
 
+    # All Type mappings
+    for i in range(7):
+        local_type.append(f"{i}")
+        
+    mappings = []
+
+    mappings.append([local_type]*config.NUM_PLAYERS)
+    mappings.append([local_shop]*config.NUM_PLAYERS)
+    mappings.append([local_board]*config.NUM_PLAYERS)
+    mappings.append([local_item]*config.NUM_PLAYERS)
+    mappings.append([local_sell]*config.NUM_PLAYERS)
+    
+    return mappings
 
 # _, default_mapping = create_default_mapping()
 # default_mapping = default_mapping[0]
