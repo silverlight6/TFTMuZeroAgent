@@ -77,7 +77,7 @@ def generateChampions(round, pool_obj):
         for _ in range(4):
             carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))[0]))
     # third carousel - 1 one cost, 2 two costs, 3 three costs, 3 four costs
-    elif round == 13:
+    elif round == 12:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
@@ -86,7 +86,7 @@ def generateChampions(round, pool_obj):
         for _ in range(3):
             carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))[0]))
     # fourth carousel and beyond - 1 one cost, 2 two costs, 2 three costs, 2 four costs, 2 five costs
-    elif round >= 20:
+    elif round >= 18:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
@@ -122,7 +122,7 @@ def generateHeldItems(round):
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 13:
+    elif round == 12:
         if roll < 0.50:
             return generateAllRandomComponents()
         elif roll < 0.80:
@@ -131,14 +131,14 @@ def generateHeldItems(round):
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 20:
+    elif round == 18:
         if roll < 0.80:
             return generateAllComponents()
         elif roll < 0.95:
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 27:
+    elif round == 24:
         if roll < 0.50:
             return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         elif roll < 0.754:
@@ -149,7 +149,7 @@ def generateHeldItems(round):
             return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         else:
             return generateFONs()
-    elif round >= 34:
+    elif round >= 30:
         return generateHalfItems()
 
 # random helper methods for generation of item sets for carousel below
