@@ -210,15 +210,23 @@ namespace tree {
     }
 
     std::vector<int> decode_action(char* &str_action) {
-        std::cout << "string action " << str_action << std::endl;
         std::string action(str_action);
         size_t index = action.find("_");
+        size_t last_index = 0;
         std::vector<int> element_list;
         while(index != std::string::npos) {
-            std::string newstr = action.substr(index - 1, 1);
+            size_t next_index = action.find("_", index + 1);
+            if(next_index > action.size()) {
+                next_index = action.size();
+            }
+            std::string newstr = action.substr(last_index, next_index - index - 1);
             element_list.push_back(std::stoi(newstr));
+            last_index = index + 1;
             index = action.find("_", index + 1);
         }
+        std::string newstr = action.substr(last_index, action.size() - last_index);
+        element_list.push_back(std::stoi(newstr));
+
         if(index != std::string::npos) {
             std::string newstr = action.substr(index + 1, 1);
             element_list.push_back(std::stoi(newstr));
@@ -226,10 +234,6 @@ namespace tree {
         while(element_list.size() < 3) {
             element_list.push_back(0);
         }
-        std::cout << "The vector elements in element list are : ";
-        for(int i=0; i < element_list.size(); i++) {
-            std::cout << element_list.at(i) << ' '; }
-        std::cout << std::endl;
         return element_list;
     }
 
@@ -332,11 +336,6 @@ namespace tree {
 
                 // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);
-
-//                std::cout << "The vector elements in after are : ";
-//                for(int i=0; i < node->mappings.size(); i++) {
-//                    std::cout << node->mappings.at(i) << ' '; }
-//                std::cout << std::endl;
 
                 // get next node
                 node = node->get_child(action);

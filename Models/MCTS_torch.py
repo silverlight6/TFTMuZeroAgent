@@ -406,8 +406,6 @@ class MCTS:
 
                     sample_2nd_dim = np.random.choice(a=policy_range_2nd_dim, p=probs_2nd_dim)
                     local_string_action += string_mapping[sample][idx][sample_2nd_dim]
-                    
-                local_byte_action = bytes(local_string_action, "utf-8")
 
                 isSampled = False    
                 for i, action in enumerate(local_string):
@@ -417,6 +415,7 @@ class MCTS:
                         break
 
                 if not isSampled:
+                    local_byte_action = bytes(local_string_action, "utf-8")
                     local_string.append(local_string_action)
                     local_logits.append(1 / num_samples)
                     local_byte.append(local_byte_action)
