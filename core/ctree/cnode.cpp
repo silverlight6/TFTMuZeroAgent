@@ -42,7 +42,7 @@ namespace tree {
     CNode::~CNode() {}
 
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                       const std::vector<float> &policy_logits, const std::vector<char*> mappings, int act_num) {
+                       const std::vector<float> &policy_logits, const std::vector<char*> &mappings, int act_num) {
         // Index for finding the hidden state on python side, x is player, y is search path location
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
@@ -248,7 +248,7 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> mappings, const std::vector<int> &action_nums) {
+                               std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums) {
         // For each player
         for(int i = 0; i < results.num; ++i){
             results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i], action_nums[i]);
