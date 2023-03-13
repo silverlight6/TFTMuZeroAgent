@@ -24,7 +24,7 @@ class MCTS:
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
-        self.needs_2nd_dim = [1,2,3,4]
+        self.needs_2nd_dim = [1, 2, 3, 4]
         self.ckpt_time = time.time_ns()
         self.default_string_mapping = util.create_default_mapping()
 
@@ -111,6 +111,7 @@ class MCTS:
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
+
             num_states = len(hidden_state_index_x_lst)
             tensors_states = torch.empty((num_states, config.LAYER_HIDDEN_SIZE)).to('cuda')
 
@@ -376,7 +377,7 @@ class MCTS:
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
 
-        batch_size = len(policy_logits[0]) # 8
+        batch_size = len(policy_logits[0])  # 8
 
         output_logits = []
         output_string_mapping = []
@@ -387,7 +388,6 @@ class MCTS:
             local_logits = []
             local_string = []
             local_byte = []
-
 
             probs = self.softmax_stable(policy_logits[0][idx])
             policy_range = np.arange(stop=len(policy_logits[0][idx]))

@@ -110,7 +110,7 @@ class MuZeroNetwork(AbstractNetwork):
     def dynamics(self, encoded_state, action):
         action = torch.from_numpy(action).to('cuda').to(torch.int64)
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
 
         action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()

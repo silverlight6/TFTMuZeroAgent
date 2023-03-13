@@ -48,8 +48,14 @@ namespace tree {
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
         // Mapping to map 1081 into 3 dimensional action for recurrent inference
+        this->mappings.reserve(mappings.size());
         this->mappings = mappings;
         this->action_num = act_num;
+//        std::cout << "The vector elements in expand are : ";
+//
+//        for(int i=0; i < this->mappings.size(); i++) {
+//            std::cout << this->mappings.at(i) << ' '; }
+//        std::cout << std::endl;
 
         float temp_policy;
         // sum is a float instead of a tensor since we handle 1 player at a time
@@ -204,6 +210,7 @@ namespace tree {
     }
 
     std::vector<int> decode_action(char* &str_action) {
+        std::cout << "string action " << str_action << std::endl;
         std::string action(str_action);
         size_t index = action.find("_");
         std::vector<int> element_list;
@@ -219,6 +226,10 @@ namespace tree {
         while(element_list.size() < 3) {
             element_list.push_back(0);
         }
+        std::cout << "The vector elements in element list are : ";
+        for(int i=0; i < element_list.size(); i++) {
+            std::cout << element_list.at(i) << ' '; }
+        std::cout << std::endl;
         return element_list;
     }
 
@@ -311,15 +322,24 @@ namespace tree {
             // This can be a node that has already been explored
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
+
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+
+                // Error here on seg fault, decode_action on stoi.
                 // Pick the action from the mappings.
                 char* str_action = node->mappings[action];
 
-                // get next node
-                node = node->get_child(action);
                 // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);
+
+//                std::cout << "The vector elements in after are : ";
+//                for(int i=0; i < node->mappings.size(); i++) {
+//                    std::cout << node->mappings.at(i) << ' '; }
+//                std::cout << std::endl;
+
+                // get next node
+                node = node->get_child(action);
 
                 // Add Node to the search path for exploration purposes
                 results.search_paths[i].push_back(node);
