@@ -73,10 +73,10 @@ team_traits = {
 }
 
 # Number of each class
-game_compositions = [team_traits.copy() for _ in range(8)]
+game_compositions = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
 
 # Tier rank
-game_comp_tiers = [team_traits.copy() for _ in range(8)]
+game_comp_tiers = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
 
 
 def chosen(champion, value):
