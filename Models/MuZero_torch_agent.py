@@ -52,9 +52,10 @@ class AbstractNetwork(torch.nn.Module):
         path = f'./Checkpoints/checkpoint_{episode}'
         if os.path.isfile(path):
             self.load_state_dict(torch.load(path))
-            print("Loading model episode {}".format(episode))
+            # print("Loading model episode {}".format(episode))
         else:
-            print("Initializing model with new weights.")
+            # print("Initializing model with new weights.")
+            pass
 
 
 class MuZeroNetwork(AbstractNetwork):
