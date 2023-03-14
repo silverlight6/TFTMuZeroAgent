@@ -45,7 +45,7 @@ class MCTS:
                       for i in range(self.NUM_ALIVE)]
 
             policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
-            # time.sleep(0.5)
+
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
                 self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)

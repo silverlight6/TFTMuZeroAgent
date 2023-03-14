@@ -41,6 +41,9 @@ namespace tree {
 
     CNode::~CNode() {}
 
+    // I am not able to find a definite answer to we use the sampled policy as the base for the prior
+    // or if we do a weighted softmax which is what is done below.
+    // The alpha-go paper uses .67 as their weight but we appear to use e instead.
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
                        const std::vector<float> &policy_logits, const std::vector<char*> mappings, int act_num) {
         // Index for finding the hidden state on python side, x is player, y is search path location
@@ -73,6 +76,7 @@ namespace tree {
 
         float prior;
         std::vector<CNode>* ptr_node_pool = this->ptr_node_pool;
+
         for(int a = 0; a < act_num; ++a) {
             // Normalizes the array
             prior = policy[a] / policy_sum;
@@ -268,20 +272,34 @@ namespace tree {
 
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
-        int action_idx = -1;
+        const float epsilon = 0.0001;
+        std::vector<int> max_index_lst;
+
         for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
             // find the usb score
-            float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1, pb_c_base, pb_c_init, discount);
+            float temp_score = cucb_score(child, min_max_stats, root->visit_count, pb_c_base, pb_c_init, discount);
             // compare it to the max score and store index if it is the max
-            if(max_score < temp_score){
+            if(max_score < temp_score) {
                 max_score = temp_score;
-                action_idx = a;
+
+                max_index_lst.clear();
+                max_index_lst.push_back(a);
+            }
+            else if(temp_score >= max_score - epsilon) {
+                max_index_lst.push_back(a);
             }
         }
-        return action_idx;
+        int action = 0;
+        if(max_index_lst.size() > 0){
+            int rand_index = rand() % max_index_lst.size();
+            action = max_index_lst[rand_index];
+        }
+        return action;
     }
 
+    // values are very high at the start of training compared to the priors so at the start
+    // it will go down the tree almost equal to the number of simulations.
     float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
                      float pb_c_base, float pb_c_init, float discount) {
         float pb_c = 0.0, prior_score = 0.0, value_score = 0.0;
@@ -290,7 +308,7 @@ namespace tree {
         pb_c *= (sqrt(total_children_visit_counts) / (child->visit_count + 1));
 
         prior_score = pb_c * child->prior;
-        if (child->visit_count == 0){
+        if (child->visit_count == 0) {
             value_score = 0;
         }
         else {
