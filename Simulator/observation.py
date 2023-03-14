@@ -17,7 +17,7 @@ class Observation:
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                          config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): np.zeros(1034)
+        self.other_player_observations = {"player_" + str(player_id): np.zeros(740)
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
 
@@ -99,9 +99,9 @@ class Observation:
             other_player = players[player_id]
             if other_player and other_player != cur_player:
                 other_player_vector = np.concatenate([other_player.board_vector,
-                                                      other_player.bench_vector,
+                                                      # other_player.bench_vector,
                                                       other_player.chosen_vector,
-                                                      other_player.item_vector,
+                                                      # other_player.item_vector,
                                                       other_player.player_public_vector], axis=-1)
                 self.other_player_observations[player_id] = other_player_vector
         self.turn_since_update = 0
