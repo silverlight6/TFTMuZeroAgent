@@ -20,7 +20,7 @@ namespace tree {
             std::vector<CNode>* ptr_node_pool;
             // This is used to map the action from the 1d to the multi dim that the environment can use
             // I wish this could be a string vector but Cython does not support strings, only char *
-            std::vector<char*> mappings;
+            std::vector<std::string> mappings;
 
             CNode();
             CNode(float prior, std::vector<CNode> *ptr_node_pool);
@@ -76,7 +76,7 @@ namespace tree {
 
 
     //*********************************************************
-    std::vector<int> decode_action(char* &str_action);
+    std::vector<int> decode_action(std::string& action);
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
                          float discount);
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,

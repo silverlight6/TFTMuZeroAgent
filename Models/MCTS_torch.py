@@ -376,7 +376,7 @@ class MCTS:
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
 
-        batch_size = len(policy_logits[0]) # 8
+        batch_size = len(policy_logits[0])  # 8
 
         output_logits = []
         output_string_mapping = []
@@ -388,39 +388,52 @@ class MCTS:
             local_string = []
             local_byte = []
 
-
             probs = self.softmax_stable(policy_logits[0][idx])
             policy_range = np.arange(stop=len(policy_logits[0][idx]))
 
-            for _ in range(num_samples):
-                # Sample the first array
-                sample = np.random.choice(a=policy_range, p=probs)
+            samples = np.random.choice(a=policy_range, p=probs, size=num_samples) # size 25
+            counts = np.bincount(samples, minlength=len(policy_logits[0][idx]))
 
-                local_string_action = string_mapping[0][idx][sample]
-                sample = int(local_string_action)
+            for i, count in enumerate(counts):
+                dim_base_string = string_mapping[0][idx][i]
+                dim_idx_mapping = int(dim_base_string)
+
+                if dim_idx_mapping in self.needs_2nd_dim:
+                    local_dim_logits = []
+                    local_dim_string = []
+                    local_dim_byte = []
+
+                    dim_policy_logits = policy_logits[dim_idx_mapping][idx]
                 
-                if sample in self.needs_2nd_dim:
+                    dim_probs = self.softmax_stable(dim_policy_logits)
+                    dim_range = np.arange(stop=len(dim_policy_logits))
 
-                    probs_2nd_dim = self.softmax_stable(policy_logits[sample][idx])
-                    policy_range_2nd_dim = np.arange(stop=len(policy_logits[sample][idx]))
+                    dim_samples = np.random.choice(a=dim_range, p=dim_probs, size=count)
 
-                    sample_2nd_dim = np.random.choice(a=policy_range_2nd_dim, p=probs_2nd_dim)
-                    local_string_action += string_mapping[sample][idx][sample_2nd_dim]
+                    for dim_sample in dim_samples:
+                        sampled_action = dim_base_string + string_mapping[dim_idx_mapping][idx][dim_sample]
+
+                        isSampled = False    
+                        for i, action in enumerate(local_dim_string):
+                            if sampled_action == action:
+                                local_dim_logits[i] += (1 / num_samples)
+                                isSampled = True
+                                break
+                        if not isSampled:
+                            local_dim_logits.append( (1 / num_samples) )
+                            local_dim_string.append(sampled_action)
+                            local_dim_byte.append(bytes(sampled_action, "utf-8"))
                     
-                local_byte_action = bytes(local_string_action, "utf-8")
+                    local_logits.extend(local_dim_logits)
+                    local_string.extend(local_dim_string)
+                    local_byte.extend(local_dim_byte)
 
-                isSampled = False    
-                for i, action in enumerate(local_string):
-                    if local_string_action == action:
-                        local_logits[i] += (1 / num_samples)
-                        isSampled = True
-                        break
 
-                if not isSampled:
-                    local_string.append(local_string_action)
-                    local_logits.append(1 / num_samples)
-                    local_byte.append(local_byte_action)
-            
+                else:
+                    local_logits.append( ((1 / num_samples) * count) )
+                    local_string.append(dim_base_string)
+                    local_byte.append(bytes(dim_base_string, "utf-8"))
+           
             output_logits.append(local_logits)
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)

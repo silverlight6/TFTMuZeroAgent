@@ -24,7 +24,7 @@ namespace tree {
         this->value_sum = 0;
         this->reward = 0.0;
         this->ptr_node_pool = nullptr;
-        this->mappings = std::vector<char*>{};
+        this->mappings = std::vector<std::string>{};
     }
 
     CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool) {
@@ -36,7 +36,7 @@ namespace tree {
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
-        this->mappings = std::vector<char*>{};
+        this->mappings = std::vector<std::string>{};
     }
 
     CNode::~CNode() {}
@@ -48,7 +48,10 @@ namespace tree {
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
         // Mapping to map 1081 into 3 dimensional action for recurrent inference
-        this->mappings = mappings;
+        this->mappings = std::vector<std::string>{};
+        for (auto i = 0; i < mappings.size(); i++) {
+            this->mappings.push_back(std::string(mappings[i]));
+        }
         this->action_num = act_num;
 
         float temp_policy;
@@ -203,8 +206,7 @@ namespace tree {
         return values;
     }
 
-    std::vector<int> decode_action(char* &str_action) {
-        std::string action(str_action);
+    std::vector<int> decode_action(std::string& action) {
         size_t index = action.find("_");
         size_t last_index = 0;
         std::vector<int> element_list;
@@ -320,15 +322,19 @@ namespace tree {
             // This can be a node that has already been explored
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
+
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+
+                // Error here on seg fault, decode_action on stoi.
                 // Pick the action from the mappings.
-                char* str_action = node->mappings[action];
+                std::string str_action = node->mappings[action];
+
+                // Turn the internal next action into one that the model and environment can understand
+                last_action = decode_action(str_action);
 
                 // get next node
                 node = node->get_child(action);
-                // Turn the internal next action into one that the model and environment can understand
-                last_action = decode_action(str_action);
 
                 // Add Node to the search path for exploration purposes
                 results.search_paths[i].push_back(node);
