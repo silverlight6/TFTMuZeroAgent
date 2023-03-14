@@ -55,7 +55,13 @@ namespace tree {
         for (auto i = 0; i < mappings.size(); i++) {
             this->mappings.push_back(std::string(mappings[i]));
         }
+
         this->action_num = act_num;
+//        std::cout << "The vector elements in expand are : ";
+//
+//        for(int i=0; i < this->mappings.size(); i++) {
+//            std::cout << this->mappings.at(i) << ' '; }
+//        std::cout << std::endl;
 
         float temp_policy;
         // sum is a float instead of a tensor since we handle 1 player at a time

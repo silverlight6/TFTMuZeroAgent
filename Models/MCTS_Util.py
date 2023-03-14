@@ -2,6 +2,7 @@ import config
 import torch
 import numpy as np
 
+
 def create_default_mapping():
     local_type = []
     local_shop = []
@@ -37,27 +38,30 @@ def create_default_mapping():
     # All Type mappings
     for i in range(7):
         local_type.append(f"{i}")
-        
+
     mappings = []
 
-    mappings.append([local_type]*config.NUM_PLAYERS)
-    mappings.append([local_shop]*config.NUM_PLAYERS)
-    mappings.append([local_board]*config.NUM_PLAYERS)
-    mappings.append([local_item]*config.NUM_PLAYERS)
-    mappings.append([local_sell]*config.NUM_PLAYERS)
-    
+    mappings.append([local_type] * config.NUM_PLAYERS)
+    mappings.append([local_shop] * config.NUM_PLAYERS)
+    mappings.append([local_board] * config.NUM_PLAYERS)
+    mappings.append([local_item] * config.NUM_PLAYERS)
+    mappings.append([local_sell] * config.NUM_PLAYERS)
+
     return mappings
+
 
 # _, default_mapping = create_default_mapping()
 # default_mapping = default_mapping[0]
 
 # Takes in an action in string format "0" or "2_0_1" and outputs the default mapping index
 action_dimensions = [1, 5, 667, 370, 1, 1]
+
+
 def flatten_action(str_action):
     # Decode action
     num_items = str_action.count("_")  # 1
     split_action = str_action.split("_")  # [1, 0]
-    
+
     action = [0, 0, 0]
     for i in range(num_items + 1):
         action[i] = int(split_action[i])
@@ -82,12 +86,15 @@ def flatten_action(str_action):
     # No change needed for 4 and 5
     return index
 
+
 def action_str_to_idx(sample_set):
     return [[[flatten_action(m) for m in batch] for batch in player] for player in sample_set]
+
 
 # God forgive me
 def flatten_sample_set(sample_set):
     return [item for player in sample_set for batch in player for item in batch]
+
 
 """
 Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
@@ -99,6 +106,8 @@ Inputs      - mapping - List
 Outputs     - output_policy - List
                   The improved policy output of the MCTS with size [batch, encoding_size] 
 """
+
+
 def map_distribution_to_sample(mapping, policy_logits):
     output_policy = []
     for i in range(policy_logits.shape[0]):
