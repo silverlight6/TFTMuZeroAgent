@@ -45,7 +45,7 @@ class MCTS:
                       for i in range(self.NUM_ALIVE)]
 
             policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
-            # time.sleep(0.5)
+
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
                 self.sample(policy_logits_pool, string_mapping, mappings, config.NUM_SAMPLES)
@@ -135,7 +135,7 @@ class MCTS:
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
                                       min_max_stats_lst, results, mappings, policy_sizes)
 
-    def add_exploration_noise(self, noise, policy_logits):
+    def add_exploration_noise(self, policy_logits, noise):
         exploration_fraction = config.ROOT_EXPLORATION_FRACTION
         for i in range(len(noise)):
             for j in range(len(noise[i])):
