@@ -114,19 +114,30 @@ class Game_Round:
 
                 # Draw
                 if index_won == 0:
+                    print("Players {} and {} tied round with damage = {}"
+                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
+
                     players[match[0]].loss_round(damage)
                     players[match[0]].health -= damage
                     players[match[1]].loss_round(damage)
                     players[match[1]].health -= damage
+                    for player in players:
+                        if player != players[match[0]] and player != players[match[1]]:
+                            if player:  # Not sure if there can be a dead player here.
+                                player.spill_reward(damage / (len(players) - 2))
 
                 # Blue side won
                 if index_won == 1:
+                    print("Player {} beat player {} with damage = {}"
+                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
                     players[match[0]].won_round(damage)
                     players[match[1]].loss_round(damage)
                     players[match[1]].health -= damage
 
                 # Red side won
                 if index_won == 2:
+                    print("Player {} lost to player {} with damage = {}"
+                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
                     players[match[0]].loss_round(damage)
                     players[match[0]].health -= damage
                     players[match[1]].won_round(damage)
@@ -149,10 +160,15 @@ class Game_Round:
                 if index_won == 2 or index_won == 0:
                     players[match[0]].health -= damage
                     players[match[0]].loss_round(player_round)
-                    if len(alive) > 0:
-                        for other in alive:
-                            other.won_ghost(damage/len(alive))
-                players[match[0]].combat = True
+                    players[match[0]].combat = True
+                    alive = []
+                    for other in players:
+                        if other:
+                            if other.health > 0 and other is not players[match[0]]:
+                                alive.append(other)
+                    print("Player {} loss to ghost with damage = {}".format(players[num].player_num, damage))
+                    for other in alive:
+                        other.spill_reward(damage / len(alive))
         log_to_file_combat()
         return True
 

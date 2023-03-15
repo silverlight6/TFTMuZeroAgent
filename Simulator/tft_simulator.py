@@ -102,6 +102,8 @@ class TFT_Simulator(AECEnv):
         # For PPO
         self.action_spaces = {agent: MultiDiscrete(np.ones(config.ACTION_DIM))
                               for agent in self.agents}
+
+        self.global_reward_sum = 0
         super().__init__()
 
     @functools.lru_cache(maxsize=None)
@@ -218,6 +220,7 @@ class TFT_Simulator(AECEnv):
                         if self.PLAYERS[player_id] and self.PLAYERS[player_id].health > 0:
                             self.PLAYERS[player_id].won_game()
                             self.rewards[player_id] = 35 + self.PLAYERS[player_id].reward
+                            self.global_reward_sum += self.rewards[player_id]
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
                             self.PLAYERS[player_id] = None  # Without this the reward is reset
 
@@ -232,6 +235,7 @@ class TFT_Simulator(AECEnv):
                 _live_agents.remove(k)
                 self.rewards[k] = (3 - len(_live_agents)) * 10 + 5 + self.PLAYERS[k].reward
                 self._cumulative_rewards[k] = self.rewards[k]
+                self.global_reward_sum += self.rewards[k]
                 self.PLAYERS[k] = None
                 self.game_round.update_players(self.PLAYERS)
 
@@ -243,6 +247,13 @@ class TFT_Simulator(AECEnv):
                 if self.PLAYERS[player_id]:
                     self.rewards[player_id] = self.PLAYERS[player_id].reward
                     self._cumulative_rewards[player_id] = self.rewards[player_id]
+            if self.actions_taken == 0:
+                reward_sum = 0
+                for reward in self.rewards.values():
+                    reward_sum += reward
+                print("reward_sum = {}".format(reward_sum))
+                print("global_reward_sum = {}".format(self.global_reward_sum))
+                print(self.rewards)
             # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
         if len(self._agent_selector.agent_order):
             self.agent_selection = self._agent_selector.next()

@@ -104,7 +104,7 @@ class player:
         # cost to refresh
         self.refresh_cost = 2
 
-        # reward for refreshing
+        # reward levers
         self.refresh_reward = 0
         self.minion_count_reward = 0
         self.mistake_reward = 0
@@ -112,6 +112,7 @@ class player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
+        self.damage_reward = 2
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool
@@ -566,16 +567,6 @@ class player:
         self.generate_public_player_vector()
         self.generate_private_player_vector()
 
-    """
-    Description - Same as loss_round but if the opponent was a ghost
-    Inputs      - damage: Int
-                    amount of damage inflicted in the combat round
-    """
-    # TODO - split the negative reward here among the rest of the players to maintain a net equal reward
-    # TODO - move the 0.5 to the list of other reward controllers for each of the won / loss round methods
-    def ghost_won(self, damage):
-        self.reward -= 0 * damage
-        self.print(str(0 * damage) + " reward for someone losing to a ghost")
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.
@@ -729,8 +720,8 @@ class player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 2 * damage
-            self.print(str(-2 * damage) + " reward for losing round against player " + str(self.opponent.player_num))
+            self.reward -= self.damage_reward * damage
+            self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1422,6 +1413,15 @@ class player:
     Outputs     - True: No possible actions
                   False: There are actions possible
     """
+    def spill_reward(self, damage):
+        self.reward += self.damage_reward * damage
+        self.print("Spill reward of {} received".format(self.damage_reward * damage))
+
+    """
+    Description - Returns true if there are no possible actions in the state
+    Outputs     - True: No possible actions
+                  False: There are actions possible
+    """
     def state_empty(self):
         # Need both in case of an empty shop.
         if self.gold == 0 or self.gold < min(self.shop_costs):
@@ -1668,8 +1668,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 2 * damage
-            self.print(str(2 * damage) + " reward for winning round against player " + str(self.opponent.player_num))
+            self.reward += self.damage_reward * damage
+            self.print(str(self.damage_reward * damage) + " reward for winning round against player " + str(self.opponent.player_num))
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
