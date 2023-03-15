@@ -266,8 +266,10 @@ def minion_combat(player, enemy, round, others):
     # tie!
     if index_won == 0:
         player.loss_round(damage)
+        print("Player {} tied round with damage = {}".format(player.player_num, damage))
         for p in alive:
-            p.ghost_won(damage / len(alive))
+            if p != player:
+                p.spill_reward(damage / len(alive))
         player.health -= damage
     # player wins!
     if index_won == 1:
@@ -277,7 +279,9 @@ def minion_combat(player, enemy, round, others):
     # minions win! (yikes)
     if index_won == 2:
         player.loss_round(damage)
+        player.health -= damage
+        print("Player {} loss round with damage = {}".format(player.player_num, damage))
         if len(alive) > 0:
             for p in alive:
-                p.ghost_won(damage / len(alive))
-        player.health -= damage
+                if p != player:
+                    p.spill_reward(damage / len(alive))

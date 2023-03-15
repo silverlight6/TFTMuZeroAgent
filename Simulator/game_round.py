@@ -126,24 +126,35 @@ class Game_Round:
 
                     # Draw
                     if index_won == 0:
+                        print("Players {} and {} tied round with damage = {}"
+                              .format(players[num].player_num, players[player_index].player_num, damage))
                         players[num].loss_round(damage)
                         players[num].health -= damage
                         players[player_index].loss_round(damage)
                         players[player_index].health -= damage
+                        for player in players:
+                            if player != players[num] and player != players[player_index]:
+                                if player:  # Not sure if there can be a dead player here.
+                                    player.spill_reward(damage / (len(players) - 2))
 
                     # Blue side won
                     if index_won == 1:
+                        print("Player {} beat player {} with damage = {}"
+                              .format(players[num].player_num, players[player_index].player_num, damage))
                         players[num].won_round(damage)
                         players[player_index].loss_round(damage)
                         players[player_index].health -= damage
 
                     # Red side won
                     if index_won == 2:
+                        print("Player {} lost to player {} with damage = {}"
+                              .format(players[num].player_num, players[player_index].player_num, damage))
                         players[num].loss_round(damage)
                         players[num].health -= damage
                         players[player_index].won_round(damage)
                     players[player_index].combat = True
                     players[num].combat = True
+                    log_to_file_combat()
 
                 # This is here when there is an odd number of players
                 # Behavior is to fight a random player.
@@ -160,27 +171,27 @@ class Game_Round:
                     config.WARLORD_WINS['red'] = player_copy.win_streak
                     index_won, damage = champion.run(champion.champion, players[num], player_copy,
                                                      self.ROUND_DAMAGE[round_index][1])
-                    # if the alive player loses to a dead player, the dead player's reward is
-                    # given out to all other alive players
-                    alive = []
-                    for other in players:
-                        if other:
-                            if other.health > 0 and other is not players[num]:
-                                alive.append(other)
                     if index_won == 2 or index_won == 0:
                         players[num].health -= damage
-                        players[num].ghost_won(player_round)
-                        # Silver messed this code up.
-                        # if len(alive) > 0:
-                        #     for other in alive:
-                        #         other.ghost_won(damage / len(alive))
+                        players[num].loss_round(damage)
+
+                        # if the alive player loses to a dead player, the dead player's reward is
+                        # given out to all other alive players
+                        alive = []
+                        for other in players:
+                            if other:
+                                if other.health > 0 and other is not players[num]:
+                                    alive.append(other)
+                        print("Player {} loss to ghost with damage = {}".format(players[num].player_num, damage))
+                        for other in alive:
+                            other.spill_reward(damage / len(alive))
                     if index_won == 1:
                         players[num].won_ghost()
                     players[num].combat = True
                     players_matched += 1
+                    log_to_file_combat()
                 else:
                     return False
-        log_to_file_combat()
         return True
 
     def play_game_round(self):
