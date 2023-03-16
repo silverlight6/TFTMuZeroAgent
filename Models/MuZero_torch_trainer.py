@@ -171,13 +171,17 @@ class Trainer(object):
             # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
             # output_policy ->   [(256, 7), (256, n), ...]
 
-            for dim in range(len(target_policy[tstep])):
-                policy_loss.append((-torch.tensor(target_policy[tstep][dim]).cuda() *
-                                   torch.nn.LogSoftmax(dim=-1)(policy_logits[dim])).sum(-1))
+            for batch_idx in range(len(target_policy[tstep][0])):
+                local_policy_loss = []
+                for dim_idx in range(len(target_policy[tstep])):
+                  local_policy_loss.append(( -torch.tensor(target_policy[tstep][dim_idx][batch_idx]).cuda() *
+                  torch.nn.LogSoftmax(dim=-1)(torch.tensor(policy_logits[dim_idx][batch_idx])).cuda() ).sum(-1))
 
-            policy_loss = torch.stack(policy_loss).sum(-1)
+                policy_loss.append(torch.tensor(local_policy_loss).sum(-1))
 
-            policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
+            policy_loss = torch.stack(policy_loss).cuda()
+
+            # policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['policy_loss'].append(policy_loss)
 

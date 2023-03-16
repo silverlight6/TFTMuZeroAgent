@@ -55,7 +55,7 @@ def split_sample_set(sample_mapping, target_policy):
     split_sample = [[], [], [], [], []]
     split_policy = [[], [], [] ,[] ,[]]
 
-    split_policy[0] = [0] * config.POLICY_HEAD_SIZES[0]
+    # split_policy[0] = [0] * config.POLICY_HEAD_SIZES[0]
 
     for i, sample in enumerate(sample_mapping):
         base = sample[0]
@@ -66,13 +66,22 @@ def split_sample_set(sample_mapping, target_policy):
 
             if base not in split_sample[0]:
                 split_sample[0].append(base)
+                split_policy[0].append(0)
 
             split_sample[idx].append(location)
             split_policy[idx].append(target_policy[i])
-            split_policy[0][idx] += target_policy[i]
+            # split_policy[0][idx] += target_policy[i]
         else:
             split_sample[0].append(sample)
-            split_policy[0][idx] += target_policy[i]
+            split_policy[0].append(target_policy[i])
+
+    # Accumulate the policy for each multidim action
+    for i, base in enumerate(split_sample[0]):
+        idx = int(base)
+
+        if idx in config.NEEDS_2ND_DIM:
+            policy_sum = sum(split_policy[idx])
+            split_policy[0][i] += policy_sum
 
     return split_sample, split_policy
 
@@ -86,13 +95,13 @@ def split_batch(mapping_batch, policy_batch):
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        local_mapping = [[]] * num_dims
-        local_policy = [[]] * num_dims
+        local_mapping = [[], [], [], [], []]
+        local_policy = [[], [], [], [], []]
 
         for batch_idx in range(batch_size):
             split_mapping, split_policy = split_sample_set(mapping_batch[batch_idx][unroll_idx], policy_batch[batch_idx][unroll_idx])
 
-            for dim_idx in range(num_dims):
+            for dim_idx in range(len(split_mapping)):
                 local_mapping[dim_idx].append(split_mapping[dim_idx])
                 local_policy[dim_idx].append(split_policy[dim_idx])
 
