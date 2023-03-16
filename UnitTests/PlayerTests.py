@@ -1,4 +1,4 @@
-from Simulator.player import player
+from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator import champion as c_object
@@ -6,10 +6,10 @@ from Simulator.item_stats import trait_items, starting_items
 from Simulator.origin_class_stats import origin_class
 
 
-def setup(player_num=0) -> player:
+def setup(player_num=0) -> Player:
     """Creates fresh player and pool"""
     base_pool = pool()
-    player1 = player(base_pool, player_num)
+    player1 = Player(base_pool, player_num)
     return player1
 
 

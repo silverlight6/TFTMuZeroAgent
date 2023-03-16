@@ -179,7 +179,6 @@ class Nexus(Minion):
 
         return loot
 
-
 # Drops 1 random full item and 2 random orbs
 class Herald(Minion):
     def __init__(self):
@@ -267,7 +266,6 @@ def minion_combat(player, enemy, round, others):
     # tie!
     if index_won == 0:
         player.loss_round(damage)
-        print("Player {} tied round with damage = {}".format(player.player_num, damage))
         for p in alive:
             if p != player:
                 p.spill_reward(damage / len(alive))
@@ -281,7 +279,6 @@ def minion_combat(player, enemy, round, others):
     if index_won == 2:
         player.loss_round(damage)
         player.health -= damage
-        print("Player {} loss round with damage = {}".format(player.player_num, damage))
         if len(alive) > 0:
             for p in alive:
                 if p != player:

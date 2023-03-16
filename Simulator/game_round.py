@@ -4,7 +4,6 @@ import random
 import numpy as np
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
-from Simulator.player import player as player_class
 from Simulator.champion_functions import MILLIS
 
 
@@ -91,15 +90,13 @@ class Game_Round:
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
-        for player in players:
+        for player in players.values():
             if player:
                 player.end_turn_actions()
                 player.combat = False
         for match in self.matchups:
             if not match[1] == "ghost":
                 # Assigning a battle
-                if not players[match[0]] or not players[match[1]]:
-                    print(match[0], match[1])
                 players[match[0]].opponent = players[match[1]]
                 players[match[1]].opponent = players[match[0]]
                 # Fixing the time signature to see how long battles take.
@@ -114,30 +111,23 @@ class Game_Round:
 
                 # Draw
                 if index_won == 0:
-                    print("Players {} and {} tied round with damage = {}"
-                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
-
                     players[match[0]].loss_round(damage)
                     players[match[0]].health -= damage
                     players[match[1]].loss_round(damage)
                     players[match[1]].health -= damage
-                    for player in players:
+                    for player in players.values():
                         if player != players[match[0]] and player != players[match[1]]:
                             if player:  # Not sure if there can be a dead player here.
                                 player.spill_reward(damage / (len(players) - 2))
 
                 # Blue side won
                 if index_won == 1:
-                    print("Player {} beat player {} with damage = {}"
-                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
                     players[match[0]].won_round(damage)
                     players[match[1]].loss_round(damage)
                     players[match[1]].health -= damage
 
                 # Red side won
                 if index_won == 2:
-                    print("Player {} lost to player {} with damage = {}"
-                          .format(players[match[0]].player_num, players[match[1]].player_num, damage))
                     players[match[0]].loss_round(damage)
                     players[match[0]].health -= damage
                     players[match[1]].won_round(damage)
@@ -150,27 +140,88 @@ class Game_Round:
                 config.WARLORD_WINS['red'] = players[match[2]].win_streak
                 index_won, damage = champion.run(champion.champion, players[match[0]], players[match[2]],
                                                  self.ROUND_DAMAGE[round_index][1])
-                # if the alive player loses to a dead player, the dead player's reward is
-                # given out to all other alive players
-                alive = []
-                for other in players:
-                    if other:
-                        if other.health > 0 and other is not players[match[0]]:
-                            alive.append(other)
                 if index_won == 2 or index_won == 0:
                     players[match[0]].health -= damage
-                    players[match[0]].loss_round(player_round)
+                    players[match[0]].loss_round(damage)
                     players[match[0]].combat = True
+                    # if the alive player loses to a dead player, the dead player's reward is
+                    # given out to all other alive players
                     alive = []
-                    for other in players:
+                    for other in players.values():
                         if other:
                             if other.health > 0 and other is not players[match[0]]:
                                 alive.append(other)
-                    print("Player {} loss to ghost with damage = {}".format(players[match[0]].player_num, damage))
                     for other in alive:
                         other.spill_reward(damage / len(alive))
         log_to_file_combat()
         return True
+
+    def decide_player_combat(self):
+        player_list = []
+        self.matchups = []
+        for key, player in self.PLAYERS.items():
+            if player:
+                player_list.append(key)
+        random.shuffle(player_list)
+        ghost = player_list[0]      # if there's a ghost combat, always use first player after shuffling
+        while len(player_list) >= 2:
+            index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
+            weights = 0
+            # Specifying the player as its own variable due to number of usages.
+            player = self.PLAYERS[player_list[0]]
+            player.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
+            for key in player_list:
+                if not key == player_list[0]:
+                    # if any possible opponents have a high enough possible opponents value consider them for combat
+                    if player.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        weights += player.possible_opponents[key]
+            if weights == 0:
+                # if no opponents have a high enough possible opponents value, take whichever one is highest
+                opponent = 0
+                for i, key in enumerate(player_list):
+                    if i < 0:
+                        if player.possible_opponents[key] >= opponent:
+                            opponent = player.possible_opponents[key]
+                            index = i
+            else:
+                # if there are opponents with a high enough value, use weights to determine who to fight
+                r = random.randint(0, weights)
+                while r >= player.possible_opponents[player_list[index]]:
+                    r -= player.possible_opponents[player_list[index]]
+                    index += 1
+                    if index == len(player_list):
+                        index = 1
+            self.matchups.append([player_list[0], player_list[index]])
+            opposition = self.PLAYERS[player_list[index]]
+            opposition.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
+            # giving the players the possible opponents
+            for key, player_check in self.PLAYERS.items():
+                if player_check:
+                    if player.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        player.opponent_options[key] = 1
+                    if opposition.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        opposition.opponent_options[key] = 1
+                    if not player.possible_opponents[key] == -1:
+                        player.possible_opponents[key] += config.WEIGHTS_INCREMENT
+                    if not opposition.possible_opponents[key] == -1:
+                        opposition.possible_opponents[key] += config.WEIGHTS_INCREMENT
+                else:
+                    player.possible_opponents[key] = 0
+                    opposition.possible_opponents[key] = 0
+            if 1 not in player.opponent_options:
+                player.opponent_options[player_list[index]] = 1
+            if 1 not in opposition.opponent_options:
+                opposition.opponent_options[player_list[0]] = 1
+            # resetting the weights for the player and opponent
+            player.possible_opponents[player_list[index]] = 0
+            opposition.possible_opponents[player_list[0]] = 0
+            player_list.remove(player_list[index])
+            player_list.remove(player_list[0])
+        if len(player_list) == 1:   # if there is only one player left to match, have it fight a ghost
+            self.matchups.append([player_list[0], "ghost", ghost])
+            self.PLAYERS[player_list[0]].opponent_options = \
+                {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
+            self.PLAYERS[player_list[0]].opponent_options[ghost] = 1
 
     def play_game_round(self):
         self.game_rounds[self.current_round]()
@@ -179,13 +230,10 @@ class Game_Round:
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
         self.step_func_obj.generate_shop_vectors(self.PLAYERS)
+        self.decide_player_combat()
         for player in self.PLAYERS.values():
             if player:
                 player.start_round(self.current_round)
-        self.decide_player_combat(self.PLAYERS)
-
-        # TO DO
-        # Change this so it isn't tied to a player and can log as time proceeds
 
     def round_1(self):
         for player in self.PLAYERS.values():
@@ -233,7 +281,7 @@ class Game_Round:
                 log_to_file(player)
         log_end_turn(self.current_round)
 
-        self.combat_phase(list(self.PLAYERS.values()), self.current_round)
+        self.combat_phase(self.PLAYERS, self.current_round)
         # Will implement check dead later
         # if self.check_dead(agent, buffer, game_episode):
         #     return True
@@ -308,68 +356,6 @@ class Game_Round:
                 self.pool_obj.update_pool(ran_cost_5, -1)
                 player.add_to_bench(ran_cost_5, True)
                 player.refill_item_pool()
-
-    def decide_player_combat(self, players):
-        player_list = []
-        self.matchups = []
-        for player in players.values():
-            if player:
-                player_list.append(player.player_num)
-        random.shuffle(player_list)
-        ghost = player_list[0]      # if there's a ghost combat, always use first player after shuffling
-        while len(player_list) >= 2:
-            index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
-            weights = 0
-            player = list(players.values())[player_list[0]]
-            player.opponent_options = np.zeros(config.NUM_PLAYERS)
-            for num in player_list:
-                if not num == player_list[0]:
-                    # if any possible opponents have a high enough possible opponents value consider them for combat
-                    if player.possible_opponents[num] >= config.MATCHMAKING_WEIGHTS:
-                        weights += player.possible_opponents[num]
-            if weights == 0:
-                # if no opponents have a high enough possible opponents value, take whichever one is highest
-                opponent = 0
-                for i, num in enumerate(player_list):
-                    if i < 0:
-                        if player.possible_opponents[num] >= opponent:
-                            opponent = player.possible_opponents[num]
-                            index = i
-            else:
-                # if there are opponents with a high enough value, use weights to determine who to fight
-                r = random.randint(0, weights)
-                while r >= player.possible_opponents[player_list[index]]:
-                    r -= player.possible_opponents[player_list[index]]
-                    index += 1
-                    if index == len(player_list):
-                        index = 1
-            self.matchups.append([player_list[0], player_list[index]])
-            opposition = list(players.values())[player_list[index]]
-            opposition.opponent_options = np.zeros(config.NUM_PLAYERS)
-            # giving the players the possible opponents
-            for x in range(config.NUM_PLAYERS):
-                if player.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:
-                    player.opponent_options[x] = 1
-                if opposition.possible_opponents[x] >= config.MATCHMAKING_WEIGHTS:
-                    opposition.opponent_options[x] = 1
-                if not player.possible_opponents[x] == -1:
-                    player.possible_opponents[x] += config.WEIGHTS_INCREMENT
-                if not opposition.possible_opponents[x] == -1:
-                    opposition.possible_opponents[x] += config.WEIGHTS_INCREMENT
-            if 1 not in player.opponent_options:
-                player.opponent_options[player_list[index]] = 1
-            if 1 not in opposition.opponent_options:
-                opposition.opponent_options[player_list[0]] = 1
-            # resetting the weights for the player and opponent
-            player.possible_opponents[player_list[index]] = 0
-            opposition.possible_opponents[player_list[0]] = 0
-            player_list.remove(player_list[index])
-            player_list.remove(player_list[0])
-        if len(player_list) == 1:   # if there is only one player left to match, have it fight a ghost
-            self.matchups.append([player_list[0], "ghost", ghost])
-            player = list(players.values())[player_list[0]]
-            player.opponent_options = np.zeros(config.NUM_PLAYERS)
-            player.opponent_options[ghost] = 1
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")

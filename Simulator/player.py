@@ -24,7 +24,7 @@ Inputs      - pool_pointer: Pool object pointer
 """
 
 
-class player:
+class Player:
     # Explanation - We may switch to a class config for the AI side later so separating the two now is highly useful.
     def __init__(self, pool_pointer, player_num):
 
@@ -112,7 +112,7 @@ class player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
-        self.damage_reward = 2
+        self.damage_reward = 1.25
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool
@@ -131,9 +131,10 @@ class player:
         self.start_time = time.time_ns()
 
         # Putting this here to show the next possible opponent
-        self.possible_opponents = [config.MATCHMAKING_WEIGHTS for _ in range(config.NUM_PLAYERS)]
-        self.possible_opponents[self.player_num] = -1
-        self.opponent_options = np.zeros(config.NUM_PLAYERS)
+        self.possible_opponents = {"player_" + str(player_id): config.MATCHMAKING_WEIGHTS
+                                   for player_id in range(config.NUM_PLAYERS)}
+        self.possible_opponents["player_" + str(self.player_num)] = -1
+        self.opponent_options = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.kayn_turn_count = 0
         self.kayn_transformed = False
@@ -530,8 +531,20 @@ class player:
             self.player_private_vector[6] = self.match_history[-3]
             self.player_private_vector[7] = self.match_history[-2]
             self.player_private_vector[8] = self.match_history[-1]
-        for x in range(9, 16):
-            self.player_private_vector[x] = self.opponent_options[x - 9]
+        # Who we can play against in the next round. / 20 to keep numbers between 0 and 1.
+        # TODO: Figure out a better way to get around this nested if statement that doesn't involve iterating over
+        # TODO: The entire list
+        for x in range(9, 17):
+            if (x - 9) < self.player_num:
+                if ("player_" + str(x - 9)) in self.opponent_options:
+                    self.player_private_vector[x] = self.opponent_options["player_" + str(x - 9)] / 20
+                else:
+                    self.player_private_vector[x] = -1
+            elif (x - 0) > self.player_num:
+                if ("player_" + str(x - 9)) in self.opponent_options:
+                    self.player_private_vector[x - 1] = self.opponent_options["player_" + str(x - 9)] / 20
+                else:
+                    self.player_private_vector[x - 1] = -1
 
         # Decision mask parameters
         # if gold < 4, do not allow to level
@@ -1419,33 +1432,29 @@ class player:
         self.print("Spill reward of {} received".format(self.damage_reward * damage))
 
     """
-    Description - Returns true if there are no possible actions in the state
-    Outputs     - True: No possible actions
-                  False: There are actions possible
+    Description - Does all operations that happen at the start of the round. 
+                  This includes gold, reward, kayn updates and thieves gloves
+    Inputs      - t_round: Int
+                    current game round
     """
-    def state_empty(self):
-        # Need both in case of an empty shop.
-        if self.gold == 0 or self.gold < min(self.shop_costs):
-            for xbench in self.bench:
-                if xbench:
-                    return False
-            for x_board in range(len(self.board)):
-                for y_board in range(len(self.board[0])):
-                    if self.board[x_board][y_board]:
-                        return False
-            return True
-        else:
-            return False
+    # TODO Organize methods to be alphabetical so people can find what they are looking for in this file. This file only
+    def start_round(self, t_round):
+        self.start_time = time.time_ns()
+        self.round = t_round
+        self.reward += self.num_units_in_play * self.minion_count_reward
+        self.gold_income(self.round)
+        self.generate_player_vector()
+        if self.kayn_check():
+            self.kayn_turn_count += 1
+        if self.kayn_turn_count >= 3:
+            self.kayn_transform()
+        for x in self.thieves_gloves_loc:
+            if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
+                self.thieves_gloves(x[0], x[1])
 
-
-    """
-    Description - Returns true if there are no possible actions in the state
-    Outputs     - True: No possible actions
-                  False: There are actions possible
-    """
-    def spill_reward(self, damage):
-        self.reward += self.damage_reward * damage
-        self.print("Spill reward of {} received".format(self.damage_reward * damage))
+        self.printComp()
+        self.printBench()
+        self.printItemBench()
 
     """
     Description - Returns true if there are no possible actions in the state
@@ -1465,7 +1474,6 @@ class player:
             return True
         else:
             return False
-
 
     """
     Description - Gives new thieves gloves items to a champion in thieves_gloves_loc
@@ -1631,31 +1639,6 @@ class player:
         if DEBUG:
             print("could not use reforge")
         return False
-
-    """
-    Description - Does all operations that happen at the start of the round. 
-                  This includes gold, reward, kayn updates and thieves gloves
-    Inputs      - t_round: Int
-                    current game round
-    """
-    # TODO Organize methods to be alphabetical so people can find what they are looking for in this file. This file only
-    def start_round(self, t_round):
-        self.start_time = time.time_ns()
-        self.round = t_round
-        self.reward += self.num_units_in_play * self.minion_count_reward
-        self.gold_income(self.round)
-        self.generate_player_vector()
-        if self.kayn_check():
-            self.kayn_turn_count += 1
-        if self.kayn_turn_count >= 3:
-            self.kayn_transform()
-        for x in self.thieves_gloves_loc:
-            if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
-                self.thieves_gloves(x[0], x[1])
-
-        self.printComp()
-        self.printBench()
-        self.printItemBench()
 
     """
     Description - Called at the conclusion of the game to the player who won the game

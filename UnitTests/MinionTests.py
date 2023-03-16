@@ -1,4 +1,4 @@
-from Simulator.player import player
+from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator import minion
@@ -6,10 +6,10 @@ from Simulator import minion
 # contains the list of round numbers where unique PVE rounds occur
 rounds = [0,1,2,8,14,20,26,33]
 
-def setup() -> player:
+def setup() -> Player:
     """Creates fresh player and pool"""
     base_pool = pool()
-    player1 = player(base_pool, 0)
+    player1 = Player(base_pool, 0)
     return player1
 
 # Check health calculation from minion combat
