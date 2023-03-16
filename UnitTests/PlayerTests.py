@@ -73,6 +73,7 @@ def championDuplicatorTest():
     assert p1.bench[1].name == 'leesin'
     p1.move_bench_to_board(0, 0, 0)
     p1.move_item(1, 0, 0)
+    print(p1.bench)
     assert p1.board[0][0].stars == 2
     assert p1.gold == 995
     p1.buy_champion(champion('jax'))

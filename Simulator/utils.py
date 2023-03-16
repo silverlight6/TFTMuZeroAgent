@@ -1,6 +1,8 @@
+import Simulator.config as config
 import numpy as np
 from functools import wraps
 from time import time
+
 
 
 def champ_binary_encode(n):
@@ -19,8 +21,7 @@ def item_binary_encode(n):
 
 
 def champ_one_hot_encode(n):
-    MAX_CHAMPION_IN_SET = 58
-    return np.eye(MAX_CHAMPION_IN_SET)[n]
+    return np.eye(config.MAX_CHAMPION_IN_SET)[n]
 
 
 def item_one_hot_encode(n):

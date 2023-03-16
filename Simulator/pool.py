@@ -3,7 +3,7 @@ import random
 
 from Simulator.pool_stats import *
 from Simulator.origin_class_stats import origin_class, chosen_exclude
-from config import LOGMESSAGES
+from Simulator.config import LOGMESSAGES
 
 
 class pool:

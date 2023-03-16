@@ -282,5 +282,10 @@ def contractive_mapping(x, eps=0.001):
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return np.sign(x) * \
-           (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+    return np.sign(x) * (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+
+
+# Softmax function in np because we're converting it anyway
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+

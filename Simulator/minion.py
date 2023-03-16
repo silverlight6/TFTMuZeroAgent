@@ -1,4 +1,5 @@
 import config
+import Simulator.config as config
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
 
