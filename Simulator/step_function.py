@@ -1,4 +1,4 @@
-import config
+import Simulator.config as config
 import numpy as np
 import Simulator.champion as champion
 

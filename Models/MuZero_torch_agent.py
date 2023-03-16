@@ -76,9 +76,6 @@ class MuZeroNetwork(AbstractNetwork):
         self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        # self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
-        #                                      config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
-    
         self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, config.HEAD_HIDDEN_SIZE,
                                                   config.POLICY_HEAD_SIZES)
 
@@ -215,11 +212,11 @@ def mlp(
     return torch.nn.Sequential(*layers).cuda()
 
 # Cursed? Idk
-# Linear(input, layer_size) -> RELU 
+# Linear(input, layer_size) -> RELU
 #      -> Linear -> Identity -> 0
 #      -> Linear -> Identity -> 1
-#      ... for each size in output_size 
-#  -> output -> [0, 1, ... n]    
+#      ... for each size in output_size
+#  -> output -> [0, 1, ... n]
 class MultiMlp(torch.nn.Module):
     def __init__(self,
                  input_size,
@@ -243,7 +240,7 @@ class MultiMlp(torch.nn.Module):
                 output_activation()
             ).cuda()
             self.output_heads.append(output_layer)
-    
+
     def forward(self, x):
         # Encode the hidden state
         x = self.encoding_layer(x)
@@ -253,7 +250,7 @@ class MultiMlp(torch.nn.Module):
 
         for head in self.output_heads:
             output.append(head(x))
-        
+
         return output
 
     def __call__(self, x):
@@ -332,3 +329,8 @@ def contractive_mapping(x, eps=0.001):
 def inverse_contractive_mapping(x, eps=0.001):
     return np.sign(x) * \
            (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+
+# Softmax function in np because we're converting it anyway
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+

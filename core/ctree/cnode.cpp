@@ -280,7 +280,7 @@ namespace tree {
 
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
-        const float epsilon = 0.0001;
+        const float epsilon = 0.00001;
         std::vector<int> max_index_lst;
 
         for(int a = 0; a < root->action_num; ++a) {
@@ -299,7 +299,7 @@ namespace tree {
             }
         }
         int action = 0;
-        if(max_index_lst.size() > 0){
+        if(max_index_lst.size() > 0) {
             int rand_index = rand() % max_index_lst.size();
             action = max_index_lst[rand_index];
         }
