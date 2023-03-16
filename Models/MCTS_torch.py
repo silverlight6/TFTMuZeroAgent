@@ -24,7 +24,6 @@ class MCTS:
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
-        self.needs_2nd_dim = [1, 2, 3, 4]
         self.ckpt_time = time.time_ns()
         self.default_string_mapping = util.create_default_mapping()
 
@@ -399,7 +398,7 @@ class MCTS:
                 dim_base_string = string_mapping[0][idx][i]
                 dim_idx_mapping = int(dim_base_string)
 
-                if dim_idx_mapping in self.needs_2nd_dim:
+                if dim_idx_mapping in config.NEEDS_2ND_DIM:
                     local_dim_logits = []
                     local_dim_string = []
                     local_dim_byte = []
@@ -414,7 +413,7 @@ class MCTS:
                     for dim_sample in dim_samples:
                         sampled_action = dim_base_string + string_mapping[dim_idx_mapping][idx][dim_sample]
 
-                        isSampled = False    
+                        isSampled = False
                         for i, action in enumerate(local_dim_string):
                             if sampled_action == action:
                                 local_dim_logits[i] += (1 / num_samples)
