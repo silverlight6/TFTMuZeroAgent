@@ -214,7 +214,6 @@ class TFT_Simulator(AECEnv):
                         if self.PLAYERS[player_id] and self.PLAYERS[player_id].health > 0:
                             self.PLAYERS[player_id].won_game()
                             self.rewards[player_id] = 35 + self.PLAYERS[player_id].reward
-                            self.global_reward_sum += self.rewards[player_id]
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
                             self.PLAYERS[player_id] = None  # Without this the reward is reset
 
