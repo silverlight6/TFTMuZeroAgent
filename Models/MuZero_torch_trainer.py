@@ -2,7 +2,7 @@ import config
 import collections
 import torch
 import numpy as np
-from Models.MCTS_Util import map_distribution_to_sample, action_str_to_idx, flatten_sample_set
+from Models.MCTS_Util import split_batch, map_output_to_distribution
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -39,33 +39,34 @@ class Trainer(object):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
 
-        sample_set = action_str_to_idx(sample_set)
-
         self.optimizer.zero_grad()
+
+        sample_set, policy = split_batch(sample_set, policy) # [unroll_steps, num_dims, [(batch_size, dim) ...] ]
 
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
         loss = loss.mean()
-        flat = torch.tensor(flatten_sample_set(sample_set))
-        samples = torch.bincount(flat, minlength=config.ACTION_ENCODING_SIZE).cuda()
 
-        def filter_grad(grad):
-            if len(grad.shape) == 1:
-                grad = grad * samples
-            else:
-                grad = grad * samples.unsqueeze(1)
-            grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
-            return grad
+        # flat = torch.tensor(flatten_sample_set(sample_set))
+        # samples = torch.bincount(flat, minlength=config.ACTION_ENCODING_SIZE).cuda()
 
-        handle1 = self.global_agent.prediction_policy_network[2].weight.register_hook(lambda grad: filter_grad(grad))
-        handle2 = self.global_agent.prediction_policy_network[2].bias.register_hook(lambda grad: filter_grad(grad))
+        # def filter_grad(grad):
+        #     if len(grad.shape) == 1:
+        #         grad = grad * samples
+        #     else:
+        #         grad = grad * samples.unsqueeze(1)
+        #     grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
+        #     return grad
+
+        # handle1 = self.global_agent.prediction_policy_network[2].weight.register_hook(lambda grad: filter_grad(grad))
+        # handle2 = self.global_agent.prediction_policy_network[2].bias.register_hook(lambda grad: filter_grad(grad))
 
         loss.backward()
 
         self.optimizer.step()
-        handle1.remove()
-        handle2.remove()
+        # handle1.remove()
+        # handle2.remove()
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, sample_set, train_step, summary_writer):
@@ -77,7 +78,7 @@ class Trainer(object):
         target_value = torch.from_numpy(target_value).to('cuda')
 
         # initial step
-        output = agent.initial_inference(observation)
+        output = agent.initial_inference(observation) # [num_dims, [(batch_size, dim) ...] ]
 
         predictions = [
             Prediction(
@@ -85,7 +86,7 @@ class Trainer(object):
                 value_logits=output["value_logits"],
                 reward=output["reward"],
                 reward_logits=output["reward_logits"],
-                policy_logits=map_distribution_to_sample([i[0] for i in sample_set], output["policy_logits"]),
+                policy_logits=map_output_to_distribution(sample_set[0], output["policy_logits"]),
             )
         ]
 
@@ -106,7 +107,7 @@ class Trainer(object):
                     value_logits=output["value_logits"],
                     reward=output["reward"],
                     reward_logits=output["reward_logits"],
-                    policy_logits=map_distribution_to_sample([i[rstep + 1] for i in sample_set],
+                    policy_logits=map_output_to_distribution(sample_set[rstep + 1],
                                                              output["policy_logits"]),
                 ))
 
@@ -146,11 +147,11 @@ class Trainer(object):
             value_loss = (-target_value_encoded[:, tstep] *
                           torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
-            
+
             accs['value_loss'].append(
               value_loss
             )
-            
+
             reward_loss = (-target_reward_encoded[:, tstep] *
                            torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
@@ -167,10 +168,14 @@ class Trainer(object):
             # predictions.policy_logits is (actiondims, batch)
             # target_policy is (batch,unrollsteps+1,action_dims)
             policy_loss = []
-            for i in range(len(target_policy)):
-                policy_loss.append((-torch.tensor(target_policy[i][tstep]).cuda() *
-                                    torch.nn.LogSoftmax(dim=-1)(policy_logits[i])).sum(-1))
-            policy_loss = torch.stack(policy_loss)
+            # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
+            # output_policy ->   [(256, 7), (256, n), ...]
+
+            for dim in range(len(target_policy[tstep])):
+                policy_loss.append((-torch.tensor(target_policy[tstep][dim]).cuda() *
+                                   torch.nn.LogSoftmax(dim=-1)(policy_logits[dim])).sum(-1))
+
+            policy_loss = torch.stack(policy_loss).sum(-1)
 
             policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
