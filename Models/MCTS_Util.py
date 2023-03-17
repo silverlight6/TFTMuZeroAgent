@@ -94,19 +94,19 @@ def split_batch(mapping_batch, policy_batch):
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        batch_mapping = [[], [], [], [], []]
-        batch_policy = [[], [], [], [], []]
+        unroll_mapping = [[], [], [], [], []]
+        unroll_policy = [[], [], [], [], []]
 
         for batch_idx in range(batch_size):
             local_mapping = mapping_batch[batch_idx][unroll_idx]
             local_policy = policy_batch[batch_idx][unroll_idx]
             
             for dim_idx in range(len(local_mapping)):
-                batch_mapping[dim_idx].append(local_mapping[dim_idx])
-                batch_mapping[dim_idx].append(local_policy[dim_idx])
+                unroll_mapping[dim_idx].append(local_mapping[dim_idx])
+                unroll_policy[dim_idx].append(local_policy[dim_idx])
 
-        mapping.append(local_mapping)
-        policy.append(local_policy)
+        mapping.append(unroll_mapping)
+        policy.append(unroll_policy)
 
     return mapping, policy
 
