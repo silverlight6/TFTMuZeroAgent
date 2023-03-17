@@ -24,7 +24,7 @@ namespace tree {
         this->value_sum = 0;
         this->reward = 0.0;
         this->ptr_node_pool = nullptr;
-        this->mappings = std::vector<char*>{};
+        this->mappings = std::vector<std::string>{};
     }
 
     CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool) {
@@ -36,7 +36,7 @@ namespace tree {
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
-        this->mappings = std::vector<char*>{};
+        this->mappings = std::vector<std::string>{};
     }
 
     CNode::~CNode() {}
@@ -45,13 +45,17 @@ namespace tree {
     // or if we do a weighted softmax which is what is done below.
     // The alpha-go paper uses .67 as their weight but we appear to use e instead.
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                       const std::vector<float> &policy_logits, const std::vector<char*> mappings, int act_num) {
-        // Index for finding the hidden state on python side, x is player, y is search path location
+                       const std::vector<float> &policy_logits, const std::vector<char*> &mappings, int act_num) {
+        // Index for finding the hidden state on python side, x is search path location, y is the player
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
-        // Mapping to map 1081 into 3 dimensional action for recurrent inference
-        this->mappings = mappings;
+        // Mapping to turn a set of samples into a 3 dimensional output that the simulation can understand
+        this->mappings = std::vector<std::string> {};
+        for (auto i = 0; i < mappings.size(); i++) {
+            this->mappings.push_back(std::string(mappings[i]));
+        }
+        // number of unique actions this node contains. Changes based on number of unique samples
         this->action_num = act_num;
 
         float temp_policy;
@@ -88,7 +92,10 @@ namespace tree {
         }
     }
 
-    void CNode::add_exploration_noise(float exploration_fraction, const std::vector<float> &noises){
+    // This method is not currently used because we need to apply noise before taking samples
+    // This is done on the python side. Leaving the method here to preserve the core MuZero methods.
+    // If you wish to use a pure MuZero implementation, use this noise instead of the python side.
+    void CNode::add_exploration_noise(float exploration_fraction, const std::vector<float> &noises) {
         float noise, prior;
         for(int a = 0; a < this->action_num; ++a) {
             noise = noises[a];
@@ -113,7 +120,7 @@ namespace tree {
         if(this->visit_count == 0) {
             return 0;
         }
-        else{
+        else {
             return this->value_sum / this->visit_count;
         }
     }
@@ -125,7 +132,7 @@ namespace tree {
     std::vector<int> CNode::get_children_distribution() {
         std::vector<int> distribution;
         distribution.reserve(this->action_num);
-        if(this->expanded()){
+        if(this->expanded()) {
             for(int a = 0; a < this->action_num; ++a) {
                 CNode* child = this->get_child(a);
                 distribution.push_back(child->visit_count);
@@ -138,8 +145,6 @@ namespace tree {
         int index = this->children_index[action];
         return &((*(this->ptr_node_pool))[index]);
     }
-
-
 
     //*********************************************************
 
@@ -169,6 +174,9 @@ namespace tree {
 
     CRoots::~CRoots() {}
 
+    // This method is not used in our implementation. Leaving it in case we switch back to a pure MuZero implementation
+    // This method is only used if you need to apply noise to the input. We apply noise before sampling and before
+    // Creating the tree so this method does not get called.
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
                          const std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums) {
@@ -183,7 +191,7 @@ namespace tree {
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<std::vector<char*>> &mappings,
                                   const std::vector<int> &action_nums) {
-        for(int i = 0; i < this->root_num; ++i){
+        for(int i = 0; i < this->root_num; ++i) {
             this->roots[i].expand(0, i, value_prefixs[i], policies[i], mappings[i], action_nums[i]);
             this->roots[i].visit_count += 1;
         }
@@ -201,14 +209,14 @@ namespace tree {
 
     std::vector<float> CRoots::get_values() {
         std::vector<float> values;
-        for(int i = 0; i < this->root_num; ++i){
+        for(int i = 0; i < this->root_num; ++i) {
             values.push_back(this->roots[i].value());
         }
         return values;
     }
 
-    std::vector<int> decode_action(char* &str_action) {
-        std::string action(str_action);
+    // Takes in a string action like "2_15_30" and turns into a vector of [2, 15, 30]
+    std::vector<int> decode_action(std::string& action) {
         size_t index = action.find("_");
         size_t last_index = 0;
         std::vector<int> element_list;
@@ -261,11 +269,13 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> mappings, const std::vector<int> &action_nums) {
+                               std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums) {
         // For each player
-        for(int i = 0; i < results.num; ++i){
+        for(int i = 0; i < results.num; ++i) {
+            // Expand the node
             results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], mappings[i], action_nums[i]);
 
+            // Backprop back to the root node
             cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
     }
@@ -338,15 +348,19 @@ namespace tree {
             // This can be a node that has already been explored
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
+
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+
+                // Error here on seg fault, decode_action on stoi.
                 // Pick the action from the mappings.
-                char* str_action = node->mappings[action];
+                std::string str_action = node->mappings[action];
+
+                // Turn the internal next action into one that the model and environment can understand
+                last_action = decode_action(str_action);
 
                 // get next node
                 node = node->get_child(action);
-                // Turn the internal next action into one that the model and environment can understand
-                last_action = decode_action(str_action);
 
                 // Add Node to the search path for exploration purposes
                 results.search_paths[i].push_back(node);

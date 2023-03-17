@@ -76,8 +76,8 @@ class MuZeroNetwork(AbstractNetwork):
         self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        self.prediction_policy_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
-                                             config.N_HEAD_HIDDEN_LAYERS, config.ACTION_ENCODING_SIZE)
+        self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, config.HEAD_HIDDEN_SIZE,
+                                                  config.POLICY_HEAD_SIZES)
 
         self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
@@ -85,7 +85,6 @@ class MuZeroNetwork(AbstractNetwork):
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
-
 
     def prediction(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
@@ -108,7 +107,7 @@ class MuZeroNetwork(AbstractNetwork):
     def dynamics(self, encoded_state, action):
         action = torch.from_numpy(action).to('cuda').to(torch.int64)
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1] - 1)
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
 
         action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
@@ -158,7 +157,8 @@ class MuZeroNetwork(AbstractNetwork):
         }
         return outputs
 
-    def rnn_to_flat(self, state):
+    @staticmethod
+    def rnn_to_flat(state):
         """Maps LSTM state to flat vector."""
         states = []
         for cell_state in state:
@@ -210,6 +210,51 @@ def mlp(
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
     return torch.nn.Sequential(*layers).cuda()
+
+# Cursed? Idk
+# Linear(input, layer_size) -> RELU
+#      -> Linear -> Identity -> 0
+#      -> Linear -> Identity -> 1
+#      ... for each size in output_size
+#  -> output -> [0, 1, ... n]
+class MultiMlp(torch.nn.Module):
+    def __init__(self,
+                 input_size,
+                 layer_size,
+                 output_sizes,
+                 output_activation=torch.nn.Identity,
+                 activation=torch.nn.ReLU):
+        super().__init__()
+
+        # One linear that encodes the observation
+        self.encoding_layer = torch.nn.Sequential(
+            torch.nn.Linear(input_size, layer_size),
+            activation()
+        ).cuda()
+
+        self.output_heads = []
+
+        for size in output_sizes:
+            output_layer = torch.nn.Sequential(
+                torch.nn.Linear(layer_size, size),
+                output_activation()
+            ).cuda()
+            self.output_heads.append(output_layer)
+
+    def forward(self, x):
+        # Encode the hidden state
+        x = self.encoding_layer(x)
+
+        # Pass x into all output heads
+        output = []
+
+        for head in self.output_heads:
+            output.append(head(x))
+
+        return output
+
+    def __call__(self, x):
+        return self.forward(x)
 
 
 class ValueEncoder:
@@ -282,8 +327,8 @@ def contractive_mapping(x, eps=0.001):
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return np.sign(x) * (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
-
+    return np.sign(x) * \
+           (np.square((np.sqrt(4 * eps * (np.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 # Softmax function in np because we're converting it anyway
 def softmax_stable(x):

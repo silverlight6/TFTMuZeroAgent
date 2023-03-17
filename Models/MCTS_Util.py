@@ -2,69 +2,165 @@ import config
 import torch
 import numpy as np
 
+
 def create_default_mapping():
-    string_mapping = ["0"]
+    local_type = []
+    local_shop = []
+    local_board = []
+    local_item = []
+    local_sell = []
+
+    # Shop masking
     for i in range(5):
-        string_mapping.append(f"1_{i}")
+        local_shop.append(f"_{i}")
+
+    # Board masking
+    # For all board + bench slots...
     for a in range(37):
-        for b in range(a, 38):
+        # rest of board slot locs for moving, last for sale
+        for b in range(a, 37):
             if a == b:
                 continue
-            if a > 27 and b != 37:
+            if a > 27:
                 continue
-            string_mapping.append(f"2_{a}_{b}")
+            local_board.append(f"_{a}_{b}")
+    # Item masking
+    # For all board + bench slots...
     for a in range(37):
+        # For every item slot...
         for b in range(10):
-            string_mapping.append(f"3_{a}_{b}")
-    string_mapping.append("4")
-    string_mapping.append("5")
-    # converting mappings to batch size for all players in a game
-    mappings = [value.encode("utf-8") for value in string_mapping]
-    mappings = [mappings for _ in range(config.NUM_PLAYERS)]
-    second_mappings = [string_mapping for _ in range(config.NUM_PLAYERS)]
-    return mappings, second_mappings
+            # if there is a unit and there is an item
+            local_item.append(f"_{a}_{b}")
+    # Sell unit masking
+    for a in range(37):
+        local_sell.append(f"_{a}")
+
+    # All Type mappings
+    for i in range(7):
+        local_type.append(f"{i}")
+
+    mappings = [[local_type] * config.NUM_PLAYERS, [local_shop] * config.NUM_PLAYERS,
+                [local_board] * config.NUM_PLAYERS, [local_item] * config.NUM_PLAYERS,
+                [local_sell] * config.NUM_PLAYERS]
+
+    return mappings
 
 
-# _, default_mapping = create_default_mapping()
-# default_mapping = default_mapping[0]
+# ["0", "1_0", "2_20_20", "3_4_20", "4_10", "5", "6"] ->
+# [["0", "1", "2", "3", "4", "5", "6"], ["_0"], ["_20_20"], ["_4_20"], ["_10"]]
+def split_sample_set(sample_mapping, target_policy):
+    split_sample = [[], [], [], [], []]
+    split_policy = [[], [], [], [], []]
 
-# Takes in an action in string format "0" or "2_0_1" and outputs the default mapping index
-action_dimensions = [1, 5, 667, 370, 1, 1]
-def flatten_action(str_action):
-    # Decode action
-    num_items = str_action.count("_")  # 1
-    split_action = str_action.split("_")  # [1, 0]
-    
-    action = [0, 0, 0]
-    for i in range(num_items + 1):
-        action[i] = int(split_action[i])
+    # split_policy[0] = [0] * config.POLICY_HEAD_SIZES[0]
 
-    # To index
-    action_type = action[0]
-    index = sum(action_dimensions[:action_type])
-    if action_type == 1:
-        index += action[1]
-    elif action_type == 2:
-        a = action[1]
-        b = action[2]
-        if a < 28:
-            prev = sum([37 - i for i in range(a)])
-            index += prev + (b - a - 1)
+    for i, sample in enumerate(sample_mapping):
+        base = sample[0]
+        idx = int(base)
+
+        if idx in config.NEEDS_2ND_DIM:
+            location = sample[1:]
+
+            if base not in split_sample[0]:
+                split_sample[0].append(base)
+                split_policy[0].append(0)
+
+            split_sample[idx].append(location)
+            split_policy[idx].append(target_policy[i])
+            # split_policy[0][idx] += target_policy[i]
         else:
-            index += action_dimensions[2] - (37 - a)
-    elif action_type == 3:
-        a = action[1]
-        b = action[2]
-        index += (10 * a) + b
-    # No change needed for 4 and 5
-    return index
+            split_sample[0].append(sample)
+            split_policy[0].append(target_policy[i])
 
-def action_str_to_idx(sample_set):
-    return [[[flatten_action(m) for m in batch] for batch in player] for player in sample_set]
+    # Accumulate the policy for each multidim action
+    for i, base in enumerate(split_sample[0]):
+        idx = int(base)
 
-# God forgive me
-def flatten_sample_set(sample_set):
-    return [item for player in sample_set for batch in player for item in batch]
+        if idx in config.NEEDS_2ND_DIM:
+            policy_sum = sum(split_policy[idx])
+            split_policy[0][i] += policy_sum
+
+    return split_sample, split_policy
+
+# [batch_size, unroll_steps, num_samples] to [unroll_steps, num dims, (batch_size, dim)]
+def split_batch(mapping_batch, policy_batch):
+    batch_size = len(mapping_batch)  # 256
+    unroll_steps = len(mapping_batch[0])  # 6
+
+    mapping = []
+    policy = []
+
+    for unroll_idx in range(unroll_steps):
+        unroll_mapping = [[], [], [], [], []]
+        unroll_policy = [[], [], [], [], []]
+
+        for batch_idx in range(batch_size):
+            local_mapping = mapping_batch[batch_idx][unroll_idx]
+            local_policy = policy_batch[batch_idx][unroll_idx]
+
+            for dim_idx in range(len(local_mapping)):
+                unroll_mapping[dim_idx].append(local_mapping[dim_idx])
+                unroll_policy[dim_idx].append(local_policy[dim_idx])
+
+        mapping.append(unroll_mapping)
+        policy.append(unroll_policy)
+
+    return mapping, policy
+
+def action_to_idx(action, dim):
+    mapped_idx = None
+
+    if dim == 0:  # type dim; 7; "0", "1", ... "6"
+        mapped_idx = int(action)
+
+    elif dim == 1:  # shop dim; 5; "_0", "_1", ... "_4"
+        mapped_idx = int(action[1])  # "_1" -> "1"
+
+    elif dim == 2:  # board dim; 630; "_0_1", "_0_2", ... "_37_28"
+        action = action.split('_')  # "_20_21" -> ["", "20", "21"]
+        from_loc = int(action[1])  # ["", "20", "21"] -> "20"
+        to_loc = int(action[2])  # ["", "20", "21"] -> "21"
+        mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+
+    elif dim == 3:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
+        action = action.split('_')  # "_10_9" -> ["", "10", "9"]
+        item_loc = int(action[1])  # "_0_20" -> "0"
+        champ_loc = int(action[2])  # "_0_20" -> "20"
+        mapped_idx = (10 * item_loc) + champ_loc
+
+    elif dim == 4:  # sell dim; 37; "_0", "_1", "_36"
+        mapped_idx = int(action[1:])  # "_15" -> "15"
+
+    return mapped_idx
+
+
+# both are (num_dims, [(batch_size, dim) ...] )
+# TODO: Add a description of what this does
+def map_output_to_distribution(mapping, policy_logits):
+    num_dims = len(config.POLICY_HEAD_SIZES)
+    batch_size = len(mapping[0])
+
+    sampled_policy = []
+
+    for dim in range(num_dims):
+        batch_sampled_dim = []
+        for batch_idx in range(batch_size):
+            softmax_op = torch.nn.LogSoftmax(dim=-1)  # This may be able to be called outside this loop
+            local_dim = softmax_op(policy_logits[dim][batch_idx])
+            local_mapping = mapping[dim][batch_idx]
+
+            sampled_dim = []
+
+            for action in local_mapping:
+                mapped_idx = action_to_idx(action, dim)
+                sampled_dim.append(local_dim[mapped_idx])
+
+            batch_sampled_dim.append(sampled_dim)
+
+        sampled_policy.append(batch_sampled_dim)
+
+    return sampled_policy
+
 
 """
 Description - Turns the output_policy from shape [batch, num_samples] to [batch, encoding_size] to allow the trainer
@@ -74,8 +170,10 @@ Inputs      - mapping - List
               sample_dist - List
                   The improved policy output of the MCTS with size [batch, num_samples]
 Outputs     - output_policy - List
-                  The improved policy output of the MCTS with size [batch, encoding_size] 
+                  The improved policy output of the MCTS with size [batch, encoding_size]
 """
+
+
 def map_distribution_to_sample(mapping, policy_logits):
     output_policy = []
     for i in range(policy_logits.shape[0]):

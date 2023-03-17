@@ -119,6 +119,9 @@ class Game_Round:
                         if player != players[match[0]] and player != players[match[1]]:
                             if player:  # Not sure if there can be a dead player here.
                                 player.spill_reward(damage / (len(players) - 2))
+                    if len(players) == 2:
+                        players[match[0]].spill_reward(damage)
+                        players[match[1]].spill_reward(damage)
 
                 # Blue side won
                 if index_won == 1:
