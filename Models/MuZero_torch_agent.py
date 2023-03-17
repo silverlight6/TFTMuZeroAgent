@@ -77,7 +77,7 @@ class MuZeroNetwork(AbstractNetwork):
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
         self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, config.HEAD_HIDDEN_SIZE,
-                                                  config.POLICY_HEAD_SIZES)
+                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
 
         self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
@@ -221,16 +221,15 @@ class MultiMlp(torch.nn.Module):
     def __init__(self,
                  input_size,
                  layer_size,
+                 layer_num,
                  output_sizes,
                  output_activation=torch.nn.Identity,
                  activation=torch.nn.ReLU):
         super().__init__()
 
         # One linear that encodes the observation
-        self.encoding_layer = torch.nn.Sequential(
-            torch.nn.Linear(input_size, layer_size),
-            activation()
-        ).cuda()
+        self.encoding_layer = torch.nn.Sequential(*[torch.nn.Linear(input_size, layer_size),
+                                                    activation()] * layer_num).cuda()
 
         self.output_heads = []
 

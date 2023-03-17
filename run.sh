@@ -2,4 +2,4 @@
 cd ./core/ctree/
 sh make.sh
 cd ../../
-python3 main.py --starting_episode 500
+python3 main.py
