@@ -89,26 +89,53 @@ def split_sample_set(sample_mapping, target_policy):
 def split_batch(mapping_batch, policy_batch):
     batch_size = len(mapping_batch) # 256
     unroll_steps = len(mapping_batch[0]) # 6
-    num_dims = len(config.POLICY_HEAD_SIZES)
 
     mapping = []
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        local_mapping = [[], [], [], [], []]
-        local_policy = [[], [], [], [], []]
+        unroll_mapping = [[], [], [], [], []]
+        unroll_policy = [[], [], [], [], []]
 
         for batch_idx in range(batch_size):
-            split_mapping, split_policy = split_sample_set(mapping_batch[batch_idx][unroll_idx], policy_batch[batch_idx][unroll_idx])
+            local_mapping = mapping_batch[batch_idx][unroll_idx]
+            local_policy = policy_batch[batch_idx][unroll_idx]
+            
+            for dim_idx in range(len(local_mapping)):
+                unroll_mapping[dim_idx].append(local_mapping[dim_idx])
+                unroll_policy[dim_idx].append(local_policy[dim_idx])
 
-            for dim_idx in range(len(split_mapping)):
-                local_mapping[dim_idx].append(split_mapping[dim_idx])
-                local_policy[dim_idx].append(split_policy[dim_idx])
-
-        mapping.append(local_mapping)
-        policy.append(local_policy)
+        mapping.append(unroll_mapping)
+        policy.append(unroll_policy)
 
     return mapping, policy
+
+def action_to_idx(action, dim):
+    mapped_idx = None
+
+    if dim == 0: # type dim; 7; "0", "1", ... "6"
+        mapped_idx = int(action)
+
+    elif dim == 1: # shop dim; 5; "_0", "_1", ... "_4"
+        mapped_idx = int(action[1]) # "_1" -> "1"
+
+    elif dim == 2: # board dim; 630; "_0_1", "_0_2", ... "_37_28"
+        action = action.split('_') # "_20_21" -> ["", "20", "21"]
+        from_loc = int(action[1]) # ["", "20", "21"] -> "20"
+        to_loc = int(action[2]) # ["", "20", "21"] -> "21"
+        mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+
+    elif dim == 3: # item dim; 370; "_0_0", "_0_1", ... "_9_36"
+        action = action.split('_') # "_10_9" -> ["", "10", "9"]
+        item_loc = int(action[1]) # "_0_20" -> "0"
+        champ_loc = int(action[2]) # "_0_20" -> "20"
+        mapped_idx = (10 * item_loc) + (champ_loc)
+
+    elif dim == 4: # sell dim; 37; "_0", "_1", "_36"
+        mapped_idx = int(action[1:]) # "_15" -> "15"
+
+    return mapped_idx
+
 
 # both are (num_dims, [(batch_size, dim) ...] )
 # TODO: Add a description of what this does
@@ -126,36 +153,9 @@ def map_output_to_distribution(mapping, policy_logits):
 
             sampled_dim = []
 
-            if dim == 0: # type dim; 7; "0", "1", ... "6"
-                for type_action in local_mapping:
-                    mapped_idx = int(type_action)
-                    sampled_dim.append(local_dim[mapped_idx])
-
-            elif dim == 1: # shop dim; 5; "_0", "_1", ... "_4"
-                for shop_action in local_mapping:
-                    mapped_idx = int(shop_action[1]) # "_1" -> "1"
-                    sampled_dim.append(local_dim[mapped_idx])
-
-            elif dim == 2: # board dim; 630; "_0_1", "_0_2", ... "_37_28"
-                for board_action in local_mapping:
-                    board_action = board_action.split('_') # "_20_21" -> ["", "20", "21"]
-                    from_loc = int(board_action[1]) # ["", "20", "21"] -> "20"
-                    to_loc = int(board_action[2]) # ["", "20", "21"] -> "21"
-                    mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
-                    sampled_dim.append(local_dim[mapped_idx])
-
-            elif dim == 3: # item dim; 370; "_0_0", "_0_1", ... "_9_36"
-                for item_action in local_mapping:
-                    item_action = item_action.split('_') # "_10_9" -> ["", "10", "9"]
-                    item_loc = int(item_action[1]) # "_0_20" -> "0"
-                    champ_loc = int(item_action[2]) # "_0_20" -> "20"
-                    mapped_idx = (10 * item_loc) + (champ_loc)
-                    sampled_dim.append(local_dim[mapped_idx])
-
-            elif dim == 4: # sell dim; 37; "_0", "_1", "_36"
-                for sell_action in local_mapping:
-                    mapped_idx = int(sell_action[1:]) # "_15" -> "15"
-                    sampled_dim.append(local_dim[mapped_idx])
+            for action in local_mapping:
+                mapped_idx = action_to_idx(action, dim)
+                sampled_dim.append(local_dim[mapped_idx])
 
             batch_sampled_dim.append(sampled_dim)
 

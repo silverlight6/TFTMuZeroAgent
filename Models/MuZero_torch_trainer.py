@@ -2,7 +2,7 @@ import config
 import collections
 import torch
 import numpy as np
-from Models.MCTS_Util import split_batch, map_output_to_distribution
+from Models.MCTS_Util import split_batch, map_output_to_distribution, action_to_idx
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -48,25 +48,39 @@ class Trainer(object):
 
         loss = loss.mean()
 
-        # flat = torch.tensor(flatten_sample_set(sample_set))
-        # samples = torch.bincount(flat, minlength=config.ACTION_ENCODING_SIZE).cuda()
+        samples = [[], [], [], [], []]
+        for unroll_step in sample_set:
+            for i, dim in enumerate(unroll_step):
+                flattened_dim = []
+                for batch in dim:
+                    for action in batch:
+                        flattened_dim.append(action_to_idx(action, i))
+                samples[i].extend(flattened_dim)
+                
+        for i, sample in enumerate(samples):
+            samples[i] = torch.bincount(torch.tensor(sample), minlength=config.POLICY_HEAD_SIZES[i]).cuda()
 
-        # def filter_grad(grad):
-        #     if len(grad.shape) == 1:
-        #         grad = grad * samples
-        #     else:
-        #         grad = grad * samples.unsqueeze(1)
-        #     grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
-        #     return grad
+        def filter_grad(grad, sample):
+            if len(grad.shape) == 1:
+                grad = grad * sample
+            else:
+                grad = grad * sample.unsqueeze(1)
+            grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
+            return grad
+        
+        handles = []
 
-        # handle1 = self.global_agent.prediction_policy_network[2].weight.register_hook(lambda grad: filter_grad(grad))
-        # handle2 = self.global_agent.prediction_policy_network[2].bias.register_hook(lambda grad: filter_grad(grad))
+        for i, sample in enumerate(samples):
+            handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.register_hook(lambda grad: filter_grad(grad, sample))
+            handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.register_hook(lambda grad: filter_grad(grad, sample))
+            handles.extend([handle1, handle2])
 
         loss.backward()
 
         self.optimizer.step()
-        # handle1.remove()
-        # handle2.remove()
+
+        for handle in handles:
+            handle.remove()
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, sample_set, train_step, summary_writer):
