@@ -81,8 +81,8 @@ class Step_Function:
     def batch_2d_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
-            # action format = 0:6 (action_selector),
-            # 6:43 (champ_loc_target), [43] sell "location", 44:54 (item_loc_target)
+            # action format = 0:7 (action_selector),
+            # 7:44 (champ_loc_target), 44:54 (item_loc_target)
             action_selector = np.argmax(action[0:7])
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()

@@ -553,6 +553,8 @@ class Player:
                     self.player_private_vector[x - 1] = -1
 
         # Decision mask parameters
+        if self.level == self.max_level:
+            self.decision_mask[4] = 0
         # if gold < 4, do not allow to level
         if self.gold < 4:
             self.decision_mask[4] = 0

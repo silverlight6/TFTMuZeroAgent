@@ -41,7 +41,7 @@ class Trainer(object):
 
         self.optimizer.zero_grad()
 
-        sample_set, policy = split_batch(sample_set, policy) # [unroll_steps, num_dims, [(batch_size, dim) ...] ]
+        sample_set, policy = split_batch(sample_set, policy)  # [unroll_steps, num_dims, [(batch_size, dim) ...] ]
 
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
@@ -71,8 +71,10 @@ class Trainer(object):
         handles = []
 
         for i, sample in enumerate(samples):
-            handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.register_hook(lambda grad: filter_grad(grad, sample))
-            handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.register_hook(lambda grad: filter_grad(grad, sample))
+            handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.\
+                register_hook(lambda grad: filter_grad(grad, sample))
+            handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.\
+                register_hook(lambda grad: filter_grad(grad, sample))
             handles.extend([handle1, handle2])
 
         loss.backward()
@@ -92,7 +94,7 @@ class Trainer(object):
         target_value = torch.from_numpy(target_value).to('cuda')
 
         # initial step
-        output = agent.initial_inference(observation) # [num_dims, [(batch_size, dim) ...] ]
+        output = agent.initial_inference(observation)  # [num_dims, [(batch_size, dim) ...] ]
 
         predictions = [
             Prediction(
@@ -121,8 +123,7 @@ class Trainer(object):
                     value_logits=output["value_logits"],
                     reward=output["reward"],
                     reward_logits=output["reward_logits"],
-                    policy_logits=map_output_to_distribution(sample_set[rstep + 1],
-                                                             output["policy_logits"]),
+                    policy_logits=map_output_to_distribution(sample_set[rstep + 1], output["policy_logits"]),
                 ))
 
         num_target_steps = target_value.shape[-1]
@@ -163,7 +164,7 @@ class Trainer(object):
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['value_loss'].append(
-              value_loss
+                value_loss
             )
 
             reward_loss = (-target_reward_encoded[:, tstep] *
@@ -171,7 +172,7 @@ class Trainer(object):
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['reward_loss'].append(
-              reward_loss
+                reward_loss
             )
 
             # future ticket
@@ -180,22 +181,23 @@ class Trainer(object):
             #     * config.policy_loss_entropy_regularizer
 
             # predictions.policy_logits is (actiondims, batch)
-            # target_policy is (batch,unrollsteps+1,action_dims)
-            policy_loss = []
+            # target_policy is (batch, unrollsteps+1, action_dims)
+
             # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
             # output_policy ->   [(256, 7), (256, n), ...]
-
+            policy_loss = []
             for batch_idx in range(len(target_policy[tstep][0])):
                 local_policy_loss = []
                 for dim_idx in range(len(target_policy[tstep])):
-                  local_policy_loss.append(( -torch.tensor(target_policy[tstep][dim_idx][batch_idx]).cuda() *
-                  torch.nn.LogSoftmax(dim=-1)(torch.tensor(policy_logits[dim_idx][batch_idx])).cuda() ).sum(-1))
+                    local_policy_loss.append((-torch.tensor(target_policy[tstep][dim_idx][batch_idx]).cuda() *
+                                              (torch.tensor(policy_logits[dim_idx][batch_idx])
+                                               .cuda())).sum(-1))
 
                 policy_loss.append(torch.tensor(local_policy_loss).sum(-1))
 
-            policy_loss = torch.stack(policy_loss).cuda()
+            policy_loss = torch.stack(policy_loss).cuda().requires_grad_(True)
 
-            # policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
+            policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['policy_loss'].append(policy_loss)
 
