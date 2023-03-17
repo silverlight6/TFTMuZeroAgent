@@ -95,8 +95,8 @@ class Step_Function:
             elif action_selector == 2:
                 # Swap champ place
                 target_1 = np.argmax(action[7:43])
-                action[target_1 + 6] = 0
-                target_2 = np.argmax(action[7:44])
+                action[target_1 + 7] = 0
+                target_2 = np.argmax(action[7:43])
                 swap_loc_from = min(target_1, target_2)
                 swap_loc_to = max(target_1, target_2)
                 # Swap from swap_loc_from to swap_loc_to

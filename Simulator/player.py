@@ -94,6 +94,8 @@ class player:
         self.shop_mask = np.ones(5, dtype=np.int8)
         # locations of champions on the board, 1 for spot taken 0 for not
         self.board_mask = np.ones(28, dtype=np.int8)
+        # locations of units that are not champions on the board
+        self.dummy_mask = np.ones(28, dtype=np.int8)
         # locations of champions on the bench, 1 for spot taken 0 for not
         self.bench_mask = np.ones(9, dtype=np.int8)
         self.item_mask = np.ones(10, dtype=np.int8)
@@ -427,6 +429,10 @@ class player:
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
+                    # Check for target_dummy or azir sandguard
+                    if self.board[x][y].target_dummy or self.board[x][y].overlord_coordinates is not None:
+                        self.dummy_mask[7 * y + x] = 1
+
                     self.board_mask[7 * y + x] = 1
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
@@ -551,6 +557,12 @@ class player:
         else:
             self.decision_mask[4] = 1
             self.decision_mask[5] = 1
+
+        for idx, cost in enumerate(self.shop_costs):
+            if self.gold < cost or cost == 0:
+                self.shop_mask[idx] = 0
+            elif self.gold >= cost:
+                self.shop_mask[idx] = 1
 
     """
     Description - All game state information that other players have access to is stored here..
