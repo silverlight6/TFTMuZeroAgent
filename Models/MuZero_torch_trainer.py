@@ -190,8 +190,7 @@ class Trainer(object):
                 local_policy_loss = []
                 for dim_idx in range(len(target_policy[tstep])):
                     local_policy_loss.append((-torch.tensor(target_policy[tstep][dim_idx][batch_idx]).cuda() *
-                                              (torch.tensor(policy_logits[dim_idx][batch_idx])
-                                               .cuda())).sum(-1))
+                                              (torch.tensor(policy_logits[dim_idx][batch_idx]).cuda())).sum(-1))
 
                 policy_loss.append(torch.tensor(local_policy_loss).sum(-1))
 

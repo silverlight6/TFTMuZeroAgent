@@ -295,6 +295,7 @@ class Player:
         # if the player doesn't have enough gold to buy exp or is max level, give bad reward
         if self.gold < self.exp_cost or self.level == self.max_level:
             self.reward += self.mistake_reward
+            self.decision_mask[4] = 0
             if DEBUG:
                 print("Did not have gold to buy_exp")
             return False

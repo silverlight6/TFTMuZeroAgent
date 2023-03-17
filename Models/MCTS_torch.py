@@ -300,10 +300,10 @@ class MCTS:
                     masked_dim_mapping.append(local_item_mapping)
             
             elif dim == 4:  # Sell unit masking
-                local_sell = []
-                local_sell_mapping = []
                 #  Sell unit masking
                 for idx in range(batch_size):
+                    local_sell = []
+                    local_sell_mapping = []
                     for a in range(37):
                         # If unit exists and TODO: Is sellable unit
                         if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
@@ -375,7 +375,6 @@ class MCTS:
     """
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
-
         batch_size = len(policy_logits[0])  # 8
 
         output_logits = []
@@ -391,7 +390,7 @@ class MCTS:
             probs = self.softmax_stable(policy_logits[0][idx])
             policy_range = np.arange(stop=len(policy_logits[0][idx]))
 
-            samples = np.random.choice(a=policy_range, p=probs, size=num_samples) # size 25
+            samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
             counts = np.bincount(samples, minlength=len(policy_logits[0][idx]))
 
             for i, count in enumerate(counts):
@@ -414,23 +413,21 @@ class MCTS:
                         sampled_action = dim_base_string + string_mapping[dim_idx_mapping][idx][dim_sample]
 
                         isSampled = False
-                        for i, action in enumerate(local_dim_string):
+                        for j, action in enumerate(local_dim_string):
                             if sampled_action == action:
-                                local_dim_logits[i] += (1 / num_samples)
+                                local_dim_logits[j] += (1 / num_samples)
                                 isSampled = True
                                 break
                         if not isSampled:
-                            local_dim_logits.append( (1 / num_samples) )
+                            local_dim_logits.append((1 / num_samples))
                             local_dim_string.append(sampled_action)
                             local_dim_byte.append(bytes(sampled_action, "utf-8"))
                     
                     local_logits.extend(local_dim_logits)
                     local_string.extend(local_dim_string)
                     local_byte.extend(local_dim_byte)
-
-
                 else:
-                    local_logits.append( ((1 / num_samples) * count) )
+                    local_logits.append(((1 / num_samples) * count))
                     local_string.append(dim_base_string)
                     local_byte.append(bytes(dim_base_string, "utf-8"))
            

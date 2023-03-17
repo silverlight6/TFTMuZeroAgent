@@ -94,6 +94,9 @@ class DataWorker(object):
         if element_list[0] == 3:
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
             decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+
+        if element_list[0] == 4:
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
 
