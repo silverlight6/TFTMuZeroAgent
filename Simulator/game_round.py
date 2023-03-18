@@ -390,7 +390,7 @@ def log_to_file(player):
 def log_end_turn(game_round):
     if config.LOGMESSAGES:
         with open('log.txt', "a") as out:
-            out.write("END OF ROUND " + str(game_round))
+            out.write("END OF ROUND " + str(game_round) + " : " + time.strftime("%H:%M:%S", time.localtime()))
             out.write('\n')
 
 

@@ -62,24 +62,24 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.HEAD_HIDDEN_SIZE] *
+        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                           config.N_HEAD_HIDDEN_LAYERS, config.LAYER_HIDDEN_SIZE)
 
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.HEAD_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                                     config.LAYER_HIDDEN_SIZE)
 
         self.dynamics_encoded_state_network = [
-            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).cuda(),
-            torch.nn.LSTMCell(256, 256).cuda()
+            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, config.LSTM_SIZE).cuda(),
+            torch.nn.LSTMCell(config.LSTM_SIZE, config.LSTM_SIZE).cuda()
         ]
 
-        self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+        self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [1] *
                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, config.HEAD_HIDDEN_SIZE,
-                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        self.prediction_policy_network = MultiMlp(config.LAYER_HIDDEN_SIZE, [config.LAYER_HIDDEN_SIZE, config.LAYER_HIDDEN_SIZE],
+                                                  config.POLICY_HEAD_SIZES)
 
-        self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *
+        self.prediction_value_network = mlp(config.LAYER_HIDDEN_SIZE, [config.LAYER_HIDDEN_SIZE, config.LAYER_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
@@ -227,15 +227,16 @@ class MultiMlp(torch.nn.Module):
                  activation=torch.nn.ReLU):
         super().__init__()
 
-        # One linear that encodes the observation
-        self.encoding_layer = torch.nn.Sequential(*[torch.nn.Linear(input_size, layer_size),
-                                                    activation()] * layer_num).cuda()
+        layers = []
+        for i in range(len(layer_size) - 1):
+            layers += [torch.nn.Linear(layer_size[i], layer_size[i + 1]), activation()]
+        self.encoding_layer = torch.nn.Sequential(*layers).cuda()
 
         self.output_heads = []
 
         for size in output_sizes:
             output_layer = torch.nn.Sequential(
-                torch.nn.Linear(layer_size, size),
+                torch.nn.Linear(layer_size[-1], size),
                 output_activation()
             ).cuda()
             self.output_heads.append(output_layer)

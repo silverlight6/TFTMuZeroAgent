@@ -114,7 +114,7 @@ class Player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
-        self.damage_reward = 1.25
+        self.damage_reward = 0
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool
@@ -804,7 +804,7 @@ class Player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
+            print(f"Outside board range, bench: {self.bench[bench_x].name}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
         return False
 
     """

@@ -52,9 +52,9 @@ class GlobalBuffer:
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
             self.storage_ptr.set_trainer_busy.remote(True)
-            print(queue_length)
+            print("Queue ", queue_length)
             return True
-        time.sleep(5)
+        # time.sleep(5)
         return False
 
     # Leaving this transpose method here in case some model other than

@@ -5,7 +5,6 @@ from Models.replay_muzero_buffer import ReplayBuffer
 from sklearn import preprocessing
 
 
-@ray.remote
 class BufferWrapper:
     def __init__(self, global_buffer):
         self.buffers = {"player_" + str(i): ReplayBuffer(global_buffer) for i in range(config.NUM_PLAYERS)}
