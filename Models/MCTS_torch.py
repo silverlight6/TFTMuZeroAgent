@@ -222,6 +222,10 @@ class MCTS:
         # 6. if champion has FULL items
         # 7. if champion is azir sandguard
         # 
+        
+        # Sure...
+        # 1. Remove all sell from board 37 -> 10
+        # 2. Prevent any move to board to bench command that doesn't swap
 
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = policy_logits[0].shape[0]  # 8
@@ -304,9 +308,9 @@ class MCTS:
                 for idx in range(batch_size):
                     local_sell = []
                     local_sell_mapping = []
-                    for a in range(37):
+                    for a in range(10): # Only include board commands
                         # If unit exists and TODO: Is sellable unit
-                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                        if not (mask[idx][3][a]):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")

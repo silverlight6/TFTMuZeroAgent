@@ -32,7 +32,7 @@ def create_default_mapping():
             # if there is a unit and there is an item
             local_item.append(f"_{a}_{b}")
     # Sell unit masking
-    for a in range(37):
+    for a in range(10):
         local_sell.append(f"_{a}")
 
     # All Type mappings
