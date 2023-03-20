@@ -128,12 +128,13 @@ class Step_Function:
             elif action_selector == 4:
                 # Sell Champ
                 target_1 = np.argmax(action[7:43])
-                if target_1 < 28:
-                    x, y = self.dcord_to_2dcord(target_1)
-                    if player.board[x][y]:
-                        player.sell_champion(player.board[x][y], field=True)
-                else:
-                    player.sell_from_bench(target_1 - 28)
+                player.sell_from_bench(target_1) # We only allow selling from bench
+                # if target_1 < 28:
+                #     x, y = self.dcord_to_2dcord(target_1)
+                #     if player.board[x][y]:
+                #         player.sell_champion(player.board[x][y], field=True)
+                # else:
+                #    player.sell_from_bench(target_1 - 28)
             elif action_selector == 5:
                 # Buy EXP
                 player.buy_exp()

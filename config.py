@@ -28,7 +28,7 @@ ACTION_ENCODING_SIZE = 1045
 ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
 
-POLICY_HEAD_SIZES = [7, 5, 630, 370, 37]  # [7 types, shop, movement, item, sell/item loc]
+POLICY_HEAD_SIZES = [7, 5, 630, 370, 9]  # [7 types, shop, movement, item, sell/item loc]
 NEEDS_2ND_DIM = [1, 2, 3, 4]
 
 # ACTION_DIM = 10

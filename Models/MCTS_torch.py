@@ -223,6 +223,8 @@ class MCTS:
         # 7. if champion is azir sandguard
         # 
 
+
+
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = policy_logits[0].shape[0]  # 8
         masked_policy_logits = [[]]  # Start with empty type_dim
@@ -270,6 +272,10 @@ class MCTS:
                             if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
                                 board_counter += 1
                                 continue
+                            # if we're doing a board to bench move and there is no champion at that bench location
+                            if a < 28 and b > 27 and not mask[idx][2][a]:
+                                board_counter += 1
+                                continue
                             local_board.append(policy_logits[dim][idx][board_counter])
                             local_board_mapping.append(f"_{a}_{b}")
                             board_counter += 1
@@ -304,9 +310,9 @@ class MCTS:
                 for idx in range(batch_size):
                     local_sell = []
                     local_sell_mapping = []
-                    for a in range(37):
+                    for a in range(9): # Only include board commands
                         # If unit exists and TODO: Is sellable unit
-                        if not ((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])):
+                        if not (mask[idx][3][a]):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")
