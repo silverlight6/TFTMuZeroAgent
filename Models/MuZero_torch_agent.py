@@ -69,8 +69,8 @@ class MuZeroNetwork(AbstractNetwork):
                                     config.LAYER_HIDDEN_SIZE)
 
         self.dynamics_encoded_state_network = [
-            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, 256).cuda(),
-            torch.nn.LSTMCell(256, 256).cuda()
+            torch.nn.LSTMCell(config.LAYER_HIDDEN_SIZE, config.LSTM_SIZE).cuda(),
+            torch.nn.LSTMCell(config.LSTM_SIZE, config.LSTM_SIZE).cuda()
         ]
 
         self.dynamics_reward_network = mlp(config.LAYER_HIDDEN_SIZE, [config.HEAD_HIDDEN_SIZE] *

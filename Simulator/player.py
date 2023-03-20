@@ -114,7 +114,7 @@ class Player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
-        self.damage_reward = 1.25
+        self.damage_reward = 1.5
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool

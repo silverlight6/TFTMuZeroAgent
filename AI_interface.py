@@ -113,14 +113,17 @@ class DataWorker(object):
     '''
     Description -
         Turns a dictionary of player observations into a list of list format that the model can use.
+        Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
     def observation_to_input(self, observation):
         tensors = []
         masks = []
-        for obs in observation.values():
+        keys = []
+        for key, obs in observation.items():
             tensors.append(obs["tensor"])
             masks.append(obs["mask"])
-        return [np.asarray(tensors), masks]
+            keys.append(key)
+        return [np.asarray(tensors), masks, keys]
 
     '''
     Description -
