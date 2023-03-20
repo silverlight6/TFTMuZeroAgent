@@ -1036,8 +1036,8 @@ class Player:
                         if champ.items[0] == 'thieves_gloves':
                             self.thieves_gloves(x, y)
                         self.reward += .2 * self.item_reward
-                        self.print(
-                            ".2 reward for combining two basic items into a {}".format(item_names[item_index]))
+                        self.print("{} reward for combining two basic items into a {}"
+                                   .format(.2 * self.item_reward, item_names[item_index]))
                     elif champ.items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
                         basic_piece = champ.items.pop()
                         champ.items.append(self.item_bench[xBench])
@@ -1452,7 +1452,6 @@ class Player:
     Inputs      - t_round: Int
                     current game round
     """
-    # TODO Organize methods to be alphabetical so people can find what they are looking for in this file. This file only
     def start_round(self, t_round):
         self.start_time = time.time_ns()
         self.round = t_round

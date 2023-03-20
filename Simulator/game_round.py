@@ -272,7 +272,6 @@ class Game_Round:
         for player in self.PLAYERS.values():
             if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
-        self.start_round()
         return False
 
     # r stands for round or game_round but round is a keyword so using r instead
