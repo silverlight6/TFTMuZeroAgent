@@ -310,7 +310,7 @@ class MCTS:
                 for idx in range(batch_size):
                     local_sell = []
                     local_sell_mapping = []
-                    for a in range(10): # Only include board commands
+                    for a in range(9): # Only include board commands
                         # If unit exists and TODO: Is sellable unit
                         if not (mask[idx][3][a]):
                             continue
