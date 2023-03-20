@@ -57,6 +57,7 @@ class TFT_Simulator(AECEnv):
         self.possible_agents = ["player_" + str(r) for r in range(config.NUM_PLAYERS)]
         self.agents = self.possible_agents[:]
         self.kill_list = []
+        # This can likely be deleted, but I'm unsure if petting zoo uses this.
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents)))))
         self._agent_selector = agent_selector(self.possible_agents)
@@ -67,6 +68,7 @@ class TFT_Simulator(AECEnv):
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {"state_empty": False} for agent in self.agents}
+        # Is this variable needed for petting zoo?
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
@@ -139,6 +141,7 @@ class TFT_Simulator(AECEnv):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
+        self.actions_taken_this_turn = 0
         self.game_round.play_game_round()
         for key, p in self.PLAYERS.items():
             self.step_function.generate_shop(key, p)
