@@ -159,21 +159,15 @@ class Trainer(object):
             reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits
 
-            value_loss = (-target_value_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
+            value_loss = (-target_value_encoded[:, tstep] * torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
-            accs['value_loss'].append(
-                value_loss
-            )
+            accs['value_loss'].append(value_loss)
 
-            reward_loss = (-target_reward_encoded[:, tstep] *
-                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
+            reward_loss = (-target_reward_encoded[:, tstep] * torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
-            accs['reward_loss'].append(
-                reward_loss
-            )
+            accs['reward_loss'].append(reward_loss)
 
             # future ticket
             # entropy_loss = -tfd.Independent(tfd.Categorical(
