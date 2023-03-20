@@ -222,10 +222,8 @@ class MCTS:
         # 6. if champion has FULL items
         # 7. if champion is azir sandguard
         # 
-        
-        # Sure...
-        # 1. Remove all sell from board 37 -> 10
-        # 2. Prevent any move to board to bench command that doesn't swap
+
+
 
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = policy_logits[0].shape[0]  # 8
@@ -272,6 +270,10 @@ class MCTS:
                             # if we're doing a bench to board move and board is full
                             # and there is no champ at destination, skip
                             if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
+                                board_counter += 1
+                                continue
+                            # if we're doing a board to bench move and there is no champion at that bench location
+                            if a < 28 and b > 27 and not mask[idx][2][a]:
                                 board_counter += 1
                                 continue
                             local_board.append(policy_logits[dim][idx][board_counter])
