@@ -1068,7 +1068,7 @@ class Player:
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Failed to add item {self.item_bench[xBench]}")
+            print(f"Failed to add item {self.item_bench[xBench]} to {champ.name} in {x}, {y}")
         return False
 
     """

@@ -85,7 +85,6 @@ class Step_Function:
             # 7:44 (champ_loc_target), 44:54 (item_loc_target)
             action_selector = np.argmax(action[0:7])
             if action_selector == 0:
-                game_observations[key].generate_game_comps_vector()
                 game_observations[key].generate_other_player_vectors(player, players)
                 player.print(f"pass action")
             elif action_selector == 1:
@@ -115,6 +114,7 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
+                        game_observations[key].generate_game_comps_vector()
             elif action_selector == 3:
                 # Place item on champ
                 item_selector = np.argmax(action[44:54])

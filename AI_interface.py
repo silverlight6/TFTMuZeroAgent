@@ -26,10 +26,12 @@ import torch
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 @ray.remote(num_gpus=0.05)
 class DataWorker(object):
-    def __init__(self, rank):
+    def __init__(self, rank, global_buffer):
         self.agent_network = TFTNetwork()
         self.rank = rank
         self.ckpt_time = time.time()
+        self.env = parallel_env()
+        self.buffer = BufferWrapper(global_buffer)
 
     '''
     Description -
@@ -47,16 +49,16 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-    def collect_gameplay_experience(self, env, buffer, weights):
+    def collect_gameplay_experience(self, weights):
         self.agent_network.set_weights(weights)
         agent = MCTS(self.agent_network)
         self.ckpt_time = time.time()
         # Reset the environment
-        player_observation = env.reset()
+        player_observation = self.env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = self.observation_to_input(player_observation)
         # Used to know when players die and which agent is currently acting
-        terminated = {player_id: False for player_id in env.possible_agents}
+        terminated = {player_id: False for player_id in self.env.possible_agents}
 
         # While the game is still going on.
         while not all(terminated.values()):
@@ -67,13 +69,13 @@ class DataWorker(object):
             storage_actions = utils.decode_action(actions)
 
             # Take that action within the environment and return all of our information for the next player
-            next_observation, reward, terminated, _, info = env.step(step_actions)
+            next_observation, reward, terminated, _, info = self.env.step(step_actions)
             # print(terminated)
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 if not info[key]["state_empty"]:
                     # Store the information in a buffer to train on later.
-                    buffer.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
+                    self.buffer.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
                                                         reward[key], policy[i], string_samples[i])
 
             # Set up the observation for the next action
@@ -82,8 +84,10 @@ class DataWorker(object):
         # weights = copy.deepcopy(ray.get(storage).get_model())
         # agent.network.set_weights(weights)
         # self.rank += config.CONCURRENT_GAMES
-        buffer.store_global_buffer()
+        self.buffer.store_global_buffer()
+        self.buffer.reset()
         print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes')
+        return self.rank
 
     '''
     Description -
@@ -230,51 +234,40 @@ class AIInterface:
         train_summary_writer = SummaryWriter(train_log_dir)
         train_step = starting_train_step
 
-        storage = Storage.remote(train_step)
+        # storage = Storage.remote(train_step)
+        storage = Storage(train_step)
         global_buffer = GlobalBuffer.remote(storage)
 
         global_agent = TFTNetwork()
-        global_agent_weights = ray.get(storage.get_target_model.remote())
+        global_agent_weights = storage.get_target_model()
         global_agent.set_weights(global_agent_weights)
         global_agent.to("cuda")
 
         trainer = MuZero_trainer.Trainer(global_agent)
 
-        env = parallel_env()
+        # env = parallel_env()
 
-        workers = []
-        agent_count = 0
-
-        while len(workers) < config.CONCURRENT_GAMES:
-                buffer = ray.put(BufferWrapper(global_buffer))
-                data_worker = DataWorker.remote(agent_count)
-                weights = storage.get_target_model.remote()
-                workers.append(data_worker.collect_gameplay_experience.remote(env, buffer, weights))
-                print(f'Spawning actor n {agent_count}, currently {len(workers)}/{config.CONCURRENT_GAMES}')
-                agent_count += 1
-
+        data_workers = [DataWorker.remote(agent_num, global_buffer) for agent_num in range(config.CONCURRENT_GAMES)]
+        weights = storage.get_target_model()
+        workers = [worker.collect_gameplay_experience.remote(weights) for worker in data_workers]
         while True:
-            _, workers = ray.wait(workers)
-            while len(workers) < config.CONCURRENT_GAMES:
-                buffer = ray.put(BufferWrapper(global_buffer))
-                data_worker = DataWorker.remote(agent_count)
-                weights = storage.get_target_model.remote()
-                workers.append(data_worker.collect_gameplay_experience.remote(env, buffer, weights))
-                print(f'Spawning actor n {agent_count}, currently {len(workers)}/{config.CONCURRENT_GAMES}')
-                agent_count += 1
-            # print("finished waiting")
+            done, workers = ray.wait(workers)
+            rank = ray.get(done)[0]
+            print(f'Spawning agent {rank}')
+            workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights)])
             while ray.get(global_buffer.available_batch.remote()):
-                # print("training")
+                print("Starting training")
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
-                # print("grabbed batch")
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
-                # print("trained")
-                storage.set_trainer_busy.remote(False)
-                storage.set_target_model.remote(global_agent.get_weights())
+                # storage.set_trainer_busy.remote(False)
+                storage.set_target_model(global_agent.get_weights())
                 train_step += 1
                 if train_step % 25 == 0:
-                    storage.set_model.remote()
+                    storage.set_model()
                     global_agent.tft_save_model(train_step)
+                print("Finished training")
+            weights = storage.get_target_model()
+            
 
     '''
     Method used for testing the simulator. It does not call any AI and generates random actions from numpy. Intended

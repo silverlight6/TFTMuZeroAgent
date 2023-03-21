@@ -221,13 +221,13 @@ class MultiMlp(torch.nn.Module):
     def __init__(self,
                  input_size,
                  layer_size,
-                 layer_num,
                  output_sizes,
                  output_activation=torch.nn.Identity,
                  activation=torch.nn.ReLU):
         super().__init__()
 
         layers = []
+        layers += [torch.nn.Linear(input_size, layer_size[0]), activation()]
         for i in range(len(layer_size) - 1):
             layers += [torch.nn.Linear(layer_size[i], layer_size[i + 1]), activation()]
         self.encoding_layer = torch.nn.Sequential(*layers).cuda()
