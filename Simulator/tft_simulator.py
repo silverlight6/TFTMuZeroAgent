@@ -188,21 +188,25 @@ class TFT_Simulator(AECEnv):
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                    self.agent_selection, self.game_observations)
 
-        # if we don't use this line, rewards will compound per step
-        # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
-        self._clear_rewards()
-        self.infos[self.agent_selection] = {"state_empty": self.PLAYERS[self.agent_selection].state_empty()}
-
-        self.terminations = {a: False for a in self.agents}
-        self.truncations = {a: False for a in self.agents}
-        for agent in self.agents:
-            self.observations[agent] = self.game_observations[agent].observation(
-                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
-
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
+        self._clear_rewards()
         if self._agent_selector.is_last():
+
+            # if we don't use this line, rewards will compound per step
+            # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
+
+            self.infos[self.agent_selection] = {"state_empty": self.PLAYERS[self.agent_selection].state_empty()}
+
+            self.terminations = {a: False for a in self.agents}
+            self.truncations = {a: False for a in self.agents}
+
             self.actions_taken += 1
+
+            if self.actions_taken < config.ACTIONS_PER_TURN:
+                for agent in self.agents:
+                    self.observations[agent] = self.game_observations[agent].observation(
+                        agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
             # If at the end of the turn
             if self.actions_taken >= config.ACTIONS_PER_TURN:
@@ -255,4 +259,4 @@ class TFT_Simulator(AECEnv):
 
         # Probably not needed but doesn't hurt?
         self._deads_step_first()
-        return self.observations, self.rewards, self.terminations, self.truncations, self.infos
+        # return self.observations, self.rewards, self.terminations, self.truncations, self.infos

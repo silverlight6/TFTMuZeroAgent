@@ -12,18 +12,19 @@ class ReplayBuffer:
         self.policy_distributions = []
         self.string_samples = []
         self.action_history = []
+        self.root_values = []
         self.g_buffer = g_buffer
 
-    def store_replay_buffer(self, observation, action, reward, policy, string_samples):
+    def store_replay_buffer(self, observation, action, reward, policy, string_samples, root_value):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(observation)
         self.action_history.append(action)
-        np.clip(reward, config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
         self.string_samples.append(string_samples)
+        self.root_values.append(root_value)
 
     def get_prev_action(self):
         if self.action_history:
@@ -65,10 +66,17 @@ class ReplayBuffer:
                 sample_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    value = 0.0
+                    if config.TD_STEPS > 0:
+                        bootstrap_index = current_index + config.TD_STEPS
+                    else:
+                        bootstrap_index = len(reward_correction)
+                    if config.TD_STEPS > 0 and bootstrap_index < len(self.root_values):
+                        value = self.root_values[bootstrap_index] * config.DISCOUNT ** config.TD_STEPS
+                    else:
+                        value = 0.0
 
-                    for i, reward in enumerate(reward_correction[current_index:]):
-                        value += reward * config.DISCOUNT ** i
+                    for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
+                        value += reward_corrected * config.DISCOUNT ** i
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:

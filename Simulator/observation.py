@@ -20,6 +20,7 @@ class Observation:
         self.other_player_observations = {"player_" + str(player_id): np.zeros(740)
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
+        self.moves_left_in_turn = 1
 
     """
     Description - Creates an observation for a given player.
@@ -45,7 +46,7 @@ class Observation:
                                             player.board_vector,
                                             game_state_vector,
                                             action_vector,
-                                            np.expand_dims(self.turn_since_update, axis=-1)], axis=-1)
+                                            np.array([self.turn_since_update, self.moves_left_in_turn])], axis=-1)
 
         # Initially fill the queue with duplicates of first observation
         # we can still sample when there aren't enough time steps yet
@@ -84,6 +85,9 @@ class Observation:
         # Used to help the model know how outdated it's information on other players is.
         # Also helps with ensuring that two observations with the same board and bench are not equal.
         self.turn_since_update += 0.01
+        self.moves_left_in_turn -= 1 / config.ACTIONS_PER_TURN
+        if self.moves_left_in_turn <= 0:
+            self.moves_left_in_turn = 1
         return {"tensor": total_tensor_observation, "mask": mask}
 
     """

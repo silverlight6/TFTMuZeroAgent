@@ -76,6 +76,8 @@ class MCTS:
             self.run_batch_mcts(roots_cpp, hidden_state_pool)
             roots_distributions = roots_cpp.get_distributions()
 
+            root_values = roots_cpp.get_values()
+
             actions = []
             target_policy = []
             temp = self.visit_softmax_temperature()  # controls the way actions are chosen
@@ -88,7 +90,7 @@ class MCTS:
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
-            return actions, target_policy, string_mapping
+            return actions, target_policy, string_mapping, root_values
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -310,7 +312,7 @@ class MCTS:
                     local_sell_mapping = []
                     for a in range(9):  # Only include board commands
                         # If unit exists and TODO: Is sellable unit
-                        if not (mask[idx][3][a]):
+                        if not (mask[idx][3][a] and mask[idx][5][0]):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")

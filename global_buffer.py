@@ -20,7 +20,7 @@ class GlobalBuffer:
         sample_set_batch = []
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask, \
-            value, reward, policy, sample_set = self.gameplay_experiences.popleft()
+                value, reward, policy, sample_set = self.gameplay_experiences.popleft()
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
