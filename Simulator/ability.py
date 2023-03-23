@@ -1979,7 +1979,9 @@ def sett(champion):
             # then the next two will be the secondary smash targets
             if two_away:
                 smash_targets.append([two_away[0][0], two_away[0][1]])
-            two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
+                two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
+            else:
+                two_distance_neighbors = list(filter(lambda x: (x[0]), two_distance_neighbors))
             smash_targets.append(two_distance_neighbors[0][0])
             if len(two_distance_neighbors) > 1:
                 smash_targets.append(two_distance_neighbors[1][0])

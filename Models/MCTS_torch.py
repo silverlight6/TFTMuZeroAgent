@@ -5,7 +5,6 @@ import core.ctree.cytree as tree
 import torch
 import Models.MCTS_Util as util
 from typing import Dict
-from scipy.stats import entropy
 
 """
 EXPLANATION OF MCTS:
@@ -82,7 +81,7 @@ class MCTS:
             deterministic = False  # False = sample distribution, True = argmax
             for i in range(self.NUM_ALIVE):
                 distributions = roots_distributions[i]
-                action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
+                action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
                 target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
 
@@ -179,8 +178,7 @@ class MCTS:
         else:
             action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
-        count_entropy = entropy(action_probs, base=2)
-        return action_pos, count_entropy
+        return action_pos
 
     """
     Description - Turns a 1081 action into a policy that includes only actions that are legal in the current state

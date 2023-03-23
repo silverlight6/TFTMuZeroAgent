@@ -14,6 +14,13 @@ class ReplayBuffer:
         self.action_history = []
         self.g_buffer = g_buffer
 
+    def reset(self):
+        self.gameplay_experiences = []
+        self.rewards = []
+        self.policy_distributions = []
+        self.string_samples = []
+        self.action_history = []
+
     def store_replay_buffer(self, observation, action, reward, policy, string_samples):
         # Records a single step of gameplay experience
         # First few are self-explanatory
@@ -48,9 +55,9 @@ class ReplayBuffer:
             num_steps = len(self.gameplay_experiences)
             reward_correction = []
             prev_reward = 0
-            for reward in self.rewards:
-                reward_correction.append(reward - prev_reward)
-                prev_reward = reward
+            # for reward in self.rewards:
+            #     reward_correction.append(reward - prev_reward)
+            #     prev_reward = reward
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
                 # and that takes a lot of time.
@@ -64,10 +71,10 @@ class ReplayBuffer:
                 sample_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    value = 0.0
+                    value = self.rewards[-1] * (config.DISCOUNT ** (num_steps - current_index))
 
-                    for i, reward in enumerate(reward_correction[current_index:]):
-                        value += reward * config.DISCOUNT ** i
+                    # for i, reward in enumerate(reward_correction[current_index:]):
+                    #     value += reward * config.DISCOUNT ** i
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
@@ -82,7 +89,7 @@ class ReplayBuffer:
                         value_set.append(value)
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
-                        reward_set.append(reward_correction[current_index])
+                        reward_set.append(0)
                         policy_set.append(self.policy_distributions[current_index])
                         sample_set.append(self.string_samples[current_index])
                     elif current_index == num_steps - 1:
@@ -94,7 +101,7 @@ class ReplayBuffer:
                         # The value of the terminal state should equal
                         # the value of the cumulative reward at the given state.
                         value_set.append(0.0)
-                        reward_set.append(reward_correction[current_index])
+                        reward_set.append(0)
                         # 0 is ok here because this get masked out anyway
                         policy_set.append(self.policy_distributions[0])
                         sample_set.append(self.string_samples[0])
