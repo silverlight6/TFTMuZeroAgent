@@ -297,7 +297,7 @@ class Player:
             self.reward += self.mistake_reward
             self.decision_mask[4] = 0
             if DEBUG:
-                print("Did not have gold to buy_exp")
+                print(f"Did not have gold to buy exp, had {self.gold}, needed {self.exp_cost}, was level {self.level}, mask {self.decision_mask[4]}")
             return False
         self.gold -= 4
         # self.reward += 0.02
@@ -804,7 +804,9 @@ class Player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Outside board range, bench: {self.bench[bench_x].name}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
+            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, \
+                  bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}, \
+                  with units in play {self.num_units_in_play} and max units {self.max_units}")
         return False
 
     """
@@ -1068,7 +1070,7 @@ class Player:
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Failed to add item {self.item_bench[xBench]} to {champ.name} in {x}, {y}")
+            print(f"Failed to add item {self.item_bench[xBench]} to {champ} in {x}, {y}")
         return False
 
     """
@@ -1392,6 +1394,11 @@ class Player:
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
+            if self.board[s_champion.x][s_champion.y].name == 'azir':
+                    coords = self.board[s_champion.x][s_champion.y].sandguard_overlord_coordinates
+                    self.board[s_champion.x][s_champion.y].overlord = False
+                    for coord in coords:
+                        self.board[coord[0]][coord[1]] = None
             self.board[s_champion.x][s_champion.y] = None
             self.generate_board_vector()
         if field:
