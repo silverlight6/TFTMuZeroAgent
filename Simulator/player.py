@@ -1107,7 +1107,7 @@ class Player:
     """
     def print(self, msg):
         self.printt('{:<120}'.format('{:<8}'.format(self.player_num)
-                                     + '{:<20}'.format(str(time.time_ns() - self.start_time)) + msg))
+                                     + '{:<20}'.format(str((time.time_ns() - self.start_time)/1000)) + msg))
 
     """
     Description -
