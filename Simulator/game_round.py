@@ -224,6 +224,7 @@ class Game_Round:
         for i in range(len(self.game_rounds[self.current_round])):
             self.game_rounds[self.current_round][i]()
         self.current_round += 1
+        self.start_round()
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
@@ -240,9 +241,6 @@ class Game_Round:
 
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
-        for player in self.PLAYERS.values():
-            if player:
-                player.start_round(1)
         # False stands for no one died
         return False
 
@@ -261,7 +259,6 @@ class Game_Round:
         for player in self.PLAYERS.values():
             if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
-        self.start_round()
         return False
 
     # r stands for round or game_round but round is a keyword so using r instead
