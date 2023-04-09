@@ -7,7 +7,7 @@ import random
 # TODO:
 # Choose the best champion + item combo for each player
 
-def carousel(players, round, pool_obj):
+def carousel(players, r, pool_obj):
     # probability of certain arrangements during certain carousels
     # https://leagueoflegends.fandom.com/wiki/Carousel_(Teamfight_Tactics)
     alive = []
@@ -19,8 +19,8 @@ def carousel(players, round, pool_obj):
             elif player.health <= alive[0].health and player != alive[0]:
                 alive.insert(0, player)
 
-    champions = generateChampions(round, pool_obj)
-    items = generateHeldItems(round)
+    champions = generateChampions(r, pool_obj)
+    items = generateHeldItems(r)
 
     # give all champions on the carousel an item
     for i, champ in enumerate(champions):
@@ -42,7 +42,7 @@ def carousel(players, round, pool_obj):
         pool_obj.update_pool(current, -1)
 
 # this will handle champion generation based on the current round
-def generateChampions(round, pool_obj):
+def generateChampions(r , pool_obj):
     oneCosts = list(COST_1.items())
     twoCosts = list(COST_2.items())
     threeCosts = list(COST_3.items())
@@ -66,18 +66,18 @@ def generateChampions(round, pool_obj):
             fiveCosts.pop(champ)
     carouselChamps = []
     # first carousel - all 1 costs
-    if round == 0:
+    if r == 0:
         for _ in range(9):
             carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
     # second carousel - 1 one cost, 4 two costs, 4 three costs
-    elif round == 6:
+    elif r == 6:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(4):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
         for _ in range(4):
             carouselChamps.append(champion(threeCosts.pop(random.randint(0, len(threeCosts) - 1))[0]))
     # third carousel - 1 one cost, 2 two costs, 3 three costs, 3 four costs
-    elif round == 12:
+    elif r == 12:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
@@ -86,7 +86,7 @@ def generateChampions(round, pool_obj):
         for _ in range(3):
             carouselChamps.append(champion(fourCosts.pop(random.randint(0, len(fourCosts) - 1))[0]))
     # fourth carousel and beyond - 1 one cost, 2 two costs, 2 three costs, 2 four costs, 2 five costs
-    elif round >= 18:
+    elif r >= 18:
         carouselChamps.append(champion(oneCosts.pop(random.randint(0, len(oneCosts) - 1))[0]))
         for _ in range(2):
             carouselChamps.append(champion(twoCosts.pop(random.randint(0, len(twoCosts) - 1))[0]))
@@ -100,9 +100,9 @@ def generateChampions(round, pool_obj):
 
 # handles the item generation based on the current round
 # also chooses what kind of item set to generate (e.g. offensive components only, defensive, utility, etc.)
-def generateHeldItems(round):
+def generateHeldItems(r):
     roll = random.random()
-    if round == 0:
+    if r == 0:
         if roll < 0.65:
             return generateAllComponents()
         elif roll < 0.76:
@@ -115,14 +115,14 @@ def generateHeldItems(round):
             return generateAllSpats()
         else:
             return generateFONs()
-    elif round == 6:
+    elif r == 6:
         if roll < 0.80:
             return generateAllComponents()
         elif roll < 0.95:
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 12:
+    elif r == 12:
         if roll < 0.50:
             return generateAllRandomComponents()
         elif roll < 0.80:
@@ -131,14 +131,14 @@ def generateHeldItems(round):
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 18:
+    elif r == 18:
         if roll < 0.80:
             return generateAllComponents()
         elif roll < 0.95:
             return generateAllComponentsSpat()
         else:
             return generateThreeSpatsRandComponents()
-    elif round == 24:
+    elif r == 24:
         if roll < 0.50:
             return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         elif roll < 0.754:
@@ -149,7 +149,7 @@ def generateHeldItems(round):
             return generateComponentItems(starting_items[random.randint(0, len(starting_items) - 1)])
         else:
             return generateFONs()
-    elif round >= 30:
+    elif r >= 30:
         return generateHalfItems()
 
 # random helper methods for generation of item sets for carousel below
