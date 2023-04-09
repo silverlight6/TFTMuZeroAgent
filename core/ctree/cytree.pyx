@@ -49,12 +49,12 @@ cdef class Roots:
         self.pool_size = max_size * (tree_nodes + 2)
         self.roots = new CRoots(root_num, self.pool_size)
 
-    def prepare(self, float root_exploration_fraction, list noises, list value_prefix_pool, list policy_logits_pool,
+    def prepare(self, float root_exploration_fraction, list noises, list reward_pool, list policy_logits_pool,
                 list mappings, list action_nums):
-        self.roots[0].prepare(root_exploration_fraction, noises, value_prefix_pool, policy_logits_pool, mappings, action_nums)
+        self.roots[0].prepare(root_exploration_fraction, noises, reward_pool, policy_logits_pool, mappings, action_nums)
 
-    def prepare_no_noise(self, list value_prefix_pool, list policy_logits_pool, list mappings, list action_nums):
-        self.roots[0].prepare_no_noise(value_prefix_pool, policy_logits_pool, mappings, action_nums)
+    def prepare_no_noise(self, list reward_pool, list policy_logits_pool, list mappings, list action_nums):
+        self.roots[0].prepare_no_noise(reward_pool, policy_logits_pool, mappings, action_nums)
 
     def get_distributions(self):
         return self.roots[0].get_distributions()

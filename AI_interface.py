@@ -26,7 +26,7 @@ import torch
 Data workers are the "workers" or threads that collect game play experience. 
 Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 '''
-@ray.remote(num_gpus=0.16)
+@ray.remote(num_gpus=0.19)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -127,6 +127,7 @@ class DataWorker(object):
         Turns a string action into a series of one_hot lists that can be used in the step_function.
         More specifics on what every list means can be found in the step_function.
     '''
+
     def decode_action_to_one_hot(self, str_action):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
@@ -135,18 +136,21 @@ class DataWorker(object):
             element_list[i] = int(split_action[i])
 
         decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
-        decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
+        decoded_action[0:7] = utils.one_hot_encode_number(element_list[0], 7)
 
         if element_list[0] == 1:
-            decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
+            decoded_action[7:12] = utils.one_hot_encode_number(element_list[1], 5)
 
         if element_list[0] == 2:
-            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + \
-                                   utils.one_hot_encode_number(element_list[2], 38)
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37) + \
+                                   utils.one_hot_encode_number(element_list[2], 37)
 
         if element_list[0] == 3:
-            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
             decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+
+        if element_list[0] == 4:
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
     '''

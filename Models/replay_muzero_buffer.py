@@ -2,6 +2,7 @@ import numpy as np
 import config
 import random
 from global_buffer import GlobalBuffer
+from Models.MCTS_Util import split_sample_set
 
 
 class ReplayBuffer:
@@ -107,6 +108,12 @@ class ReplayBuffer:
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
                         sample_set.append(self.string_samples[0])
+
+                for i in range(len(sample_set)):
+                    split_mapping, split_policy = split_sample_set(sample_set[i], policy_set[i])
+                    sample_set[i] = split_mapping
+                    policy_set[i] = split_policy
+
                 output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                                      policy_mask_set, value_set, reward_set, policy_set, sample_set]
                 self.g_buffer.store_replay_sequence.remote(output_sample_set)

@@ -1,4 +1,5 @@
 import config
+import Simulator.config as config
 from Simulator import champion
 from Simulator.loot_orb import LootOrb, gen_loot, gen_orb_reward, gen_orbs, give_loot
 
@@ -178,7 +179,6 @@ class Nexus(Minion):
 
         return loot
 
-
 # Drops 1 random full item and 2 random orbs
 class Herald(Minion):
     def __init__(self):
@@ -267,7 +267,8 @@ def minion_combat(player, enemy, round, others):
     if index_won == 0:
         player.loss_round(damage)
         for p in alive:
-            p.ghost_won(damage / len(alive))
+            if p != player:
+                p.spill_reward(damage / len(alive))
         player.health -= damage
     # player wins!
     if index_won == 1:
@@ -277,7 +278,8 @@ def minion_combat(player, enemy, round, others):
     # minions win! (yikes)
     if index_won == 2:
         player.loss_round(damage)
+        player.health -= damage
         if len(alive) > 0:
             for p in alive:
-                p.ghost_won(damage / len(alive))
-        player.health -= damage
+                if p != player:
+                    p.spill_reward(damage / len(alive))
