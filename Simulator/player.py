@@ -660,6 +660,7 @@ class Player:
             starting_round_gold = [0, 2, 2, 3, 4]
             self.gold += floor(self.gold / 10)
             self.gold += starting_round_gold[t_round]
+            self.generate_player_vector()
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
