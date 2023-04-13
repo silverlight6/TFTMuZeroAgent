@@ -18,7 +18,7 @@ class Trainer(object):
         self.optimizer = self.create_optimizer()
 
     def create_optimizer(self):
-        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
+        optimizer = torch.optim.SGD(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
                                      weight_decay=config.WEIGHT_DECAY)
         return optimizer
 
@@ -37,6 +37,7 @@ class Trainer(object):
 
     def train_network(self, batch, agent, train_step, summary_writer):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
+        agent.train()
         self.adjust_lr(train_step)
 
         self.optimizer.zero_grad()
@@ -70,12 +71,43 @@ class Trainer(object):
         
         handles = []
 
-        for i, sample in enumerate(samples):
-            handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.\
-                register_hook(lambda grad: filter_grad(grad, sample))
-            handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.\
-                register_hook(lambda grad: filter_grad(grad, sample))
-            handles.extend([handle1, handle2])
+        # TODO(lobotuerk) Find a proper way to do this
+        handle1 = self.global_agent.prediction_policy_network.head_0[0].weight.\
+            register_hook(lambda grad: filter_grad(grad, samples[0]))
+        handle2 = self.global_agent.prediction_policy_network.head_0[0].bias.\
+            register_hook(lambda grad: filter_grad(grad, samples[0]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.global_agent.prediction_policy_network.head_1[0].weight.\
+            register_hook(lambda grad: filter_grad(grad, samples[1]))
+        handle2 = self.global_agent.prediction_policy_network.head_1[0].bias.\
+            register_hook(lambda grad: filter_grad(grad, samples[1]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.global_agent.prediction_policy_network.head_2[0].weight.\
+            register_hook(lambda grad: filter_grad(grad, samples[2]))
+        handle2 = self.global_agent.prediction_policy_network.head_2[0].bias.\
+            register_hook(lambda grad: filter_grad(grad, samples[2]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.global_agent.prediction_policy_network.head_3[0].weight.\
+            register_hook(lambda grad: filter_grad(grad, samples[3]))
+        handle2 = self.global_agent.prediction_policy_network.head_3[0].bias.\
+            register_hook(lambda grad: filter_grad(grad, samples[3]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.global_agent.prediction_policy_network.head_4[0].weight.\
+            register_hook(lambda grad: filter_grad(grad, samples[4]))
+        handle2 = self.global_agent.prediction_policy_network.head_4[0].bias.\
+            register_hook(lambda grad: filter_grad(grad, samples[4]))
+        handles.extend([handle1, handle2])
+
+        # for i, sample in enumerate(samples):
+        #     handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.\
+        #         register_hook(lambda grad: filter_grad(grad, sample))
+        #     handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.\
+        #         register_hook(lambda grad: filter_grad(grad, sample))
+        #     handles.extend([handle1, handle2])
 
         loss.backward()
 
@@ -152,6 +184,7 @@ class Trainer(object):
 
             # TODO: Possibly keep them as tensors in the inference functions
             value = torch.from_numpy(prediction.value).to('cuda')
+            # print("VALUE", max(value), min(value), max(value) - min(value))
             reward = torch.from_numpy(prediction.reward).to('cuda')
             value_logits = prediction.value_logits.to('cuda').requires_grad_(True)
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \

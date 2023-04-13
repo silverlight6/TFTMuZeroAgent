@@ -3,9 +3,15 @@ import config
 from UnitTests.BaseUnitTest import runTest
 import argparse
 import AI_interface
+from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 
 
 def main():
+    # temp = TFTNetwork()
+    # for x in temp.state_dict():
+    #     print(x)
+    # print(temp)
+    # return
     if config.RUN_UNIT_TEST:
         runTest()
 
