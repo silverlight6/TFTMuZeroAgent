@@ -19,6 +19,7 @@ EXPLANATION OF MCTS:
 
 class MCTS:
     def __init__(self, network):
+        self.max_depth_search = 0
         self.network = network
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
@@ -70,7 +71,6 @@ class MCTS:
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
-            # print(f'HIDDEN STATE SHAPE {hidden_state_pool.shape}')
 
             # set up nodes to be able to find and select actions
             self.run_batch_mcts(roots_cpp, hidden_state_pool)
@@ -111,6 +111,7 @@ class MCTS:
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
+            self.max_depth_search = max(self.max_depth_search, sum(results.get_search_len()) / len(results.get_search_len()))
             num_states = len(hidden_state_index_x_lst)
             tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to('cuda')
 
@@ -127,10 +128,9 @@ class MCTS:
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
-            # print(f"VALUE MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {max(value_pool) - min(value_pool)}")
             diff = max(value_pool) - min(value_pool)
-            if diff > 1.:
-                print(f'EUREKA {diff}')
+            if diff > 150.:
+                print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
             policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
 

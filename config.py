@@ -2,6 +2,7 @@ import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
 NUM_CPUS = 28
+GPU_SIZE_PER_WORKER = 0.05
 
 # AI RELATED VALUES START HERE
 
@@ -43,12 +44,12 @@ ACTIONS_PER_TURN = 15
 CONCURRENT_GAMES = 6
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 50
-NUM_SIMULATIONS = 30
-SAMPLES_PER_PLAYER = 128  # Normal is 128
-UNROLL_STEPS = 20
+NUM_SIMULATIONS = 250
+SAMPLES_PER_PLAYER = 64  # Normal is 128
+UNROLL_STEPS = 70
 
 ### TRAINING ###
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 INIT_LEARNING_RATE = 0.01
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.1
@@ -59,7 +60,7 @@ POLICY_LOSS_SCALING = 1
 # Because we calculate the loss for each of the 5 dimensions.
 # I'll add a mathematical way of generating these numbers later.
 DEBUG = True
-CHECKPOINT_STEPS = 50
+CHECKPOINT_STEPS = 100
 
 #### TESTING ####
 RUN_UNIT_TEST = False

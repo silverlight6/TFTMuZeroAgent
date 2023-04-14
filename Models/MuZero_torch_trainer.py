@@ -18,7 +18,7 @@ class Trainer(object):
         self.optimizer = self.create_optimizer()
 
     def create_optimizer(self):
-        optimizer = torch.optim.SGD(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
+        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
                                      weight_decay=config.WEIGHT_DECAY)
         return optimizer
 
@@ -184,7 +184,7 @@ class Trainer(object):
 
             # TODO: Possibly keep them as tensors in the inference functions
             value = torch.from_numpy(prediction.value).to('cuda')
-            # print("VALUE", max(value), min(value), max(value) - min(value))
+            # print("VALUE", max(value).item(), min(value).item(), (max(value) - min(value)).item())
             reward = torch.from_numpy(prediction.reward).to('cuda')
             value_logits = prediction.value_logits.to('cuda').requires_grad_(True)
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
@@ -278,9 +278,9 @@ class Trainer(object):
         summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
         summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
 
-        summary_writer.add_scalar('losses/value', torch.mean(sum_accs['value_loss']), train_step)
-        summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss']), train_step)
-        summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss']), train_step)
+        summary_writer.add_scalar('losses/value', torch.mean(sum_accs['value_loss'] / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss'] / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss'] / config.UNROLL_STEPS), train_step)
         summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
         summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 
