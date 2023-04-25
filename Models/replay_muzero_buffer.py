@@ -43,7 +43,10 @@ class ReplayBuffer:
     def set_reward_sequence(self, rewards):
         self.rewards = rewards
 
-    def store_global_buffer(self):
+    def get_len(self):
+        return len(self.gameplay_experiences)
+
+    def store_global_buffer(self, max_length):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -71,7 +74,8 @@ class ReplayBuffer:
                 sample_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    value = self.rewards[-1] * (config.DISCOUNT ** (num_steps - current_index))
+                    ratio = max_length / num_steps
+                    value = self.rewards[-1] * (config.DISCOUNT ** (max_length - (current_index * ratio)))
 
                     # for i, reward in enumerate(reward_correction[current_index:]):
                     #     value += reward * config.DISCOUNT ** i

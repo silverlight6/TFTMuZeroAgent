@@ -67,10 +67,10 @@ class MuZeroNetwork(AbstractNetwork):
         self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                           config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
 
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0,
-                                    config.HIDDEN_STATE_SIZE)
+        # self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0,
+        #                             config.HIDDEN_STATE_SIZE)
         
-        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size = config.HIDDEN_STATE_SIZE, 
+        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size = 81, 
                           num_layers = config.NUM_RNN_CELLS, hidden_size = config.LSTM_SIZE, batch_first = True).cuda()
 
         self.dynamics_reward_network = mlp(config.HIDDEN_STATE_SIZE, [1] *
@@ -112,7 +112,8 @@ class MuZeroNetwork(AbstractNetwork):
 
         action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
 
-        action_encodings = self.action_encodings(action_one_hot)
+        # action_encodings = self.action_encodings(action_one_hot)
+        action_encodings = action_one_hot
 
         lstm_state = self.flat_to_lstm_input(hidden_state)
 

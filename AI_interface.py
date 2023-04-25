@@ -87,7 +87,7 @@ class DataWorker(object):
         self.buffer.store_global_buffer()
         self.buffer.reset()
         if config.DEBUG:
-            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search}')
+            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search / agent.runs}')
         return self.rank
 
     '''
@@ -227,9 +227,9 @@ class AIInterface:
     Global train model method. This is what gets called from main.
     '''
     def train_torch_model(self, starting_train_step=0):
-        # gpus = torch.cuda.device_count()
+        gpus = torch.cuda.device_count()
         # ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
-        ray.init()
+        ray.init(num_gpus=gpus)
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'

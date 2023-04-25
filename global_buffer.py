@@ -5,7 +5,7 @@ import numpy as np
 from collections import deque
 
 
-@ray.remote
+@ray.remote(num_gpus=0.1)
 class GlobalBuffer:
     def __init__(self, storage_ptr):
         self.gameplay_experiences = deque(maxlen=25000)

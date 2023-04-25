@@ -50,6 +50,9 @@ class BufferWrapper:
             index += rewardLens[i]
     
     def store_global_buffer(self):
+        max_lenght = 0
         for b in self.buffers.values():
-            b.store_global_buffer()
+            max_lenght = max(max_lenght, b.get_len())
+        for b in self.buffers.values():
+            b.store_global_buffer(max_lenght)
     

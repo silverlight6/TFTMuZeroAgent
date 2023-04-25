@@ -1839,8 +1839,9 @@ def riven(champion):
                     two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_from_n0))))
 
                     slash_hexes = []
+                    two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))
                     if len(two_away) > 0:
-                        two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))[0]
+                        two_away = two_away[0]
                         slash_hexes = field.hexes_in_distance(two_away[0], two_away[1], 1)
 
                     slash_hexes.append(corner_neighbors[0])
