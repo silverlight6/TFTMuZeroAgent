@@ -26,7 +26,7 @@ import torch
 Data workers are the "workers" or threads that collect game play experience. 
 Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 '''
-@ray.remote(num_gpus=0.19)
+@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -267,7 +267,7 @@ class AIInterface:
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
-                if train_step % 100 == 0:
+                if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 

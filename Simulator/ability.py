@@ -1837,9 +1837,11 @@ def riven(champion):
                     two_from_n0 = field.hexes_distance_away(corner_neighbors[0][0], corner_neighbors[0][1], 2, True)
                     two_from_n1 = field.hexes_distance_away(corner_neighbors[1][0], corner_neighbors[1][1], 2, True)
                     two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_from_n0))))
-                    two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))[0]
+                    slash_hexes = []
+                    if len(two_away) > 0:
+                        two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))[0]
+                        slash_hexes = field.hexes_in_distance(two_away[0], two_away[1], 1)
 
-                    slash_hexes = field.hexes_in_distance(two_away[0], two_away[1], 1)
                     slash_hexes.append(corner_neighbors[0])
                     slash_hexes.append(corner_neighbors[1])
 
@@ -1979,7 +1981,9 @@ def sett(champion):
             # then the next two will be the secondary smash targets
             if two_away:
                 smash_targets.append([two_away[0][0], two_away[0][1]])
-            two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
+                two_distance_neighbors = list(filter(lambda x: (x[0] != smash_targets[0]), two_distance_neighbors))
+            else:
+                two_distance_neighbors = list(filter(lambda x: (x[0]), two_distance_neighbors))
             smash_targets.append(two_distance_neighbors[0][0])
             if len(two_distance_neighbors) > 1:
                 smash_targets.append(two_distance_neighbors[1][0])

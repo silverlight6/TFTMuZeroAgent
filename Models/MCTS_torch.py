@@ -5,7 +5,6 @@ import core.ctree.cytree as tree
 import torch
 import Models.MCTS_Util as util
 from typing import Dict
-from scipy.stats import entropy
 
 """
 EXPLANATION OF MCTS:
@@ -26,6 +25,7 @@ class MCTS:
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
         self.default_string_mapping = util.create_default_mapping()
+        self.max_depth_search = 0
 
     def policy(self, observation):
         with torch.no_grad():
@@ -82,7 +82,7 @@ class MCTS:
             deterministic = False  # False = sample distribution, True = argmax
             for i in range(self.NUM_ALIVE):
                 distributions = roots_distributions[i]
-                action, _ = self.select_action(distributions, temperature=temp, deterministic=deterministic)
+                action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
                 target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
 
@@ -111,8 +111,10 @@ class MCTS:
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
+            self.max_depth_search = max(self.max_depth_search,
+                                        sum(results.get_search_len()) / len(results.get_search_len()))
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, config.LAYER_HIDDEN_SIZE)).to('cuda')
+            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to('cuda')
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
@@ -127,6 +129,9 @@ class MCTS:
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             value_pool = np.array(network_output["value"]).reshape(-1).tolist()
+            diff = max(value_pool) - min(value_pool)
+            if diff > 150.:
+                print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
             policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
 
@@ -179,8 +184,7 @@ class MCTS:
         else:
             action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
-        count_entropy = entropy(action_probs, base=2)
-        return action_pos, count_entropy
+        return action_pos
 
     """
     Description - Turns a 1081 action into a policy that includes only actions that are legal in the current state
@@ -208,19 +212,20 @@ class MCTS:
         # mask[2] = board mask - 1 if slot is occupied, 0 if not
         # mask[3] = bench mask - 1 if slot is occupied, 0 if not
         # mask[4] = item mask - 1 if slot is occupied, 0 if not
-        # mask[5] = util mask
+        # mask[5] = util mask for space in different containers
         # mask[5][0] = board mask, mask[5][1] = bench mask, mask[5][2] item_bench mask
         # mask[6] = thieves glove mask - 1 if slot has a thieves glove, 0 if not
         # mask[7] = sparring glove + item mask
         # mask[8] = glove mask
+        # mask[9] = dummy_mask
+        # mask[10] = board full items mask
         # TODO: add 7 more masks for:
         # 1. Kayn items on bench
         # 2. Kayn champions on board
         # 3. Reforger on bench
         # 4. thieves glove on bench
         # 5. if champion has items
-        # 6. if champion has FULL items
-        # 7. if champion is azir sandguard
+        # 6. if champion has FULL items on bench
         # 
 
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
@@ -253,21 +258,19 @@ class MCTS:
                     board_counter = 0
                     # Board masking
                     # For all board + bench slots...
-                    for a in range(37):
+                    for a in range(28):
                         # rest of board slot locs for moving, last for sale
                         for b in range(a, 37):
                             if a == b:
                                 continue
-                            if a > 27:
-                                continue
                             # if we are trying to move a non-existent champion, skip
-                            if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) or
-                                    ((b < 28 and mask[idx][2][b]) or (b > 27 and b != 37 and mask[idx][3][b - 28]))):
+                            if not ((mask[idx][2][a]) or
+                                    ((b < 28 and mask[idx][2][b]) or (b > 27 and mask[idx][3][b - 28]))):
                                 board_counter += 1
                                 continue
                             # if we're doing a bench to board move and board is full
                             # and there is no champ at destination, skip
-                            if a < 28 and b > 27 and b != 37 and not mask[idx][5][0] and not mask[idx][2][a]:
+                            if b > 27 and (not mask[idx][5][0] and not mask[idx][2][a]):
                                 board_counter += 1
                                 continue
                             # if we're doing a board to bench move and there is no champion at that bench location
@@ -290,7 +293,8 @@ class MCTS:
                         # For every item slot...
                         for b in range(10):
                             # if there is a unit and there is an item
-                            if not (((a < 28 and mask[idx][2][a]) or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
+                            if not (((a < 28 and mask[idx][2][a] and not mask[idx][9][a] and not mask[idx][10][a])
+                                     or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
                                 item_counter += 1
                                 continue
                             # if it is a legal action to put that item on the unit
@@ -309,8 +313,9 @@ class MCTS:
                     local_sell = []
                     local_sell_mapping = []
                     for a in range(9):  # Only include board commands
-                        # If unit exists and TODO: Is sellable unit
-                        if not (mask[idx][3][a]):
+                        # If unit exists
+                        if not ((a < 28 and mask[idx][2][a] and not mask[idx][9][a]) or (
+                                a > 27 and mask[idx][3][a - 28])):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")
