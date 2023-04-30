@@ -164,57 +164,92 @@ class DataWorker(object):
     '''
     def evaluate_agents(self, env, storage):
         agents = {"player_" + str(r): MCTS(TFTNetwork())
-                  for r in range(config.NUM_PLAYERS)}
-        agents["player_1"].network.tft_load_model(1000)
-        agents["player_2"].network.tft_load_model(2000)
-        agents["player_3"].network.tft_load_model(3000)
-        agents["player_4"].network.tft_load_model(4000)
-        agents["player_5"].network.tft_load_model(5000)
-        agents["player_6"].network.tft_load_model(6000)
-        agents["player_7"].network.tft_load_model(7000)
-
+                    for r in range(config.NUM_PLAYERS)}
+        
         while True:
+            agents["player_0"].network.tft_load_model(25)
+            agents["player_1"].network.tft_load_model(1000)
+            agents["player_2"].network.tft_load_model(2000)
+            agents["player_3"].network.tft_load_model(3000)
+            agents["player_4"].network.tft_load_model(4000)
+            agents["player_5"].network.tft_load_model(5000)
+            agents["player_6"].network.tft_load_model(7000)
+            agents["player_7"].network.tft_load_model(7800)
             # Reset the environment
             player_observation = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
-            player_observation = np.asarray(
-                list(player_observation.values()))
+            player_observation = self.observation_to_input(player_observation)
             # Used to know when players die and which agent is currently acting
             terminated = {
                 player_id: False for player_id in env.possible_agents}
             # Current action to help with MuZero
-            placements = {
+            self.placements = {
                 player_id: 0 for player_id in env.possible_agents}
             current_position = 7
             info = {player_id: {"player_won": False}
                     for player_id in env.possible_agents}
+            info2 = {i:{"traits used":0, "traits list":[],"xp bought":0, "champs bought":0, "2* champs":0, "2* champ list":[], "3* champs":0, "3* champ list":[]} for i in range(8)}
+            #position in log file: 
+            pos = 0
             # While the game is still going on.
+            
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions = {agent: 0 for agent in agents.keys()}
-                for i, [key, agent] in enumerate(agents.items()):
-                    action, _ = agent.policy(np.expand_dims(player_observation[i], axis=0))
-                    actions[key] = action
+                actions = []
+                for i,key in enumerate(agents):
+                    action, _, _ = agents[key].policy([np.asarray([player_observation[0][i]]), [player_observation[1][i]]])
+                    actions.append(action)
+                actions = [i[0] for i in actions]
 
-                # step_actions = self.getStepActions(terminated, np.asarray(actions))
+                step_actions = self.getStepActions(terminated, actions)
 
                 # Take that action within the environment and return all of our information for the next player
-                next_observation, reward, terminated, _, info = env.step(actions)
+                next_observation, reward, terminated, _, info = env.step(step_actions)
+                #get info about actions
+                log = open('log.txt','r')
+                count = 1
+                for line in log:
+                    if count >= pos: #ensures code is ran only once
+                        if line[0] != "E" and line[0] != "S" and line[0] != " ": # Eliminate END ROUND and START GAME line s
+                            player_num = int(line[0]) # first char is always player num
+                            if "level = 2" in line: # Tier 2 champs 
+                                champ = line[line.index("champion "):].split(" ")[1] #get actual champ name 
 
+                                if champ not in info2[player_num]["2* champ list"]: #avoid duplicates 
+                                    info2[player_num]["2* champs"] += 1 
+                                    info2[player_num]["2* champ list"].append(champ)
+                            if "level = 3" in line: # Tier 3 champs 
+                                champ = line[line.index("champion "):].split(" ")[1] #get actual champ name 
+
+                                if champ not in info2[player_num]["3* champ list"]: #avoid duplicates 
+                                    info2[player_num]["3* champs"] += 1 
+                                    info2[player_num]["3* champ list"].append(champ)
+                            elif "Spending gold on champion" in line: 
+                                info2[player_num]["champs bought"] += 1 
+                            elif "exp" in line: # think this is when xp is bought 
+                                info2[player_num]["xp bought"] += 1
+                            if "tier: " in line and "tier: 0" not in line: # checks traits same as lvl 2 champs 
+                                trait = line[:line.index("tier:")].split(" ")
+                                trait = trait[-3]
+                                if trait not in info2[player_num]["traits list"]:
+                                    info2[player_num]["traits used"] += 1
+                                    info2[player_num]["traits list"].append(trait)
+
+                    count += 1 
+                pos = count     
+
+                # store the action for MuZero
                 # Set up the observation for the next action
-                player_observation = np.asarray(list(next_observation.values()))
-
+                player_observation = self.observation_to_input(next_observation)
                 for key, terminate in terminated.items():
                     if terminate:
-                        placements[key] = current_position
+                        self.placements[key] = current_position
                         current_position -= 1
+                        # print(key)
+                        del agents[key]
+            storage.record_placements.remote(self.placements)
+            storage.record_stats.remote(info2)
 
-            for key, value in info.items():
-                if value["player_won"]:
-                    placements[key] = 0
-            storage.record_placements.remote(placements)
-            print("recorded places {}".format(placements))
-            self.rank += config.CONCURRENT_GAMES
 
 
 class AIInterface:
@@ -326,7 +361,7 @@ class AIInterface:
     def evaluate(self):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         # gpus = tf.config.list_physical_devices('GPU')
-        ray.init(num_gpus=4, num_cpus=16)
+        ray.init(num_gpus=1, num_cpus=16)
         storage = Storage.remote(0)
 
         env = parallel_env()
