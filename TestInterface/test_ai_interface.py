@@ -13,7 +13,7 @@ from Models.MCTS_torch import MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models import MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
-
+import os
 
 class DataWorker(object):
     def __init__(self, rank):
