@@ -245,6 +245,7 @@ namespace tree {
 
     void cback_propagate(std::vector<CNode*> &search_path, tools::CMinMaxStats &min_max_stats, float value,
                          float discount) {
+        // std::cout << value << std::endl;
         // Value from the dynamics network.
         float bootstrap_value = value;
         // How far from root we are.

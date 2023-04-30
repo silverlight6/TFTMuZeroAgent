@@ -24,7 +24,7 @@ import torch
 
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=0.05)
+@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank, global_buffer):
         self.agent_network = TFTNetwork()
@@ -86,7 +86,8 @@ class DataWorker(object):
         # self.rank += config.CONCURRENT_GAMES
         self.buffer.store_global_buffer()
         self.buffer.reset()
-        print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes')
+        if config.DEBUG:
+            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search}')
         return self.rank
 
     '''
@@ -262,6 +263,7 @@ class AIInterface:
     '''
     def train_torch_model(self, starting_train_step=0):
         # gpus = torch.cuda.device_count()
+        # ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
         ray.init()
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -286,9 +288,17 @@ class AIInterface:
         weights = storage.get_target_model()
         workers = [worker.collect_gameplay_experience.remote(weights) for worker in data_workers]
         while True:
+            while True:
+                with open("run.txt", "r") as file:
+                    if file.readline() == "0":
+                        input("run = 0, press enter to continue and change run to 1")
+                    else:
+                        print("Continuing training")
+                        break
             done, workers = ray.wait(workers)
             rank = ray.get(done)[0]
             print(f'Spawning agent {rank}')
+            weights = storage.get_target_model()
             workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights)])
             while ray.get(global_buffer.available_batch.remote()):
                 print("Starting training")
@@ -297,11 +307,10 @@ class AIInterface:
                 # storage.set_trainer_busy.remote(False)
                 storage.set_target_model(global_agent.get_weights())
                 train_step += 1
-                if train_step % 25 == 0:
+                if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.set_model()
                     global_agent.tft_save_model(train_step)
                 print("Finished training")
-            weights = storage.get_target_model()
             
 
     '''

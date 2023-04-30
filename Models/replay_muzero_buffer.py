@@ -76,7 +76,8 @@ class ReplayBuffer:
                     # for i, reward in enumerate(reward_correction[current_index:]):
                     #     value += reward * config.DISCOUNT ** i
 
-                    reward_mask = 1.0 if current_index > sample else 0.0
+                    reward_mask = 0
+                    # reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
                         if current_index != sample:
                             action_set.append(np.asarray(self.action_history[current_index]))

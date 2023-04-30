@@ -90,10 +90,10 @@ class Game_Round:
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
-        for player in players.values():
-            if player:
-                player.end_turn_actions()
-                player.combat = False
+        # for player in players.values():
+        #     if player:
+        #         player.end_turn_actions()
+        #         player.combat = False
         for match in self.matchups:
             if not match[1] == "ghost":
                 # Assigning a battle
