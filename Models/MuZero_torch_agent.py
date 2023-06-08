@@ -64,8 +64,10 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                          config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
+        # self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
+        #                                   config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
+
+        self.representation_network = ResNetwork(28, [256] * 16, 1, config.HIDDEN_STATE_SIZE)
 
         # self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0,
         #                             config.HIDDEN_STATE_SIZE)
@@ -207,19 +209,44 @@ class MuZeroNetwork(AbstractNetwork):
         }
         return outputs
 
-
-def mlp(
-        input_size,
+def mlp(input_size,
         layer_sizes,
         output_size,
         output_activation=torch.nn.Identity,
-        activation=torch.nn.LeakyReLU,
-):
+        activation=torch.nn.LeakyReLU):
     sizes = [input_size] + layer_sizes + [output_size]
     layers = []
     for i in range(len(sizes) - 1):
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
+    return torch.nn.Sequential(*layers).cuda()
+
+
+class ResNetwork(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
+        super().__init__()
+
+        self.resnet = resnet(input_size, layer_sizes, output_size)
+        self.fc1 = torch.nn.Linear(output_size, encoding_size)
+
+    def forward(self, x):
+        x = self.resnet(x)
+        #Maybe 1x1 conv here
+        torch.flatten(x, 1)
+        x = self.fc1(x)
+        return x
+
+    def __call__(self, x):
+        return self.forward(x)
+
+def resnet(input_size,
+        layer_sizes,
+        output_size):
+    sizes = [input_size] + layer_sizes + [output_size]
+    layers = []
+    for i in range(1, len(sizes) - 1):
+        layers += [ResLayer(sizes[i], sizes[i + 1])]
+    
     return torch.nn.Sequential(*layers).cuda()
 
 # Cursed? Idk
@@ -295,7 +322,34 @@ class MultiMlp(torch.nn.Module):
 
     def __call__(self, x):
         return self.forward(x)
+    
+def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> torch.nn.Conv2d:
+    """1x1 convolution"""
+    return torch.nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
+class ResLayer(torch.nn.Module):
+    def __init__(self, input_channels, n_kernels) -> torch.nn.Module:
+        super().__init__()
+
+        self.conv1 = torch.nn.Conv2d(3, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = torch.nn.BatchNorm2d(256)
+        self.conv2 = torch.nn.Conv2d(3, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = torch.nn.BatchNorm2d(256)
+        self.relu = torch.nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        input = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out += input
+
+        return self.relu(out)
+
+    def __call__(self, x):
+        return self.forward(x)
 
 class ValueEncoder:
     """Encoder for reward and value targets from Appendix of MuZero Paper."""

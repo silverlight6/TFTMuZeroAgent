@@ -1103,6 +1103,8 @@ def leesin(champion):
     # draw a line from lee to target and continue it until it hits an edge
     if not champion.target:
         field.find_target(champion)
+    if not champion.target:
+        return
     if len(champion.enemy_team()) > 0:
         line_to_wall_behind_target = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y,
                                                                                          champion.target.x)
@@ -2602,8 +2604,9 @@ def yone(champion):
     coords = field.coordinates
 
     # Seal Fate
-    if (champion.maxmana == stats.MAXMANA[champion.name]):
-        if (not champion.target): field.find_target(champion)
+    if champion.maxmana == stats.MAXMANA[champion.name] and champion.target:
+        if (not champion.target):
+            field.find_target(champion)
         path = field.rectangle_from_champion_to_wall_behind_target(champion, stats.ABILITY_RADIUS[champion.name],
                                                                    champion.target.y, champion.target.x)
         for i, p in enumerate(path):

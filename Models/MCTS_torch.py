@@ -451,7 +451,7 @@ class MCTS:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 1.0
+        return 0.5
 
 
 def masked_distribution(x, use_exp, mask=None):
