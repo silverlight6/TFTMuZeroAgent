@@ -1,5 +1,5 @@
 #!/bin/sh
 cd ./core/ctree/
-sh make.sh
+CC="clang --std=c++11" sh make.sh
 cd ../../
 python3 main.py

@@ -122,35 +122,72 @@ class MCTS:
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
-            last_action = np.asarray(last_action)
+            batch_size = len(last_action)
+            
+            state_actions = []
+            state_mappings = []
 
-            # 0.003 seconds
-            if is_chance_node:
-                network_output = self.network.recurrent_state_inference(tensors_states, last_action)
+            chance_actions = []
+            chance_mappings = []
+            
+            for i, chance in enumerate(is_chance_node):
+                if chance:
+                    state_actions.append(last_action[i])
+                    state_mappings.append(i)
+                else:
+                    chance_actions.append(last_action[i])
+                    chance_mappings.append(i)
+                    
+            state_hidden = torch.index_select(tensors_states, 0, torch.tensor(state_mappings, dtype=torch.int32))
+            chance_hidden = torch.index_select(tensors_states, 0, torch.tensor(chance_mappings, dtype=torch.int32))
+                    
+            policy_logits = [None] * batch_size
+            mappings = [None] * batch_size
+            policy_sizes = [None] * batch_size
+            reward_pool = [None] * batch_size
+            value_pool = [None] * batch_size
+            hidden_states_nodes = [None] * batch_size
+                    
+            if state_actions:
+                state_output = self.network.recurrent_state_inference(state_hidden, np.asarray(state_actions))
+                local_policy_logits = [output_head.cpu().numpy() for output_head in state_output["policy_logits"]]
+                local_policy_logits, _, local_mappings, local_policy_sizes = \
+                    self.sample(local_policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
+                    
+                for i, mapping in enumerate(state_mappings):
+                    policy_logits[mapping] = local_policy_logits[i]
+                    mappings[mapping] = local_mappings[i]
+                    policy_sizes[mapping] = local_policy_sizes[i]
+                    reward_pool[mapping] = state_output["reward"][i]
+                    value_pool[mapping] = state_output["value"][i]
+                    hidden_states_nodes[mapping] = state_output["hidden_state"][i]
 
-            else:
-                network_output = self.network.recurrent_chance_inference(tensors_states, last_action)
-
-            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
-            value_pool = np.array(network_output["value"]).reshape(-1).tolist()
+            if chance_actions:
+                chance_output = self.network.recurrent_chance_inference(chance_hidden, np.asarray(chance_actions))
+                local_policy_logits = [output_head.cpu().tolist() for output_head in chance_output["policy_logits"]]
+                local_mappings = [[b'0']] * len(policy_logits)
+                local_policy_sizes = [config.CHANCE_STATES] * len(policy_logits)
+                
+                for i, mapping in enumerate(chance_mappings):
+                    policy_logits[mapping] = local_policy_logits[i]
+                    mappings[mapping] = local_mappings[i]
+                    policy_sizes[mapping] = local_policy_sizes[i]
+                    reward_pool[mapping] = chance_output["reward"][i]
+                    value_pool[mapping] = chance_output["value"][i]
+                    hidden_states_nodes[mapping] = chance_output["hidden_state"][i]
+                
+            # reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
+            # value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             diff = max(value_pool) - min(value_pool)
             if diff > 150.:
                 print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
-
-            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
-
-            # 0.014 seconds
-            # if not is_chance_node:
-            policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
-
+            
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
-            hidden_states_nodes = network_output["hidden_state"]
+            # hidden_states_nodes = network_output["hidden_state"]
             hidden_state_pool.append(hidden_states_nodes)
 
             hidden_state_index_x += 1
-
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,

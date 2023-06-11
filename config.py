@@ -4,7 +4,8 @@ import numpy as np
 NUM_CPUS = 28
 GPU_SIZE_PER_WORKER = 0.15
 
-DEVICE="mps"
+# DEVICE="mps"
+DEVICE="cpu"
 
 
 # AI RELATED VALUES START HERE
@@ -49,6 +50,9 @@ NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 300
 NUM_SIMULATIONS = 100
 SAMPLES_PER_PLAYER = 128  # Normal is 128
 UNROLL_STEPS = 5
+
+## Stochastic MuZero
+CHANCE_STATES = 25
 
 ### TRAINING ###
 BATCH_SIZE = 256

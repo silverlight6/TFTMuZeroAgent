@@ -71,7 +71,7 @@ cdef extern from "cnode.h" namespace "tree":
         vector[int] hidden_state_index_x_lst, hidden_state_index_y_lst, search_lens
         vector[vector[int]] last_actions
         vector[CNode*] nodes
-        bool is_chance_node
+        vector[bool] is_chance_node
 
     cdef void cback_propagate(vector[CNode*] &search_path, CMinMaxStats &min_max_stats, float value, float discount)
     void cbatch_back_propagate(int hidden_state_index_x, float discount, vector[float] rewards,

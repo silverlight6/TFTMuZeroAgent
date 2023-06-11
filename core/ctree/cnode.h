@@ -68,7 +68,7 @@ namespace tree {
             std::vector<std::vector<int>> last_actions;
             std::vector<CNode*> nodes;
             std::vector<std::vector<CNode*>> search_paths;
-            bool is_chance_node;
+            std::vector<bool> is_chance_node;
 
             CSearchResults();
             CSearchResults(int num);

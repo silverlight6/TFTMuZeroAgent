@@ -177,6 +177,6 @@ Outputs     - output_policy - List
 def map_distribution_to_sample(mapping, policy_logits):
     output_policy = []
     for i in range(policy_logits.shape[0]):
-        sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).cuda())
+        sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).to(config.DEVICE))
         output_policy.append(sampled_policy)
     return output_policy

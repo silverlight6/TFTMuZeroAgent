@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include "cnode.h"
 
 namespace tree {
@@ -282,11 +283,30 @@ namespace tree {
             cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
     }
+    
+    // Equivalent of np.random.choice
+    // This is used to sample from the child probs
+    int sample_from_probs(std::vector<float> &child_probs) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::discrete_distribution<> d(child_probs.begin(), child_probs.end());
+        return d(gen);
+    }
 
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
         const float epsilon = 0.00001;
         std::vector<int> max_index_lst;
+        
+        if (root->is_chance) {
+            std::vector<float> child_probs;
+            for (int a = 0; a < root->action_num; ++a) {
+                CNode* child = root->get_child(a);
+                child_probs.push_back(child->prior);
+            }
+            // sample from the child probs and return the action assoicated with that
+            return sample_from_probs(child_probs);
+        }
 
         for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
@@ -352,15 +372,22 @@ namespace tree {
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
 
+                std::cout << "Player: " << i << "is_chance: " << node->is_chance << std::endl;
+                std::cout<< "search_len: " << search_len << std::endl;
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+                if (node->is_chance) {
+                    // This is the chance_state
+                    last_action = {action, -1, -1};
+                } else {
+                    // Error here on seg fault, decode_action on stoi.
+                    // Pick the action from the mappings.
+                    std::string str_action = node->mappings[action];
 
-                // Error here on seg fault, decode_action on stoi.
-                // Pick the action from the mappings.
-                std::string str_action = node->mappings[action];
-
-                // Turn the internal next action into one that the model and environment can understand
-                last_action = decode_action(str_action);
+                    // Turn the internal next action into one that the model and environment can understand
+                    last_action = decode_action(str_action);
+                }
+                
 
                 // get next node
                 node = node->get_child(action);
@@ -377,7 +404,7 @@ namespace tree {
             results.last_actions.push_back(last_action);
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
-            results.is_chance_node = node->is_chance;
+            results.is_chance_node.push_back(node->is_chance);
         }
     }
 }

@@ -84,7 +84,7 @@ class PredictionNetwork(nn.Module):
 class AfterstateDynamicsNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+        self.action_encodings = mlp(config.CHANCE_STATES, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
         self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
                                                            num_layers=config.NUM_RNN_CELLS,
@@ -92,13 +92,15 @@ class AfterstateDynamicsNetwork(nn.Module):
         
     def forward(self, encoded_state, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+        print(action)
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.CHANCE_STATES)
+        # one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+        # one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
+        # one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
 
-        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
-
-        action_encodings = self.action_encodings(action_one_hot)
+        # action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+        # action_encodings = self.action_encodings(action_one_hot.float())
+        action_encodings = self.action_encodings(one_hot_action.float())
 
         lstm_state = flat_to_lstm_input(encoded_state)
 
@@ -116,8 +118,10 @@ class AfterstateDynamicsNetwork(nn.Module):
 class AfterstatePredictionNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.afterstate_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        # self.afterstate_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
+        #                                           config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        
+        self.afterstate_policy_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.CHANCE_STATES)
     
         self.afterstate_value_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, config.ENCODER_NUM_STEPS)
