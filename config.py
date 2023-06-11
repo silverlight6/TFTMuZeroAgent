@@ -4,6 +4,8 @@ import numpy as np
 NUM_CPUS = 28
 GPU_SIZE_PER_WORKER = 0.15
 
+DEVICE="mps"
+
 
 # AI RELATED VALUES START HERE
 

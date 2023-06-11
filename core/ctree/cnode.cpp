@@ -25,9 +25,10 @@ namespace tree {
         this->reward = 0.0;
         this->ptr_node_pool = nullptr;
         this->mappings = std::vector<std::string>{};
+        this->is_chance = false;
     }
 
-    CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool) {
+    CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool, bool is_chance) {
         this->prior = prior;
         this->action_num = 0;
         this->visit_count = 0;
@@ -37,6 +38,7 @@ namespace tree {
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
         this->mappings = std::vector<std::string>{};
+        this->is_chance = is_chance;
     }
 
     CNode::~CNode() {}
@@ -88,7 +90,7 @@ namespace tree {
             this->children_index.push_back(index);
 
             // Add all of the nodes children to the ptr_node_pool
-            ptr_node_pool->push_back(CNode(prior, ptr_node_pool));
+            ptr_node_pool->push_back(CNode(prior, ptr_node_pool, !this->is_chance));
         }
     }
 
@@ -168,7 +170,8 @@ namespace tree {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, &this->node_pools[i]));
+            // The root node is always the output of the initial inference
+            this->roots.push_back(CNode(0, &this->node_pools[i], false));
         }
     }
 
@@ -374,6 +377,7 @@ namespace tree {
             results.last_actions.push_back(last_action);
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
+            results.is_chance_node = node->is_chance;
         }
     }
 }

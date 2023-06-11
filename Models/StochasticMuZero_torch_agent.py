@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import config
 import collections
 import numpy as np
@@ -53,54 +54,44 @@ class AbstractNetwork(torch.nn.Module):
             print("Loading model episode {}".format(episode))
         else:
             print("Initializing model with new weights.")
-
-
-class MuZeroNetwork(AbstractNetwork):
+            
+class RepresentationNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.full_support_size = config.ENCODER_NUM_STEPS
-
         self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                           config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
-
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
-
-        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
-                                                           num_layers=config.NUM_RNN_CELLS,
-                                                           hidden_size=config.LSTM_SIZE, batch_first=True).cuda()
-
-        self.dynamics_reward_network = mlp(config.HIDDEN_STATE_SIZE, [1] * 1, self.full_support_size)
-
+        
+    def forward(self, observation):
+        observation = torch.from_numpy(observation).float().to(config.DEVICE)
+        encoded_state = self.representation_network(observation)
+        return scale_hidden_state(encoded_state)
+    
+class PredictionNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
         self.prediction_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                                   config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
 
         self.prediction_value_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
-
-        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
-
-        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
-
-    def prediction(self, encoded_state):
+                                            config.N_HEAD_HIDDEN_LAYERS, config.ENCODER_NUM_STEPS)
+        
+    def forward(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
         value = self.prediction_value_network(encoded_state)
         return policy_logits, value
+        
 
-    def representation(self, observation):
-        observation = torch.from_numpy(observation).float().cuda()
-        encoded_state = self.representation_network(observation)
-        # Scale encoded state between [0, 1] (See appendix paper Training)
-        min_encoded_state = encoded_state.min(1, keepdim=True)[0]
-        max_encoded_state = encoded_state.max(1, keepdim=True)[0]
-        scale_encoded_state = max_encoded_state - min_encoded_state
-        scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
-        encoded_state_normalized = (
-                                           encoded_state - min_encoded_state
-                                   ) / scale_encoded_state
-        return encoded_state_normalized
+class AfterstateDynamicsNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
-    def dynamics(self, hidden_state, action):
-        action = torch.from_numpy(action).to('cuda').to(torch.int64)
+        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
+                                                           num_layers=config.NUM_RNN_CELLS,
+                                                           hidden_size=config.LSTM_SIZE, batch_first=True).to(config.DEVICE)
+        
+    def forward(self, encoded_state, action):
+        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
         one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
         one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
         one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
@@ -109,7 +100,7 @@ class MuZeroNetwork(AbstractNetwork):
 
         action_encodings = self.action_encodings(action_one_hot)
 
-        lstm_state = self.flat_to_lstm_input(hidden_state)
+        lstm_state = flat_to_lstm_input(encoded_state)
 
         inputs = action_encodings
         inputs = inputs[:, None, :]
@@ -118,20 +109,79 @@ class MuZeroNetwork(AbstractNetwork):
         _, new_nested_states = self.dynamics_hidden_state_network(inputs,
                                                                   (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
 
-        next_hidden_state = self.rnn_to_flat(new_nested_states)  # (8, 1024) ##DOUBLE CHECK THIS
+        next_hidden_state = rnn_to_flat(new_nested_states)
+        
+        return scale_hidden_state(next_hidden_state)
+    
+class AfterstatePredictionNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.afterstate_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
+                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+    
+        self.afterstate_value_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
+                                            config.N_HEAD_HIDDEN_LAYERS, config.ENCODER_NUM_STEPS)
+        
+    def forward(self, afterstate):
+        policy_logits = self.afterstate_policy_network(afterstate)
+        value = self.afterstate_value_network(afterstate)
+        return policy_logits, value
+    
+class DynamicsNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+
+        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
+                                                           num_layers=config.NUM_RNN_CELLS,
+                                                           hidden_size=config.LSTM_SIZE, batch_first=True).to(config.DEVICE)
+
+        self.dynamics_reward_network = mlp(config.HIDDEN_STATE_SIZE, [1] * 1, config.ENCODER_NUM_STEPS)
+        
+    def forward(self, afterstate, action):
+        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
+        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+
+        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+
+        action_encodings = self.action_encodings(action_one_hot)
+
+        lstm_state = flat_to_lstm_input(afterstate)
+
+        inputs = action_encodings
+        inputs = inputs[:, None, :]
+
+        h0, c0 = list(zip(*lstm_state))
+        _, new_nested_states = self.dynamics_hidden_state_network(inputs,
+                                                                  (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
+
+        next_hidden_state = rnn_to_flat(new_nested_states)  # (8, 1024) ##DOUBLE CHECK THIS
 
         reward = self.dynamics_reward_network(next_hidden_state)
+        
+        return scale_hidden_state(next_hidden_state), reward
+    
 
-        # Scale encoded state between [0, 1] (See paper appendix Training)
-        min_next_hidden_state = next_hidden_state.min(1, keepdim=True)[0]
-        max_next_hidden_state = next_hidden_state.max(1, keepdim=True)[0]
-        scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
-        scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
-        next_hidden_state_normalized = (
-                                               next_hidden_state - min_next_hidden_state
-                                       ) / scale_next_hidden_state
+class StochasticMuZeroNetwork(AbstractNetwork):
+    def __init__(self):
+        super().__init__()
+        self.full_support_size = config.ENCODER_NUM_STEPS
 
-        return next_hidden_state_normalized, reward
+        self.representation= RepresentationNetwork()
+
+        self.afterstate_dynamics= AfterstateDynamicsNetwork()
+
+        self.afterstate_prediction= AfterstatePredictionNetwork()
+
+        self.dynamics = DynamicsNetwork()
+
+        self.prediction = PredictionNetwork()
+
+        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
     def initial_inference(self, observation):
         hidden_state = self.representation(observation)
@@ -151,31 +201,30 @@ class MuZeroNetwork(AbstractNetwork):
             "hidden_state": hidden_state
         }
         return outputs
+    
+    def recurrent_chance_inference(self, hidden_state, action):
+        afterstate = self.afterstate_dynamics(hidden_state, action)
+        chance_logits, value_logits = self.afterstate_prediction(afterstate)
 
-    @staticmethod
-    def rnn_to_flat(state):
-        """Maps LSTM state to flat vector."""
-        states = []
-        for cell_state in state:
-            states.extend(cell_state)
-        return torch.cat(states, dim=-1)
-
-    @staticmethod
-    def flat_to_lstm_input(state):
-        """Maps flat vector to LSTM state."""
-        tensors = []
-        cur_idx = 0
-        for size in config.RNN_SIZES:
-            states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
-
-            cur_idx += 2 * size
-            tensors.append(states)
-        # assert cur_idx == state.shape[-1]
-        return tensors
-
-    def recurrent_inference(self, hidden_state, action):
-        next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
+        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
+        
+        reward = np.zeros(hidden_state.shape[0])
+        reward_logits = self.reward_encoder.encode(reward)
+        
+        
+        outputs = {
+            "value": value,
+            "value_logits": value_logits,
+            "reward": reward,
+            "reward_logits": reward_logits,
+            "policy_logits": chance_logits,
+            "hidden_state": afterstate,
+        }
+        
+        return outputs
+    
+    def recurrent_state_inference(self, afterstate, action):
+        next_hidden_state, reward_logits = self.dynamics(afterstate, action)
         policy_logits, value_logits = self.prediction(next_hidden_state)
 
         value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
@@ -191,7 +240,6 @@ class MuZeroNetwork(AbstractNetwork):
         }
         return outputs
 
-
 def mlp(
         input_size,
         layer_sizes,
@@ -204,7 +252,7 @@ def mlp(
     for i in range(len(sizes) - 1):
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
-    return torch.nn.Sequential(*layers).cuda()
+    return torch.nn.Sequential(*layers).to(config.DEVICE)
 
 
 # Cursed? Idk
@@ -227,28 +275,28 @@ class MultiMlp(torch.nn.Module):
         layers += [torch.nn.Linear(input_size, layer_size[0]), activation()]
         for i in range(len(layer_size) - 1):
             layers += [torch.nn.Linear(layer_size[i], layer_size[i + 1]), activation()]
-        self.encoding_layer = torch.nn.Sequential(*layers).cuda()
+        self.encoding_layer = torch.nn.Sequential(*layers).to(config.DEVICE)
 
         self.head_0 = torch.nn.Sequential(
             torch.nn.Linear(layer_size[-1], output_sizes[0]),
             output_activation()
-        ).cuda()
+        ).to(config.DEVICE)
 
         self.head_1 = torch.nn.Sequential(
             torch.nn.Linear(layer_size[-1], output_sizes[1]),
-            output_activation()).cuda()
+            output_activation()).to(config.DEVICE)
 
         self.head_2 = torch.nn.Sequential(
             torch.nn.Linear(layer_size[-1], output_sizes[2]),
-            output_activation()).cuda()
+            output_activation()).to(config.DEVICE)
 
         self.head_3 = torch.nn.Sequential(
             torch.nn.Linear(layer_size[-1], output_sizes[3]),
-            output_activation()).cuda()
+            output_activation()).to(config.DEVICE)
 
         self.head_4 = torch.nn.Sequential(
             torch.nn.Linear(layer_size[-1], output_sizes[4]),
-            output_activation()).cuda()
+            output_activation()).to(config.DEVICE)
 
     def forward(self, x):
         # Encode the hidden state
@@ -340,3 +388,34 @@ def inverse_contractive_mapping(x, eps=0.001):
 # Softmax function in np because we're converting it anyway
 def softmax_stable(x):
     return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def scale_hidden_state(x):
+    min_next_hidden_state = x.min(1, keepdim=True)[0]
+    max_next_hidden_state = x.max(1, keepdim=True)[0]
+    scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
+    scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
+    next_hidden_state_normalized = (
+                                           x - min_next_hidden_state
+                                   ) / scale_next_hidden_state
+
+    return next_hidden_state_normalized
+
+def rnn_to_flat(state):
+    """Maps LSTM state to flat vector."""
+    states = []
+    for cell_state in state:
+        states.extend(cell_state)
+    return torch.cat(states, dim=-1)
+
+def flat_to_lstm_input(state):
+    """Maps flat vector to LSTM state."""
+    tensors = []
+    cur_idx = 0
+    for size in config.RNN_SIZES:
+        states = (state[Ellipsis, cur_idx:cur_idx + size],
+                  state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+
+        cur_idx += 2 * size
+        tensors.append(states)
+    # assert cur_idx == state.shape[-1]
+    return tensors

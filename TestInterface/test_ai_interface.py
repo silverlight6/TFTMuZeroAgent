@@ -9,11 +9,13 @@ from TestInterface.test_replay_wrapper import BufferWrapper
 
 from Simulator import utils
 
-from Models.MCTS_torch import MCTS
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+# from Models.MCTS_torch import MCTS
+# from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.Stochastic_MCTS_torch import MCTS
+from Models.StochasticMuZero_torch_agent import StochasticMuZeroNetwork as TFTNetwork
+
 from Models import MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
-
 
 class DataWorker(object):
     def __init__(self, rank):
@@ -28,7 +30,7 @@ class DataWorker(object):
         self.agent_network.set_weights(weights)
         agent = MCTS(self.agent_network)
         # Reset the environment
-        player_observation = env.reset()
+        player_observation, info = env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = self.observation_to_input(player_observation)
 

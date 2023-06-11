@@ -16,6 +16,7 @@ namespace tree {
         public:
             int visit_count, action_num, hidden_state_index_x, hidden_state_index_y;
             float reward, prior, value_sum;
+            bool is_chance;
             std::vector<int> children_index;
             std::vector<CNode>* ptr_node_pool;
             // This is used to map the action from the 1d to the multi dim that the environment can use
@@ -23,7 +24,7 @@ namespace tree {
             std::vector<std::string> mappings;
 
             CNode();
-            CNode(float prior, std::vector<CNode> *ptr_node_pool);
+            CNode(float prior, std::vector<CNode> *ptr_node_pool, bool is_chance);
             ~CNode();
 
             void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
@@ -67,6 +68,7 @@ namespace tree {
             std::vector<std::vector<int>> last_actions;
             std::vector<CNode*> nodes;
             std::vector<std::vector<CNode*>> search_paths;
+            bool is_chance_node;
 
             CSearchResults();
             CSearchResults(int num);

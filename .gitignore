@@ -12,6 +12,7 @@ log.txt
 libdevice.10.bc
 /Checkpoints
 /core/build
+core/ctree/cytree.cpython-310-darwin.so
 /core/ctree/cytree.cpython-38-x86_64-linux-gnu.so
 /core/ctree/cytree.cpp
 /core/ctree/build
