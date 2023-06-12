@@ -122,6 +122,7 @@ class MCTS:
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
+
             batch_size = len(last_action)
             
             state_actions = []
@@ -148,13 +149,13 @@ class MCTS:
             value_pool = [None] * batch_size
             hidden_states_nodes = [None] * batch_size
                     
-            if state_actions:
-                state_output = self.network.recurrent_state_inference(state_hidden, np.asarray(state_actions))
+            if chance_actions:
+                state_output = self.network.recurrent_state_inference(chance_hidden, np.asarray(chance_actions))
                 local_policy_logits = [output_head.cpu().numpy() for output_head in state_output["policy_logits"]]
                 local_policy_logits, _, local_mappings, local_policy_sizes = \
                     self.sample(local_policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
                     
-                for i, mapping in enumerate(state_mappings):
+                for i, mapping in enumerate(chance_mappings):
                     policy_logits[mapping] = local_policy_logits[i]
                     mappings[mapping] = local_mappings[i]
                     policy_sizes[mapping] = local_policy_sizes[i]
@@ -162,20 +163,20 @@ class MCTS:
                     value_pool[mapping] = state_output["value"][i]
                     hidden_states_nodes[mapping] = state_output["hidden_state"][i]
 
-            if chance_actions:
-                chance_output = self.network.recurrent_chance_inference(chance_hidden, np.asarray(chance_actions))
+            if state_actions:
+                chance_output = self.network.recurrent_chance_inference(state_hidden, np.asarray(state_actions))
                 local_policy_logits = [output_head.cpu().tolist() for output_head in chance_output["policy_logits"]]
-                local_mappings = [[b'0']] * len(policy_logits)
+                local_mappings = [[b'-1']] * len(policy_logits)
                 local_policy_sizes = [config.CHANCE_STATES] * len(policy_logits)
                 
-                for i, mapping in enumerate(chance_mappings):
+                for i, mapping in enumerate(state_mappings):
                     policy_logits[mapping] = local_policy_logits[i]
                     mappings[mapping] = local_mappings[i]
                     policy_sizes[mapping] = local_policy_sizes[i]
                     reward_pool[mapping] = chance_output["reward"][i]
                     value_pool[mapping] = chance_output["value"][i]
                     hidden_states_nodes[mapping] = chance_output["hidden_state"][i]
-                
+                    
             # reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
             # value_pool = np.array(network_output["value"]).reshape(-1).tolist()
             diff = max(value_pool) - min(value_pool)

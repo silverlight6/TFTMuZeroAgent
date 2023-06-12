@@ -53,6 +53,7 @@ namespace tree {
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
+
         // Mapping to turn a set of samples into a 3 dimensional output that the simulation can understand
         this->mappings = std::vector<std::string> {};
         for (auto i = 0; i < mappings.size(); i++) {
@@ -372,8 +373,6 @@ namespace tree {
             results.search_paths[i].push_back(node);
             while(node->expanded()) {
 
-                std::cout << "Player: " << i << "is_chance: " << node->is_chance << std::endl;
-                std::cout<< "search_len: " << search_len << std::endl;
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
                 if (node->is_chance) {

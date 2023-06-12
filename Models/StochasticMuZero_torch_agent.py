@@ -84,7 +84,7 @@ class PredictionNetwork(nn.Module):
 class AfterstateDynamicsNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.action_encodings = mlp(config.CHANCE_STATES, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
         self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
                                                            num_layers=config.NUM_RNN_CELLS,
@@ -92,15 +92,13 @@ class AfterstateDynamicsNetwork(nn.Module):
         
     def forward(self, encoded_state, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        print(action)
-        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.CHANCE_STATES)
-        # one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        # one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
-        # one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
+        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
 
-        # action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
-        # action_encodings = self.action_encodings(action_one_hot.float())
-        action_encodings = self.action_encodings(one_hot_action.float())
+        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+
+        action_encodings = self.action_encodings(action_one_hot.float())
 
         lstm_state = flat_to_lstm_input(encoded_state)
 
@@ -134,7 +132,7 @@ class AfterstatePredictionNetwork(nn.Module):
 class DynamicsNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+        self.action_encodings = mlp(config.CHANCE_STATES, [config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
         self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
                                                            num_layers=config.NUM_RNN_CELLS,
@@ -144,13 +142,9 @@ class DynamicsNetwork(nn.Module):
         
     def forward(self, afterstate, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.CHANCE_STATES)
 
-        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
-
-        action_encodings = self.action_encodings(action_one_hot)
+        action_encodings = self.action_encodings(one_hot_action.float())
 
         lstm_state = flat_to_lstm_input(afterstate)
 
