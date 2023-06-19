@@ -44,8 +44,8 @@ class DataWorker(object):
         while not all(terminated.values()):
             # Ask our model for an action and policy
             actions, policy, string_samples = agent.policy(player_observation)
-            step_actions = self.getStepActions(terminated, actions)
             storage_actions = utils.decode_action(actions)
+            step_actions = self.getStepActions(terminated, storage_actions)
 
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -67,7 +67,8 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
