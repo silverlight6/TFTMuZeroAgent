@@ -16,9 +16,14 @@ from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
 
-from Models.MCTS_torch import MCTS
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-import Models.MuZero_torch_trainer as MuZero_trainer
+if config.STOCHASTIC:
+    from Models.Stochastic_MCTS_torch import MCTS
+    from Models.StochasticMuZero_torch_agent import StochasticMuZeroNetwork as TFTNetwork
+    from Models.Stochastic_MuZero_trainer import Trainer
+else:
+    from Models.MCTS_torch import MCTS
+    from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+    from Models.MuZero_torch_trainer import Trainer
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -242,9 +247,9 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
-        global_agent.to("cuda")
+        global_agent.to(config.DEVICE)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
+        trainer = Trainer(global_agent, train_summary_writer)
 
         env = parallel_env()
 
@@ -263,7 +268,7 @@ class AIInterface:
         while True:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch, train_step)
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
