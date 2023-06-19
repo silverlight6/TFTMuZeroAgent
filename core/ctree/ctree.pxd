@@ -1,5 +1,7 @@
 # distutils: language=c++
 from libcpp.vector cimport vector
+from libcpp cimport bool
+
 
 cdef extern from "cminimax.cpp":
     pass
@@ -32,6 +34,7 @@ cdef extern from "cnode.h" namespace "tree":
         CNode(float prior, vector[CNode]* ptr_node_pool) except +
         int visit_count, action_num, hidden_state_index_x, hidden_state_index_y
         float reward, prior, value_sum
+        bool is_chance
         vector[int] children_index
         vector[CNode]* ptr_node_pool
         vector[char*] mappings
@@ -68,6 +71,7 @@ cdef extern from "cnode.h" namespace "tree":
         vector[int] hidden_state_index_x_lst, hidden_state_index_y_lst, search_lens
         vector[vector[int]] last_actions
         vector[CNode*] nodes
+        vector[bool] is_chance_node
 
     cdef void cback_propagate(vector[CNode*] &search_path, CMinMaxStats &min_max_stats, float value, float discount)
     void cbatch_back_propagate(int hidden_state_index_x, float discount, vector[float] rewards,

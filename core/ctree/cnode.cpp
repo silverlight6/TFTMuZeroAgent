@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include "cnode.h"
 
 namespace tree {
@@ -25,9 +26,10 @@ namespace tree {
         this->reward = 0.0;
         this->ptr_node_pool = nullptr;
         this->mappings = std::vector<std::string>{};
+        this->is_chance = false;
     }
 
-    CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool) {
+    CNode::CNode(float prior, std::vector<CNode>* ptr_node_pool, bool is_chance) {
         this->prior = prior;
         this->action_num = 0;
         this->visit_count = 0;
@@ -37,6 +39,7 @@ namespace tree {
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
         this->mappings = std::vector<std::string>{};
+        this->is_chance = is_chance;
     }
 
     CNode::~CNode() {}
@@ -50,6 +53,7 @@ namespace tree {
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
+
         // Mapping to turn a set of samples into a 3 dimensional output that the simulation can understand
         this->mappings = std::vector<std::string> {};
         for (auto i = 0; i < mappings.size(); i++) {
@@ -88,7 +92,7 @@ namespace tree {
             this->children_index.push_back(index);
 
             // Add all of the nodes children to the ptr_node_pool
-            ptr_node_pool->push_back(CNode(prior, ptr_node_pool));
+            ptr_node_pool->push_back(CNode(prior, ptr_node_pool, !this->is_chance));
         }
     }
 
@@ -168,7 +172,8 @@ namespace tree {
             this->node_pools.push_back(std::vector<CNode>());
             this->node_pools[i].reserve(pool_size);
 
-            this->roots.push_back(CNode(0, &this->node_pools[i]));
+            // The root node is always the output of the initial inference
+            this->roots.push_back(CNode(0, &this->node_pools[i], false));
         }
     }
 
@@ -279,11 +284,30 @@ namespace tree {
             cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
     }
+    
+    // Equivalent of np.random.choice
+    // This is used to sample from the child probs
+    int sample_from_probs(std::vector<float> &child_probs) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::discrete_distribution<> d(child_probs.begin(), child_probs.end());
+        return d(gen);
+    }
 
     int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
         float max_score = FLOAT_MIN;
         const float epsilon = 0.00001;
         std::vector<int> max_index_lst;
+        
+        if (root->is_chance) {
+            std::vector<float> child_probs;
+            for (int a = 0; a < root->action_num; ++a) {
+                CNode* child = root->get_child(a);
+                child_probs.push_back(child->prior);
+            }
+            // sample from the child probs and return the action assoicated with that
+            return sample_from_probs(child_probs);
+        }
 
         for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
@@ -351,14 +375,18 @@ namespace tree {
 
                 // pick the next action to simulate
                 int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+                if (node->is_chance) {
+                    // This is the chance_state
+                    last_action = {action, -1, -1};
+                } else {
+                    // Error here on seg fault, decode_action on stoi.
+                    // Pick the action from the mappings.
+                    std::string str_action = node->mappings[action];
 
-                // Error here on seg fault, decode_action on stoi.
-                // Pick the action from the mappings.
-                std::string str_action = node->mappings[action];
-
-                // Turn the internal next action into one that the model and environment can understand
-                last_action = decode_action(str_action);
-
+                    // Turn the internal next action into one that the model and environment can understand
+                    last_action = decode_action(str_action);
+                }
+                
                 // get next node
                 node = node->get_child(action);
 
@@ -374,6 +402,7 @@ namespace tree {
             results.last_actions.push_back(last_action);
             results.search_lens.push_back(search_len);
             results.nodes.push_back(node);
+            results.is_chance_node.push_back(node->is_chance);
         }
     }
 }

@@ -83,20 +83,22 @@ class Step_Function:
         if player:
             # action format = 0:7 (action_selector),
             # 7:44 (champ_loc_target), 44:54 (item_loc_target)
-            action_selector = np.argmax(action[0:7])
+            action_selector = action[0]
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()
                 game_observations[key].generate_other_player_vectors(player, players)
                 player.print(f"pass action")
             elif action_selector == 1:
                 # Buy from shop
-                champ_shop_target = np.argmax(action[7:12])
+                champ_shop_target = action[1]
                 self.batch_shop(champ_shop_target, player, game_observations[key], key)
             elif action_selector == 2:
                 # Swap champ place
-                target_1 = np.argmax(action[7:43])
-                action[target_1 + 7] = 0
-                target_2 = np.argmax(action[7:43])
+                # target_1 = np.argmax(action[7:43])
+                # action[target_1 + 7] = 0
+                # target_2 = np.argmax(action[7:43])
+                target_1 = action[1]
+                target_2 = action[2]
                 swap_loc_from = min(target_1, target_2)
                 swap_loc_to = max(target_1, target_2)
                 # Swap from swap_loc_from to swap_loc_to
@@ -115,10 +117,13 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
+                        game_observations[key].generate_game_comps_vector()
             elif action_selector == 3:
                 # Place item on champ
-                item_selector = np.argmax(action[44:54])
-                move_loc = np.argmax(action[7:43])
+                # item_selector = np.argmax(action[44:54])
+                # move_loc = np.argmax(action[7:43])
+                item_selector = action[2]
+                move_loc = action[1]
                 if move_loc >= 28:
                     move_loc -= 28
                     player.move_item_to_bench(item_selector, move_loc)
@@ -127,7 +132,8 @@ class Step_Function:
                     player.move_item_to_board(item_selector, x, y)
             elif action_selector == 4:
                 # Sell Champ
-                target_1 = np.argmax(action[7:43])
+                # target_1 = np.argmax(action[7:43])
+                target_1 = action[1]
                 player.sell_from_bench(target_1) # We only allow selling from bench
                 # if target_1 < 28:
                 #     x, y = self.dcord_to_2dcord(target_1)

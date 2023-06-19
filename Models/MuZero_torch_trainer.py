@@ -10,15 +10,16 @@ Prediction = collections.namedtuple(
 
 
 class Trainer(object):
-    def __init__(self, global_agent):
-        self.global_agent = global_agent
+    def __init__(self, global_agent, train_summary_writer):
+        self.agent = global_agent
         self.init_learning_rate = config.INIT_LEARNING_RATE
         self.decay_steps = config.WEIGHT_DECAY
         self.alpha = config.LR_DECAY_FUNCTION
         self.optimizer = self.create_optimizer()
+        self.train_summary_writer = train_summary_writer
 
     def create_optimizer(self):
-        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
+        optimizer = torch.optim.Adam(self.agent.parameters(), lr=config.INIT_LEARNING_RATE,
                                      weight_decay=config.WEIGHT_DECAY)
         return optimizer
 
@@ -35,16 +36,17 @@ class Trainer(object):
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
 
-    def train_network(self, batch, agent, train_step, summary_writer):
+    def train_network(self, batch, train_step):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
-
+        self.agent.train()
+        
         self.optimizer.zero_grad()
 
         sample_set, policy = split_batch(sample_set, policy)  # [unroll_steps, num_dims, [(batch_size, dim) ...] ]
 
-        loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
-                                 value, reward, policy, sample_set, train_step, summary_writer)
+        loss = self.compute_loss(observation, history, value_mask, reward_mask, policy_mask,
+                                 value, reward, policy, sample_set, train_step)
 
         loss = loss.mean()
 
@@ -70,12 +72,35 @@ class Trainer(object):
         
         handles = []
 
-        for i, sample in enumerate(samples):
-            handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.\
-                register_hook(lambda grad: filter_grad(grad, sample))
-            handle2 = self.global_agent.prediction_policy_network.output_heads[i][0].bias.\
-                register_hook(lambda grad: filter_grad(grad, sample))
-            handles.extend([handle1, handle2])
+        handle1 = self.agent.prediction_policy_network.head_0[0].weight. \
+            register_hook(lambda grad: filter_grad(grad, samples[0]))
+        handle2 = self.agent.prediction_policy_network.head_0[0].bias. \
+            register_hook(lambda grad: filter_grad(grad, samples[0]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.agent.prediction_policy_network.head_1[0].weight. \
+            register_hook(lambda grad: filter_grad(grad, samples[1]))
+        handle2 = self.agent.prediction_policy_network.head_1[0].bias. \
+            register_hook(lambda grad: filter_grad(grad, samples[1]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.agent.prediction_policy_network.head_2[0].weight. \
+            register_hook(lambda grad: filter_grad(grad, samples[2]))
+        handle2 = self.global_agent.prediction_policy_network.head_2[0].bias. \
+            register_hook(lambda grad: filter_grad(grad, samples[2]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.agent.prediction_policy_network.head_3[0].weight. \
+            register_hook(lambda grad: filter_grad(grad, samples[3]))
+        handle2 = self.agent.prediction_policy_network.head_3[0].bias. \
+            register_hook(lambda grad: filter_grad(grad, samples[3]))
+        handles.extend([handle1, handle2])
+
+        handle1 = self.agent.prediction_policy_network.head_4[0].weight. \
+            register_hook(lambda grad: filter_grad(grad, samples[4]))
+        handle2 = self.agent.prediction_policy_network.head_4[0].bias. \
+            register_hook(lambda grad: filter_grad(grad, samples[4]))
+        handles.extend([handle1, handle2])
 
         loss.backward()
 
@@ -84,8 +109,8 @@ class Trainer(object):
         for handle in handles:
             handle.remove()
 
-    def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
-                     target_value, target_reward, target_policy, sample_set, train_step, summary_writer):
+    def compute_loss(self, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
+                     target_value, target_reward, target_policy, sample_set, train_step):
 
         target_value_mask = torch.from_numpy(target_value_mask).to('cuda')
         target_reward_mask = torch.from_numpy(target_reward_mask).to('cuda')
@@ -94,7 +119,7 @@ class Trainer(object):
         target_value = torch.from_numpy(target_value).to('cuda')
 
         # initial step
-        output = agent.initial_inference(observation)  # [num_dims, [(batch_size, dim) ...] ]
+        output = self.agent.initial_inference(observation)  # [num_dims, [(batch_size, dim) ...] ]
 
         predictions = [
             Prediction(
@@ -113,7 +138,7 @@ class Trainer(object):
             hidden_state_gradient_scale = 1.0 if rstep == 0 else 0.5
             hidden_state = output["hidden_state"]
             hidden_state.requires_grad_(True).register_hook(lambda grad: grad * hidden_state_gradient_scale)
-            output = agent.recurrent_inference(
+            output = self.agent.recurrent_inference(
                 hidden_state,
                 history[:, rstep],
             )
@@ -143,8 +168,8 @@ class Trainer(object):
         target_reward_encoded, target_value_encoded = (torch.reshape(
             torch.tensor(enc.encode(torch.reshape(v, (-1,)).to('cpu'))).to('cuda'),
             (-1, num_target_steps,
-             int(enc.num_steps))) for enc, v in ((agent.reward_encoder, target_reward),
-                                                 (agent.value_encoder, target_value)))
+             int(enc.num_steps))) for enc, v in ((self.agent.reward_encoder, target_reward),
+                                                 (self.agent.value_encoder, target_value)))
 
         accs = collections.defaultdict(list)
         for tstep, prediction in enumerate(predictions):
@@ -159,21 +184,15 @@ class Trainer(object):
             reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits
 
-            value_loss = (-target_value_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
+            value_loss = (-target_value_encoded[:, tstep] * torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
-            accs['value_loss'].append(
-                value_loss
-            )
+            accs['value_loss'].append(value_loss)
 
-            reward_loss = (-target_reward_encoded[:, tstep] *
-                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
+            reward_loss = (-target_reward_encoded[:, tstep] * torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
-            accs['reward_loss'].append(
-                reward_loss
-            )
+            accs['reward_loss'].append(reward_loss)
 
             # future ticket
             # entropy_loss = -tfd.Independent(tfd.Categorical(
@@ -225,7 +244,7 @@ class Trainer(object):
         if config.WEIGHT_DECAY > 0.:
             l2_loss = config.WEIGHT_DECAY * sum(
                 self.l2_loss(p)
-                for p in agent.parameters())
+                for p in self.agent.parameters())
         else:
             l2_loss = mean_loss * 0.
 
@@ -239,24 +258,26 @@ class Trainer(object):
         def get_mean(k):
             return torch.mean(sum_accs[k] / sum_masks[name_to_mask(k)])
 
-        summary_writer.add_scalar('prediction/value', get_mean('value'), train_step)
-        summary_writer.add_scalar('prediction/reward', get_mean('reward'), train_step)
+        self.summary_writer.add_scalar('prediction/value', get_mean('value'), train_step)
+        self.summary_writer.add_scalar('prediction/reward', get_mean('reward'), train_step)
 
-        summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
-        summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
+        self.summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
+        self.summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
 
-        summary_writer.add_scalar('losses/value', torch.mean(sum_accs['value_loss']), train_step)
-        summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss']), train_step)
-        summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss']), train_step)
-        summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
-        summary_writer.add_scalar('losses/l2', l2_loss, train_step)
+        self.summary_writer.add_scalar('losses/value', torch.mean(sum_accs['value_loss'] / config.UNROLL_STEPS), train_step)
+        self.summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss'] / config.UNROLL_STEPS),
+                                  train_step)
+        self.summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss'] / config.UNROLL_STEPS),
+                                  train_step)
+        self.summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
+        self.summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 
-        summary_writer.add_scalar('accuracy/value', -get_mean('value_diff'), train_step)
-        summary_writer.add_scalar('accuracy/reward', -get_mean('reward_diff'), train_step)
+        self.summary_writer.add_scalar('accuracy/value', -get_mean('value_diff'), train_step)
+        self.summary_writer.add_scalar('accuracy/reward', -get_mean('reward_diff'), train_step)
 
-        summary_writer.add_scalar('episode_max/reward', torch.max(target_reward), train_step)
-        summary_writer.add_scalar('episode_max/value', torch.max(target_value), train_step)
-        summary_writer.flush()
+        self.summary_writer.add_scalar('episode_max/reward', torch.max(target_reward), train_step)
+        self.summary_writer.add_scalar('episode_max/value', torch.max(target_value), train_step)
+        self.summary_writer.flush()
 
         return mean_loss
 

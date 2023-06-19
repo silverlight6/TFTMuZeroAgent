@@ -31,6 +31,7 @@ class GlobalBuffer:
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
 
+        # print(np.asarray(obs_tensor_batch).shape)
         observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')

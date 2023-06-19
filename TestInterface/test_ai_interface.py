@@ -9,11 +9,16 @@ from TestInterface.test_replay_wrapper import BufferWrapper
 
 from Simulator import utils
 
-from Models.MCTS_torch import MCTS
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models import MuZero_torch_trainer as MuZero_trainer
-from torch.utils.tensorboard import SummaryWriter
+if config.STOCHASTIC:
+    from Models.Stochastic_MCTS_torch import MCTS
+    from Models.StochasticMuZero_torch_agent import StochasticMuZeroNetwork as TFTNetwork
+    from Models.Stochastic_MuZero_trainer import Trainer
+else:
+    from Models.MCTS_torch import MCTS
+    from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+    from Models.MuZero_torch_trainer import Trainer
 
+from torch.utils.tensorboard import SummaryWriter
 
 class DataWorker(object):
     def __init__(self, rank):
@@ -28,7 +33,7 @@ class DataWorker(object):
         self.agent_network.set_weights(weights)
         agent = MCTS(self.agent_network)
         # Reset the environment
-        player_observation = env.reset()
+        player_observation, info = env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = self.observation_to_input(player_observation)
 
@@ -39,8 +44,8 @@ class DataWorker(object):
         while not all(terminated.values()):
             # Ask our model for an action and policy
             actions, policy, string_samples = agent.policy(player_observation)
-            step_actions = self.getStepActions(terminated, actions)
             storage_actions = utils.decode_action(actions)
+            step_actions = self.getStepActions(terminated, storage_actions)
 
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -62,7 +67,8 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
@@ -109,6 +115,7 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
+        train_summary_writer = SummaryWriter(train_log_dir)
 
         global_buffer = GlobalBuffer()
 
@@ -117,8 +124,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
-        train_summary_writer = SummaryWriter(train_log_dir)
+        trainer = Trainer(global_agent, train_summary_writer)
 
         while True:
             weights = global_agent.get_weights()
@@ -127,7 +133,7 @@ class AIInterface:
 
             while global_buffer.available_batch():
                 gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch, train_step)
                 train_step += 1
                 if train_step % 100 == 0:
                     global_agent.tft_save_model(train_step)
