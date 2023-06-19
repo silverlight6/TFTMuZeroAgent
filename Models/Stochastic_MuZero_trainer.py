@@ -40,6 +40,7 @@ class Trainer:
     def train_network(self, batch, train_step):
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, sample_set = batch
         self.adjust_lr(train_step)
+        torch.autograd.set_detect_anomaly(True)
 
         predictions = self.compute_forward(observation, action_history)
         
@@ -49,7 +50,7 @@ class Trainer:
         
         self.backpropagate()
         
-        self.summary_writer.add_scalar("loss", self.loss, self.train_step)
+        self.summary_writer.add_scalar("loss", self.loss, train_step)
         self.summary_writer.flush()
         
     def compute_forward(self, observation, action_history):
@@ -140,10 +141,10 @@ class Trainer:
         self.loss = self.loss.mean()
     
     def backpropagate(self):
+        print(self.loss)
         self.optimizer.zero_grad()
         self.loss.backward()
         self.optimizer.step()
-        
     
     # Convert target from 
     # [batch_size, unroll_steps]
@@ -216,8 +217,8 @@ class Trainer:
     # sum of { p * log ( p / q ) }
     def kl_divergence(self, prediction, target):
         # Add a small value to prevent log(0)
-        prediction += 1e-9
-        target += 1e-9
+        prediction = prediction + 1e-9
+        target = target + 1e-9
 
         return (target * (torch.log(target) - F.log_softmax(prediction, -1))).sum(-1)
     

@@ -159,14 +159,10 @@ class Encoder(nn.Module):
         # Encoder
         self.encoder = mlp(config.OBSERVATION_SIZE, [config.HIDDEN_STATE_SIZE] * 2, config.CHANCE_STATES)
         
-    # F.one_hot outputs a LongTensor instead of a float
-    def one_hot_1D(self, emb):
-        return torch.zeros_like(emb).scatter_(-1, torch.argmax(emb, dim=-1, keepdim=True), 1.)
-        
     def forward(self, observation):
         observation = torch.from_numpy(observation).float().to(config.DEVICE)
-        chance_embeddings = nn.Softmax(-1)(self.encoder(observation))
-        one_hot_code = self.one_hot_1D(chance_embeddings)
+        chance_embeddings = F.softmax(self.encoder(observation), -1)
+        one_hot_code = F.one_hot(torch.argmax(chance_embeddings, dim=-1), config.CHANCE_STATES).float()
         
         return one_hot_code, chance_embeddings
 
