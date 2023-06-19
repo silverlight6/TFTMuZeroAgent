@@ -9,12 +9,15 @@ from TestInterface.test_replay_wrapper import BufferWrapper
 
 from Simulator import utils
 
-# from Models.MCTS_torch import MCTS
-# from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.Stochastic_MCTS_torch import MCTS
-from Models.StochasticMuZero_torch_agent import StochasticMuZeroNetwork as TFTNetwork
+if config.STOCHASTIC:
+    from Models.Stochastic_MCTS_torch import MCTS
+    from Models.StochasticMuZero_torch_agent import StochasticMuZeroNetwork as TFTNetwork
+    from Models.Stochastic_MuZero_trainer import Trainer
+else:
+    from Models.MCTS_torch import MCTS
+    from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+    from Models.MuZero_torch_trainer import Trainer
 
-from Models import MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
 
 class DataWorker(object):
@@ -111,6 +114,7 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
+        train_summary_writer = SummaryWriter(train_log_dir)
 
         global_buffer = GlobalBuffer()
 
@@ -119,8 +123,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
-        train_summary_writer = SummaryWriter(train_log_dir)
+        trainer = Trainer(global_agent, train_summary_writer)
 
         while True:
             weights = global_agent.get_weights()
@@ -129,7 +132,7 @@ class AIInterface:
 
             while global_buffer.available_batch():
                 gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch, train_step)
                 train_step += 1
                 if train_step % 100 == 0:
                     global_agent.tft_save_model(train_step)

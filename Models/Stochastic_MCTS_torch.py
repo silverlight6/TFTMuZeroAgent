@@ -29,17 +29,18 @@ class MCTS:
 
     def policy(self, observation):
         with torch.no_grad():
-            self.NUM_ALIVE = observation[0].shape[0]
+            observation, mask = observation
+            self.NUM_ALIVE = observation.shape[0]
 
             # 0.02 seconds
-            network_output = self.network.initial_inference(observation[0])
+            network_output = self.network.initial_inference(observation)
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
             policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
 
             # 0.01 seconds
-            policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+            policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, mask)
         
             noises = [
                 [
@@ -139,8 +140,8 @@ class MCTS:
                     chance_actions.append(last_action[i])
                     chance_mappings.append(i)
                     
-            state_hidden = torch.index_select(tensors_states, 0, torch.tensor(state_mappings, dtype=torch.int32))
-            chance_hidden = torch.index_select(tensors_states, 0, torch.tensor(chance_mappings, dtype=torch.int32))
+            state_hidden = torch.index_select(tensors_states, 0, torch.tensor(state_mappings, dtype=torch.int32).to(config.DEVICE))
+            chance_hidden = torch.index_select(tensors_states, 0, torch.tensor(chance_mappings, dtype=torch.int32).to(config.DEVICE))
                     
             policy_logits = [None] * batch_size
             mappings = [None] * batch_size

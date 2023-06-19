@@ -116,6 +116,6 @@ class ReplayBuffer:
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
 
-                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
+                output_sample_set = [self.gameplay_experiences[sample:sample+config.UNROLL_STEPS + 1], action_set, value_mask_set, reward_mask_set,
                                      policy_mask_set, value_set, reward_set, policy_set, sample_set]
                 self.g_buffer.store_replay_sequence(output_sample_set)

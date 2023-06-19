@@ -387,7 +387,6 @@ namespace tree {
                     last_action = decode_action(str_action);
                 }
                 
-
                 // get next node
                 node = node->get_child(action);
 
