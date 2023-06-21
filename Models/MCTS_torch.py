@@ -115,7 +115,7 @@ class MCTS:
             self.max_depth_search += sum(results.get_search_len()) / len(results.get_search_len())
             self.runs += 1
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to('cuda')
+            tensors_states = torch.empty((num_states, 256, 6, 10)).to('cuda')
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
@@ -451,7 +451,7 @@ class MCTS:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 0.5
+        return 1.0
 
 
 def masked_distribution(x, use_exp, mask=None):

@@ -293,12 +293,13 @@ class Game_Round:
 
     def carousel2_4(self):
         for player in self.PLAYERS.values():
-            ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-            ran_cost_3 = champion.champion(ran_cost_3,
-                                           itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-            self.pool_obj.update_pool(ran_cost_3, -1)
-            player.add_to_bench(ran_cost_3, True)
-            player.refill_item_pool()
+            if player:
+                ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
+                ran_cost_3 = champion.champion(ran_cost_3,
+                                            itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
+                self.pool_obj.update_pool(ran_cost_3, -1)
+                player.add_to_bench(ran_cost_3, True)
+                player.refill_item_pool()
 
     def carousel3_4(self):
         for player in self.PLAYERS.values():

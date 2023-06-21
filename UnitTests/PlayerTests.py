@@ -381,27 +381,27 @@ def incomeTest4():
     p1.gold_income(5)
     assert p1.gold == 5, f"Interest calculation is messy, gold should be 5, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 1
+    p1.loss_streak = -1
     p1.gold_income(5)
     assert p1.gold == 5, f"Interest calculation is messy, gold should be 5, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 2
+    p1.loss_streak = -2
     p1.gold_income(5)
     assert p1.gold == 6, f"Interest calculation is messy, gold should be 6, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 3
+    p1.loss_streak = -3
     p1.gold_income(5)
     assert p1.gold == 6, f"Interest calculation is messy, gold should be 6, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 4
+    p1.loss_streak = -4
     p1.gold_income(5)
     assert p1.gold == 7, f"Interest calculation is messy, gold should be 7, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 5
+    p1.loss_streak = -5
     p1.gold_income(5)
     assert p1.gold == 8, f"Interest calculation is messy, gold should be 8, it is {p1.gold}"
     p1.gold = 0
-    p1.loss_streak = 500
+    p1.loss_streak = -500
     p1.gold_income(5)
     assert p1.gold == 8, f"Interest calculation is messy, gold should be 8, it is {p1.gold}"
 

@@ -17,7 +17,7 @@ class Observation:
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                          config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): np.zeros(740)
+        self.other_player_observations = {"player_" + str(player_id): np.zeros((26, 6, 10))
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
 
@@ -36,16 +36,13 @@ class Observation:
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         # Concatenate all vector based player information
-        game_state_tensor = np.concatenate([shop_vector,
-                                            player.bench_vector,
-                                            player.chosen_vector,
-                                            player.item_vector,
-                                            player.player_public_vector,
-                                            player.player_private_vector,
-                                            player.board_vector,
-                                            game_state_vector,
-                                            action_vector,
-                                            np.expand_dims(self.turn_since_update, axis=-1)], axis=-1)
+        game_state_tensor = shop_vector + player.player_public_vector + player.player_private_vector
+        # player.bench_vector,
+        # player.chosen_vector,
+        # player.item_vector,
+        # game_state_vector,
+        # action_vector,
+        # np.expand_dims(self.turn_since_update, axis=-1)
 
         # Initially fill the queue with duplicates of first observation
         # we can still sample when there aren't enough time steps yet
@@ -65,14 +62,16 @@ class Observation:
         for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL):
             tensor = self.cur_player_observations[i]
             cur_player_tensor_observation.append(tensor)
-        cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
+        # cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
+        cur_player_tensor_observation = np.concatenate(cur_player_tensor_observation)
 
         # Fetch other player data
         other_player_tensor_observation_list = []
         for k, v in self.other_player_observations.items():
             if k != player_id:
                 other_player_tensor_observation_list.append(v)
-        other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        # other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        other_player_tensor_observation = np.concatenate(other_player_tensor_observation_list)
 
         # Gather all vectors into one place
         total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
@@ -98,12 +97,14 @@ class Observation:
     def generate_other_player_vectors(self, cur_player, players):
         for player_id in players:
             other_player = players[player_id]
-            if other_player and other_player != cur_player:
-                other_player_vector = np.concatenate([other_player.board_vector,
-                                                      # other_player.bench_vector,
-                                                      other_player.chosen_vector,
-                                                      # other_player.item_vector,
-                                                      other_player.player_public_vector], axis=-1)
+            if other_player != cur_player:
+                other_player_vector = np.zeros((26,6,10))
+                if other_player:
+                    other_player_vector = other_player.player_public_vector
+                # other_player.board_vector,
+                # other_player.bench_vector,
+                # other_player.chosen_vector,
+                # other_player.item_vector,
                 self.other_player_observations[player_id] = other_player_vector
         self.turn_since_update = 0
 
@@ -133,13 +134,13 @@ class Observation:
     def generate_shop_vector(self, shop, player):
         # each champion has 6 bit for the name, 1 bit for the chosen.
         # 5 of them makes it 35.
-        output_array = np.zeros(45)
+        output_array = np.zeros((26, 6, 10))
         shop_chosen = False
         chosen_shop_index = -1
         chosen_shop = ''
-        shop_costs = np.zeros(5)
+        shop_costs = np.zeros((5, 1))
         for x in range(0, len(shop)):
-            input_array = np.zeros(8)
+            input_array = np.zeros((26, ))
             if shop[x]:
                 chosen = 0
                 if shop[x].endswith("_c"):
@@ -167,7 +168,7 @@ class Observation:
                 self.shop_mask[x] = 1
 
             # Input chosen mechanics once I go back and update the chosen mechanics.
-            output_array[8 * x: 8 * (x + 1)] = input_array
+            output_array[:, x, 9] = input_array
             self.shop_mask[x] = 0
         if shop_chosen:
             if shop_chosen == 'the':
@@ -176,7 +177,7 @@ class Observation:
             # This should update the item name section of the vector
             for z in range(5, 0, -1):
                 if i_index > 2 * z:
-                    output_array[45 - z] = 1
+                    # output_array[45 - z] = 1
                     i_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
 

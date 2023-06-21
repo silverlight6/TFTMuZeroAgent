@@ -84,8 +84,8 @@ class Step_Function:
             # action format = 0:7 (action_selector),
             # 7:44 (champ_loc_target), 44:54 (item_loc_target)
             action_selector = np.argmax(action[0:7])
+            game_observations[key].generate_other_player_vectors(player, players)
             if action_selector == 0:
-                game_observations[key].generate_other_player_vectors(player, players)
                 player.print(f"pass action")
             elif action_selector == 1:
                 # Buy from shop
