@@ -15,7 +15,7 @@ def dcord_to_2dcord(dcord):
         return x, y
 
 def action_to_3d(action):
-    cube_action = np.zeros((action.shape[0], 28, 6, 10))
+    cube_action = np.zeros((action.shape[0], 7, 6, 10))
     for i in range(action.shape[0]):
         action_selector = np.argmax(action[i][0])
         if action_selector == 0:
@@ -294,9 +294,7 @@ class DynNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
 
-        
-
-        self.conv1 = torch.nn.Conv2d(284, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = torch.nn.Conv2d(263, 256, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn = torch.nn.BatchNorm2d(256)
         self.relu = torch.nn.ReLU(inplace=True)
         self.conv_reward = torch.nn.Conv2d(256, 1, 1)
