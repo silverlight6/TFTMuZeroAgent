@@ -216,7 +216,7 @@ class TFT_Simulator(AECEnv):
                     for player_id in self.agents:
                         if self.PLAYERS[player_id] and self.PLAYERS[player_id].health > 0:
                             self.PLAYERS[player_id].won_game()
-                            self.rewards[player_id] = 35 + self.PLAYERS[player_id].reward
+                            self.rewards[player_id] = 70 + self.PLAYERS[player_id].reward
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
                             self.PLAYERS[player_id] = None  # Without this the reward is reset
 
@@ -228,7 +228,7 @@ class TFT_Simulator(AECEnv):
                 for k in self.kill_list:
                     self.terminations[k] = True
                     _live_agents.remove(k)
-                    self.rewards[k] = (3 - len(_live_agents)) * 10 + 5 + self.PLAYERS[k].reward
+                    self.rewards[k] = (7 - len(_live_agents)) * 10 + self.PLAYERS[k].reward
                     self._cumulative_rewards[k] = self.rewards[k]
                     self.PLAYERS[k] = None
                     self.game_round.update_players(self.PLAYERS)

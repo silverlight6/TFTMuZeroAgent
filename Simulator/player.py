@@ -769,7 +769,7 @@ class Player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= self.damage_reward * damage
+            # self.reward -= self.damage_reward * damage
             self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
