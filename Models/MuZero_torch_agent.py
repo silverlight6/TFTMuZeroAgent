@@ -244,7 +244,7 @@ class PredNetwork(torch.nn.Module):
         self.bn_policy = torch.nn.BatchNorm2d(1)
         self.relu = torch.nn.ReLU(inplace=True)
         self.fc_value = mlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
-        self.fc_policy = MultiMlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        self.fc_policy = MultiMlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
 
     def forward(self, x):
         x = self.resnet(x)
@@ -381,7 +381,7 @@ class MultiMlp(torch.nn.Module):
         sizes = [input_size] + layer_sizes
         layers = []
         for i in range(len(sizes) - 1):
-            act = activation if i < len(sizes) - 2 else output_activation
+            act = activation
             layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
         self.encoding_layer = torch.nn.Sequential(*layers).cuda()
 
