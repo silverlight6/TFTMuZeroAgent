@@ -133,6 +133,46 @@ def action_to_idx(action, dim):
 
     return mapped_idx
 
+# Sample set is [ [batch_size, dim], [batch_size, dim] ...]
+# Convert the sample set string to the corresponding idx
+def sample_set_to_idx(sample_set):
+    idx_set = []
+    
+    for dim, batch in enumerate(sample_set): # [batch_size, dim]
+        dim_idx = []
+        for sample in batch: # [dim]
+            local_idx = []
+            for action in sample: # single action
+                local_idx.append(action_to_idx(action, dim))
+            dim_idx.append(local_idx)
+        idx_set.append(dim_idx)
+                
+    return idx_set
+
+# target [ [batch_size, sampled_dim], [batch_size, sampled_dim] ...]
+# idx_set [ [batch_size, sampled_dim], [batch_size, sampled_dim] ...]
+# Create filled target with zeros as well as mask
+def create_target_and_mask(target, idx_set):
+    batch_size = config.BATCH_SIZE
+    dim_sizes = config.POLICY_HEAD_SIZES
+    
+    target_filled = [
+        np.zeros((batch_size, dim), dtype=np.float32) for dim in dim_sizes
+    ]
+
+    mask = [
+        np.zeros((batch_size, dim), dtype=np.float32) for dim in dim_sizes
+    ]
+    
+    # TODO: Find a native numpy function to do this
+    for dim, batch in enumerate(idx_set): # [batch_size, dim]
+        for batch_idx, sample in enumerate(batch):
+            for target_idx, mapped_idx in enumerate(sample):
+                target_filled[dim][batch_idx][mapped_idx] = target[dim][batch_idx][target_idx]
+                mask[dim][batch_idx][mapped_idx] = 1.0
+                
+    return target_filled, mask
+
 
 # both are (num_dims, [(batch_size, dim) ...] )
 # TODO: Add a description of what this does
@@ -172,11 +212,9 @@ Inputs      - mapping - List
 Outputs     - output_policy - List
                   The improved policy output of the MCTS with size [batch, encoding_size]
 """
-
-
 def map_distribution_to_sample(mapping, policy_logits):
     output_policy = []
     for i in range(policy_logits.shape[0]):
-        sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).cuda())
+        sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).to(config.DEVICE))
         output_policy.append(sampled_policy)
     return output_policy

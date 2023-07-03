@@ -57,16 +57,17 @@ class DataWorker(object):
             player_observation, info = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = self.observation_to_input(player_observation)
+
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy, string_samples = agent.policy(player_observation)
+                actions, policy, string_samples = agent.policy(player_observation[:2])
 
-                step_actions = self.getStepActions(terminated, actions)
                 storage_actions = utils.decode_action(actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -106,7 +107,8 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
@@ -242,9 +244,9 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
-        global_agent.to("cuda")
+        global_agent.to(config.DEVICE)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
+        trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
         env = parallel_env()
 
@@ -263,7 +265,7 @@ class AIInterface:
         while True:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch, train_step)
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1

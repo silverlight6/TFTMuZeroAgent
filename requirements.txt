@@ -6,10 +6,11 @@ scikit-image
 scikit-learn~=1.2.0
 ray~=2.2.0
 gym~=0.23.1
-PettingZoo~=1.22.3
-gymnasium~=0.27.0
+PettingZoo~=1.23.1
+gymnasium~=0.28.0
 cython>=0.29.23
 
 setuptools~=66.1.1
 scipy~=1.10.1
-torch~=1.13.1
+torch~=2.0.1
+tensorboard

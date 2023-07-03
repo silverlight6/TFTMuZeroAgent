@@ -34,40 +34,48 @@ class MCTS:
             # 0.02 seconds
             network_output = self.network.initial_inference(observation[0])
 
-            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
+            reward_pool = np.array(
+                network_output["reward"]).reshape(-1).tolist()
 
-            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
+            policy_logits = [output_head.cpu().numpy()
+                             for output_head in network_output["policy_logits"]]
 
             # 0.01 seconds
-            policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
-        
+            policy_logits_pool, string_mapping = self.encode_action_to_str(
+                policy_logits, observation[1])
+
             noises = [
                 [
                     np.random.dirichlet(
-                        [config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
+                        [config.ROOT_DIRICHLET_ALPHA] *
+                        len(policy_logits_pool[i][j])
                     ).astype(np.float32).tolist()
                     for j in range(self.NUM_ALIVE)
                 ]
                 for i in range(len(policy_logits_pool))
             ]
-            
+
             # Policy Logits -> [ [], [], [], [], [], [], [], [],]
 
-            policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
+            policy_logits_pool = self.add_exploration_noise(
+                policy_logits_pool, noises)
 
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits_pool,
+                            string_mapping, config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+            roots_cpp = tree.Roots(
+                self.NUM_ALIVE, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
             # for statement to deal with different lengths due to masking.
-            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool, mappings, policy_sizes)
+            roots_cpp.prepare_no_noise(
+                reward_pool, policy_logits_pool, mappings, policy_sizes)
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
@@ -82,9 +90,11 @@ class MCTS:
             deterministic = False  # False = sample distribution, True = argmax
             for i in range(self.NUM_ALIVE):
                 distributions = roots_distributions[i]
-                action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
+                action = self.select_action(
+                    distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
-                target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
+                target_policy.append(
+                    [x / config.NUM_SIMULATIONS for x in distributions])
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
@@ -109,12 +119,14 @@ class MCTS:
             # 0.001 seconds
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
-                tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
+                tree.batch_traverse(
+                    roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
             self.max_depth_search = max(self.max_depth_search,
                                         sum(results.get_search_len()) / len(results.get_search_len()))
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to('cuda')
+            tensors_states = torch.empty(
+                (num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
@@ -125,19 +137,23 @@ class MCTS:
             last_action = np.asarray(last_action)
 
             # 0.003 seconds
-            network_output = self.network.recurrent_inference(tensors_states, last_action)
+            network_output = self.network.recurrent_inference(
+                tensors_states, last_action)
 
-            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
-            value_pool = np.array(network_output["value"]).reshape(-1).tolist()
+            reward_pool = network_output["reward"].reshape(-1).tolist()
+            value_pool = network_output["value"].reshape(-1).tolist()
             diff = max(value_pool) - min(value_pool)
             if diff > 150.:
-                print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
+                print(
+                    f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
-            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
+            policy_logits = [output_head.cpu().numpy()
+                             for output_head in network_output["policy_logits"]]
 
             # 0.014 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits,
+                            self.default_string_mapping, config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -157,7 +173,7 @@ class MCTS:
             for j in range(len(noises[i])):  # Policy Dims
                 for k in range(len(noises[i][j])):
                     policy_logits[i][j][k] = policy_logits[i][j][k] * (1 - exploration_fraction) + \
-                                             noises[i][j][k] * exploration_fraction
+                        noises[i][j][k] * exploration_fraction
         return policy_logits
 
     """
@@ -176,7 +192,8 @@ class MCTS:
     """
     @staticmethod
     def select_action(visit_counts, temperature=1.0, deterministic=True):
-        action_probs = [visit_count_i ** (1 / temperature) for visit_count_i in visit_counts]
+        action_probs = [visit_count_i ** (1 / temperature)
+                        for visit_count_i in visit_counts]
         total_count = sum(action_probs)
         action_probs = [x / total_count for x in action_probs]
         if deterministic:
@@ -226,7 +243,7 @@ class MCTS:
         # 4. thieves glove on bench
         # 5. if champion has items
         # 6. if champion has FULL items on bench
-        # 
+        #
 
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = policy_logits[0].shape[0]  # 8
@@ -277,7 +294,8 @@ class MCTS:
                             if a < 28 and b > 27 and not mask[idx][3][b - 28]:
                                 board_counter += 1
                                 continue
-                            local_board.append(policy_logits[dim][idx][board_counter])
+                            local_board.append(
+                                policy_logits[dim][idx][board_counter])
                             local_board_mapping.append(f"_{a}_{b}")
                             board_counter += 1
                     masked_dim.append(local_board)
@@ -301,12 +319,13 @@ class MCTS:
                             if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
                                 item_counter += 1
                                 continue
-                            local_item.append(policy_logits[dim][idx][item_counter])
+                            local_item.append(
+                                policy_logits[dim][idx][item_counter])
                             local_item_mapping.append(f"_{a}_{b}")
                             item_counter += 1
                     masked_dim.append(local_item)
                     masked_dim_mapping.append(local_item_mapping)
-            
+
             elif dim == 4:  # Sell unit masking
                 #  Sell unit masking
                 for idx in range(batch_size):
@@ -314,14 +333,13 @@ class MCTS:
                     local_sell_mapping = []
                     for a in range(9):  # Only include board commands
                         # If unit exists
-                        if not ((a < 28 and mask[idx][2][a] and not mask[idx][9][a]) or (
-                                a > 27 and mask[idx][3][a - 28])):
+                        if not (mask[idx][3][a]):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")
                     masked_dim.append(local_sell)
                     masked_dim_mapping.append(local_sell_mapping)
-                    
+
             masked_policy_logits.append(masked_dim)
             masked_policy_mappings.append(masked_dim_mapping)
 
@@ -335,7 +353,7 @@ class MCTS:
             # Always append pass action
             local_type_dim.append(policy_logits[0][idx][0])
             local_type_dim_mapping.append("0")
-            
+
             # For shop, board, item, and sell
             for i in range(1, 5):
                 if masked_policy_logits[i][idx]:
@@ -349,13 +367,13 @@ class MCTS:
             if mask[idx][0][5]:
                 local_type_dim.append(policy_logits[0][idx][6])
                 local_type_dim_mapping.append("6")
-                
+
             type_dim.append(local_type_dim)
             type_dim_mapping.append(local_type_dim_mapping)
 
         masked_policy_logits[0] = type_dim
         masked_policy_mappings[0] = type_dim_mapping
-        
+
         return masked_policy_logits, masked_policy_mappings
 
     """
@@ -382,6 +400,7 @@ class MCTS:
                   policy_sizes - List
                       Number of samples per player, can change if legal actions < num_samples
     """
+
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = len(policy_logits[0])  # 8
@@ -399,7 +418,8 @@ class MCTS:
             probs = self.softmax_stable(policy_logits[0][idx])
             policy_range = np.arange(stop=len(policy_logits[0][idx]))
 
-            samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
+            samples = np.random.choice(
+                a=policy_range, p=probs, size=num_samples)  # size 25
             counts = np.bincount(samples, minlength=len(policy_logits[0][idx]))
 
             for i, count in enumerate(counts):
@@ -412,14 +432,16 @@ class MCTS:
                     local_dim_byte = []
 
                     dim_policy_logits = policy_logits[dim_idx_mapping][idx]
-                
+
                     dim_probs = self.softmax_stable(dim_policy_logits)
                     dim_range = np.arange(stop=len(dim_policy_logits))
 
-                    dim_samples = np.random.choice(a=dim_range, p=dim_probs, size=count)
+                    dim_samples = np.random.choice(
+                        a=dim_range, p=dim_probs, size=count)
 
                     for dim_sample in dim_samples:
-                        sampled_action = dim_base_string + string_mapping[dim_idx_mapping][idx][dim_sample]
+                        sampled_action = dim_base_string + \
+                            string_mapping[dim_idx_mapping][idx][dim_sample]
 
                         isSampled = False
                         for j, action in enumerate(local_dim_string):
@@ -430,8 +452,9 @@ class MCTS:
                         if not isSampled:
                             local_dim_logits.append((1 / num_samples))
                             local_dim_string.append(sampled_action)
-                            local_dim_byte.append(bytes(sampled_action, "utf-8"))
-                    
+                            local_dim_byte.append(
+                                bytes(sampled_action, "utf-8"))
+
                     local_logits.extend(local_dim_logits)
                     local_string.extend(local_dim_string)
                     local_byte.extend(local_dim_byte)
@@ -439,12 +462,12 @@ class MCTS:
                     local_logits.append(((1 / num_samples) * count))
                     local_string.append(dim_base_string)
                     local_byte.append(bytes(dim_base_string, "utf-8"))
-           
+
             output_logits.append(local_logits)
             output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
-            
+
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
