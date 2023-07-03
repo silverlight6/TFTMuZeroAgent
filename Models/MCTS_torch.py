@@ -140,9 +140,8 @@ class MCTS:
             network_output = self.network.recurrent_inference(
                 tensors_states, last_action)
 
-            reward_pool = np.array(
-                network_output["reward"]).reshape(-1).tolist()
-            value_pool = np.array(network_output["value"]).reshape(-1).tolist()
+            reward_pool = network_output["reward"].reshape(-1).tolist()
+            value_pool = network_output["value"].reshape(-1).tolist()
             diff = max(value_pool) - min(value_pool)
             if diff > 150.:
                 print(

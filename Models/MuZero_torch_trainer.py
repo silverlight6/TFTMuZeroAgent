@@ -66,8 +66,10 @@ class Trainer(object):
             Prediction(
                 value=output["value"],
                 value_logits=output["value_logits"],
-                reward=output["reward"],
-                reward_logits=output["reward_logits"],
+                # The reward logits in initial inference are not from the network,
+                # and might not be on the correct device
+                reward=output["reward"].to(config.DEVICE),
+                reward_logits=output["reward_logits"].to(config.DEVICE),
                 policy_logits=output["policy_logits"],
             )
         ]
@@ -110,16 +112,16 @@ class Trainer(object):
             reward=[],
             target_value=[],
             target_reward=[],
-            l2_loss=0.0,
+            l2_loss=[]
         )
 
         for tstep, prediction in enumerate(predictions):
-            step_value, step_target_value = prediction.value, target_value[:, tstep]
-            value_loss = cross_entropy(step_value, step_target_value)
+            step_value, step_target_value = prediction.value_logits, target_value[:, tstep]
+            value_loss = self.value_or_reward_loss(step_value, step_target_value)
             self.scale_loss(value_loss)
 
-            step_reward, step_target_reward = prediction.reward, target_reward[:, tstep]
-            reward_loss = cross_entropy(step_reward, step_target_reward)
+            step_reward, step_target_reward = prediction.reward_logits, target_reward[:, tstep]
+            reward_loss = self.value_or_reward_loss(step_reward, step_target_reward)
             self.scale_loss(reward_loss)
 
             step_policy, step_target_policy = self.mask_and_fill_policy(
@@ -131,12 +133,14 @@ class Trainer(object):
             self.outputs.reward_loss.append(reward_loss)
             self.outputs.policy_loss.append(policy_loss)
 
-            self.outputs.value.append(step_value)
-            self.outputs.reward.append(step_reward)
+            self.outputs.value.append(prediction.value)
+            self.outputs.reward.append(prediction.reward)
+
             self.outputs.target_value.append(step_target_value)
             self.outputs.target_reward.append(step_target_reward)
 
-        self.outputs.l2_loss = self.l2_regularization()
+        l2_loss = self.l2_regularization()
+        self.outputs.l2_loss.append(l2_loss)
 
         value_loss = torch.stack(self.outputs.value_loss, -1) * value_mask
         reward_loss = torch.stack(self.outputs.reward_loss, -1) * reward_mask
@@ -146,7 +150,9 @@ class Trainer(object):
             value_loss + reward_loss * config.REWARD_LOSS_SCALING +
             policy_loss * config.POLICY_LOSS_SCALING, -1).to(config.DEVICE)
 
-        self.loss += self.outputs.l2_loss
+        self.loss += l2_loss
+
+        self.loss = self.loss.mean()
 
     def backpropagate(self):
         self.optimizer.zero_grad()
@@ -179,6 +185,8 @@ class Trainer(object):
             'episode_max/value', torch.max(torch.stack(self.outputs.target_value)), train_step)
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
+        
+        self.summary_writer.flush()
 
     # Convert target from
     # [batch_size, unroll_steps]
@@ -219,12 +227,12 @@ class Trainer(object):
 
     # Loss for each type of prediction
     def value_or_reward_loss(self, prediction, target):
-        return cross_entropy(prediction, target)
+        return cross_entropy_loss(prediction, target)
 
     def policy_loss(self, prediction, target):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
-            loss += cross_entropy(pred_dim, target_dim)
+            loss += cross_entropy_loss(pred_dim, target_dim)
         return loss
 
     def l2_regularization(self):
@@ -237,30 +245,9 @@ class Trainer(object):
 """
 Helper functions
 """
-
-
 def scale_gradient(x, scale):
+    x.requires_grad_(True)
     x.register_hook(lambda grad: grad * scale)
 
-# Add a small value to prevent log(0)
-
-
-def zero_transform(x):
-    return x + 1e-9
-
-
-"""
-Loss functions
-"""
-
-
-def cross_entropy(prediction, target):
+def cross_entropy_loss(prediction, target):
     return -(target * F.log_softmax(prediction, -1)).sum(-1)
-
-
-def kl_divergence(prediction, target):
-    return (target * (torch.log(target) - F.log_softmax(prediction, -1))).sum(-1)
-
-
-def mse(prediction, target):
-    return ((prediction - target) ** 2).mean(-1)
