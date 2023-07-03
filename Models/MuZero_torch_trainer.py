@@ -93,14 +93,14 @@ class Trainer(object):
 
     def compute_loss(self, predictions, target_value, target_reward, target_policy, sample_set,
                      value_mask, reward_mask, policy_mask):
-        target_value = self.encode_target(
-            target_value, self.network.value_encoder).to('cuda')
-        target_reward = self.encode_target(
-            target_reward, self.network.reward_encoder).to('cuda')
+        value_mask = torch.from_numpy(value_mask).to(config.DEVICE)
+        reward_mask = torch.from_numpy(reward_mask).to(config.DEVICE)
+        policy_mask = torch.from_numpy(policy_mask).to(config.DEVICE)
 
-        value_mask = torch.from_numpy(value_mask).to('cuda')
-        reward_mask = torch.from_numpy(reward_mask).to('cuda')
-        policy_mask = torch.from_numpy(policy_mask).to('cuda')
+        target_value = self.encode_target(
+            target_value, self.network.value_encoder).to(config.DEVICE)
+        target_reward = self.encode_target(
+            target_reward, self.network.reward_encoder).to(config.DEVICE)
 
         self.outputs = LossOutput(
             value_loss=[],
@@ -144,7 +144,7 @@ class Trainer(object):
 
         self.loss = torch.sum(
             value_loss + reward_loss * config.REWARD_LOSS_SCALING +
-            policy_loss * config.POLICY_LOSS_SCALING, -1).to('cuda')
+            policy_loss * config.POLICY_LOSS_SCALING, -1).to(config.DEVICE)
 
         self.loss += self.outputs.l2_loss
 

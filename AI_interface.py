@@ -107,7 +107,8 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
@@ -243,7 +244,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
-        global_agent.to("cuda")
+        global_agent.to(config.DEVICE)
 
         trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
