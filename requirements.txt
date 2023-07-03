@@ -1,4 +1,4 @@
-numpy~=1.23.5
+numpy>=1.23.5
 pandas
 dm-tree
 tabulate
@@ -12,4 +12,5 @@ cython>=0.29.23
 
 setuptools~=66.1.1
 scipy~=1.10.1
-torch~=1.13.1
+torch~=2.0.1
+tensorboard
