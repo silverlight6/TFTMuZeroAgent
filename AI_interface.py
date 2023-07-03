@@ -57,16 +57,17 @@ class DataWorker(object):
             player_observation, info = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = self.observation_to_input(player_observation)
+
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy, string_samples = agent.policy(player_observation)
+                actions, policy, string_samples = agent.policy(player_observation[:2])
 
-                step_actions = self.getStepActions(terminated, actions)
                 storage_actions = utils.decode_action(actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
