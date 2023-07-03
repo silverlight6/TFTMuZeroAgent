@@ -4,6 +4,7 @@ import collections
 import numpy as np
 import time
 import os
+import torch.nn as nn
 
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
@@ -217,54 +218,44 @@ def mlp(
 #      -> Linear -> Identity -> 1
 #      ... for each size in output_size
 #  -> output -> [0, 1, ... n]
-class MultiMlp(torch.nn.Module):
+class MultiMlp(nn.Module):
     def __init__(self,
                  input_size,
                  layer_size,
+                 layer_num,
                  output_sizes,
-                 output_activation=torch.nn.Identity,
-                 activation=torch.nn.LeakyReLU):
+                 output_activation=nn.Identity,
+                 activation=nn.ReLU):
         super().__init__()
+        
+        layers = [
+            nn.Linear(input_size, layer_size), activation() # Input Layer
+        ] + (
+            [
+                nn.Linear(layer_size, layer_size), activation() # Hidden Layers
+            ] * (layer_num - 1)
+        )
+        
+        # Encodes the observation to a shared hidden state between all heads
+        self.encoding_layer = nn.Sequential(*layers).to(config.DEVICE)
 
-        # One linear that encodes the observation
-        layers = []
-        layers += [torch.nn.Linear(input_size, layer_size[0]), activation()]
-        for i in range(len(layer_size) - 1):
-            layers += [torch.nn.Linear(layer_size[i], layer_size[i + 1]), activation()]
-        self.encoding_layer = torch.nn.Sequential(*layers).cuda()
-
-        self.head_0 = torch.nn.Sequential(
-            torch.nn.Linear(layer_size[-1], output_sizes[0]),
-            output_activation()
-        ).cuda()
-
-        self.head_1 = torch.nn.Sequential(
-            torch.nn.Linear(layer_size[-1], output_sizes[1]),
-            output_activation()).cuda()
-
-        self.head_2 = torch.nn.Sequential(
-            torch.nn.Linear(layer_size[-1], output_sizes[2]),
-            output_activation()).cuda()
-
-        self.head_3 = torch.nn.Sequential(
-            torch.nn.Linear(layer_size[-1], output_sizes[3]),
-            output_activation()).cuda()
-
-        self.head_4 = torch.nn.Sequential(
-            torch.nn.Linear(layer_size[-1], output_sizes[4]),
-            output_activation()).cuda()
+        self.output_heads = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(layer_size, size),
+                output_activation()
+            ) for size in output_sizes
+        ]).to(config.DEVICE)
 
     def forward(self, x):
         # Encode the hidden state
         x = self.encoding_layer(x)
 
-        # Pass x into all output heads
-        output = [self.head_0(x), self.head_1(x), self.head_2(x), self.head_3(x), self.head_4(x)]
+        output = [
+          head(x)
+          for head in self.output_heads
+        ]
 
         return output
-
-    def __call__(self, x):
-        return self.forward(x)
 
 
 class ValueEncoder:

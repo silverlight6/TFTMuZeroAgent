@@ -314,8 +314,7 @@ class MCTS:
                     local_sell_mapping = []
                     for a in range(9):  # Only include board commands
                         # If unit exists
-                        if not ((a < 28 and mask[idx][2][a] and not mask[idx][9][a]) or (
-                                a > 27 and mask[idx][3][a - 28])):
+                        if not (mask[idx][3][a]):
                             continue
                         local_sell.append(policy_logits[dim][idx][a])
                         local_sell_mapping.append(f"_{a}")

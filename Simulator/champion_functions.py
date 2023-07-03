@@ -16,7 +16,7 @@ def MILLIS():
 
 def MILLISECONDS_INCREASE():
     global MILLISECONDS
-    MILLISECONDS += 100
+    MILLISECONDS += 10
 
 
 damage_dealt = []
