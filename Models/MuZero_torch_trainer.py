@@ -49,58 +49,58 @@ class Trainer(object):
 
         loss = loss.mean()
 
-        samples = [[], [], [], [], []]
-        for unroll_step in sample_set:
-            for i, dim in enumerate(unroll_step):
-                flattened_dim = []
-                for batch in dim:
-                    for action in batch:
-                        flattened_dim.append(action_to_idx(action, i))
-                samples[i].extend(flattened_dim)
+        # samples = [[], [], [], [], []]
+        # for unroll_step in sample_set:
+        #     for i, dim in enumerate(unroll_step):
+        #         flattened_dim = []
+        #         for batch in dim:
+        #             for action in batch:
+        #                 flattened_dim.append(action_to_idx(action, i))
+        #         samples[i].extend(flattened_dim)
                 
-        for i, sample in enumerate(samples):
-            samples[i] = torch.bincount(torch.tensor(sample).cuda(), minlength=config.POLICY_HEAD_SIZES[i]).cuda()
+        # for i, sample in enumerate(samples):
+        #     samples[i] = torch.bincount(torch.tensor(sample).cuda(), minlength=config.POLICY_HEAD_SIZES[i]).cuda()
 
-        def filter_grad(grad, sample):
-            if len(grad.shape) == 1:
-                grad = grad * sample
-            else:
-                grad = grad * sample.unsqueeze(1)
-            grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
-            return grad
+        # def filter_grad(grad, sample):
+        #     if len(grad.shape) == 1:
+        #         grad = grad * sample
+        #     else:
+        #         grad = grad * sample.unsqueeze(1)
+        #     grad = grad / (config.BATCH_SIZE * (config.UNROLL_STEPS + 1))
+        #     return grad
         
-        handles = []
+        # handles = []
 
-        # TODO(lobotuerk) Find a proper way to do this
-        handle1 = self.global_agent.prediction_network.fc_policy.head_0[0].weight.\
-            register_hook(lambda grad: filter_grad(grad, samples[0]))
-        handle2 = self.global_agent.prediction_network.fc_policy.head_0[0].bias.\
-            register_hook(lambda grad: filter_grad(grad, samples[0]))
-        handles.extend([handle1, handle2])
+        # # TODO(lobotuerk) Find a proper way to do this
+        # handle1 = self.global_agent.prediction_network.fc_policy.head_0[0].weight.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[0]))
+        # handle2 = self.global_agent.prediction_network.fc_policy.head_0[0].bias.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[0]))
+        # handles.extend([handle1, handle2])
 
-        handle1 = self.global_agent.prediction_network.fc_policy.head_1[0].weight.\
-            register_hook(lambda grad: filter_grad(grad, samples[1]))
-        handle2 = self.global_agent.prediction_network.fc_policy.head_1[0].bias.\
-            register_hook(lambda grad: filter_grad(grad, samples[1]))
-        handles.extend([handle1, handle2])
+        # handle1 = self.global_agent.prediction_network.fc_policy.head_1[0].weight.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[1]))
+        # handle2 = self.global_agent.prediction_network.fc_policy.head_1[0].bias.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[1]))
+        # handles.extend([handle1, handle2])
 
-        handle1 = self.global_agent.prediction_network.fc_policy.head_2[0].weight.\
-            register_hook(lambda grad: filter_grad(grad, samples[2]))
-        handle2 = self.global_agent.prediction_network.fc_policy.head_2[0].bias.\
-            register_hook(lambda grad: filter_grad(grad, samples[2]))
-        handles.extend([handle1, handle2])
+        # handle1 = self.global_agent.prediction_network.fc_policy.head_2[0].weight.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[2]))
+        # handle2 = self.global_agent.prediction_network.fc_policy.head_2[0].bias.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[2]))
+        # handles.extend([handle1, handle2])
 
-        handle1 = self.global_agent.prediction_network.fc_policy.head_3[0].weight.\
-            register_hook(lambda grad: filter_grad(grad, samples[3]))
-        handle2 = self.global_agent.prediction_network.fc_policy.head_3[0].bias.\
-            register_hook(lambda grad: filter_grad(grad, samples[3]))
-        handles.extend([handle1, handle2])
+        # handle1 = self.global_agent.prediction_network.fc_policy.head_3[0].weight.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[3]))
+        # handle2 = self.global_agent.prediction_network.fc_policy.head_3[0].bias.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[3]))
+        # handles.extend([handle1, handle2])
 
-        handle1 = self.global_agent.prediction_network.fc_policy.head_4[0].weight.\
-            register_hook(lambda grad: filter_grad(grad, samples[4]))
-        handle2 = self.global_agent.prediction_network.fc_policy.head_4[0].bias.\
-            register_hook(lambda grad: filter_grad(grad, samples[4]))
-        handles.extend([handle1, handle2])
+        # handle1 = self.global_agent.prediction_network.fc_policy.head_4[0].weight.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[4]))
+        # handle2 = self.global_agent.prediction_network.fc_policy.head_4[0].bias.\
+        #     register_hook(lambda grad: filter_grad(grad, samples[4]))
+        # handles.extend([handle1, handle2])
 
         # for i, sample in enumerate(samples):
         #     handle1 = self.global_agent.prediction_policy_network.output_heads[i][0].weight.\
