@@ -113,8 +113,8 @@ class Trainer(object):
 
         self.optimizer.step()
 
-        for handle in handles:
-            handle.remove()
+        # for handle in handles:
+        #     handle.remove()
 
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, sample_set, train_step, summary_writer):
