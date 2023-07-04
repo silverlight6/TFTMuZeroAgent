@@ -1,10 +1,11 @@
+import Simulator.config as config
 import time
-import config
 import random
+import numpy as np
 from Simulator import champion, pool_stats, minion
 from Simulator.item_stats import item_builds as full_items, starting_items
-from Simulator.player import player as player_class
 from Simulator.champion_functions import MILLIS
+from Simulator.carousel import carousel
 
 
 class Game_Round:
@@ -24,61 +25,55 @@ class Game_Round:
 
         self.NUM_DEAD = 0
         self.current_round = 0
+        self.matchups = []
 
         log_to_file_start()
 
         self.game_rounds = [
-            self.round_1,
-            self.minion_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel2_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel3_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel4_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel5_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel6_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel7_4,
-            self.combat_round,
-            self.combat_round,
-            self.minion_round,
-            self.combat_round,
-            self.combat_round,
-            self.combat_round,
-            self.carousel8_4,
-            self.combat_round,
-            self.combat_round,
+            [self.round_1],
+            [self.minion_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
+            [self.minion_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.combat_round],
+            [self.carousel_round, self.combat_round],
+            [self.combat_round],
         ]
 
     # Archived way to calculate reward
@@ -86,133 +81,162 @@ class Game_Round:
     # of each fight
 
     def combat_phase(self, players, player_round):
-        random.shuffle(players)
-        player_nums = list(range(0, len(players)))
-        players_matched = 0
         round_index = 0
         while player_round > self.ROUND_DAMAGE[round_index][0]:
             round_index += 1
-        for num in player_nums:
-            # make sure I am dealing with one of the players who has yet to fight.
-            if players[num] and not players[num].combat:
-                # If there is more than one player left ot be matched.
-                if players_matched < config.NUM_PLAYERS - 1 - self.NUM_DEAD:
-                    # The player to match is always going to be a higher number than the first player.
-                    player_index = random.randint(0, len(players) - 1)
-                    # if the index is not in the player_nums, then it shouldn't check the second part.
-                    # Although the index is always going to be the index of some.
-                    # Make sure the player is alive as well.
-                    while ((not players[player_index]) or players[num].opponent == players[player_index] or players[
-                            player_index].combat or num == player_index):
-                        player_index = random.randint(0, len(players) - 1)
-                        if (players[player_index] and (players_matched == config.NUM_PLAYERS - 2 - self.NUM_DEAD)
-                                and players[num].opponent == players[player_index]):
-                            break
-                    # Assigning a battle
-                    players[num].opponent = players[player_index]
-                    players[player_index].opponent = players[num]
+        for match in self.matchups:
+            if not match[1] == "ghost":
+                # Assigning a battle
+                players[match[0]].opponent = players[match[1]]
+                players[match[1]].opponent = players[match[0]]
+                # Fixing the time signature to see how long battles take.
+                players[match[0]].start_time = time.time_ns()
+                players[match[1]].start_time = time.time_ns()
+                config.WARLORD_WINS['blue'] = players[match[0]].win_streak
+                config.WARLORD_WINS['red'] = players[match[1]].win_streak
 
-                    # Fixing the time signature to see how long battles take.
-                    players[num].start_time = time.time_ns()
-                    players[player_index].start_time = time.time_ns()
-                    # Increment to see how many battles have happened
-                    players_matched += 2
-                    config.WARLORD_WINS['blue'] = players[num].win_streak
-                    config.WARLORD_WINS['red'] = players[player_index].win_streak
+                # Main simulation call
+                index_won, damage = champion.run(champion.champion, players[match[0]], players[match[1]],
+                                                 self.ROUND_DAMAGE[round_index][1])
 
-                    # Main simulation call
-                    index_won, damage = champion.run(champion.champion, players[num], players[player_index],
-                                                     self.ROUND_DAMAGE[round_index][1])
+                # Draw
+                if index_won == 0:
+                    players[match[0]].loss_round(damage)
+                    players[match[0]].health -= damage
+                    players[match[1]].loss_round(damage)
+                    players[match[1]].health -= damage
+                    for player in players.values():
+                        if player != players[match[0]] and player != players[match[1]]:
+                            if player:  # Not sure if there can be a dead player here.
+                                player.spill_reward(damage / (len(players) - 2))
+                    if len(players) == 2:
+                        players[match[0]].spill_reward(damage)
+                        players[match[1]].spill_reward(damage)
 
-                    # Draw
-                    if index_won == 0:
-                        players[num].loss_round(damage)
-                        players[num].health -= damage
-                        players[player_index].loss_round(damage)
-                        players[player_index].health -= damage
+                # Blue side won
+                if index_won == 1:
+                    players[match[0]].won_round(damage)
+                    players[match[1]].loss_round(damage)
+                    players[match[1]].health -= damage
 
-                    # Blue side won
-                    if index_won == 1:
-                        players[num].won_round(damage)
-                        players[player_index].loss_round(damage)
-                        players[player_index].health -= damage
+                # Red side won
+                if index_won == 2:
+                    players[match[0]].loss_round(damage)
+                    players[match[0]].health -= damage
+                    players[match[1]].won_round(damage)
+                players[match[0]].combat = True
+                players[match[1]].combat = True
 
-                    # Red side won
-                    if index_won == 2:
-                        players[num].loss_round(damage)
-                        players[num].health -= damage
-                        players[player_index].won_round(damage)
-                    players[player_index].combat = True
-                    players[num].combat = True
-
-                # This is here when there is an odd number of players
-                # Behavior is to fight a random player.
-                elif len(player_nums) == 1 or players_matched == config.NUM_PLAYERS - 1 - self.NUM_DEAD:
-                    player_index = random.randint(0, len(players) - 1)
-                    while ((not players[player_index]) or players[num].opponent == players[player_index]
-                            or num == player_index):
-                        player_index = random.randint(0, len(players) - 1)
-                    player_copy = player_class(self.pool_obj, players[player_index].player_num)
-                    player_copy.board = players[player_index].board
-                    player_copy.chosen = players[player_index].chosen
-                    players[num].start_time = time.time_ns()
-                    config.WARLORD_WINS['blue'] = players[num].win_streak
-                    config.WARLORD_WINS['red'] = player_copy.win_streak
-                    index_won, damage = champion.run(champion.champion, players[num], player_copy,
-                                                     self.ROUND_DAMAGE[round_index][1])
+            else:
+                players[match[0]].start_time = time.time_ns()
+                config.WARLORD_WINS['blue'] = players[match[0]].win_streak
+                config.WARLORD_WINS['red'] = players[match[2]].win_streak
+                index_won, damage = champion.run(champion.champion, players[match[0]], players[match[2]],
+                                                 self.ROUND_DAMAGE[round_index][1])
+                if index_won == 2 or index_won == 0:
+                    players[match[0]].health -= damage
+                    players[match[0]].loss_round(damage)
+                    players[match[0]].combat = True
                     # if the alive player loses to a dead player, the dead player's reward is
                     # given out to all other alive players
                     alive = []
-                    for other in players:
+                    for other in players.values():
                         if other:
-                            if other.health > 0 and other is not players[num]:
+                            if other.health > 0 and other is not players[match[0]]:
                                 alive.append(other)
-                    if index_won == 2 or index_won == 0:
-                        players[num].health -= damage
-                        players[num].ghost_won(player_round)
-                        # Silver messed this code up.
-                        # if len(alive) > 0:
-                        #     for other in alive:
-                        #         other.ghost_won(damage / len(alive))
-                    if index_won == 1:
-                        players[num].won_ghost()
-                    players[num].combat = True
-                    players_matched += 1
-                else:
-                    return False
+                    for other in alive:
+                        other.spill_reward(damage / len(alive))
         log_to_file_combat()
         return True
 
+    def decide_player_combat(self):
+        player_list = []
+        self.matchups = []
+        for key, player in self.PLAYERS.items():
+            if player:
+                player_list.append(key)
+        random.shuffle(player_list)
+        ghost = player_list[0]      # if there's a ghost combat, always use first player after shuffling
+        while len(player_list) >= 2:
+            index = 1   # this is place in player_list that gets chosen as the opponent, should never be 0
+            weights = 0
+            # Specifying the player as its own variable due to number of usages.
+            player = self.PLAYERS[player_list[0]]
+            player.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
+            for key in player_list:
+                if not key == player_list[0]:
+                    # if any possible opponents have a high enough possible opponents value consider them for combat
+                    if player.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        weights += player.possible_opponents[key]
+            if weights == 0:
+                # if no opponents have a high enough possible opponents value, take whichever one is highest
+                opponent = 0
+                for i, key in enumerate(player_list):
+                    if i < 0:
+                        if player.possible_opponents[key] >= opponent:
+                            opponent = player.possible_opponents[key]
+                            index = i
+            else:
+                # if there are opponents with a high enough value, use weights to determine who to fight
+                r = random.randint(0, weights)
+                while r >= player.possible_opponents[player_list[index]]:
+                    r -= player.possible_opponents[player_list[index]]
+                    index += 1
+                    if index == len(player_list):
+                        index = 1
+            self.matchups.append([player_list[0], player_list[index]])
+            opposition = self.PLAYERS[player_list[index]]
+            opposition.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
+            # giving the players the possible opponents
+            for key, player_check in self.PLAYERS.items():
+                if player_check:
+                    if player.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        player.opponent_options[key] = 1
+                    if opposition.possible_opponents[key] >= config.MATCHMAKING_WEIGHTS:
+                        opposition.opponent_options[key] = 1
+                    if not player.possible_opponents[key] == -1:
+                        player.possible_opponents[key] += config.WEIGHTS_INCREMENT
+                    if not opposition.possible_opponents[key] == -1:
+                        opposition.possible_opponents[key] += config.WEIGHTS_INCREMENT
+                else:
+                    player.possible_opponents[key] = 0
+                    opposition.possible_opponents[key] = 0
+            if 1 not in player.opponent_options:
+                player.opponent_options[player_list[index]] = 1
+            if 1 not in opposition.opponent_options:
+                opposition.opponent_options[player_list[0]] = 1
+            # resetting the weights for the player and opponent
+            player.possible_opponents[player_list[index]] = 0
+            opposition.possible_opponents[player_list[0]] = 0
+            player_list.remove(player_list[index])
+            player_list.remove(player_list[0])
+        if len(player_list) == 1:   # if there is only one player left to match, have it fight a ghost
+            self.matchups.append([player_list[0], "ghost", ghost])
+            self.PLAYERS[player_list[0]].opponent_options = \
+                {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
+            self.PLAYERS[player_list[0]].opponent_options[ghost] = 1
+
     def play_game_round(self):
-        self.game_rounds[self.current_round]()
+        for i in range(len(self.game_rounds[self.current_round])):
+            self.game_rounds[self.current_round][i]()
         self.current_round += 1
+        self.start_round()
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
         self.step_func_obj.generate_shop_vectors(self.PLAYERS)
+        self.decide_player_combat()
         for player in self.PLAYERS.values():
             if player:
                 player.start_round(self.current_round)
 
-        # TO DO
-        # Change this so it isn't tied to a player and can log as time proceeds
-
     def round_1(self):
+        carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-            if player:
-                # first carousel
-                ran_cost_1 = list(pool_stats.COST_1.items())[random.randint(0, len(pool_stats.COST_1) - 1)][0]
-                ran_cost_1 = champion.champion(ran_cost_1,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_1, -1)
-                player.add_to_bench(ran_cost_1)
                 log_to_file(player)
 
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
-        for player in self.PLAYERS.values():
-            if player:
-                player.start_round(1)
         # False stands for no one died
         return False
 
@@ -231,7 +255,6 @@ class Game_Round:
         for player in self.PLAYERS.values():
             if player:
                 minion.minion_round(player, self.current_round, self.PLAYERS.values())
-        self.start_round()
         return False
 
     # r stands for round or game_round but round is a keyword so using r instead
@@ -243,83 +266,20 @@ class Game_Round:
                 log_to_file(player)
         log_end_turn(self.current_round)
 
-        self.combat_phase(list(self.PLAYERS.values()), self.current_round)
+        self.combat_phase(self.PLAYERS, self.current_round)
         # Will implement check dead later
         # if self.check_dead(agent, buffer, game_episode):
         #     return True
         log_to_file_combat()
-        self.start_round()
-
         return False
 
-    def carousel2_4(self):
+    # executes carousel round for all players
+    def carousel_round(self):
+        carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-            ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-            ran_cost_3 = champion.champion(ran_cost_3,
-                                           itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-            self.pool_obj.update_pool(ran_cost_3, -1)
-            player.add_to_bench(ran_cost_3, True)
-            player.refill_item_pool()
-
-    def carousel3_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_3 = list(pool_stats.COST_3.items())[random.randint(0, len(pool_stats.COST_3) - 1)][0]
-                ran_cost_3 = champion.champion(ran_cost_3,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_3, -1)
-                player.add_to_bench(ran_cost_3, True)
-                player.refill_item_pool()
-
-    def carousel4_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_4 = list(pool_stats.COST_4.items())[random.randint(0, len(pool_stats.COST_4) - 1)][0]
-                ran_cost_4 = champion.champion(ran_cost_4,
-                                               itemlist=[starting_items[random.randint(0, len(starting_items) - 1)]])
-                self.pool_obj.update_pool(ran_cost_4, -1)
-                player.add_to_bench(ran_cost_4, True)
-                player.refill_item_pool()
-
-    def carousel5_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel6_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel7_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
-
-    def carousel8_4(self):
-        for player in self.PLAYERS.values():
-            if player:
-                ran_cost_5 = list(pool_stats.COST_5.items())[random.randint(0, len(pool_stats.COST_5) - 1)][0]
-                item_list = list(full_items.keys())
-                ran_cost_5 = champion.champion(ran_cost_5, itemlist=[item_list[random.randint(0, len(item_list) - 1)]])
-                self.pool_obj.update_pool(ran_cost_5, -1)
-                player.add_to_bench(ran_cost_5, True)
-                player.refill_item_pool()
+                if player:
+                    log_to_file(player)
+                    player.refill_item_pool()
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")
@@ -351,7 +311,7 @@ def log_to_file(player):
 def log_end_turn(game_round):
     if config.LOGMESSAGES:
         with open('log.txt', "a") as out:
-            out.write("END OF ROUND " + str(game_round))
+            out.write("END OF ROUND " + str(game_round) + " : " + time.strftime("%H:%M:%S", time.localtime()))
             out.write('\n')
 
 

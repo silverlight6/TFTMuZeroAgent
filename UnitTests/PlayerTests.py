@@ -1,4 +1,4 @@
-from Simulator.player import player
+from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator import champion as c_object
@@ -6,10 +6,10 @@ from Simulator.item_stats import trait_items, starting_items
 from Simulator.origin_class_stats import origin_class
 
 
-def setup(player_num=0) -> player:
+def setup(player_num=0) -> Player:
     """Creates fresh player and pool"""
     base_pool = pool()
-    player1 = player(base_pool, player_num)
+    player1 = Player(base_pool, player_num)
     return player1
 
 
@@ -25,6 +25,17 @@ def azir_test():
     p1.move_board_to_board(1, 1, 5, 3)
     assert [5, 3] in p1.board[0][0].sandguard_overlord_coordinates
     p1.move_board_to_bench(0, 0)
+    for x in range(7):
+        for y in range(4):
+            assert p1.board[x][y] is None
+
+    p1.buy_champion(champion('azir'))
+    p1.move_bench_to_board(0, 0, 0)
+    coords = p1.board[0][0].sandguard_overlord_coordinates
+    assert p1.board[coords[0][0]][coords[0][1]].name == 'sandguard'
+    assert p1.board[coords[1][0]][coords[1][1]].name == 'sandguard'
+    assert p1.num_units_in_play == 1
+    p1.sell_champion(p1.board[0][0])
     for x in range(7):
         for y in range(4):
             assert p1.board[x][y] is None
@@ -73,6 +84,7 @@ def championDuplicatorTest():
     assert p1.bench[1].name == 'leesin'
     p1.move_bench_to_board(0, 0, 0)
     p1.move_item(1, 0, 0)
+    print(p1.bench)
     assert p1.board[0][0].stars == 2
     assert p1.gold == 995
     p1.buy_champion(champion('jax'))

@@ -26,7 +26,7 @@ import torch
 Data workers are the "workers" or threads that collect game play experience. 
 Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 '''
-@ray.remote(num_gpus=0.19)
+@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank):
         self.agent_network = TFTNetwork()
@@ -54,19 +54,20 @@ class DataWorker(object):
         agent = MCTS(self.agent_network)
         while True:
             # Reset the environment
-            player_observation = env.reset()
+            player_observation, info = env.reset()
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = self.observation_to_input(player_observation)
+
             # Used to know when players die and which agent is currently acting
             terminated = {player_id: False for player_id in env.possible_agents}
 
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy
-                actions, policy, string_samples = agent.policy(player_observation)
+                actions, policy, string_samples = agent.policy(player_observation[:2])
 
-                step_actions = self.getStepActions(terminated, actions)
                 storage_actions = utils.decode_action(actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -106,27 +107,32 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
     '''
     Description -
         Turns a dictionary of player observations into a list of list format that the model can use.
+        Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
     def observation_to_input(self, observation):
         tensors = []
         masks = []
-        for obs in observation.values():
+        keys = []
+        for key, obs in observation.items():
             tensors.append(obs["tensor"])
             masks.append(obs["mask"])
-        return [np.asarray(tensors), masks]
+            keys.append(key)
+        return [np.asarray(tensors), masks, keys]
 
     '''
     Description -
         Turns a string action into a series of one_hot lists that can be used in the step_function.
         More specifics on what every list means can be found in the step_function.
     '''
+
     def decode_action_to_one_hot(self, str_action):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
@@ -135,18 +141,21 @@ class DataWorker(object):
             element_list[i] = int(split_action[i])
 
         decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
-        decoded_action[0:6] = utils.one_hot_encode_number(element_list[0], 6)
+        decoded_action[0:7] = utils.one_hot_encode_number(element_list[0], 7)
 
         if element_list[0] == 1:
-            decoded_action[6:11] = utils.one_hot_encode_number(element_list[1], 5)
+            decoded_action[7:12] = utils.one_hot_encode_number(element_list[1], 5)
 
         if element_list[0] == 2:
-            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38) + \
-                                   utils.one_hot_encode_number(element_list[2], 38)
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37) + \
+                                   utils.one_hot_encode_number(element_list[2], 37)
 
         if element_list[0] == 3:
-            decoded_action[6:44] = utils.one_hot_encode_number(element_list[1], 38)
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
             decoded_action[44:54] = utils.one_hot_encode_number(element_list[2], 10)
+
+        if element_list[0] == 4:
+            decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
     '''
@@ -235,9 +244,9 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
-        global_agent.to("cuda")
+        global_agent.to(config.DEVICE)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
+        trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
         env = parallel_env()
 
@@ -256,11 +265,11 @@ class AIInterface:
         while True:
             if ray.get(global_buffer.available_batch.remote()):
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch, train_step)
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
-                if train_step % 100 == 0:
+                if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.set_model.remote()
                     global_agent.tft_save_model(train_step)
 

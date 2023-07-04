@@ -1,11 +1,10 @@
 import math
-import config
 import time
 import numpy as np
 import random
 from Simulator import champion, origin_class
 import Simulator.utils as utils
-
+import Simulator.config as config
 from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
     starting_items, trait_items, uncraftable_items
 
@@ -25,19 +24,8 @@ Inputs      - pool_pointer: Pool object pointer
 """
 
 
-class player:
-
-    # TODO: Move this these globals over to the simulator side of the config.
-    # TODO: Create a config inside the simulator folder for all simulator based configurations.
+class Player:
     # Explanation - We may switch to a class config for the AI side later so separating the two now is highly useful.
-    CHAMPION_INFORMATION = 12
-    BOARD_SIZE = 28
-    BENCH_SIZE = 9
-    MAX_CHAMPION_IN_SET = 58
-    UNCRAFTABLE_ITEM = len(uncraftable_items)
-    MAX_BENCH_SPACE = 10
-    CHAMP_ENCODING_SIZE = 26
-
     def __init__(self, pool_pointer, player_num):
 
         self.gold = 0
@@ -77,23 +65,27 @@ class player:
         self.max_level = 9
 
         # 2 spot for each item(2 component) 10 slots
-        self.item_vector = np.zeros(self.MAX_BENCH_SPACE * 6)
+        self.item_vector = np.zeros(config.MAX_BENCH_SPACE * 6)
 
         # This time we only need 5 bits total
         self.chosen_vector = np.zeros(5)
 
         # player related info split between what other players can see and what they can't see
         self.player_public_vector = np.zeros(7)
-        self.player_private_vector = np.zeros(9)
+        self.player_private_vector = np.zeros(16)
 
         # Encoding board as an image, so we can run convolutions on it.
         self.board_vector = np.zeros(728)  # 26 size on each unit, 28 squares
-        self.bench_vector = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
         # locations of champions on the board, 1 for spot taken 0 for not
         self.board_mask = np.ones(28, dtype=np.int8)
+        # locations of champions on the board that have full items, 1 for full items 0 for not
+        self.board_full_items_mask = np.ones(28, dtype=np.int8)
+        # locations of units that are not champions on the board
+        self.dummy_mask = np.ones(28, dtype=np.int8)
         # locations of champions on the bench, 1 for spot taken 0 for not
         self.bench_mask = np.ones(9, dtype=np.int8)
         self.item_mask = np.ones(10, dtype=np.int8)
@@ -116,7 +108,7 @@ class player:
         # cost to refresh
         self.refresh_cost = 2
 
-        # reward for refreshing
+        # reward levers
         self.refresh_reward = 0
         self.minion_count_reward = 0
         self.mistake_reward = 0
@@ -124,6 +116,7 @@ class player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
+        self.damage_reward = 1.5
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool
@@ -142,8 +135,10 @@ class player:
         self.start_time = time.time_ns()
 
         # Putting this here to show the next possible opponent
-        self.possible_opponents = [100 for _ in range(config.NUM_PLAYERS)]
-        self.possible_opponents[self.player_num] = -1
+        self.possible_opponents = {"player_" + str(player_id): config.MATCHMAKING_WEIGHTS
+                                   for player_id in range(config.NUM_PLAYERS)}
+        self.possible_opponents["player_" + str(self.player_num)] = -1
+        self.opponent_options = {"player_" + str(player_id): 0 for player_id in range(config.NUM_PLAYERS)}
 
         self.kayn_turn_count = 0
         self.kayn_transformed = False
@@ -206,7 +201,6 @@ class player:
             self.print("Adding chosen champion {} of type {}".format(a_champion.name, a_champion.chosen))
             self.chosen = a_champion.chosen
         self.print("Adding champion {} with items {} to bench".format(a_champion.name, a_champion.items))
-        a_champion.num_items = len(a_champion.items)
         if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
             self.thieves_gloves(bench_loc, -1)
@@ -268,10 +262,8 @@ class player:
     Outputs     - True: Champion purchase successful
                   False: not enough gold to buy champion
     """
-    # TODO: I'm pretty sure we can get rid of that self.gold == 0 but can someone remove it and run the unit tests.
     def buy_champion(self, a_champion):
-        if self.gold == 0 or cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold \
-                or a_champion.cost == 0:
+        if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
             if DEBUG:
                 print("No gold to buy champion")
@@ -305,8 +297,10 @@ class player:
         # if the player doesn't have enough gold to buy exp or is max level, give bad reward
         if self.gold < self.exp_cost or self.level == self.max_level:
             self.reward += self.mistake_reward
+            self.decision_mask[4] = 0
             if DEBUG:
-                print("Did not have gold to buy_exp")
+                print(f"Did not have gold to buy exp, had {self.gold}, needed {self.exp_cost}, "
+                      f"was level {self.level}, mask {self.decision_mask[4]}")
             return False
         self.gold -= 4
         # self.reward += 0.02
@@ -351,6 +345,7 @@ class player:
                             break
                 if found_position:
                     break
+        self.print(f"Spaces for units left to fight {self.max_units - self.num_units_in_play}")
         # update board to survive combat = False, will update after combat if they survived
         # update board to participated in combat
         for x in range(len(self.board)):
@@ -368,9 +363,9 @@ class player:
         self.generate_player_vector()
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Finds locations to put azir's sandguards when he first gets put on the field
+    Inputs      - Azir's x and y coordinates
+    Outputs     - Two sets of coordinates
     """
     def find_azir_sandguards(self, azir_x, azir_y):
         coords_candidates = self.find_free_squares(azir_x, azir_y)
@@ -393,9 +388,9 @@ class player:
         return coords
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Finds free squares around a coordinate
+    Inputs      - Coordinate
+    Outputs     - Free squares surrounding the coordinate
     """
     def find_free_squares(self, x, y):
         if x < 0 or x > 6 or y < 0 or y > 3:
@@ -427,7 +422,6 @@ class player:
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
-                    self.board_mask[7 * y + x] = 1
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
@@ -442,9 +436,26 @@ class player:
                         elif item in item_builds.keys():
                             i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                         champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+
+                    # Masking
+                    if len(curr_champ.items) == 3:
+                        self.board_full_items_mask[7 * y + x] = 1
+                    else:
+                        self.board_full_items_mask[7 * y + x] = 0
+                    if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
+                        self.glove_item_mask[7 * y + x] = 1
+                    # Check for target_dummy or azir sandguard
+                    if self.board[x][y].target_dummy:
+                        self.dummy_mask[7 * y + x] = 1
+                    else:
+                        self.dummy_mask[7 * y + x] = 0
+                    self.board_mask[7 * y + x] = 1
                 else:
                     # Different from the board vector because it needs to match the MCTS encoder
                     self.board_mask[7 * y + x] = 0
+                    self.glove_item_mask[7 * y + x] = 0
+                    self.dummy_mask[7 * y + x] = 0
+                    self.board_full_items_mask[7 * y + x] = 0
 
                 # Fit the area into the designated spot in the vector
                 self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
@@ -459,7 +470,7 @@ class player:
     """
     def generate_bench_vector(self):
         space = 0
-        bench = np.zeros(self.BENCH_SIZE * self.CHAMP_ENCODING_SIZE)
+        bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
         for x_bench in range(len(self.bench)):
             # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
             champion_info_array = np.zeros(6 * 4 + 2)
@@ -479,11 +490,17 @@ class player:
                         i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                     champion_info_array[start:finish] = utils.item_binary_encode(i_index)
                 self.bench_mask[x_bench] = 1
+                if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
+                    self.glove_item_mask[x_bench + 27] = 1
+
             else:
+                if x_bench == 9:
+                    print("length of bench = {}".format(len(self.bench)))
                 self.bench_mask[x_bench] = 0
+                self.glove_item_mask[x_bench + 27] = 0
                 space = 1
-            bench[x_bench * self.CHAMP_ENCODING_SIZE:
-                  x_bench * self.CHAMP_ENCODING_SIZE + self.CHAMP_ENCODING_SIZE] = champion_info_array
+            bench[x_bench * config.CHAMP_ENCODING_SIZE:
+                  x_bench * config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
         self.bench_vector = bench
         self.util_mask[1] = space
 
@@ -507,7 +524,7 @@ class player:
     # return output_array
     # TODO: Make champion_duplicator work when bench is full and can upgrade rank
     def generate_item_vector(self):
-        item_arr = np.zeros(self.MAX_BENCH_SPACE * 6)
+        item_arr = np.zeros(config.MAX_BENCH_SPACE * 6)
         for ind, item in enumerate(self.item_bench):
             item_info = np.zeros(6)
             if item == 'champion_duplicator' and self.bench_full():
@@ -541,16 +558,38 @@ class player:
             self.player_private_vector[6] = self.match_history[-3]
             self.player_private_vector[7] = self.match_history[-2]
             self.player_private_vector[8] = self.match_history[-1]
+        # Who we can play against in the next round. / 20 to keep numbers between 0 and 1.
+        # TODO: Figure out a better way to get around this nested if statement that doesn't involve iterating over
+        # TODO: The entire list
+        for x in range(9, 17):
+            if (x - 9) < self.player_num:
+                if ("player_" + str(x - 9)) in self.opponent_options:
+                    self.player_private_vector[x] = self.opponent_options["player_" + str(x - 9)] / 20
+                else:
+                    self.player_private_vector[x] = -1
+            elif (x - 0) > self.player_num:
+                if ("player_" + str(x - 9)) in self.opponent_options:
+                    self.player_private_vector[x - 1] = self.opponent_options["player_" + str(x - 9)] / 20
+                else:
+                    self.player_private_vector[x - 1] = -1
 
-        # Decision mask parameters
-        # if gold < 4, do not allow to level
-        if self.gold < 4:
+        # if gold < 4 or already max level, do not allow to level
+        if self.level == self.max_level or self.gold < 4:
             self.decision_mask[4] = 0
-            # Can not roll down to 0 gold
-            self.decision_mask[5] = 0
         else:
             self.decision_mask[4] = 1
+
+        # If gold < 2, do not allow to roll
+        if self.gold < 2:
+            self.decision_mask[5] = 0
+        else:
             self.decision_mask[5] = 1
+
+        for idx, cost in enumerate(self.shop_costs):
+            if self.gold < cost or cost == 0:
+                self.shop_mask[idx] = 0
+            else:
+                self.shop_mask[idx] = 1
 
     """
     Description - All game state information that other players have access to is stored here..
@@ -576,16 +615,6 @@ class player:
         self.generate_public_player_vector()
         self.generate_private_player_vector()
 
-    """
-    Description - Same as loss_round but if the opponent was a ghost
-    Inputs      - damage: Int
-                    amount of damage inflicted in the combat round
-    """
-    # TODO - split the negative reward here among the rest of the players to maintain a net equal reward
-    # TODO - move the 0.5 to the list of other reward controllers for each of the won / loss round methods
-    def ghost_won(self, damage):
-        self.reward -= 0 * damage
-        self.print(str(0 * damage) + " reward for someone losing to a ghost")
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.
@@ -651,6 +680,7 @@ class player:
             starting_round_gold = [0, 2, 2, 3, 4]
             self.gold += floor(self.gold / 10)
             self.gold += starting_round_gold[t_round]
+            self.generate_player_vector()
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
@@ -664,9 +694,9 @@ class player:
         self.generate_player_vector()
 
     """
-    Description - Checks if the item bench is full. False otherwise.
-    Inputs      -
-    Outputs     - 
+    Description - Checks if there's enough room on the item bench for a given number of items
+    Inputs      - number of items to add to item bench
+    Outputs     - boolean whether there's enough room
     """
     # num of items to be added to bench, set 0 if not adding.
     # I need to redo this to see how many slots within the length of the array are currently full.
@@ -682,6 +712,10 @@ class player:
             self.util_mask[2] = 0
             return False
 
+    """
+    Description - Finds a free slot on the item bench
+    """
+
     def item_bench_vacancy(self) -> int or False:
         for free_slot, u in enumerate(self.item_bench):
             if not u:
@@ -689,11 +723,8 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Checks if there's a kayn on the board
     """
-    # checking if kayn is on the board
     def kayn_check(self) -> bool:
         for x in range(0, 7):
             for y in range(0, 4):
@@ -703,9 +734,8 @@ class player:
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Gives the player the kayn items that allow the player to select kayn's form
+    Outputs     - Sets kayn_transformed to true so it only happens once
     """
     def kayn_transform(self):
         if not self.kayn_transformed:
@@ -731,17 +761,16 @@ class player:
             self.exp = 0
 
     """
-    Description - Handles logic around losing a combat round.
-    Inputs      -
-    Outputs     - 
+    Description - Handles all variables related to losing rounds
+    Inputs      - The amount of damage resulting from the loss (calculated in game_round)
     """
     # TODO: Separate losing a combat round and a minion round. They have differences related to win_streaks and classes
     def loss_round(self, damage):
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= 2 * damage
-            self.print(str(-2 * damage) + " reward for losing round against player " + str(self.opponent.player_num))
+            # self.reward -= self.damage_reward * damage
+            self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -796,7 +825,9 @@ class player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
+            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, \
+                             bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}, \
+                             with units in play {self.num_units_in_play} and max units {self.max_units}")
         return False
 
     """
@@ -912,9 +943,9 @@ class player:
         return False
 
     """
-    Description - Move item from item_bench to champion_bench
-    Inputs      -
-    Outputs     - 
+    Description - Moves an item or consumable from the item bench to either the player bench or player board
+    Inputs      - item bench slot to move, [x, y] location to be moved to (y = -1 for the bench)
+    Outputs     - boolean whether or not the move was successful
     """
     # TODO : Item combinations.
     # TODO : Documentation and setting up correct masks.
@@ -940,15 +971,12 @@ class player:
                     print("Applying kayn item on not kayn")
                 return False
             if self.item_bench[xBench] == 'champion_duplicator':
-                if not self.bench_full():
-                    self.gold += champ.cost
-                    self.buy_champion(champ)
-                    self.item_bench[xBench] = None
-                    self.generate_item_vector()
-                    self.decide_vector_generation(board)
-                    return True
-                if DEBUG:
-                    print(f"Applying champion duplicator with the bench full")
+                if COST[champ.name] != 0:
+                    if not self.bench_full():
+                        self.add_to_bench(champion.champion(champ.name, chosen=champ.chosen, kayn_form=champ.kayn_form))
+                        self.item_bench[xBench] = None
+                        self.generate_item_vector()
+                        return True
                 return False
             if self.item_bench[xBench] == 'magnetic_remover':
                 if len(champ.items) > 0:
@@ -972,7 +1000,6 @@ class player:
                 if len(champ.items) < 1:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
-                    champ.num_items += 3
                     self.thieves_gloves_loc.append([x, y])
                     self.thieves_gloves(x, y)
                     self.generate_item_vector()
@@ -982,15 +1009,15 @@ class player:
                     print("Trying to add thieves gloves to unit with a separate item")
                 return False
             # TODO: Clean up this code, we already checked for thieves_glove by this point
-            if ((champ.num_items < 3 and self.item_bench[xBench] != "thieves_gloves") or
+            if ((len(champ.items) < 3 and self.item_bench[xBench] != "thieves_gloves") or
                     (champ.items and champ.items[-1] in basic_items and self.item_bench[xBench]
-                     in basic_items and champ.num_items == 3)):
+                     in basic_items and len(champ.items) == 3)):
                 for trait, name in enumerate(trait_items.values()):
                     if self.item_bench[xBench] == name:
                         item_trait = list(trait_items.keys())[trait]
                         if item_trait in champ.origin:
                             if DEBUG:
-                                print("Trying to add item to unit with that trait")
+                                print("Trying to add trait item to unit with that trait")
                             return False
                         else:
                             champ.origin.append(item_trait)
@@ -999,8 +1026,6 @@ class player:
                 if len(champ.items) > 0:
                     # implement the item combinations here. Make exception with thieves gloves
                     if champ.items[-1] in basic_items and self.item_bench[xBench] in basic_items:
-                        coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                        self.glove_item_mask[coord] = 0
                         item_build_values = item_builds.values()
                         item_index = 0
                         item_names = list(item_builds.keys())
@@ -1014,7 +1039,7 @@ class player:
                                 item_trait = list(trait_items.keys())[trait]
                                 if item_trait in champ.origin:
                                     if DEBUG:
-                                        print("trying to add trait item to unit with that trait")
+                                        print("trying to combine trait item to unit with that trait")
                                     return False
                                 else:
                                     champ.origin.append(item_trait)
@@ -1022,10 +1047,9 @@ class player:
                         if item_names[item_index] == "thieves_gloves":
                             if champ.num_items != 1:
                                 if DEBUG:
-                                    print("Trying to add thieves gloves to unit with a separate item")
+                                    print("Trying to combine thieves gloves in unit with a separate item",  x, y)
                                 return False
                             else:
-                                champ.num_items += 2
                                 self.thieves_gloves_loc.append([x, y])
                         self.item_bench[xBench] = None
                         champ.items.pop()
@@ -1033,34 +1057,27 @@ class player:
                         if champ.items[0] == 'thieves_gloves':
                             self.thieves_gloves(x, y)
                         self.reward += .2 * self.item_reward
-                        self.print(
-                            ".2 reward for combining two basic items into a {}".format(item_names[item_index]))
+                        self.print("{} reward for combining two basic items into a {}"
+                                   .format(.2 * self.item_reward, item_names[item_index]))
                     elif champ.items[-1] in basic_items and self.item_bench[xBench] not in basic_items:
                         basic_piece = champ.items.pop()
                         champ.items.append(self.item_bench[xBench])
                         champ.items.append(basic_piece)
                         self.item_bench[xBench] = None
-                        champ.num_items += 1
                     else:
-                        if self.item_bench[xBench] == "sparring_gloves":
-                            coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                            self.glove_item_mask[coord] = 1
                         champ.items.append(self.item_bench[xBench])
                         self.item_bench[xBench] = None
-                        champ.num_items += 1
                 else:
                     champ.items.append(self.item_bench[xBench])
                     self.item_bench[xBench] = None
-                    champ.num_items += 1
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name,
                                                                       champ.items))
                 self.generate_item_vector()
                 self.decide_vector_generation(board)
                 return True
-            elif champ.num_items < 1 and self.item_bench[xBench] == "thieves_gloves":
+            elif len(champ.items) < 1 and self.item_bench[xBench] == "thieves_gloves":
                 champ.items.append(self.item_bench[xBench])
                 self.item_bench[xBench] = None
-                champ.num_items += 3
                 self.generate_item_vector()
                 self.decide_vector_generation(board)
                 self.print("After Move {} to {} with items {}".format(self.item_bench[xBench], champ.name, champ.items))
@@ -1069,27 +1086,31 @@ class player:
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Failed to add item {self.item_bench[xBench]}")
+            print(
+                f"Failed to add item {self.item_bench[xBench]} in slot {xBench} to {champ} in {x}, {y}, "
+                f"item_mask: {self.item_mask}")
+            if champ:
+                print(f'{champ} had {len(champ.items)} items')
         return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Uses the move_item method to move an item or consumable from the item bench to the player bench
+    Inputs      - see move_item
+    Outputs     - see move_item
     """
     def move_item_to_bench(self, xBench, x):
         self.move_item(xBench, x, -1)
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Uses the move_item method to move an item or consumable from the item bench to the board
+    Inputs      - see move_item
+    Outputs     - see move_item
     """
     def move_item_to_board(self, xBench, x, y):
         self.move_item(xBench, x, y)
 
     """
-    Description -
+    Description - 
     Inputs      -
     Outputs     - 
     """
@@ -1108,7 +1129,7 @@ class player:
     """
     def print(self, msg):
         self.printt('{:<120}'.format('{:<8}'.format(self.player_num)
-                                     + '{:<20}'.format(str(time.time_ns() - self.start_time)) + msg))
+                                     + '{:<20}'.format(str((time.time_ns() - self.start_time)/1000)) + msg))
 
     """
     Description -
@@ -1132,7 +1153,6 @@ class player:
         keys = list(self.team_composition.keys())
         values = list(self.team_composition.values())
         tier_values = list(self.team_tiers.values())
-        # self.print("Reward gained last round = {}".format(self.reward - self.prev_rewards))
         self.prev_rewards = self.reward
         for i in range(len(self.team_composition)):
             if values[i] != 0:
@@ -1250,14 +1270,13 @@ class player:
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and self.bench[x].items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_cvacancy()] = self.bench[x].items[0]
-                    self.print("returning " + self.bench[x].items[0] + " to the item bench")
+                    self.print("returning " + str(self.bench[x].items[0]) + " to the item bench")
                 self.bench[x].items = []
-                self.bench[x].num_items = 0
             self.generate_item_vector()
             return True
-        self.print("No units at bench location {}".format(x))
         if DEBUG:
             print("No units at bench location {}".format(x))
+        self.print("No units at bench location {}".format(x))
         return False
 
     """
@@ -1279,7 +1298,7 @@ class player:
                         self.thieves_gloves_loc.remove([a_champion.x, a_champion.y])
                     a_champion.items = ['thieves_gloves']
                 # if I have enough space on the item bench for the number of items needed
-                if not self.item_bench_full(a_champion.num_items):
+                if not self.item_bench_full(len(a_champion.items)):
                     # Each item in possession
                     for item in a_champion.items:
                         if item in trait_items.values():
@@ -1291,14 +1310,13 @@ class player:
                 # if there is only one or two spots left on the item_bench and thieves_gloves is removed
                 elif not self.item_bench_full(1) and a_champion.items[0] == "thieves_gloves":
                     self.item_bench[self.item_bench_vacancy()] = a_champion.items[0]
-                    self.print("returning " + a_champion.items[0] + " to the item bench")
+                    self.print("returning " + str(a_champion.items[0]) + " to the item bench")
                 else:
                     self.print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     if DEBUG:
                         print("Could not remove item {} from champion {}".format(a_champion.items, a_champion.name))
                     return False
                 a_champion.items = []
-                a_champion.num_items = 0
                 self.generate_item_vector()
 
             return True
@@ -1396,13 +1414,17 @@ class player:
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
+            if self.board[s_champion.x][s_champion.y].name == 'azir':
+                coords = self.board[s_champion.x][s_champion.y].sandguard_overlord_coordinates
+                self.board[s_champion.x][s_champion.y].overlord = False
+                for coord in coords:
+                    self.board[coord[0]][coord[1]] = None
             self.board[s_champion.x][s_champion.y] = None
             self.generate_board_vector()
         if field:
             self.num_units_in_play -= 1
         self.print("selling champion " + s_champion.name + " with stars = " + str(s_champion.stars) + " from position ["
                    + str(s_champion.x) + ", " + str(s_champion.y) + "]")
-
         return True
 
     """
@@ -1447,6 +1469,39 @@ class player:
     Outputs     - True: No possible actions
                   False: There are actions possible
     """
+    def spill_reward(self, damage):
+        self.reward += self.damage_reward * damage
+        self.print("Spill reward of {} received".format(self.damage_reward * damage))
+
+    """
+    Description - Does all operations that happen at the start of the round. 
+                  This includes gold, reward, kayn updates and thieves gloves
+    Inputs      - t_round: Int
+                    current game round
+    """
+    def start_round(self, t_round):
+        self.start_time = time.time_ns()
+        self.round = t_round
+        self.reward += self.num_units_in_play * self.minion_count_reward
+        self.gold_income(self.round)
+        self.generate_player_vector()
+        if self.kayn_check():
+            self.kayn_turn_count += 1
+        if self.kayn_turn_count >= 3:
+            self.kayn_transform()
+        for x in self.thieves_gloves_loc:
+            if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
+                self.thieves_gloves(x[0], x[1])
+
+        self.printComp()
+        self.printBench()
+        self.printItemBench()
+
+    """
+    Description - Returns true if there are no possible actions in the state
+    Outputs     - True: No possible actions
+                  False: There are actions possible
+    """
     def state_empty(self):
         # Need both in case of an empty shop.
         if self.gold == 0 or self.gold < min(self.shop_costs):
@@ -1461,11 +1516,10 @@ class player:
         else:
             return False
 
-
     """
-    Description - 
-    Inputs      -
-    Outputs     - 
+    Description - Gives new thieves gloves items to a champion in thieves_gloves_loc
+    Inputs      - thieves_gloves_loc coordinates
+    Outputs     - 2 completed items
     """
     def thieves_gloves(self, x, y) -> bool:
         r1 = random.randint(0, len(thieves_gloves_items) - 1)
@@ -1489,9 +1543,9 @@ class player:
             return False
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Checks if either of 2 coordinates is in thieves_gloves_loc and swaps it for the one that isn't
+    Inputs      - 2 x, y coordinates
+    Outputs     - modified thieves_gloves_loc list
     """
     def thieves_gloves_loc_update(self, x1, y1, x2, y2):
         if [x1, y1] in self.thieves_gloves_loc and [x2, y2] in self.thieves_gloves_loc:
@@ -1518,9 +1572,9 @@ class player:
         self.thieves_glove_mask[coord_add] = 1
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Transforms Kayn into either shadowassassin or rhast based on which item the player used
+    Inputs      - kayn item (either shadowassassin or rhast)
+    Outputs     - Transforms all Kayns (board, bench and shop)
     """
     def transform_kayn(self, kayn_item):
         self.kayn_form = kayn_item
@@ -1584,9 +1638,9 @@ class player:
         return False, True
 
     """
-    Description -
-    Inputs      -
-    Outputs     - 
+    Description - Handles all reforger functions
+    Inputs      - reforger's slot on the item bench, champion coordinates (y = -1 for bench)
+    Outputs     - Reforges the items if there's room on item bench, otherwise returns false
     """
     def use_reforge(self, xBench, x, y) -> bool:
         board = False
@@ -1619,7 +1673,6 @@ class player:
                     r = random.randint(0, len(thieves_gloves_items) - 1)
                     self.item_bench[self.item_bench_vacancy()] = thieves_gloves_items[r]
             champ.items = []
-            champ.num_items = 0
             self.item_bench[xBench] = None
             self.generate_item_vector()
             self.decide_vector_generation(board)
@@ -1627,31 +1680,6 @@ class player:
         if DEBUG:
             print("could not use reforge")
         return False
-
-    """
-    Description - Does all operations that happen at the start of the round. 
-                  This includes gold, reward, kayn updates and thieves gloves
-    Inputs      - t_round: Int
-                    current game round
-    """
-    # TODO Organize methods to be alphabetical so people can find what they are looking for in this file. This file only
-    def start_round(self, t_round):
-        self.start_time = time.time_ns()
-        self.round = t_round
-        self.reward += self.num_units_in_play * self.minion_count_reward
-        self.gold_income(self.round)
-        self.generate_player_vector()
-        if self.kayn_check():
-            self.kayn_turn_count += 1
-        if self.kayn_turn_count >= 3:
-            self.kayn_transform()
-        for x in self.thieves_gloves_loc:
-            if (x[1] != -1 and self.board[x[0]][x[1]]) or self.bench[x[0]]:
-                self.thieves_gloves(x[0], x[1])
-
-        self.printComp()
-        self.printBench()
-        self.printItemBench()
 
     """
     Description - Called at the conclusion of the game to the player who won the game
@@ -1694,8 +1722,8 @@ class player:
             self.win_streak += 1
             self.loss_streak = 0
             self.gold += 1
-            self.reward += 2 * damage
-            self.print(str(2 * damage) + " reward for winning round against player " + str(self.opponent.player_num))
+            self.reward += self.damage_reward * damage
+            self.print(str(self.damage_reward * damage) + " reward for winning round against player " + str(self.opponent.player_num))
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:

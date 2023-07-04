@@ -326,3 +326,15 @@ starting_items = [
     'sparring_gloves',
     'tear_of_the_goddess',
 ]
+
+offensive_items = [
+    'bf_sword',
+    'needlessly_large_rod',
+    'recurve_bow',
+]
+
+defensive_items = [
+    'chain_vest',
+    'giants_belt',
+    'negatron_cloak',
+]

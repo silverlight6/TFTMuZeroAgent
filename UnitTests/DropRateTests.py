@@ -2,7 +2,7 @@
 # by running the simulator 100000 times and counting the number of times
 # each champion is chosen.
 
-from Simulator.player import player
+from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator.pool import COST_1, COST_2, COST_3, COST_4, COST_5
@@ -26,7 +26,7 @@ CORRECT_DROP_RATES = [
 def verifyShopDropRate():
     # Create a player and pool
     pool1 = pool()
-    player1 = player(pool_pointer=pool1, player_num=1)
+    player1 = Player(pool_pointer=pool1, player_num=1)
 
     # loop through 9 player levels
     for level in range(1, 10):

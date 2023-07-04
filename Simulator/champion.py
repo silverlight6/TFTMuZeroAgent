@@ -1,9 +1,10 @@
+import Simulator.config as config
 import Simulator.origin_class as origin_class
 import Simulator.origin_class_stats as origin_class_stats
 import Simulator.champion_functions as champion_functions
 import time
-import config
 import random
+import itertools
 
 from math import ceil
 from Simulator.stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMANA, COST, MANALOCK, ABILITY_REQUIRES_TARGET, \
@@ -538,6 +539,14 @@ def run(champion_q, player_1, player_2, round_damage=0):
                                       player_2.board[x][y].items, False, None, player_2.board[x][y].chosen,
                                       player_2.board[x][y].kayn_form, player_2.board[x][y].target_dummy))
 
+    printt('Player 1 (Blue) Team')
+    for unit in blue:
+        printt(unit.name)
+
+    printt('Player 2 (Red) Team')
+    for unit in red:
+        printt(unit.name)
+
     if len(blue) == 0 or len(red) == 0:
         if len(red) == 0 and len(blue) == 0:
             printt('DRAW')
@@ -585,13 +594,24 @@ def run(champion_q, player_1, player_2, round_damage=0):
         if MILLIS() > 0 and MILLIS() % \
                 origin_class_stats.threshold['hunter'][origin_class.get_origin_class_tier('red', 'hunter')] == 0:
             origin_class.hunter(red)  # hunter -trait
-        for b in blue:
-            if not b.target_dummy:
+        
+        
+        for b, o in itertools.zip_longest(blue, red):            
+            if b and not b.target_dummy:
                 field.action(b)
-
+            if o and not o.target_dummy:
+                field.action(o)
+        '''
+        
         for o in red:
             if not o.target_dummy:
                 field.action(o)
+                
+        for b in blue:
+            if not b.target_dummy:
+                field.action(b)
+        '''
+        
 
         while len(que) > 0 and MILLIS() > que[0][2]:
             champion_q = que[0][1]
@@ -654,14 +674,14 @@ def run(champion_q, player_1, player_2, round_damage=0):
                 printt('BLUE TEAM WON')
                 for unit in blue:
                     printt(unit.name)
-                printt("round damage = {}".format(round_damage + DAMAGE_PER_UNIT[len(blue)]))
+                printt("player_1 dealt round damage = {}".format(round_damage + DAMAGE_PER_UNIT[len(blue)]))
                 survive_combat(player_1, blue)
                 return 1, (round_damage + DAMAGE_PER_UNIT[len(blue)])
             elif len(blue) == 0:
                 printt('RED TEAM WON')
                 for unit in red:
                     printt(unit.name)
-                printt("round damage = {}".format(round_damage + DAMAGE_PER_UNIT[len(red)]))
+                printt("player_2 dealt round damage = {}".format(round_damage + DAMAGE_PER_UNIT[len(red)]))
                 survive_combat(player_2, red)
                 return 2, (round_damage + DAMAGE_PER_UNIT[len(red)])
             break
