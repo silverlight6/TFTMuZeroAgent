@@ -1,12 +1,11 @@
 import config
 import time
 import numpy as np
-from collections import deque
-
+from queue import PriorityQueue
 
 class GlobalBuffer:
     def __init__(self):
-        self.gameplay_experiences = deque(maxlen=25000)
+        self.gameplay_experiences = PriorityQueue(maxsize=25000)
         self.batch_size = config.BATCH_SIZE
 
     def sample_batch(self):
@@ -16,7 +15,7 @@ class GlobalBuffer:
         sample_set_batch = []
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask,\
-                value, reward, policy, sample_set = self.gameplay_experiences.popleft()
+                value, reward, policy, sample_set = self.gameplay_experiences.get()
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -42,10 +41,10 @@ class GlobalBuffer:
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        self.gameplay_experiences.append(sample)
+        self.gameplay_experiences.append(sample[0],sample[1])
 
     def available_batch(self):
-        queue_length = len(self.gameplay_experiences)
+        queue_length = self.gameplay_experiences.qsize()
         if queue_length >= self.batch_size:
             return True
         return False

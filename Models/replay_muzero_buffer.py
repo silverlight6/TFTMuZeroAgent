@@ -4,7 +4,6 @@ import random
 from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_set
 
-
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
         self.gameplay_experiences = []
@@ -42,7 +41,7 @@ class ReplayBuffer:
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
-            if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
+            if (len(self.gameplay_experiences )- config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
         if samples_per_player > 0:
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
@@ -64,19 +63,25 @@ class ReplayBuffer:
                 reward_set = []
                 policy_set = []
                 sample_set = []
+                priority_set = [] 
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
                     if config.TD_STEPS > 0:
                         bootstrap_index = current_index + config.TD_STEPS
                     else:
                         bootstrap_index = len(reward_correction)
+                    prediction = self.root_values[bootstrap_index] * config.DISCOUNT ** config.TD_STEPS
                     if config.TD_STEPS > 0 and bootstrap_index < len(self.root_values):
-                        value = self.root_values[bootstrap_index] * config.DISCOUNT ** config.TD_STEPS
+                        value = prediction
                     else:
                         value = 0.0
-
+                    #bootstrapping value back from rewards 
                     for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
                         value += reward_corrected * config.DISCOUNT ** i
+                    
+                    priority = 0.001
+                    priority = np.maximum(priority, np.abs(prediction-value))
+                    priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
@@ -123,6 +128,6 @@ class ReplayBuffer:
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
 
-                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]
+                output_sample_set = [1/priority_set[0], [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
+                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]]
                 self.g_buffer.store_replay_sequence.remote(output_sample_set)
