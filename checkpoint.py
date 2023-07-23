@@ -10,7 +10,8 @@ class Checkpoint:
         if self.epoch == 0:
             return model.get_weights()
         else:
-            return model.tft_load_model(self.epoch).get_weights()
+            model.tft_load_model(self.epoch)
+            return model.get_weights()
 
     def update_q_score(self, episode, prob):
         if episode != 0:

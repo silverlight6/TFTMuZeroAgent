@@ -29,9 +29,9 @@ Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any dif
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank):
-        temp_model = TFTNetwork()
-        self.agent_network = MCTS(temp_model)
-        self.past_network = MCTS(temp_model)
+        self.temp_model = TFTNetwork()
+        self.agent_network = MCTS(self.temp_model)
+        self.past_network = MCTS(self.temp_model)
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
         self.live_game = True
         self.rank = rank
@@ -114,13 +114,16 @@ class DataWorker(object):
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
                 past_weights, self.past_episode, self.prob = ray.get(storage.sample_past_model.remote())
+                self.past_network = MCTS(self.temp_model)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
-            weights = copy.deepcopy(ray.get(storage.get_model.remote()))
+            temp_weights = ray.get(storage.get_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = MCTS(self.temp_model)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -347,7 +350,7 @@ class AIInterface:
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(0.5)
-        ray.get(workers)
+        # ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

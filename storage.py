@@ -64,9 +64,8 @@ class Storage:
 
         # Update this later to delete the model with the lowest value.
         # Want something so it doesn't expand infinitely
-        if len(self.checkpoint_list > 1000):
+        if len(self.checkpoint_list) > 1000:
             self.checkpoint_list = self.checkpoint_list[1:]
-        print("CHECKPOINT STORED")
 
     def update_checkpoint_score(self, episode, prob):
         print("UPDATING CHECKPOINT SCORE OF EPISODE {}".format(episode))
@@ -76,14 +75,11 @@ class Storage:
         print("UPDATED CHECKPOINT SCORE OF EPISODE {} TO {}".format(episode, checkpoint.q_score))
 
     def sample_past_model(self):
-        print("STARTING SAMPLE OF PAST MODEL")
         # List of probabilities for each past model
         probabilities = np.array([], dtype=np.float32)
 
         # List of checkpoint epochs, so we can load the right model
         checkpoints = np.array([], dtype=np.float32)
-
-        print("size of self.checkpoint_list {}".format(getsizeof(self.checkpoint_list)))
 
         # Populate the lists
         for checkpoint in self.checkpoint_list:
@@ -99,7 +95,6 @@ class Storage:
         # Find the index, so we can return the probability as well in case we need to update the value
         index = np.where(checkpoints == choice)[0][0]
 
-        print("SAMPLED PAST MODEL")
         # Return the model and the probability
         return self.checkpoint_list[index].get_model(), choice, probabilities[index]
 

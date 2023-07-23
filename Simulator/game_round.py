@@ -220,7 +220,6 @@ class Game_Round:
         for i in range(len(self.game_rounds[self.current_round])):
             self.game_rounds[self.current_round][i]()
         self.current_round += 1
-        self.start_round()
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
