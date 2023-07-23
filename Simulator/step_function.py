@@ -81,6 +81,7 @@ class Step_Function:
     def batch_2d_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
+            # print("player {} action {}".format(player.player_num, action))
             action_selector = action[0]
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()

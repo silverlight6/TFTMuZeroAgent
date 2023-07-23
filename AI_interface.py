@@ -75,7 +75,7 @@ class DataWorker(object):
                 actions, policy, string_samples = self.model_call(player_observation, terminated)
 
                 storage_actions = utils.decode_action(actions)
-                step_actions = self.getStepActions(terminated, actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -347,7 +347,7 @@ class AIInterface:
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(0.5)
-        # ray.get(workers)
+        ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
