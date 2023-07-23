@@ -1438,6 +1438,7 @@ class Player:
                   False: Was unable to sell unit due to remove from triple catalog, return item or target dummy.
     """
     def sell_from_bench(self, location, golden=False) -> bool:
+        print(self.bench_mask)
         if self.bench[location]:
             if not (self.remove_triple_catalog(self.bench[location], golden=golden) and
                     self.return_item_from_bench(location)):
@@ -1727,6 +1728,7 @@ class Player:
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
+                print("player {} gaining fortune reward".format(self.player_num))
                 if self.fortune_loss_streak >= len(fortune_returns):
                     self.gold += math.ceil(fortune_returns[len(fortune_returns) - 1] +
                                            15 * (self.fortune_loss_streak - len(fortune_returns)))

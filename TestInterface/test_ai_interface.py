@@ -100,6 +100,16 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
+    def decode_action_to_array(self, str_action):
+        element_list = [0, 0, 0]
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+
+        return element_list
+
+
 
 class AIInterface:
 
@@ -110,7 +120,6 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
-        train_summary_writer = SummaryWriter(train_log_dir)
 
         global_buffer = GlobalBuffer()
 
@@ -119,6 +128,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
+        train_summary_writer = SummaryWriter(train_log_dir)
         trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
         while True:

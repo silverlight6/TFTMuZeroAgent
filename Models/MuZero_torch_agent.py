@@ -6,10 +6,6 @@ import time
 import os
 import torch.nn as nn
 
-NetworkOutput = collections.namedtuple(
-    'NetworkOutput',
-    'value reward policy_logits hidden_state')
-
 
 def dict_to_cpu(dictionary):
     cpu_dict = {}

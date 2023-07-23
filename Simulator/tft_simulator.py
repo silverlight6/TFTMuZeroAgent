@@ -177,6 +177,7 @@ class TFT_Simulator(AECEnv):
 
     def step(self, action):
         # step for dead agents
+        print(action)
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
             return
