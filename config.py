@@ -60,6 +60,8 @@ WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 0
 POLICY_LOSS_SCALING = 1
 
+AUTO_BATTLER_PERCENTAGE = 1
+
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
 # I'll add a mathematical way of generating these numbers later.
