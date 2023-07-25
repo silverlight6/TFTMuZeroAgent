@@ -82,7 +82,7 @@ class ReplayBuffer:
 
                     reward_mask = 0
                     # reward_mask = 1.0 if current_index > sample else 0.0
-                    if current_index < num_steps - 1:
+                    if current_index < num_steps:
                         if current_index != sample:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
@@ -97,23 +97,19 @@ class ReplayBuffer:
                         reward_set.append(0)
                         policy_set.append(self.policy_distributions[current_index])
                         sample_set.append(self.string_samples[current_index])
-                    elif current_index == num_steps - 1:
-                        action_set.append([0, 0, 0])
+                    elif current_index == num_steps:
+                        action_set.append(np.asarray(self.action_history[current_index]))
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
-                        policy_mask_set.append(0.0)
-                        # This is 0.0 in Google's code but thinking this should be the same as the reward?
-                        # The value of the terminal state should equal
-                        # the value of the cumulative reward at the given state.
-                        value_set.append(0.0)
+                        policy_mask_set.append(1.0)
+                        value_set.append(self.rewards[-1])
                         reward_set.append(0)
-                        # 0 is ok here because this get masked out anyway
-                        policy_set.append(self.policy_distributions[0])
-                        sample_set.append(self.string_samples[0])
+                        policy_set.append(self.policy_distributions[current_index])
+                        sample_set.append(self.string_samples[current_index])
                     else:
                         # States past the end of games is treated as absorbing states.
                         action_set.append([0, 0, 0])
-                        value_mask_set.append(1.0)
+                        value_mask_set.append(0.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
                         value_set.append(0.0)
@@ -126,6 +122,7 @@ class ReplayBuffer:
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
 
+                # print(f'{self.rewards[-1]} placement, {value_set}')
                 output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                                      policy_mask_set, value_set, reward_set, policy_set, sample_set]
                 self.g_buffer.store_replay_sequence.remote(output_sample_set)
