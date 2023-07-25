@@ -93,7 +93,7 @@ class champion:
         self.lifesteal = 0
         self.lifesteal_spells = 0
         self.healing_strength = 1
-        self.crit_chance = 0.25
+        self.crit_chance = 0
         self.crit_damage = 1.5
 
         self.team = team
@@ -594,24 +594,12 @@ def run(champion_q, player_1, player_2, round_damage=0):
         if MILLIS() > 0 and MILLIS() % \
                 origin_class_stats.threshold['hunter'][origin_class.get_origin_class_tier('red', 'hunter')] == 0:
             origin_class.hunter(red)  # hunter -trait
-        
-        
-        for b, o in itertools.zip_longest(blue, red):            
+
+        for b, o in itertools.zip_longest(blue, red):
             if b and not b.target_dummy:
                 field.action(b)
             if o and not o.target_dummy:
                 field.action(o)
-        '''
-        
-        for o in red:
-            if not o.target_dummy:
-                field.action(o)
-                
-        for b in blue:
-            if not b.target_dummy:
-                field.action(b)
-        '''
-        
 
         while len(que) > 0 and MILLIS() > que[0][2]:
             champion_q = que[0][1]

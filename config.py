@@ -1,10 +1,12 @@
 import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
-NUM_CPUS = 28
+NUM_CPUS = 26
 GPU_SIZE_PER_WORKER = 0.15
+STORAGE_GPU_SIZE = 0.15
 
-DEVICE='cuda'
+DEVICE = "cuda"
+STOCHASTIC = True
 
 # AI RELATED VALUES START HERE
 
@@ -45,8 +47,8 @@ ACTIONS_PER_TURN = 15
 CONCURRENT_GAMES = 20
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 300
-NUM_SIMULATIONS = 100
-SAMPLES_PER_PLAYER = 128  # Normal is 128
+NUM_SIMULATIONS = 75
+SAMPLES_PER_PLAYER = 256  # Normal is 128
 UNROLL_STEPS = 5
 
 ### TRAINING ###
@@ -57,6 +59,8 @@ LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 0
 POLICY_LOSS_SCALING = 1
+
+AUTO_BATTLER_PERCENTAGE = 1
 
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.

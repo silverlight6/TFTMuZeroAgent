@@ -100,93 +100,14 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
-    def evaluate_agents(self, env , scale ):
-        agents = {"player_" + str(r): MCTS(TFTNetwork())
-                    for r in range(config.NUM_PLAYERS)}
-        agents["player_0"].network.tft_load_model(0)
-        agents["player_1"].network.tft_load_model(100)
-        agents["player_2"].network.tft_load_model(300)
-        agents["player_3"].network.tft_load_model(500)
-        agents["player_4"].network.tft_load_model(700)
-        agents["player_5"].network.tft_load_model(900)
-        agents["player_6"].network.tft_load_model(1100)
-        agents["player_7"].network.tft_load_model(1100)
-        
-        while True:
-            # Reset the environment
-            player_observation = env.reset()
-            # This is here to make the input (1, observation_size) for initial_inference
-            player_observation = self.observation_to_input(player_observation)
-            # Used to know when players die and which agent is currently acting
-            terminated = {
-                player_id: False for player_id in env.possible_agents}
-            # Current action to help with MuZero
-            self.placements = {
-                player_id: 0 for player_id in env.possible_agents}
-            current_position = 7
-            info = {player_id: {"player_won": False}
-                    for player_id in env.possible_agents}
-            info2 = {i:{"traits used":0, "traits list":[],"xp bought":0, "champs bought":0, "2* champs":0, "2* champ list":[], "3* champs":0, "3* champ list":[]} for i in range(8)}
-            #position in log file: 
-            pos = 0
-            # While the game is still going on.
-            
-            while not all(terminated.values()):
-                # Ask our model for an action and policy
-                actions = []
-                for i,key in enumerate(agents):
-                    action, _, _ = agents[key].policy([np.asarray([player_observation[0][i]]), [player_observation[1][i]]])
-                    actions.append(action)
-                actions = [i[0] for i in actions]
+    def decode_action_to_array(self, str_action):
+        element_list = [0, 0, 0]
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
 
-                step_actions = self.getStepActions(terminated, actions)
-
-                # Take that action within the environment and return all of our information for the next player
-                next_observation, reward, terminated, _, info = env.step(step_actions)
-                #get info about actions
-                log = open('log.txt','r')
-                count = 1
-                for line in log:
-                    if count >= pos: #ensures code is ran only once
-                        if line[0] != "E" and line[0] != "S": # Eliminate END ROUND and START GAME line s
-                            player_num = int(line[0]) # first char is always player num
-                            if "level = 2" in line: # Tier 2 champs 
-                                champ = line[line.index("champion "):].split(" ")[1] #get actual champ name 
-
-                                if champ not in info2[player_num]["2* champ list"]: #avoid duplicates 
-                                    info2[player_num]["2* champs"] += 1 
-                                    info2[player_num]["2* champ list"].append(champ)
-                            if "level = 3" in line: # Tier 3 champs 
-                                champ = line[line.index("champion "):].split(" ")[1] #get actual champ name 
-
-                                if champ not in info2[player_num]["3* champ list"]: #avoid duplicates 
-                                    info2[player_num]["3* champs"] += 1 
-                                    info2[player_num]["3* champ list"].append(champ)
-                            elif "Spending gold on champion" in line: 
-                                info2[player_num]["champs bought"] += 1 
-                            elif "exp" in line: # think this is when xp is bought 
-                                info2[player_num]["xp bought"] += 1
-                            if "tier: " in line and "tier: 0" not in line: # checks traits same as lvl 2 champs 
-                                trait = line[:line.index("tier:")].split(" ")
-                                trait = trait[-3]
-                                if trait not in info2[player_num]["traits list"]:
-                                    info2[player_num]["traits used"] += 1
-                                    info2[player_num]["traits list"].append(trait)
-
-                    count += 1 
-                pos = count     
-
-                # store the action for MuZero
-                # Set up the observation for the next action
-                player_observation = self.observation_to_input(next_observation)
-                for key, terminate in terminated.items():
-                    if terminate:
-                        self.placements[key] = current_position
-                        current_position -= 1
-                        # print(key)
-                        del agents[key]
-            print(info2)
-            print(self.placements)
+        return element_list
 
 
 
@@ -199,7 +120,6 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
-        train_summary_writer = SummaryWriter(train_log_dir)
 
         global_buffer = GlobalBuffer()
 
@@ -208,6 +128,7 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
+        train_summary_writer = SummaryWriter(train_log_dir)
         trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
         while True:
@@ -220,7 +141,6 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch,train_step)
                 train_step += 1
                 if train_step % 100 == 0:
-                    global_agent.tft_save_model(train_step)
     
     def evaluate(self, scale):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"

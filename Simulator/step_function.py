@@ -81,8 +81,7 @@ class Step_Function:
     def batch_2d_controller(self, action, player, players, key, game_observations):
         # single_step_action_controller took 0.0009961128234863281 seconds to finish
         if player:
-            # action format = 0:7 (action_selector),
-            # 7:44 (champ_loc_target), 44:54 (item_loc_target)
+            # print("player {} action {}".format(player.player_num, action))
             action_selector = action[0]
             if action_selector == 0:
                 game_observations[key].generate_game_comps_vector()
@@ -94,9 +93,6 @@ class Step_Function:
                 self.batch_shop(champ_shop_target, player, game_observations[key], key)
             elif action_selector == 2:
                 # Swap champ place
-                # target_1 = np.argmax(action[7:43])
-                # action[target_1 + 7] = 0
-                # target_2 = np.argmax(action[7:43])
                 target_1 = action[1]
                 target_2 = action[2]
                 swap_loc_from = min(target_1, target_2)
@@ -120,8 +116,6 @@ class Step_Function:
                         game_observations[key].generate_game_comps_vector()
             elif action_selector == 3:
                 # Place item on champ
-                # item_selector = np.argmax(action[44:54])
-                # move_loc = np.argmax(action[7:43])
                 item_selector = action[2]
                 move_loc = action[1]
                 if move_loc >= 28:
@@ -132,9 +126,8 @@ class Step_Function:
                     player.move_item_to_board(item_selector, x, y)
             elif action_selector == 4:
                 # Sell Champ
-                # target_1 = np.argmax(action[7:43])
                 target_1 = action[1]
-                player.sell_from_bench(target_1) # We only allow selling from bench
+                player.sell_from_bench(target_1)  # We only allow selling from bench
                 # if target_1 < 28:
                 #     x, y = self.dcord_to_2dcord(target_1)
                 #     if player.board[x][y]:

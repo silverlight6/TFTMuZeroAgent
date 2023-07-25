@@ -16,7 +16,17 @@ def main():
     parser.add_argument('--starting_episode', '-se', dest='starting_episode', type=int, default=0,
                         help='Episode number to start the training. Used for loading checkpoints, '
                              'disables loading if = 0')
+
+    parser.add_argument('--test', '-t', dest='test', action='store_true')
     args = parser.parse_args()
+
+    if args.test:
+        test_interface = TestInterface.AIInterface()
+        test_interface.train_model(starting_train_step=args.starting_episode)
+        return
+
+    interface = AI_interface.AIInterface()
+    interface.train_torch_model(starting_train_step=args.starting_episode)
     # interface.collect_dummy_data()
     # interface.testEnv()
     # interface.PPO_algorithm()

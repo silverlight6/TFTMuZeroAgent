@@ -1,11 +1,12 @@
 import Simulator.config as config
+import config as global_config
 import time
 import random
 import numpy as np
-from Simulator import champion, pool_stats, minion
-from Simulator.item_stats import item_builds as full_items, starting_items
+from Simulator import champion, minion
 from Simulator.champion_functions import MILLIS
 from Simulator.carousel import carousel
+from Simulator.alt_autobattler import alt_auto_battle
 
 
 class Game_Round:
@@ -95,9 +96,13 @@ class Game_Round:
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
                 config.WARLORD_WINS['red'] = players[match[1]].win_streak
 
-                # Main simulation call
-                index_won, damage = champion.run(champion.champion, players[match[0]], players[match[1]],
-                                                 self.ROUND_DAMAGE[round_index][1])
+                if global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand():
+                    # Main simulation call
+                    index_won, damage = champion.run(champion.champion, players[match[0]], players[match[1]],
+                                                     self.ROUND_DAMAGE[round_index][1])
+                else:
+                    index_won, damage = alt_auto_battle(players[match[0]], players[match[1]],
+                                                        self.ROUND_DAMAGE[round_index][1])
 
                 # Draw
                 if index_won == 0:
@@ -220,7 +225,6 @@ class Game_Round:
         for i in range(len(self.game_rounds[self.current_round])):
             self.game_rounds[self.current_round][i]()
         self.current_round += 1
-        self.start_round()
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
