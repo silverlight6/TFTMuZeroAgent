@@ -18,9 +18,14 @@ class GlobalBuffer:
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
         sample_set_batch = []
+        print(self.gameplay_experiences.get())
+        print(self.gameplay_experiences.get()[1])
         for gameplay_experience in range(self.batch_size):
+            print(self.gameplay_experiences.get())
+            print(self.gameplay_experiences.get()[1])
+            print("____")
             observation, action_history, value_mask, reward_mask, policy_mask, \
-                value, reward, policy, sample_set = self.gameplay_experiences.get()
+                value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -47,7 +52,7 @@ class GlobalBuffer:
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        self.gameplay_experiences.put(sample[0],sample[1])
+        self.gameplay_experiences.put((sample[0],sample[1]))
 
     def available_batch(self):
         queue_length = self.gameplay_experiences.qsize()

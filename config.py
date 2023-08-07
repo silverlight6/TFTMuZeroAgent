@@ -47,10 +47,12 @@ CONCURRENT_GAMES = 1
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 10
 NUM_SIMULATIONS = 25
-SAMPLES_PER_PLAYER = 25  # Normal is 128
-UNROLL_STEPS = 5
 
-TD_STEPS = 2 * ACTIONS_PER_TURN  # Set to -1 to turn off.
+# Set to -1 to turn off.
+TD_STEPS = -1 
+# This should be 1000 + because we want to be sampling everything when using priority. To change, look into the code in replay_muzero_buffer
+SAMPLES_PER_PLAYER = 1000  
+UNROLL_STEPS = 5
 
 ### TRAINING ###
 BATCH_SIZE = 12

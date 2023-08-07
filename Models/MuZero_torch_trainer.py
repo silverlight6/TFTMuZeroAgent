@@ -38,11 +38,11 @@ class Trainer(object):
     def train_network(self, batch, agent, train_step, summary_writer):
         observation, history, value_mask, reward_mask, policy_mask, value, reward, policy, sample_set = batch
         self.adjust_lr(train_step)
-
+        print(sample_set)
         self.optimizer.zero_grad()
 
         sample_set, policy = split_batch(sample_set, policy)  # [unroll_steps, num_dims, [(batch_size, dim) ...] ]
-
+        
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
@@ -56,9 +56,9 @@ class Trainer(object):
                     for action in batch:
                         flattened_dim.append(action_to_idx(action, i))
                 samples[i].extend(flattened_dim)
-                
         for i, sample in enumerate(samples):
-            samples[i] = torch.bincount(torch.tensor(sample), minlength=config.POLICY_HEAD_SIZES[i]).cuda()
+            print(sample)
+            samples[i] = torch.bincount(torch.tensor(sample).cuda(), minlength=config.POLICY_HEAD_SIZES[i]).cuda()
 
         def filter_grad(grad, sample):
             if len(grad.shape) == 1:
