@@ -38,7 +38,7 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy, string_samples = agent.policy(player_observation) # used to include root_values
+            actions, policy, string_samples, root_values = agent.policy(player_observation) 
             storage_actions = utils.decode_action(actions)
             step_actions = self.getStepActions(terminated, storage_actions)
 
@@ -144,11 +144,10 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch,train_step)
                 train_step += 1
                 if train_step % 100 == 0:
+                    global_agent.tft_save_model(train_step)
     
     def evaluate(self, scale):
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-
-
         env = parallel_env()
         data_workers = DataWorker(0)
         data_workers.evaluate_agents(env, scale )
