@@ -13,7 +13,7 @@ from Models.MCTS_torch import MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models import MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
-
+import os
 
 class DataWorker(object):
     def __init__(self, rank):
@@ -38,9 +38,9 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy, string_samples, root_values = agent.policy(player_observation)
-            step_actions = self.getStepActions(terminated, actions)
+            actions, policy, string_samples = agent.policy(player_observation) # used to include root_values
             storage_actions = utils.decode_action(actions)
+            step_actions = self.getStepActions(terminated, storage_actions)
 
             # Take that action within the environment and return all of our information for the next player
             next_observation, reward, terminated, _, info = env.step(step_actions)
@@ -65,7 +65,8 @@ class DataWorker(object):
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                # step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = actions[i]
                 i += 1
         return step_actions
 
@@ -102,6 +103,16 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
+    def decode_action_to_array(self, str_action):
+        element_list = [0, 0, 0]
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+
+        return element_list
+
+
 
 class AIInterface:
 
@@ -120,8 +131,8 @@ class AIInterface:
         global_agent = TFTNetwork()
         global_agent.tft_load_model(train_step)
 
-        trainer = MuZero_trainer.Trainer(global_agent)
         train_summary_writer = SummaryWriter(train_log_dir)
+        trainer = MuZero_trainer.Trainer(global_agent, train_summary_writer)
 
         while True:
             weights = global_agent.get_weights()
@@ -130,7 +141,16 @@ class AIInterface:
 
             while global_buffer.available_batch():
                 gameplay_experience_batch = global_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
+                trainer.train_network(gameplay_experience_batch,train_step)
                 train_step += 1
                 if train_step % 100 == 0:
-                    global_agent.tft_save_model(train_step)
+    
+    def evaluate(self, scale):
+        os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+
+
+        env = parallel_env()
+        data_workers = DataWorker(0)
+        data_workers.evaluate_agents(env, scale )
+    
+    

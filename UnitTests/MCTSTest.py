@@ -13,10 +13,6 @@ Move bench to board, move board to bench with full units
 No gold to buy units
 """
 
-NetworkOutput = collections.namedtuple(
-    'NetworkOutput',
-    'value reward policy_logits hidden_state')
-
 
 class Dummy_Model:
     def __init__(self):

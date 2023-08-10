@@ -82,6 +82,8 @@ class Player:
         self.shop_mask = np.ones(5, dtype=np.int8)
         # locations of champions on the board, 1 for spot taken 0 for not
         self.board_mask = np.ones(28, dtype=np.int8)
+        # locations of champions on the board that have full items, 1 for full items 0 for not
+        self.board_full_items_mask = np.ones(28, dtype=np.int8)
         # locations of units that are not champions on the board
         self.dummy_mask = np.ones(28, dtype=np.int8)
         # locations of champions on the bench, 1 for spot taken 0 for not
@@ -297,7 +299,8 @@ class Player:
             self.reward += self.mistake_reward
             self.decision_mask[4] = 0
             if DEBUG:
-                print("Did not have gold to buy_exp")
+                print(f"Did not have gold to buy exp, had {self.gold}, needed {self.exp_cost}, "
+                      f"was level {self.level}, mask {self.decision_mask[4]}")
             return False
         self.gold -= 4
         # self.reward += 0.02
@@ -342,6 +345,7 @@ class Player:
                             break
                 if found_position:
                     break
+        self.print(f"Spaces for units left to fight {self.max_units - self.num_units_in_play}")
         # update board to survive combat = False, will update after combat if they survived
         # update board to participated in combat
         for x in range(len(self.board)):
@@ -418,11 +422,6 @@ class Player:
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
                 champion_info_array = np.zeros(6 * 4 + 2)
                 if self.board[x][y]:
-                    # Check for target_dummy or azir sandguard
-                    if self.board[x][y].target_dummy or self.board[x][y].overlord_coordinates is not None:
-                        self.dummy_mask[7 * y + x] = 1
-
-                    self.board_mask[7 * y + x] = 1
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
@@ -437,9 +436,26 @@ class Player:
                         elif item in item_builds.keys():
                             i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                         champion_info_array[start:finish] = utils.item_binary_encode(i_index)
+
+                    # Masking
+                    if len(curr_champ.items) == 3:
+                        self.board_full_items_mask[7 * y + x] = 1
+                    else:
+                        self.board_full_items_mask[7 * y + x] = 0
+                    if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
+                        self.glove_item_mask[7 * y + x] = 1
+                    # Check for target_dummy or azir sandguard
+                    if self.board[x][y].target_dummy:
+                        self.dummy_mask[7 * y + x] = 1
+                    else:
+                        self.dummy_mask[7 * y + x] = 0
+                    self.board_mask[7 * y + x] = 1
                 else:
                     # Different from the board vector because it needs to match the MCTS encoder
                     self.board_mask[7 * y + x] = 0
+                    self.glove_item_mask[7 * y + x] = 0
+                    self.dummy_mask[7 * y + x] = 0
+                    self.board_full_items_mask[7 * y + x] = 0
 
                 # Fit the area into the designated spot in the vector
                 self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
@@ -474,10 +490,14 @@ class Player:
                         i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                     champion_info_array[start:finish] = utils.item_binary_encode(i_index)
                 self.bench_mask[x_bench] = 1
+                if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
+                    self.glove_item_mask[x_bench + 27] = 1
+
             else:
                 if x_bench == 9:
                     print("length of bench = {}".format(len(self.bench)))
                 self.bench_mask[x_bench] = 0
+                self.glove_item_mask[x_bench + 27] = 0
                 space = 1
             bench[x_bench * config.CHAMP_ENCODING_SIZE:
                   x_bench * config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
@@ -553,22 +573,22 @@ class Player:
                 else:
                     self.player_private_vector[x - 1] = -1
 
-        # Decision mask parameters
-        if self.level == self.max_level:
+        # if gold < 4 or already max level, do not allow to level
+        if self.level == self.max_level or self.gold < 4:
             self.decision_mask[4] = 0
-        # if gold < 4, do not allow to level
-        if self.gold < 4:
-            self.decision_mask[4] = 0
-            # Can not roll down to 0 gold
-            self.decision_mask[5] = 0
         else:
             self.decision_mask[4] = 1
+
+        # If gold < 2, do not allow to roll
+        if self.gold < 2:
+            self.decision_mask[5] = 0
+        else:
             self.decision_mask[5] = 1
 
         for idx, cost in enumerate(self.shop_costs):
             if self.gold < cost or cost == 0:
                 self.shop_mask[idx] = 0
-            elif self.gold >= cost:
+            else:
                 self.shop_mask[idx] = 1
 
     """
@@ -660,6 +680,7 @@ class Player:
             starting_round_gold = [0, 2, 2, 3, 4]
             self.gold += floor(self.gold / 10)
             self.gold += starting_round_gold[t_round]
+            self.generate_player_vector()
             return
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
@@ -748,7 +769,7 @@ class Player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            self.reward -= self.damage_reward * damage
+            # self.reward -= self.damage_reward * damage
             self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
@@ -804,7 +825,9 @@ class Player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}")
+            print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, \
+                             bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}, \
+                             with units in play {self.num_units_in_play} and max units {self.max_units}")
         return False
 
     """
@@ -994,7 +1017,7 @@ class Player:
                         item_trait = list(trait_items.keys())[trait]
                         if item_trait in champ.origin:
                             if DEBUG:
-                                print("Trying to add item to unit with that trait")
+                                print("Trying to add trait item to unit with that trait")
                             return False
                         else:
                             champ.origin.append(item_trait)
@@ -1003,8 +1026,6 @@ class Player:
                 if len(champ.items) > 0:
                     # implement the item combinations here. Make exception with thieves gloves
                     if champ.items[-1] in basic_items and self.item_bench[xBench] in basic_items:
-                        coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                        self.glove_item_mask[coord] = 0
                         item_build_values = item_builds.values()
                         item_index = 0
                         item_names = list(item_builds.keys())
@@ -1018,7 +1039,7 @@ class Player:
                                 item_trait = list(trait_items.keys())[trait]
                                 if item_trait in champ.origin:
                                     if DEBUG:
-                                        print("trying to add trait item to unit with that trait")
+                                        print("trying to combine trait item to unit with that trait")
                                     return False
                                 else:
                                     champ.origin.append(item_trait)
@@ -1026,7 +1047,7 @@ class Player:
                         if item_names[item_index] == "thieves_gloves":
                             if champ.num_items != 1:
                                 if DEBUG:
-                                    print("Trying to add thieves gloves to unit with a separate item")
+                                    print("Trying to combine thieves gloves in unit with a separate item",  x, y)
                                 return False
                             else:
                                 self.thieves_gloves_loc.append([x, y])
@@ -1044,9 +1065,6 @@ class Player:
                         champ.items.append(basic_piece)
                         self.item_bench[xBench] = None
                     else:
-                        if self.item_bench[xBench] == "sparring_gloves":
-                            coord = utils.x_y_to_1d_coord(champ.x, champ.y)
-                            self.glove_item_mask[coord] = 1
                         champ.items.append(self.item_bench[xBench])
                         self.item_bench[xBench] = None
                 else:
@@ -1068,7 +1086,11 @@ class Player:
         # last case where 3 items but the last item is a basic item and the item to input is also a basic item
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Failed to add item {self.item_bench[xBench]}")
+            print(
+                f"Failed to add item {self.item_bench[xBench]} in slot {xBench} to {champ} in {x}, {y}, "
+                f"item_mask: {self.item_mask}")
+            if champ:
+                print(f'{champ} had {len(champ.items)} items')
         return False
 
     """
@@ -1107,7 +1129,7 @@ class Player:
     """
     def print(self, msg):
         self.printt('{:<120}'.format('{:<8}'.format(self.player_num)
-                                     + '{:<20}'.format(str(time.time_ns() - self.start_time)) + msg))
+                                     + '{:<20}'.format(str((time.time_ns() - self.start_time)/1000)) + msg))
 
     """
     Description -
@@ -1392,6 +1414,11 @@ class Player:
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
+            if self.board[s_champion.x][s_champion.y].name == 'azir':
+                coords = self.board[s_champion.x][s_champion.y].sandguard_overlord_coordinates
+                self.board[s_champion.x][s_champion.y].overlord = False
+                for coord in coords:
+                    self.board[coord[0]][coord[1]] = None
             self.board[s_champion.x][s_champion.y] = None
             self.generate_board_vector()
         if field:
@@ -1701,6 +1728,7 @@ class Player:
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
+                print("player {} gaining fortune reward".format(self.player_num))
                 if self.fortune_loss_streak >= len(fortune_returns):
                     self.gold += math.ceil(fortune_returns[len(fortune_returns) - 1] +
                                            15 * (self.fortune_loss_streak - len(fortune_returns)))

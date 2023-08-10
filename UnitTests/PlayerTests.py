@@ -29,6 +29,17 @@ def azir_test():
         for y in range(4):
             assert p1.board[x][y] is None
 
+    p1.buy_champion(champion('azir'))
+    p1.move_bench_to_board(0, 0, 0)
+    coords = p1.board[0][0].sandguard_overlord_coordinates
+    assert p1.board[coords[0][0]][coords[0][1]].name == 'sandguard'
+    assert p1.board[coords[1][0]][coords[1][1]].name == 'sandguard'
+    assert p1.num_units_in_play == 1
+    p1.sell_champion(p1.board[0][0])
+    for x in range(7):
+        for y in range(4):
+            assert p1.board[x][y] is None
+
 
 def chosen_test():
     p1 = setup()

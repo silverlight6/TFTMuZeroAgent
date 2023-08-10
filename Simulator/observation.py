@@ -80,7 +80,8 @@ class Observation:
 
         # Fetch and concatenate mask
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
-                player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask)
+                player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask,
+                player.dummy_mask, player.board_full_items_mask)
 
         # Used to help the model know how outdated it's information on other players is.
         # Also helps with ensuring that two observations with the same board and bench are not equal.

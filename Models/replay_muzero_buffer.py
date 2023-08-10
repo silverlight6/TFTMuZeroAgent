@@ -1,6 +1,7 @@
 import numpy as np
 import config
 import random
+import ray
 from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_set
 
@@ -13,6 +14,14 @@ class ReplayBuffer:
         self.action_history = []
         self.root_values = []
         self.g_buffer = g_buffer
+        self.ending_position = -1
+
+    def reset(self):
+        self.gameplay_experiences = []
+        self.rewards = []
+        self.policy_distributions = []
+        self.string_samples = []
+        self.action_history = []
 
     def store_replay_buffer(self, observation, action, reward, policy, string_samples, root_value):
         # Records a single step of gameplay experience
@@ -20,6 +29,7 @@ class ReplayBuffer:
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(observation)
         self.action_history.append(action)
+        np.clip(reward, config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
         self.string_samples.append(string_samples)
@@ -36,6 +46,12 @@ class ReplayBuffer:
     
     def set_reward_sequence(self, rewards):
         self.rewards = rewards
+
+    def get_ending_position(self):
+        return self.ending_position
+
+    def set_ending_position(self, ending_position):
+        self.ending_position = ending_position
 
     def store_global_buffer(self):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
@@ -138,4 +154,4 @@ class ReplayBuffer:
                 # priority = 1/priority because priority queue stores in ascending order. 
                 output_sample_set = [1/priority, [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                                      policy_mask_set, value_set, reward_set, policy_set, sample_set]]
-                self.g_buffer.store_replay_sequence.remote(output_sample_set)
+                ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set))

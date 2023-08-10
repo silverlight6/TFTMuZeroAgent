@@ -21,7 +21,7 @@ class ReplayBuffer:
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(observation)
         self.action_history.append(action)
-        # np.clip(reward, config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
+        np.clip(reward, config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
         self.string_samples.append(string_samples)

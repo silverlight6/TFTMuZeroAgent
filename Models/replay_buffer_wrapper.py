@@ -22,6 +22,12 @@ class BufferWrapper:
     def set_reward_sequence(self, key, *args):
         self.buffers[key].set_reward_sequence(args[0])
 
+    def get_ending_position(self, key):
+        self.buffers[key].get_ending_position()
+
+    def set_ending_position(self, key, *args):
+        self.buffers[key].set_ending_position(args[0])
+
     def rewardNorm(self):
         reward_dat = []
         rewardLens = []

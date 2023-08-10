@@ -1,8 +1,7 @@
 import numpy as np
 
-from scipy.stats import entropy
 
-
+# Note that we can probably delete this file since it isn't used anywhere.
 def select_action(visit_counts, temperature=1, deterministic=True):
     """select action from the root visit counts.
     Parameters
@@ -23,5 +22,4 @@ def select_action(visit_counts, temperature=1, deterministic=True):
     else:
         action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
-    count_entropy = entropy(action_probs, base=2)
-    return action_pos, count_entropy
+    return action_pos
