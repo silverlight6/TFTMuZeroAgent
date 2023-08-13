@@ -72,7 +72,7 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
-                actions, policy, string_samples = self.model_call(player_observation, terminated)
+                actions, policy, string_samples, root_values = self.model_call(player_observation, terminated)
 
                 storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
@@ -85,7 +85,7 @@ class DataWorker(object):
                         if not self.past_version[i]:
                             # Store the information in a buffer to train on later.
                             buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
-                                                               reward[key], policy[i], string_samples[i])
+                                                               reward[key], policy[i], string_samples[i], root_values[i])
 
                 offset = 0
                 for i, [key, terminate] in enumerate(terminated.items()):
@@ -197,13 +197,13 @@ class DataWorker(object):
 
     def model_call(self, player_observation, terminated):
         if self.live_game or not any(self.past_version):
-            actions, policy, string_samples = self.agent_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
         # if all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version):
-            actions, policy, string_samples = self.past_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
         else:
-            actions, policy, string_samples = self.mixed_model_call(player_observation, terminated)
-        return actions, policy, string_samples
+            actions, policy, string_samples, root_values = self.mixed_model_call(player_observation, terminated)
+        return actions, policy, string_samples, root_values
 
     def mixed_model_call(self, player_observation, terminated):
         # I need to send the observations that are part of the past players to one vector
@@ -229,11 +229,12 @@ class DataWorker(object):
                 past_agent_masks.append(player_observation[1][i])
         live_observation = [np.asarray(live_agent_observations), live_agent_masks]
         past_observation = [np.asarray(past_agent_observations), past_agent_masks]
-        live_actions, live_policy, live_string_samples = self.agent_network.policy(live_observation)
-        past_actions, past_policy, past_string_samples = self.past_network.policy(past_observation)
+        live_actions, live_policy, live_string_samples, live_root_values = self.agent_network.policy(live_observation)
+        past_actions, past_policy, past_string_samples, past_root_values = self.past_network.policy(past_observation)
         actions = [None] * len(self.past_version)
         policy = [None] * len(self.past_version)
         string_samples = [None] * len(self.past_version)
+        root_values = [None] * len(self.past_version)
         counter_live, counter_past = 0, 0
         for i, past_version in enumerate(self.past_version):
             if past_version:
@@ -246,7 +247,7 @@ class DataWorker(object):
                 policy[i] = live_policy[counter_live]
                 string_samples[i] = live_string_samples[counter_live]
                 counter_live += 1
-        return actions, policy, string_samples
+        return actions, policy, string_samples, root_values
 
     '''
     Description -

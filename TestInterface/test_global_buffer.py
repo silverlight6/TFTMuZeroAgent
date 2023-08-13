@@ -13,12 +13,9 @@ class GlobalBuffer:
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
         sample_set_batch = []
-        print("ckpt 0")
         for gameplay_experience in range(self.batch_size):
-            print("ckpt 1")
             observation, action_history, value_mask, reward_mask, policy_mask,\
                 value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
-            print("ckpt 2")
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -28,7 +25,6 @@ class GlobalBuffer:
             target_reward_batch.append(reward)
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
-            print("ckpt 3")
 
         observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
         action_history_batch = np.asarray(action_history_batch)
