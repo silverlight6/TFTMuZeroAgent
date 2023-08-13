@@ -8,7 +8,7 @@ from queue import PriorityQueue
 @ray.remote
 class GlobalBuffer:
     def __init__(self, storage_ptr):
-        self.gameplay_experiences = PriorityQueue(maxsize=25000)
+        self.gameplay_experiences = PriorityQueue(maxsize=10000)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
 
