@@ -2,13 +2,13 @@ import ray
 import config
 import time
 import numpy as np
-from collections import deque
+from queue import PriorityQueue 
 
 
 @ray.remote
 class GlobalBuffer:
     def __init__(self, storage_ptr):
-        self.gameplay_experiences = deque(maxlen=25000)
+        self.gameplay_experiences = PriorityQueue(maxsize=25000)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
 
@@ -20,7 +20,7 @@ class GlobalBuffer:
         sample_set_batch = []
         for gameplay_experience in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask, \
-            value, reward, policy, sample_set = self.gameplay_experiences.popleft()
+                value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -31,7 +31,6 @@ class GlobalBuffer:
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
 
-        # print(np.asarray(obs_tensor_batch).shape)
         observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')
@@ -47,10 +46,10 @@ class GlobalBuffer:
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        self.gameplay_experiences.append(sample)
+        self.gameplay_experiences.put((sample[0], sample[1]))
 
     def available_batch(self):
-        queue_length = len(self.gameplay_experiences)
+        queue_length = self.gameplay_experiences.qsize()
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
             self.storage_ptr.set_trainer_busy.remote(True)
             print(queue_length)

@@ -5,7 +5,6 @@ import ray
 from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_set
 
-
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
         self.gameplay_experiences = []
@@ -13,6 +12,7 @@ class ReplayBuffer:
         self.policy_distributions = []
         self.string_samples = []
         self.action_history = []
+        self.root_values = []
         self.g_buffer = g_buffer
         self.ending_position = -1
 
@@ -23,7 +23,7 @@ class ReplayBuffer:
         self.string_samples = []
         self.action_history = []
 
-    def store_replay_buffer(self, observation, action, reward, policy, string_samples):
+    def store_replay_buffer(self, observation, action, reward, policy, string_samples, root_value):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
@@ -33,6 +33,7 @@ class ReplayBuffer:
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
         self.string_samples.append(string_samples)
+        self.root_values.append(root_value)
 
     def get_prev_action(self):
         if self.action_history:
@@ -56,17 +57,17 @@ class ReplayBuffer:
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
-            if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
+            if (len(self.gameplay_experiences )- config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
-        # print("THIS PLAYER GOT POSITION {} WITH SAMPLES {}".format(self.ending_position, samples_per_player))
-        if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
-            # config.UNROLL_STEPS because I don't want to sample the very end of the range
-            samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
+        if samples_per_player > 0:
+            # config.UNROLL_STEPS because I don't want to sample the very end of the range            
+            # samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
+            samples = range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS)
             num_steps = len(self.gameplay_experiences)
             reward_correction = []
             prev_reward = 0
             for reward in self.rewards:
-                reward_correction.append(reward - prev_reward)
+                reward_correction.append(reward - prev_reward) # Getting instant rewards not cumulative 
                 prev_reward = reward
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
@@ -79,12 +80,24 @@ class ReplayBuffer:
                 reward_set = []
                 policy_set = []
                 sample_set = []
+                priority_set = [] 
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
-                    value = 0.0
-
-                    for i, reward in enumerate(reward_correction[current_index:]):
-                        value += reward * config.DISCOUNT ** i
+                    if config.TD_STEPS > 0:
+                        bootstrap_index = current_index + config.TD_STEPS
+                    else:
+                        bootstrap_index = len(reward_correction)
+                    if config.TD_STEPS > 0 and bootstrap_index < len(self.root_values):
+                        value = self.root_values[bootstrap_index] * config.DISCOUNT ** config.TD_STEPS
+                    else:
+                        value = 0.0
+                    # bootstrapping value back from rewards 
+                    for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
+                        value += reward_corrected * config.DISCOUNT ** i
+                    
+                    priority = 0.001
+                    priority = np.maximum(priority, np.abs(self.root_values[current_index]-value))
+                    priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
@@ -130,7 +143,15 @@ class ReplayBuffer:
                     split_mapping, split_policy = split_sample_set(sample_set[i], policy_set[i])
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
+                
+                # formula for priority over unroll steps 
+                priority = priority_set[0]
+                div = -priority
+                for i in priority_set:
+                    div += i 
+                priority = priority/div 
 
-                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]
+                # priority = 1/priority because priority queue stores in ascending order. 
+                output_sample_set = [1/priority, [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
+                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]]
                 ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set))

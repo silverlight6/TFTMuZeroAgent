@@ -1512,6 +1512,7 @@ class Player:
                 for y_board in range(len(self.board[0])):
                     if self.board[x_board][y_board]:
                         return False
+            print("state is empty")
             return True
         else:
             return False

@@ -13,7 +13,7 @@ from Models.MCTS_torch import MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models import MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
-
+import os
 
 class DataWorker(object):
     def __init__(self, rank):
@@ -31,14 +31,14 @@ class DataWorker(object):
         player_observation, info = env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         player_observation = self.observation_to_input(player_observation)
-
+        
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in env.possible_agents}
 
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy, string_samples = agent.policy(player_observation)
+            actions, policy, string_samples, root_values = agent.policy(player_observation) 
             storage_actions = utils.decode_action(actions)
             step_actions = self.getStepActions(terminated, storage_actions)
 
@@ -47,9 +47,12 @@ class DataWorker(object):
             # store the action for MuZero
             for i, key in enumerate(terminated.keys()):
                 if not info[key]["state_empty"]:
+                    if terminated[key]:
+                        print("key = {}, i = {}, keys = {}".format(key, i, terminated.keys()))
+                        print("rewards = {}".format(reward))
                     # Store the information in a buffer to train on later.
                     buffers.store_replay_buffer(key, player_observation[0][i], storage_actions[i], reward[key],
-                                                policy[i], string_samples[i])
+                                                policy[i], string_samples[i], root_values[i])
 
             # Set up the observation for the next action
             player_observation = self.observation_to_input(next_observation)
@@ -142,3 +145,11 @@ class AIInterface:
                 train_step += 1
                 if train_step % 100 == 0:
                     global_agent.tft_save_model(train_step)
+    
+    def evaluate(self, scale):
+        os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+        env = parallel_env()
+        data_workers = DataWorker(0)
+        data_workers.evaluate_agents(env, scale )
+    
+    
