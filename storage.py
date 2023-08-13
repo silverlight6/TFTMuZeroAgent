@@ -1,5 +1,6 @@
 import ray
 import config
+import glob
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from checkpoint import Checkpoint
@@ -19,7 +20,8 @@ class Storage:
         self.trainer_busy = False
         self.checkpoint_list = np.array([], dtype=object)
         self.max_q_value = 1
-        self.store_initial_checkpoint(episode)
+        self.store_base_checkpoint()
+        self.populate_checkpoints()
 
     def get_model(self):
         return self.checkpoint_list[-1].get_model()
@@ -52,13 +54,12 @@ class Storage:
             # Increment which position each model got.
             self.placements[key][placement[key]] += 1
 
-    def store_initial_checkpoint(self, episode):
-        base_checkpoint = Checkpoint(episode, 1)
+    def store_base_checkpoint(self):
+        base_checkpoint = Checkpoint(0, 1)
         # TODO: Verify if this is super inefficient or if there is a better way.
         self.checkpoint_list = np.append(self.checkpoint_list, [base_checkpoint])
 
     def store_checkpoint(self, episode):
-        print("STORING CHECKPOINT {}".format(episode))
         checkpoint = Checkpoint(episode, self.max_q_value)
         self.checkpoint_list = np.append(self.checkpoint_list, [checkpoint])
 
@@ -68,11 +69,9 @@ class Storage:
             self.checkpoint_list = self.checkpoint_list[1:]
 
     def update_checkpoint_score(self, episode, prob):
-        print("UPDATING CHECKPOINT SCORE OF EPISODE {}".format(episode))
         checkpoint = next((x for x in self.checkpoint_list if x.epoch == episode), None)
         if checkpoint:
             checkpoint.update_q_score(self.checkpoint_list[-1].epoch, prob)
-        print("UPDATED CHECKPOINT SCORE OF EPISODE {} TO {}".format(episode, checkpoint.q_score))
 
     def sample_past_model(self):
         # List of probabilities for each past model
@@ -98,8 +97,14 @@ class Storage:
         # Return the model and the probability
         return self.checkpoint_list[index].get_model(), choice, probabilities[index]
 
-    # Going to be adding a bunch of new methods here.
-    # One that is going to be used to call when I save checkpoints
-    # One to create a checkpoint on the start of training that I can call from init.
-    # I also need a list to store probabilities and a method to return an agent depending on the sample.
-    # Remember to do a check on the max_q_value after the agent update.
+    # Method used to load in all checkpoints available on the system in the same folder as where we save checkpoints
+    def populate_checkpoints(self):
+        # Find all files within ./Checkpoints that follow the format Checkpoint_{integer}
+        # Create a checkpoint and add it to the list for each occurrence it found.
+        path_list = glob.glob('./Checkpoints/checkpoint_*')
+        for path in path_list:
+            checkpoint_int = int(path.split('_')[-1])
+            self.store_checkpoint(checkpoint_int)
+
+    def get_checkpoint_list(self):
+        return self.checkpoint_list

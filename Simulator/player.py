@@ -1727,7 +1727,6 @@ class Player:
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:
-                print("player {} gaining fortune reward".format(self.player_num))
                 if self.fortune_loss_streak >= len(fortune_returns):
                     self.gold += math.ceil(fortune_returns[len(fortune_returns) - 1] +
                                            15 * (self.fortune_loss_streak - len(fortune_returns)))

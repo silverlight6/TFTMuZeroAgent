@@ -136,8 +136,8 @@ class Trainer(object):
             self.outputs.value.append(prediction.value)
             self.outputs.reward.append(prediction.reward)
 
-            self.outputs.target_value.append(step_target_value)
-            self.outputs.target_reward.append(step_target_reward)
+            self.outputs.target_value.append(self.decode_target(step_target_value, self.network.value_encoder))
+            self.outputs.target_reward.append(self.decode_target(step_target_value, self.network.value_encoder))
 
         l2_loss = self.l2_regularization()
         self.outputs.l2_loss.append(l2_loss)
@@ -192,7 +192,6 @@ class Trainer(object):
     # [batch_size, unroll_steps]
     # to
     # [batch_size, unroll_steps, encoding_size]
-
     def encode_target(self, target, encoder):
         target = torch.from_numpy(target)
         target_flattened = torch.reshape(target, (-1,))
@@ -200,6 +199,15 @@ class Trainer(object):
         target_reshaped = torch.reshape(
             target_encoded,
             (-1, target.shape[-1], int(encoder.num_steps))
+        )
+        return target_reshaped
+
+    def decode_target(self, target, decoder):
+        target_flattened = torch.reshape(target, (target.shape[0], -1))
+        target_encoded = decoder.decode(target_flattened)
+        target_reshaped = torch.reshape(
+            target_encoded,
+            (-1, 1)
         )
         return target_reshaped
 

@@ -8,6 +8,7 @@ import AI_interface
 def main():
     if config.RUN_UNIT_TEST:
         runTest()
+        return
 
     # TODO(lobotuerk) A lot of hardcoded parameters should be used like this instead.
     parser = argparse.ArgumentParser(description='Train an AI to play TFT',

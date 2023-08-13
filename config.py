@@ -43,7 +43,7 @@ MAX_GRAD_NORM = 5
 N_HEAD_HIDDEN_LAYERS = 2
 
 ### TIME RELATED VALUES ###
-ACTIONS_PER_TURN = 15
+ACTIONS_PER_TURN = 5
 CONCURRENT_GAMES = 20
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 300
@@ -69,10 +69,11 @@ DEBUG = True
 CHECKPOINT_STEPS = 100
 
 #### TESTING ####
-RUN_UNIT_TEST = False
+RUN_UNIT_TEST = True
 RUN_PLAYER_TESTS = False
 RUN_MINION_TESTS = False
 RUN_DROP_TESTS = False
 RUN_MCTS_TESTS = False
 RUN_MAPPING_TESTS = False
+RUN_CHECKPOINT_TESTS = True  # NOTE: This test requires the first 20 checkpoints (0 - 2000) be available
 LOG_COMBAT = False

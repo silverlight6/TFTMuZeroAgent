@@ -18,3 +18,6 @@ class Checkpoint:
             self.q_score = self.q_score - (0.01 / (episode * prob))
         else:
             self.q_score = self.q_score - 0.01 / prob
+        # setting a lower limit, so it's possible that it will get sampled at some small number
+        if self.q_score < 0.001:
+            self.q_score = 0.001
