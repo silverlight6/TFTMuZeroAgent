@@ -136,8 +136,12 @@ class Game_Round:
                 players[match[0]].start_time = time.time_ns()
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
                 config.WARLORD_WINS['red'] = players[match[2]].win_streak
-                index_won, damage = champion.run(champion.champion, players[match[0]], players[match[2]],
-                                                 self.ROUND_DAMAGE[round_index][1])
+                if global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand():
+                    index_won, damage = champion.run(champion.champion, players[match[0]], players[match[2]],
+                                                     self.ROUND_DAMAGE[round_index][1])
+                else:
+                    index_won, damage = alt_auto_battle(players[match[0]], players[match[2]],
+                                                        self.ROUND_DAMAGE[round_index][1])
                 if index_won == 2 or index_won == 0:
                     players[match[0]].health -= damage
                     players[match[0]].loss_round(damage)

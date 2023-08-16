@@ -116,7 +116,7 @@ class Player:
         self.item_reward = 0
         self.won_game_reward = 0
         self.prev_rewards = 0
-        self.damage_reward = 1.5
+        self.damage_reward = 1
 
         # Everyone shares the pool object.
         # Required for buying champions to and from the pool
@@ -770,7 +770,8 @@ class Player:
             self.loss_streak += 1
             self.win_streak = 0
             # self.reward -= self.damage_reward * damage
-            self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
+            # self.print(str(-self.damage_reward * damage) +
+            #   " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
@@ -1724,7 +1725,8 @@ class Player:
             self.loss_streak = 0
             self.gold += 1
             self.reward += self.damage_reward * damage
-            self.print(str(self.damage_reward * damage) + " reward for winning round against player " + str(self.opponent.player_num))
+            self.print(str(self.damage_reward * damage) + " reward for winning round against player " +
+                       str(self.opponent.player_num))
             self.match_history.append(1)
 
             if self.team_tiers['fortune'] > 0:

@@ -51,7 +51,7 @@ class AbstractNetwork(torch.nn.Module):
         if os.path.isfile(path):
             self.load_state_dict(torch.load(path))
             self.eval()
-        print("loaded model {}".format(episode))
+        # print("loaded model {}".format(episode))
 
 
 class MuZeroNetwork(AbstractNetwork):

@@ -72,7 +72,7 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
-                actions, policy, string_samples, root_values = self.model_call(player_observation, terminated)
+                actions, policy, string_samples, root_values = self.model_call(player_observation)
 
                 storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
@@ -195,17 +195,17 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
-    def model_call(self, player_observation, terminated):
+    def model_call(self, player_observation):
         if self.live_game or not any(self.past_version):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
         # if all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version):
             actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
         else:
-            actions, policy, string_samples, root_values = self.mixed_model_call(player_observation, terminated)
+            actions, policy, string_samples, root_values = self.mixed_model_call(player_observation)
         return actions, policy, string_samples, root_values
 
-    def mixed_model_call(self, player_observation, terminated):
+    def mixed_model_call(self, player_observation):
         # I need to send the observations that are part of the past players to one vector
         # and send the ones that are part of the live players to another vector
         # Problem comes if I want to do multiple different versions in a game.
@@ -215,6 +215,8 @@ class DataWorker(object):
 
         # Now that I have the array for the past versions down to only the remaining players
         # Separate the observation.
+
+        print("In the mixed model call")
         live_agent_observations = []
         past_agent_observations = []
         live_agent_masks = []
@@ -241,11 +243,13 @@ class DataWorker(object):
                 actions[i] = past_actions[counter_past]
                 policy[i] = past_policy[counter_past]
                 string_samples[i] = past_string_samples[counter_past]
+                root_values[i] = past_root_values[counter_past]
                 counter_past += 1
             else:
                 actions[i] = live_actions[counter_live]
                 policy[i] = live_policy[counter_live]
                 string_samples[i] = live_string_samples[counter_live]
+                root_values[i] = live_root_values[counter_live]
                 counter_live += 1
         return actions, policy, string_samples, root_values
 

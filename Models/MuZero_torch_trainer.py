@@ -11,7 +11,7 @@ Prediction = collections.namedtuple(
 
 LossOutput = collections.namedtuple(
     'LossOutput',
-    'value_loss reward_loss policy_loss value reward target_value target_reward l2_loss')
+    'value_loss reward_loss policy_loss value reward policy target_value target_reward l2_loss')
 
 
 class Trainer(object):
@@ -110,6 +110,7 @@ class Trainer(object):
             policy_loss=[],
             value=[],
             reward=[],
+            policy=[],
             target_value=[],
             target_reward=[],
             l2_loss=[]
@@ -135,6 +136,7 @@ class Trainer(object):
 
             self.outputs.value.append(prediction.value)
             self.outputs.reward.append(prediction.reward)
+            self.outputs.policy.append(prediction.policy_logits)
 
             self.outputs.target_value.append(self.decode_target(step_target_value, self.network.value_encoder))
             self.outputs.target_reward.append(self.decode_target(step_target_value, self.network.value_encoder))
@@ -185,7 +187,13 @@ class Trainer(object):
             'episode_max/value', torch.max(torch.stack(self.outputs.target_value)), train_step)
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
-        
+
+        # for i in range(len(config.POLICY_HEAD_SIZES)):
+        #     self.summary_writer.add_scalar(
+        #         'episode_info/value_diff_{}'.format(i),
+        #         torch.max(torch.max(torch.stack(self.outputs.policy[:, :, i]), 1).values -
+        #                   torch.min(torch.stack(self.outputs.policy[:, :, i]), 1).values), train_step)
+
         self.summary_writer.flush()
 
     # Convert target from
@@ -253,9 +261,12 @@ class Trainer(object):
 """
 Helper functions
 """
+
+
 def scale_gradient(x, scale):
     x.requires_grad_(True)
     x.register_hook(lambda grad: grad * scale)
+
 
 def cross_entropy_loss(prediction, target):
     return -(target * F.log_softmax(prediction, -1)).sum(-1)

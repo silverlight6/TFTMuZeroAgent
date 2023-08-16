@@ -83,18 +83,20 @@ class Storage:
         # Populate the lists
         for checkpoint in self.checkpoint_list:
             probabilities = np.append(probabilities, [np.exp(checkpoint.q_score)])
-            checkpoints = np.append(checkpoints, [checkpoint.epoch])
+            checkpoints = np.append(checkpoints, [int(checkpoint.epoch)])
 
         # Normalize the probabilities to create a probability distribution
         probabilities = probabilities / np.linalg.norm(probabilities)
 
         # Pick the sample
-        choice = np.random.choice(checkpoints, 1, probabilities)
+        choice = int(np.random.choice(checkpoints, 1, probabilities))
 
         # Find the index, so we can return the probability as well in case we need to update the value
         index = np.where(checkpoints == choice)[0][0]
 
         # Return the model and the probability
+        print("Checkpoint choices {}".format(checkpoints))
+        print("fetching model for past game {}".format(choice))
         return self.checkpoint_list[index].get_model(), choice, probabilities[index]
 
     # Method used to load in all checkpoints available on the system in the same folder as where we save checkpoints

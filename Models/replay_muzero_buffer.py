@@ -57,17 +57,18 @@ class ReplayBuffer:
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
-            if (len(self.gameplay_experiences )- config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
+            if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
-        if samples_per_player > 0:
+        if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
             # config.UNROLL_STEPS because I don't want to sample the very end of the range            
-            # samples = random.sample(range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS), samples_per_player)
+            # samples = random.sample(range(0, len(self.gameplay_experiences) -
+            #   config.UNROLL_STEPS), samples_per_player)
             samples = range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS)
             num_steps = len(self.gameplay_experiences)
             reward_correction = []
             prev_reward = 0
             for reward in self.rewards:
-                reward_correction.append(reward - prev_reward) # Getting instant rewards not cumulative 
+                reward_correction.append(reward - prev_reward)  # Getting instant rewards not cumulative
                 prev_reward = reward
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
@@ -96,7 +97,7 @@ class ReplayBuffer:
                         value += reward_corrected * config.DISCOUNT ** i
                     
                     priority = 0.001
-                    priority = np.maximum(priority, np.abs(self.root_values[current_index]-value))
+                    priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
                     priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
