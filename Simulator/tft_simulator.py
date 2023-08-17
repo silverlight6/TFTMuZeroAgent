@@ -67,11 +67,14 @@ class TFT_Simulator(AECEnv):
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
-        self.infos = {agent: {"state_empty": False} for agent in self.agents}
+        self.infos = {agent: {"state_empty": False, "player": self.PLAYERS[agent],
+                              "game_round": 1, "shop": self.step_function.shops[agent]} for agent in self.agents}
         # Is this variable needed for petting zoo?
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
+
+        self.default_agent = {agent: False for agent in self.agents}
 
         # For MuZero
         # self.observation_spaces: Dict = dict(
@@ -130,7 +133,7 @@ class TFT_Simulator(AECEnv):
     def observe(self, player_id):
         return self.observations[player_id]
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, return_info=False, options=None):
         self.pool_obj = pool.pool()
         self.PLAYERS = {"player_" + str(player_id): player_class(self.pool_obj, player_id)
                         for player_id in range(config.NUM_PLAYERS)}
@@ -154,7 +157,8 @@ class TFT_Simulator(AECEnv):
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
 
-        self.infos = {agent: {"state_empty": False} for agent in self.agents}
+        self.infos = {agent: {"state_empty": False, "player": self.PLAYERS[agent],
+                              "game_round": 1, "shop": self.step_function.shops[agent]} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
 
         self.rewards = {agent: 0 for agent in self.agents}
@@ -165,6 +169,10 @@ class TFT_Simulator(AECEnv):
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
+
+        if options:
+            for i, agent in enumerate(self.default_agent):
+                self.default_agent[agent] = options["default_agent"][i]
 
         super().__init__()
         return self.observations
@@ -188,6 +196,11 @@ class TFT_Simulator(AECEnv):
             self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                    self.agent_selection, self.game_observations)
 
+        self.infos[self.agent_selection] = {"state_empty": self.PLAYERS[self.agent_selection].state_empty(),
+                                            "player": self.PLAYERS[self.agent_selection],
+                                            "game_round": self.game_round.current_round,
+                                            "shop": self.step_function.shops[self.agent_selection]}
+
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
         self._clear_rewards()
@@ -196,8 +209,6 @@ class TFT_Simulator(AECEnv):
             # if we don't use this line, rewards will compound per step
             # (e.g. if player 1 gets reward in step 1, he will get rewards in steps 2-8)
 
-            self.infos[self.agent_selection] = {"state_empty": self.PLAYERS[self.agent_selection].state_empty()}
-
             self.terminations = {a: False for a in self.agents}
             self.truncations = {a: False for a in self.agents}
 
@@ -205,8 +216,9 @@ class TFT_Simulator(AECEnv):
 
             if self.actions_taken < config.ACTIONS_PER_TURN:
                 for agent in self.agents:
-                    self.observations[agent] = self.game_observations[agent].observation(
-                        agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                    if not self.default_agent[agent]:
+                        self.observations[agent] = self.game_observations[agent].observation(
+                            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
             # If at the end of the turn
             if self.actions_taken >= config.ACTIONS_PER_TURN:
@@ -226,7 +238,11 @@ class TFT_Simulator(AECEnv):
 
                     self.terminations = {a: True for a in self.agents}
 
-                self.infos = {a: {"state_empty": False} for a in self.agents}
+                self.infos = {a: {"state_empty": False,
+                                  "player": self.PLAYERS[a],
+                                  "game_round": self.game_round.current_round,
+                                  "shop": self.step_function.shops[a]
+                                  } for a in self.agents}
 
                 _live_agents = self.agents[:]
                 for k in self.kill_list:
@@ -245,8 +261,9 @@ class TFT_Simulator(AECEnv):
                     self.game_round.start_round()
 
                     for agent in _live_agents:
-                        self.observations[agent] = self.game_observations[agent].observation(
-                            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                        if not self.default_agent[agent]:
+                            self.observations[agent] = self.game_observations[agent].observation(
+                                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
             for player_id in self.PLAYERS:
                 if self.PLAYERS[player_id]:

@@ -11,6 +11,7 @@ from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items,
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
+from Simulator.default_agent import Default_Agent
 from math import floor
 from config import DEBUG
 
@@ -159,6 +160,8 @@ class Player:
         # Context For Loot Orbs
         self.orb_history = []
 
+        self.default_agent = Default_Agent()
+
         # Call vector generation methods for first observation
         self.generate_player_vector()
         self.generate_board_vector()
@@ -233,6 +236,7 @@ class Player:
 
     """
     Description - Checks if the bench is full, updates util mask as well
+                - Note: This gets called by default agent as well as other player functions
     Outputs     - True: Bench is full
                   False: Bench is not full
     """
@@ -319,6 +323,9 @@ class Player:
             self.generate_board_vector()
         else:
             self.generate_bench_vector()
+
+    def default_policy(self, game_round, shop):
+        return self.default_agent.policy(self, shop, game_round)
 
     """
     Description - Handles end of turn actions like moving units from bench to free slots until max_unit_in_play hit.

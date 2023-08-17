@@ -33,6 +33,13 @@ class DataWorker(object):
         self.agent_network = MCTS(self.temp_model)
         self.past_network = MCTS(self.temp_model)
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
+
+        # Testing purposes only
+        self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+        # # Ensure we have at least one model player
+        # if all(self.default_agent):
+        #     self.default_agent[0] = False
         self.live_game = True
         self.rank = rank
         self.ckpt_time = time.time_ns()
@@ -61,7 +68,7 @@ class DataWorker(object):
         self.past_network.network.set_weights(weights)
         while True:
             # Reset the environment
-            player_observation, info = env.reset()
+            player_observation, info = env.reset(options={"default_agent": self.default_agent})
             # This is here to make the input (1, observation_size) for initial_inference
             player_observation = self.observation_to_input(player_observation)
 
@@ -72,17 +79,18 @@ class DataWorker(object):
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
-                actions, policy, string_samples, root_values = self.model_call(player_observation)
+                actions, policy, string_samples, root_values = self.model_call(player_observation, info)
 
                 storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
+                # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i]:
+                        if not self.past_version[i] and not self.default_agent[i]:
                             # Store the information in a buffer to train on later.
                             buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
                                                                reward[key], policy[i], string_samples[i], root_values[i])
@@ -96,6 +104,7 @@ class DataWorker(object):
                         buffers.set_ending_position.remote(key, position)
                         position -= 1
                         self.past_version.pop(i - offset)
+                        self.default_agent.pop(i - offset)
                         offset += 1
 
                 if not any(self.past_version) and len(terminated) == 2 and not self.past_update:
@@ -118,6 +127,13 @@ class DataWorker(object):
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
+
+            # Reset the default agents for the next set of games.
+            self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            # Ensure we have at least one model player
+            if all(self.default_agent):
+                self.default_agent[0] = False
+
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
@@ -195,17 +211,24 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
-    def model_call(self, player_observation):
-        if self.live_game or not any(self.past_version):
+    def model_call(self, player_observation, info):
+        #  If all of our agents are current versions
+        if (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
         # if all of our agents are past versions. (Should exceedingly rarely come here)
-        elif all(self.past_version):
+        elif all(self.past_version) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
+        # If there are no default agents but a mix of past and present
+        elif not any(self.default_agent):
+            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation)
+        # Implement the remaining mixes of agents here.
+
+        # If we only have default_agents remaining.
         else:
-            actions, policy, string_samples, root_values = self.mixed_model_call(player_observation)
+            actions, policy, string_samples, root_values = self.defualt_model_call(info)
         return actions, policy, string_samples, root_values
 
-    def mixed_model_call(self, player_observation):
+    def mixed_ai_model_call(self, player_observation):
         # I need to send the observations that are part of the past players to one vector
         # and send the ones that are part of the live players to another vector
         # Problem comes if I want to do multiple different versions in a game.
@@ -251,6 +274,41 @@ class DataWorker(object):
                 string_samples[i] = live_string_samples[counter_live]
                 root_values[i] = live_root_values[counter_live]
                 counter_live += 1
+        return actions, policy, string_samples, root_values
+
+    def live_default_model_call(self, info):
+        actions = [None] * len(self.default_agent)
+        policy = [None] * len(self.default_agent)
+        string_samples = [None] * len(self.default_agent)
+        root_values = [None] * len(self.default_agent)
+        return actions, policy, string_samples, root_values
+
+    def past_default_model_call(self, info):
+        actions = [None] * len(self.default_agent)
+        policy = [None] * len(self.default_agent)
+        string_samples = [None] * len(self.default_agent)
+        root_values = [None] * len(self.default_agent)
+        return actions, policy, string_samples, root_values
+
+    def live_past_default_model_call(self, info):
+        actions = [None] * len(self.default_agent)
+        policy = [None] * len(self.default_agent)
+        string_samples = [None] * len(self.default_agent)
+        root_values = [None] * len(self.default_agent)
+        return actions, policy, string_samples, root_values
+
+    def defualt_model_call(self, info):
+        actions = [None] * len(self.default_agent)
+        policy = [None] * len(self.default_agent)
+        string_samples = [None] * len(self.default_agent)
+        root_values = [None] * len(self.default_agent)
+        local_info = list(info.values())
+        # print("in default_model_call {}".format(info["player_0"]))
+        for i, default_agent in enumerate(self.default_agent):
+            if default_agent:
+                actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])
+
+        print("Action = {}".format(actions))
         return actions, policy, string_samples, root_values
 
     '''
@@ -355,7 +413,7 @@ class AIInterface:
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(0.5)
-        # ray.get(workers)
+        ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
