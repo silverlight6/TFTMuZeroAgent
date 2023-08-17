@@ -44,18 +44,18 @@ MAX_GRAD_NORM = 5
 N_HEAD_HIDDEN_LAYERS = 4
 
 ### TIME RELATED VALUES ###
-ACTIONS_PER_TURN = 10
-CONCURRENT_GAMES = 1
+ACTIONS_PER_TURN = 15
+CONCURRENT_GAMES = 20
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 20
-NUM_SIMULATIONS = 75
+NUM_SIMULATIONS = 100
 
 # Set to -1 to turn off.
 TD_STEPS = -1 
 # This should be 1000 + because we want to be sampling everything when using priority.
 # To change, look into the code in replay_muzero_buffer
 SAMPLES_PER_PLAYER = 1000  
-UNROLL_STEPS = 20
+UNROLL_STEPS = 15
 
 ### TRAINING ###
 BATCH_SIZE = 512

@@ -140,7 +140,7 @@ class Step_Function:
             elif action_selector == 6:
                 # Refresh shop
                 if player.refresh():
-                    self.shops[player.player_num] = self.pool_obj.sample(player, 5)
+                    self.shops[key] = self.pool_obj.sample(player, 5)
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken

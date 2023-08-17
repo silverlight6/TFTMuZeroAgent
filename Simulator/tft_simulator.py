@@ -173,6 +173,7 @@ class TFT_Simulator(AECEnv):
         if options:
             for i, agent in enumerate(self.default_agent):
                 self.default_agent[agent] = options["default_agent"][i]
+                self.PLAYERS[agent].default_player = options["default_agent"][i]
 
         super().__init__()
         return self.observations

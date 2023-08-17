@@ -35,11 +35,10 @@ class DataWorker(object):
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
 
         # Testing purposes only
-        self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
-        # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
-        # # Ensure we have at least one model player
-        # if all(self.default_agent):
-        #     self.default_agent[0] = False
+        # self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+        # Ensure we have at least one model player and for testing
+        self.default_agent[0] = False
         self.live_game = True
         self.rank = rank
         self.ckpt_time = time.time_ns()
@@ -119,7 +118,8 @@ class DataWorker(object):
             buffers = BufferWrapper.remote(global_buffer)
 
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
-            self.live_game = np.random.rand() <= 0.8
+            # Disabling to test out the default agent
+            self.live_game = np.random.rand() <= 1.8
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
                 past_weights, self.past_episode, self.prob = ray.get(storage.sample_past_model.remote())
@@ -222,10 +222,11 @@ class DataWorker(object):
         elif not any(self.default_agent):
             actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation)
         # Implement the remaining mixes of agents here.
-
+        elif not any(self.past_version):
+            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation, info)
         # If we only have default_agents remaining.
         else:
-            actions, policy, string_samples, root_values = self.defualt_model_call(info)
+            actions, policy, string_samples, root_values = self.default_model_call(info)
         return actions, policy, string_samples, root_values
 
     def mixed_ai_model_call(self, player_observation):
@@ -276,11 +277,45 @@ class DataWorker(object):
                 counter_live += 1
         return actions, policy, string_samples, root_values
 
-    def live_default_model_call(self, info):
-        actions = [None] * len(self.default_agent)
+    def live_default_model_call(self, player_observation, info):
+        actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
         string_samples = [None] * len(self.default_agent)
-        root_values = [None] * len(self.default_agent)
+        root_values = [0] * len(self.default_agent)
+
+        live_agent_observations = []
+        live_agent_masks = []
+
+        for i, default_agent in enumerate(self.default_agent):
+            if not default_agent:
+                live_agent_observations.append(player_observation[0][i])
+                live_agent_masks.append(player_observation[1][i])
+
+        live_observation = [np.asarray(live_agent_observations), live_agent_masks]
+        if len(live_observation[0]) != 0:
+            live_actions, live_policy, live_string_samples, live_root_values = \
+                self.agent_network.policy(live_observation)
+
+            counter_live, counter_default = 0, 0
+            local_info = list(info.values())
+            for i, default_agent in enumerate(self.default_agent):
+                if default_agent:
+                    actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])
+                    counter_default += 1
+                else:
+                    actions[i] = live_actions[counter_live]
+                    policy[i] = live_policy[counter_live]
+                    string_samples[i] = live_string_samples[counter_live]
+                    root_values[i] = live_root_values[counter_live]
+                    counter_live += 1
+        else:
+            counter_default = 0
+            local_info = list(info.values())
+            for i, default_agent in enumerate(self.default_agent):
+                if default_agent:
+                    actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"],
+                                                                        local_info[i]["shop"])
+                    counter_default += 1
         return actions, policy, string_samples, root_values
 
     def past_default_model_call(self, info):
@@ -298,17 +333,14 @@ class DataWorker(object):
         return actions, policy, string_samples, root_values
 
     def defualt_model_call(self, info):
-        actions = [None] * len(self.default_agent)
+        actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
         string_samples = [None] * len(self.default_agent)
-        root_values = [None] * len(self.default_agent)
+        root_values = [0] * len(self.default_agent)
         local_info = list(info.values())
-        # print("in default_model_call {}".format(info["player_0"]))
         for i, default_agent in enumerate(self.default_agent):
             if default_agent:
                 actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])
-
-        print("Action = {}".format(actions))
         return actions, policy, string_samples, root_values
 
     '''
@@ -413,7 +445,7 @@ class AIInterface:
             workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                      storage, weights))
             time.sleep(0.5)
-        ray.get(workers)
+        # ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

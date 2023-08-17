@@ -59,8 +59,9 @@ class ReplayBuffer:
         samples_per_player = config.SAMPLES_PER_PLAYER \
             if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
-        if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
-            # config.UNROLL_STEPS because I don't want to sample the very end of the range            
+        # if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
+        if samples_per_player > 0:
+            # config.UNROLL_STEPS because I don't want to sample the very end of the range
             # samples = random.sample(range(0, len(self.gameplay_experiences) -
             #   config.UNROLL_STEPS), samples_per_player)
             samples = range(0, len(self.gameplay_experiences) - config.UNROLL_STEPS)

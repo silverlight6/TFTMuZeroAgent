@@ -161,6 +161,7 @@ class Player:
         self.orb_history = []
 
         self.default_agent = Default_Agent()
+        self.default_player = False
 
         # Call vector generation methods for first observation
         self.generate_player_vector()
@@ -1173,7 +1174,8 @@ class Player:
                                self.board[x][y].name, self.board[x][y].stars,
                                self.board[x][y].items, self.board[x][y].chosen))
         self.print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
-                   "num_units_in_play = {}, health = {}".format(self.num_units_in_play, self.health))
+                   "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
+                   "default {}".format(self.default_player))
 
     """
     Description -
