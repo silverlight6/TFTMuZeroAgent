@@ -157,6 +157,9 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
+        for agent in self.agents:
+            self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN
+
         self.observations = {agent: self.game_observations[agent].observation(
             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
 
@@ -193,6 +196,7 @@ class TFT_Simulator(AECEnv):
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
         for agent in self.agents:
+            self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
             self.observations[agent] = self.game_observations[agent].observation(
                 agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
@@ -238,6 +242,7 @@ class TFT_Simulator(AECEnv):
                     self.game_round.start_round()
 
                     for agent in _live_agents:
+                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
                         self.observations[agent] = self.game_observations[agent].observation(
                             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 

@@ -84,7 +84,7 @@ class Step_Function:
             # action format = 0:7 (action_selector),
             # 7:44 (champ_loc_target), 44:54 (item_loc_target)
             action_selector = np.argmax(action[0:7])
-            game_observations[key].generate_other_player_vectors(player, players)
+            # game_observations[key].generate_other_player_vectors(player, players)
             if action_selector == 0:
                 player.print(f"pass action")
             elif action_selector == 1:
@@ -114,7 +114,7 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
-                        game_observations[key].generate_game_comps_vector()
+                        # game_observations[key].generate_game_comps_vector()
             elif action_selector == 3:
                 # Place item on champ
                 item_selector = np.argmax(action[44:54])
@@ -140,7 +140,7 @@ class Step_Function:
             elif action_selector == 6:
                 # Refresh shop
                 if player.refresh():
-                    self.shops[player.player_num] = self.pool_obj.sample(player, 5)
+                    self.shops[key] = self.pool_obj.sample(player, 5)
 
     # Leaving this method here to assist in setting up a human interface. Is not used in the environment
     # The return is the shop, boolean for end of turn, boolean for successful action, number of actions taken
@@ -420,8 +420,8 @@ class Step_Function:
         # Update all information in the observation relating to the other players.
         # Later in training, turn this number up to 7 due to how long it takes a normal player to execute
         elif action == 8:
-            game_observation.generate_game_comps_vector()
-            game_observation.generate_other_player_vectors(player, players)
+            # game_observation.generate_game_comps_vector()
+            # game_observation.generate_other_player_vectors(player, players)
             return self.shops, False, True, 1
 
         # end turn
@@ -557,8 +557,9 @@ class Step_Function:
             player.action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
 
         elif action == 8:
-            game_observation.generate_game_comps_vector()
-            game_observation.generate_other_player_vectors(player, players)
+            # game_observation.generate_game_comps_vector()
+            # game_observation.generate_other_player_vectors(player, players)
+            pass
 
         elif action == 9:
             # This would normally be end turn but figure it out later

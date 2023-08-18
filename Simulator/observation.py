@@ -3,6 +3,7 @@ import numpy as np
 import config
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
+import Simulator.utils as utils
 
 '''
 Includes the vector of the shop, bench, board, and item list.
@@ -11,7 +12,7 @@ action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_a
 '''
 class Observation:
     def __init__(self):
-        self.shop_vector = np.zeros(45)
+        self.shop_vector = None
         self.shop_mask = np.ones(5, dtype=np.int8)
         self.game_comp_vector = np.zeros(208)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
@@ -36,7 +37,8 @@ class Observation:
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         # Concatenate all vector based player information
-        game_state_tensor = shop_vector + player.player_public_vector + player.player_private_vector
+        player.player_private_vector += shop_vector
+        game_state_tensor = np.concatenate((player.player_public_vector, player.player_private_vector))
         # player.bench_vector,
         # player.chosen_vector,
         # player.item_vector,
@@ -63,18 +65,19 @@ class Observation:
             tensor = self.cur_player_observations[i]
             cur_player_tensor_observation.append(tensor)
         # cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
-        cur_player_tensor_observation = np.concatenate(cur_player_tensor_observation)
+        cur_player_tensor_observation = cur_player_tensor_observation
 
         # Fetch other player data
-        other_player_tensor_observation_list = []
-        for k, v in self.other_player_observations.items():
-            if k != player_id:
-                other_player_tensor_observation_list.append(v)
-        # other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
-        other_player_tensor_observation = np.concatenate(other_player_tensor_observation_list)
+        # other_player_tensor_observation_list = []
+        # for k, v in self.other_player_observations.items():
+        #     if k != player_id:
+        #         other_player_tensor_observation_list.append(v)
+        # # other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        # other_player_tensor_observation = np.concatenate(other_player_tensor_observation_list)
 
         # Gather all vectors into one place
-        total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
+        # total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
+        total_tensor_observation = np.concatenate(cur_player_tensor_observation)
 
         # Fetch and concatenate mask
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
@@ -134,13 +137,13 @@ class Observation:
     def generate_shop_vector(self, shop, player):
         # each champion has 6 bit for the name, 1 bit for the chosen.
         # 5 of them makes it 35.
-        output_array = np.zeros((26, 6, 10))
+        output_array = np.zeros((62, 4, 7))
         shop_chosen = False
         chosen_shop_index = -1
         chosen_shop = ''
         shop_costs = np.zeros((5, 1))
+        shop_counts = np.zeros((58,1))
         for x in range(0, len(shop)):
-            input_array = np.zeros((26, ))
             if shop[x]:
                 chosen = 0
                 if shop[x].endswith("_c"):
@@ -156,29 +159,27 @@ class Observation:
                         shop_costs[x] = 3 * COST[shop[x]] - 1
                 else:
                     shop_costs[x] = COST[shop[x]]
-                i_index = list(COST.keys()).index(shop[x])
-                if i_index == 0:
+                c_index = list(COST.keys()).index(shop[x])
+                shop_counts[c_index-1] += 1
+                if c_index == 0:
                     self.shop_mask[x] = 0
                 # This should update the item name section of the vector
                 for z in range(6, 0, -1):
-                    if i_index > 2 ** (z - 1):
-                        input_array[6 - z] = 1
-                        i_index -= 2 ** (z - 1)
-                input_array[7] = chosen
+                    if c_index > 2 ** (z - 1):
+                        c_index -= 2 ** (z - 1)
                 self.shop_mask[x] = 1
 
             # Input chosen mechanics once I go back and update the chosen mechanics.
-            output_array[:, x, 9] = input_array
             self.shop_mask[x] = 0
         if shop_chosen:
             if shop_chosen == 'the':
                 shop_chosen = 'the_boss'
-            i_index = list(team_traits.keys()).index(shop_chosen)
+            c_index = list(team_traits.keys()).index(shop_chosen)
             # This should update the item name section of the vector
             for z in range(5, 0, -1):
-                if i_index > 2 * z:
+                if c_index > 2 * z:
                     # output_array[45 - z] = 1
-                    i_index -= 2 * z
+                    c_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
 
         player.shop_costs = shop_costs
@@ -191,6 +192,11 @@ class Observation:
 
         if player.bench_full():
             self.shop_mask = np.zeros(5)
+
+        for n, _ in enumerate(shop_counts):
+            output_array[n] = np.ones((4,7)) * shop_counts[n]
+        if chosen_shop != '':
+            output_array[58] = np.ones((4,7)) * (list(COST.keys()).index(chosen_shop.split('_')[0])-1)
 
         self.shop_vector = output_array
         player.shop_mask = self.shop_mask

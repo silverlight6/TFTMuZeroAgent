@@ -15,11 +15,11 @@ def dcord_to_2dcord(dcord):
         return x, y
 
 def action_to_3d(action):
-    cube_action = np.zeros((action.shape[0], 7, 6, 10))
+    cube_action = np.zeros((action.shape[0], 7, 4, 7))
     for i in range(action.shape[0]):
         action_selector = np.argmax(action[i][0])
         if action_selector == 0:
-            cube_action[0,:,:] = np.ones((1,6,10))
+            cube_action[0,:,:] = np.ones((1,4,7))
         elif action_selector == 1:
             champ_shop_target = np.argmax(action[i][2])
             if champ_shop_target < 5:
@@ -37,9 +37,9 @@ def action_to_3d(action):
             champ1 = dcord_to_2dcord(action[i][1])
             cube_action[4, champ1[0], champ1[1]] = 1
         elif action_selector == 5:
-            cube_action[5,:,:] = np.ones((1,6,10))
+            cube_action[5,:,:] = np.ones((1,4,7))
         elif action_selector == 6:
-            cube_action[6,:,:] = np.ones((1,6,10))
+            cube_action[6,:,:] = np.ones((1,4,7))
     return cube_action
 
 def dict_to_cpu(dictionary):
@@ -238,13 +238,15 @@ class PredNetwork(torch.nn.Module):
         super().__init__()
 
         self.resnet = resnet(input_size, layer_sizes, output_size)
-        self.conv_value = torch.nn.Conv2d(256, 1, 1)
-        self.bn_value = torch.nn.BatchNorm2d(1)
-        self.conv_policy = torch.nn.Conv2d(256, 1, 1)
-        self.bn_policy = torch.nn.BatchNorm2d(1)
+        self.conv_value = torch.nn.Conv2d(256, 3, 1)
+        self.bn_value = torch.nn.BatchNorm2d(3)
+        self.conv_policy = torch.nn.Conv2d(256, 3, 1)
+        self.bn_policy = torch.nn.BatchNorm2d(3)
         self.relu = torch.nn.ReLU(inplace=True)
-        self.fc_value = mlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
-        self.fc_policy = MultiMlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
+        self.fc_internal_v = torch.nn.Linear(84, 128)
+        self.fc_value = mlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
+        self.fc_internal_p = torch.nn.Linear(84, 128)
+        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
 
     def forward(self, x):
         x = self.resnet(x)
@@ -252,18 +254,20 @@ class PredNetwork(torch.nn.Module):
         value = self.conv_value(x)
         value = self.bn_value(value)
         value = self.relu(value)
+        value = torch.flatten(value, start_dim=1)
         # print("VALUE", value.shape)
-        # value = torch.flatten(value) #Why is this 60
-        # print("VALUE", value.shape)
-        value = self.fc_value(value.reshape(x.shape[0], 60))
+        value = self.fc_internal_v(value)
+        value = self.relu(value)
+        value = self.fc_value(value)
 
         policy = self.conv_policy(x)
         policy = self.bn_policy(policy)
         policy = self.relu(policy)
-        # print("VALUE", policy.shape)
-        # policy = torch.flatten(policy) #Why is this 60
-        # print("VALUE", policy.shape)
-        policy = self.fc_policy(policy.reshape(x.shape[0], 60))
+        policy = torch.flatten(policy, start_dim=1)
+        policy = self.fc_internal_p(policy)
+        policy = self.relu(policy)
+        # print("Policy", policy.shape)
+        policy = self.fc_policy(policy)
 
         return policy, value
 
@@ -274,7 +278,7 @@ class RepNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
 
-        self.conv1 = torch.nn.Conv2d(208, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = torch.nn.Conv2d(183, 256, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn = torch.nn.BatchNorm2d(256)
         self.relu = torch.nn.ReLU(inplace=True)
         self.resnet = resnet(input_size, layer_sizes, output_size)
@@ -299,7 +303,7 @@ class DynNetwork(torch.nn.Module):
         self.relu = torch.nn.ReLU(inplace=True)
         self.conv_reward = torch.nn.Conv2d(256, 1, 1)
         self.bn_reward = torch.nn.BatchNorm2d(1)
-        self.fc_reward = mlp(60, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
+        self.fc_reward = mlp(28, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
         self.resnet = resnet(input_size, layer_sizes, output_size)
         # self.lstm = torch.nn.LSTM(input_size = 480,
         #                   num_layers = config.NUM_RNN_CELLS, hidden_size = config.LSTM_SIZE, batch_first = True).cuda()
@@ -319,7 +323,7 @@ class DynNetwork(torch.nn.Module):
         reward = self.conv_reward(x)
         reward = self.bn_reward(reward)
         # print("reward", reward.shape)
-        flat = reward.reshape(x.shape[0], 60)
+        flat =  torch.flatten(reward, start_dim=1)
         # lstm_state = self.flat_to_lstm_input(flat)
         # h0, c0 = list(zip(*lstm_state))
         # _, rnn_reward = self.lstm(action.reshape(8, ), (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
