@@ -55,6 +55,7 @@ namespace tree {
         for (auto i = 0; i < mappings.size(); i++) {
             this->mappings.push_back(std::string(mappings[i]));
         }
+
         // number of unique actions this node contains. Changes based on number of unique samples
         this->action_num = act_num;
 
@@ -355,6 +356,7 @@ namespace tree {
                 // Error here on seg fault, decode_action on stoi.
                 // Pick the action from the mappings.
                 std::string str_action = node->mappings[action];
+
 
                 // Turn the internal next action into one that the model and environment can understand
                 last_action = decode_action(str_action);
