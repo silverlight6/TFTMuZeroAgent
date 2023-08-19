@@ -150,6 +150,6 @@ class AIInterface:
         os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
         env = parallel_env()
         data_workers = DataWorker(0)
-        data_workers.evaluate_agents(env, scale )
+        data_workers.evaluate_agents(env, scale)
     
     

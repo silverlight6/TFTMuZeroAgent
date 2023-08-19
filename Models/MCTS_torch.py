@@ -138,7 +138,7 @@ class MCTS:
 
             # 0.014 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits,self.default_string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search

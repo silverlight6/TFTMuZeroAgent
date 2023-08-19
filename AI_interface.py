@@ -79,7 +79,6 @@ class DataWorker(object):
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
                 actions, policy, string_samples, root_values = self.model_call(player_observation, info)
-
                 storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
 
@@ -315,6 +314,7 @@ class DataWorker(object):
                 if default_agent:
                     actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"],
                                                                         local_info[i]["shop"])
+                    # Turn action into one hot policy
                     counter_default += 1
         return actions, policy, string_samples, root_values
 

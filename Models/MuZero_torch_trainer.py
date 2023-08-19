@@ -188,11 +188,11 @@ class Trainer(object):
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
 
-        # for i in range(len(config.POLICY_HEAD_SIZES)):
-        #     self.summary_writer.add_scalar(
-        #         'episode_info/value_diff_{}'.format(i),
-        #         torch.max(torch.max(torch.stack(self.outputs.policy[:, :, i]), 1).values -
-        #                   torch.min(torch.stack(self.outputs.policy[:, :, i]), 1).values), train_step)
+        for i in range(len(config.POLICY_HEAD_SIZES)):
+            self.summary_writer.add_scalar(
+                'episode_info/value_diff_{}'.format(i),
+                torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
+                          torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
 
         self.summary_writer.flush()
 
@@ -219,6 +219,7 @@ class Trainer(object):
         )
         return target_reshaped
 
+    # TODO: Maybe turn this off
     # prediction [ [batch_size, action_dim_1], ...]
     # target [ [batch_size, sampled_action_dim_1], ...] (smaller than prediction)
     # sample_set [ [batch_size, sampled_action_dim_1], ...]
