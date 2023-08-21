@@ -125,9 +125,8 @@ class Trainer(object):
             reward_loss = self.value_or_reward_loss(step_reward, step_target_reward)
             self.scale_loss(reward_loss)
 
-            step_policy, step_target_policy = self.mask_and_fill_policy(
-                prediction.policy_logits, target_policy[tstep], sample_set[tstep])
-            policy_loss = self.policy_loss(step_policy, step_target_policy)
+            step_target_policy = self.fill_policy(target_policy[tstep], sample_set[tstep])
+            policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
 
             self.outputs.value_loss.append(value_loss)
@@ -225,19 +224,13 @@ class Trainer(object):
     # sample_set [ [batch_size, sampled_action_dim_1], ...]
     # We need to mask the prediction so that only the sampled actions are used in the loss.
     # We also need to fill the target with zeros where the prediction is masked.
-    def mask_and_fill_policy(self, prediction, target, sample_set):
+    def fill_policy(self, target, sample_set):
         idx_set = sample_set_to_idx(sample_set)
-        target, mask = create_target_and_mask(target, idx_set)
+        target = create_target_and_mask(target, idx_set)
 
-        # apply mask
-        prediction = [pred_dim * torch.from_numpy(mask_dim).to(config.DEVICE)
-                      for pred_dim, mask_dim in zip(prediction, mask)]
+        target = [torch.from_numpy(target_dim).to(config.DEVICE) for target_dim in target]
 
-        target = [
-            torch.from_numpy(target_dim).to(config.DEVICE) for target_dim in target
-        ]
-
-        return prediction, target
+        return target
 
     def scale_loss(self, loss):
         scale_gradient(loss, 1.0 / config.UNROLL_STEPS)

@@ -2,7 +2,8 @@ import ray
 import config
 import time
 import numpy as np
-from queue import PriorityQueue 
+from queue import PriorityQueue
+from collections import deque
 
 
 @ray.remote
@@ -11,6 +12,7 @@ class GlobalBuffer:
         self.gameplay_experiences = PriorityQueue(maxsize=50000)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
+        self.average_position = deque(maxlen=50000)
 
     # Might be a bug with the action_batch not always having correct dims
     def sample_batch(self):
@@ -18,7 +20,7 @@ class GlobalBuffer:
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
         sample_set_batch = []
-        for gameplay_experience in range(self.batch_size):
+        for _ in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask, \
                 value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
             obs_tensor_batch.append(observation)
@@ -39,14 +41,19 @@ class GlobalBuffer:
         reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
 
-        return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
-                target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch]
+        position_batch = []
+        for _ in range(self.batch_size):
+            position_batch.append(self.average_position.pop())
 
-    def store_replay_sequence(self, sample):
+        return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
+                target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch], np.mean(position_batch)
+
+    def store_replay_sequence(self, sample, position):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.put((sample[0], sample[1]))
+        self.average_position.append(position)
 
     def available_batch(self):
         queue_length = self.gameplay_experiences.qsize()

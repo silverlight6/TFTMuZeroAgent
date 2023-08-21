@@ -35,10 +35,10 @@ class DataWorker(object):
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
 
         # Testing purposes only
-        # self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
-        self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+        self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
         # Ensure we have at least one model player and for testing
-        self.default_agent[0] = False
+        # self.default_agent[0] = False
         self.live_game = True
         self.rank = rank
         self.ckpt_time = time.time_ns()
@@ -211,18 +211,20 @@ class DataWorker(object):
         return decoded_action
 
     def model_call(self, player_observation, info):
+        if config.IMITATION:
+            actions, policy, string_samples, root_values = self.imitation_learning(player_observation[:2], info)
         #  If all of our agents are current versions
-        if (self.live_game or not any(self.past_version)) and not any(self.default_agent):
+        elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
         # if all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
         # If there are no default agents but a mix of past and present
         elif not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation)
+            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation[:2])
         # Implement the remaining mixes of agents here.
         elif not any(self.past_version):
-            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation, info)
+            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation[:2], info)
         # If we only have default_agents remaining.
         else:
             actions, policy, string_samples, root_values = self.default_model_call(info)
@@ -343,6 +345,19 @@ class DataWorker(object):
                 actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])
         return actions, policy, string_samples, root_values
 
+    def imitation_learning(self, player_observation, info):
+        policy = [[1.0] for _ in range(len(self.default_agent))]
+        string_samples = [[] for _ in range(len(self.default_agent))]
+
+        actions, _, _, root_values = \
+            self.agent_network.policy(player_observation)
+
+        local_info = list(info.values())
+        for i, default_agent in enumerate(self.default_agent):
+            string_samples[i] = [local_info[i]["player"].default_policy(local_info[i]["game_round"],
+                                                                        local_info[i]["shop"])]
+        return actions, policy, string_samples, root_values
+
     '''
     Description -
         Loads in a set of agents from checkpoints of the users choice to play against each other. These agents all have
@@ -449,7 +464,8 @@ class AIInterface:
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):
-                gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
+                gameplay_experience_batch, average_position = ray.get(global_buffer.sample_batch.remote())
+                train_summary_writer.add_scalar('episode_info/average_position', average_position, train_step)
                 trainer.train_network(gameplay_experience_batch, train_step)
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())

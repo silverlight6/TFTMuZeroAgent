@@ -271,7 +271,7 @@ class Player:
         if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
             if DEBUG:
-                print("No gold to buy champion")
+                print("No gold to buy champion for player {}".format(self.player_num))
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         if a_champion.name == 'kayn':

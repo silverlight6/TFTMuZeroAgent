@@ -38,54 +38,54 @@ class Default_Agent:
 
     def move_bench_to_empty_board(self, player, bench_location, unit):
         if unit in FRONT_LINE_UNITS:
-            for displacement in range(3):
+            for displacement in range(4):
                 if not player.board[3 + displacement][3]:
                     return "2_" + str(bench_location) + "_" + str(24 + displacement)
                 if not player.board[3 - displacement][3]:
                     return "2_" + str(bench_location) + "_" + str(24 - displacement)
-            print("I should never be here front line")
+            print("Empty Front line with board {}".format(player.board))
         if unit in MIDDLE_LINE_UNITS:
-            for displacement in range(3):
+            for displacement in range(4):
                 if not player.board[3 + displacement][2]:
                     return "2_" + str(bench_location) + "_" + str(17 + displacement)
                 if not player.board[3 - displacement][2]:
                     return "2_" + str(bench_location) + "_" + str(17 - displacement)
-            print("I should never be here mid line")
+            print("Empty Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
-            for displacement in range(3):
+            for displacement in range(4):
                 if not player.board[3 + displacement][0]:
                     return "2_" + str(bench_location) + "_" + str(3 + displacement)
                 if not player.board[3 - displacement][0]:
                     return "2_" + str(bench_location) + "_" + str(3 - displacement)
-            print("I should never be here back line")
+            print("Empty Back line with board {}".format(player.board))
         return "0"
 
     def check_unit_location(self, player, x, y, unit):
         if unit in FRONT_LINE_UNITS:
             if y != 3:
-                for displacement in range(3):
+                for displacement in range(4):
                     if not player.board[3 + displacement][3]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 + displacement)
                     if not player.board[3 - displacement][3]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 - displacement)
-                print("I should never be here front line")
+                print("Check Front line with board {}".format(player.board))
 
         if unit in MIDDLE_LINE_UNITS:
             if y != 2:
-                for displacement in range(3):
+                for displacement in range(4):
                     if not player.board[3 + displacement][2]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(17 + displacement)
                     if not player.board[3 - displacement][2]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(17 - displacement)
-                print("I should never be here mid line")
+                print("Check Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
             if y != 0:
-                for displacement in range(3):
+                for displacement in range(4):
                     if not player.board[3 + displacement][0]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 + displacement)
                     if not player.board[3 - displacement][0]:
                         return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 - displacement)
-                print("I should never be here back line")
+                print("Check Back line with board {}".format(player.board))
         return False
 
     def max_unit_check(self, player):
@@ -195,6 +195,8 @@ class Default_Agent:
                     break
             # if no gold remains and we just bought a unit
             if shop_position != 5:
+                # print("buying {} with gold {} and cost {} for player {}".format(
+                #     shop[shop_position], player.gold, COST[shop[shop_position]], player.player_num))
                 return "1_" + str(shop_position)
         max_unit_check = self.max_unit_check(player)
         if max_unit_check != " ":
@@ -241,7 +243,7 @@ class Default_Agent:
         if self.round_3_10_checks[1]:
             base_score = self.rank_comp(player.board)
             for i, shop_unit in enumerate(shop):
-                if shop_unit != " " and not shop_unit.endswith("_c") and COST[shop_unit] <= player.gold:
+                if shop_unit != " " and (not shop_unit.endswith("_c")) and COST[shop_unit] <= player.gold:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
                             if player.board[x][y]:
@@ -324,19 +326,15 @@ class Default_Agent:
         for i, bench_unit in enumerate(player.bench):
             if bench_unit and bench_unit.name not in TEAM_COMPS[self.comp_number] and \
                     (bench_unit.name + "_" + str(bench_unit.stars)) not in self.pairs:
-                if bench_unit.chosen:
-                    print("Selling chosen on round 11")
                 return "4_" + str(i)
             # Sell the chosen unit, so we can get one with our desired trait
             elif bench_unit and bench_unit.chosen and bench_unit.chosen != TEAM_COMPS[self.comp_number]:
-                print("Selling chosen on round 11")
                 return "4_" + str(i)
         # Sell our current chosen unit, so we can pick a new one with our current type.
         for x in range(len(player.board)):
             for y in range(len(player.board[x])):
                 if player.board[x][y] and player.board[x][y].chosen and \
                         player.board[x][y].chosen != TEAM_COMPS[self.comp_number]:
-                    print("Moving the chosen unit back to bench")
                     return "2_" + str(x_y_to_1d_coord(x, y)) + "_28"
         self.round_11_clean_up = False
         return "0"

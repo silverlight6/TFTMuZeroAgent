@@ -138,11 +138,11 @@ def action_to_idx(action, dim):
 def sample_set_to_idx(sample_set):
     idx_set = []
 
-    for dim, batch in enumerate(sample_set): # [batch_size, dim]
+    for dim, batch in enumerate(sample_set):  # [batch_size, dim]
         dim_idx = []
-        for sample in batch: # [dim]
+        for sample in batch:  # [dim]
             local_idx = []
-            for action in sample: # single action
+            for action in sample:  # single action
                 local_idx.append(action_to_idx(action, dim))
             dim_idx.append(local_idx)
         idx_set.append(dim_idx)
@@ -160,18 +160,13 @@ def create_target_and_mask(target, idx_set):
         np.zeros((batch_size, dim), dtype=np.float32) for dim in dim_sizes
     ]
 
-    mask = [
-        np.zeros((batch_size, dim), dtype=np.float32) for dim in dim_sizes
-    ]
-
     # TODO: Find a native numpy function to do this
-    for dim, batch in enumerate(idx_set): # [batch_size, dim]
+    for dim, batch in enumerate(idx_set):  # [batch_size, dim]
         for batch_idx, sample in enumerate(batch):
             for target_idx, mapped_idx in enumerate(sample):
                 target_filled[dim][batch_idx][mapped_idx] = target[dim][batch_idx][target_idx]
-                mask[dim][batch_idx][mapped_idx] = 1.0
 
-    return target_filled, mask
+    return target_filled
 
 
 

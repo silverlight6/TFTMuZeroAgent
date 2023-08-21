@@ -154,6 +154,7 @@ class ReplayBuffer:
                 priority = priority/div 
 
                 # priority = 1/priority because priority queue stores in ascending order. 
-                output_sample_set = [1/priority, [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
-                                     policy_mask_set, value_set, reward_set, policy_set, sample_set]]
-                ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set))
+                output_sample_set = [1 / priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
+                                                    reward_mask_set, policy_mask_set, value_set, reward_set,
+                                                    policy_set, sample_set]]
+                ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set, self.ending_position))
