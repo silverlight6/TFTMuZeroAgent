@@ -1,9 +1,10 @@
+import config
 from Models.MCTS_Util import *
 from Models.abstract_model import AbstractNetwork
 from Models.mlp_layers import mlp, MultiMlp
 
 
-class MuZeroNetwork(AbstractNetwork):
+class MuZeroDefaultNetwork(AbstractNetwork):
     def __init__(self):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
@@ -11,28 +12,27 @@ class MuZeroNetwork(AbstractNetwork):
         self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                           config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
 
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
+        self.action_encodings = mlp(len(config.CHAMPION_ACTION_DIM), [
                                     config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
         self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
                                                            num_layers=config.NUM_RNN_CELLS,
-                                                           hidden_size=config.LSTM_SIZE, batch_first=True).to(config.DEVICE)
+                                                           hidden_size=config.LSTM_SIZE,
+                                                           batch_first=True).to(config.DEVICE)
 
         self.dynamics_reward_network = mlp(config.HIDDEN_STATE_SIZE, [
                                            1] * 1, self.full_support_size)
 
         self.prediction_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+                                                  config.N_HEAD_HIDDEN_LAYERS, config.CHAMPION_ACTION_DIM)
 
         self.prediction_value_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                             config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
 
-        min = torch.tensor(-300., dtype=torch.float32)
-        max = torch.tensor(300., dtype=torch.float32)
-        self.value_encoder = ValueEncoder(
-            *tuple(map(inverse_contractive_mapping, (min, max))), 0)
-        self.reward_encoder = ValueEncoder(
-            *tuple(map(inverse_contractive_mapping, (min, max))), 0)
+        encoder_min = torch.tensor(-300., dtype=torch.float32)
+        encoder_max = torch.tensor(300., dtype=torch.float32)
+        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (encoder_min, encoder_max))), 0)
+        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (encoder_min, encoder_max))), 0)
 
     def prediction(self, encoded_state):
         policy_logits = self.prediction_policy_network(encoded_state)
@@ -53,18 +53,9 @@ class MuZeroNetwork(AbstractNetwork):
         return encoded_state_normalized
 
     def dynamics(self, hidden_state, action):
-        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        one_hot_action = torch.nn.functional.one_hot(
-            action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(
-            action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(
-            action[:, 2], config.ACTION_DIM[1])
+        action = torch.from_numpy(action).to(config.DEVICE).to(torch.float32)
 
-        action_one_hot = torch.cat(
-            [one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
-
-        action_encodings = self.action_encodings(action_one_hot)
+        action_encodings = self.action_encodings(action)
 
         lstm_state = self.flat_to_lstm_input(hidden_state)
 

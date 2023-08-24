@@ -6,8 +6,8 @@ GPU_SIZE_PER_WORKER = 0.18
 STORAGE_GPU_SIZE = 0.1
 
 DEVICE = "cuda"
-STOCHASTIC = True
 IMITATION = False
+CHAMP_DECIDER = True
 
 # AI RELATED VALUES START HERE
 
@@ -32,6 +32,8 @@ INPUT_TENSOR_SHAPE = np.array([OBSERVATION_SIZE])
 ACTION_ENCODING_SIZE = 1045
 ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
+# 57 is the number of champions in set 4. Don't want to add an import to the STATS in the simulator in a config file
+CHAMPION_ACTION_DIM = [2 for _ in range(58)]
 
 
 POLICY_HEAD_SIZES = [7, 5, 630, 370, 9]  # [7 types, shop, movement, item, sell/item loc]
@@ -46,17 +48,17 @@ N_HEAD_HIDDEN_LAYERS = 4
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 1
+CONCURRENT_GAMES = 5
 NUM_PLAYERS = 8 
-NUM_SAMPLES = 20
-NUM_SIMULATIONS = 60
+NUM_SAMPLES = 10
+NUM_SIMULATIONS = 50
 
 # Set to -1 to turn off.
 TD_STEPS = -1 
 # This should be 1000 + because we want to be sampling everything when using priority.
 # To change, look into the code in replay_muzero_buffer
 SAMPLES_PER_PLAYER = 1000  
-UNROLL_STEPS = 15
+UNROLL_STEPS = 5
 
 ### TRAINING ###
 BATCH_SIZE = 256

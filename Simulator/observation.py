@@ -116,6 +116,7 @@ class Observation:
                   on the left in TFT. 
     """
     # TODO: Add other player's compositions to the list of other player's vectors.
+    # TODO: TEST THIS
     def generate_game_comps_vector(self):
         output = np.zeros(208)
         for i in range(len(game_comp_tiers)):

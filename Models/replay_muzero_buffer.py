@@ -3,7 +3,7 @@ import config
 import random
 import ray
 from global_buffer import GlobalBuffer
-from Models.MCTS_Util import split_sample_set
+from Models.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
     def __init__(self, g_buffer: GlobalBuffer):
@@ -59,6 +59,7 @@ class ReplayBuffer:
         samples_per_player = config.SAMPLES_PER_PLAYER \
             if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
+        print("samples_per_player {}".format(samples_per_player))
         # if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
         if samples_per_player > 0:
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
@@ -106,8 +107,11 @@ class ReplayBuffer:
                         if current_index != sample:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
-                            # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0])
+                            if config.CHAMP_DECIDER:
+                                action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                            else:
+                                # To weed this out later when sampling the global buffer
+                                action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -118,7 +122,11 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[current_index])
                         sample_set.append(self.string_samples[current_index])
                     elif current_index == num_steps - 1:
-                        action_set.append([0, 0, 0])
+                        if config.CHAMP_DECIDER:
+                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                        else:
+                            # To weed this out later when sampling the global buffer
+                            action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
@@ -132,7 +140,11 @@ class ReplayBuffer:
                         sample_set.append(self.string_samples[0])
                     else:
                         # States past the end of games is treated as absorbing states.
-                        action_set.append([0, 0, 0])
+                        if config.CHAMP_DECIDER:
+                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                        else:
+                            # To weed this out later when sampling the global buffer
+                            action_set.append([0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
@@ -142,7 +154,7 @@ class ReplayBuffer:
                         sample_set.append(self.string_samples[0])
 
                 for i in range(len(sample_set)):
-                    split_mapping, split_policy = split_sample_set(sample_set[i], policy_set[i])
+                    split_mapping, split_policy = split_sample_decide(sample_set[i], policy_set[i])
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
                 

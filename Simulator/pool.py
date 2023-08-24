@@ -184,9 +184,9 @@ class pool:
 
 	def update_pool(self, u_champion, direction):
 		'''
-
 		:param u_champion: everytime a champion is taken from the pool, update the statistics
-		:param direction: positive for adding and negative for selling from pool. i.e. If a player sells a unit, it's a positive direction for the pool
+		:param direction: positive for adding and negative for selling from pool.
+		i.e. If a player sells a unit, it's a positive direction for the pool
 		:return: NA
 		'''
 		# This line is actually a little faster than combining this line and cost = stats.COST[u_champion.name]

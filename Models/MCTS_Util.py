@@ -45,6 +45,11 @@ def create_default_mapping():
 
     return mappings
 
+def split_sample_decide(sample_mapping, target_policy):
+    if config.CHAMP_DECIDER:
+        return split_sample_set_champ_decider(sample_mapping, target_policy)
+    else:
+        return split_sample_set(sample_mapping, target_policy)
 
 # ["0", "1_0", "2_20_20", "3_4_20", "4_10", "5", "6"] ->
 # [["0", "1", "2", "3", "4", "5", "6"], ["_0"], ["_20_20"], ["_4_20"], ["_10"]]
@@ -53,6 +58,38 @@ def split_sample_set(sample_mapping, target_policy):
     split_policy = [[], [], [], [], []]
 
     # split_policy[0] = [0] * config.POLICY_HEAD_SIZES[0]
+
+    for i, sample in enumerate(sample_mapping):
+        base = sample[0]
+        idx = int(base)
+
+        if idx in config.NEEDS_2ND_DIM:
+            location = sample[1:]
+
+            if base not in split_sample[0]:
+                split_sample[0].append(base)
+                split_policy[0].append(0)
+
+            split_sample[idx].append(location)
+            split_policy[idx].append(target_policy[i])
+            # split_policy[0][idx] += target_policy[i]
+        else:
+            split_sample[0].append(sample)
+            split_policy[0].append(target_policy[i])
+
+    # Accumulate the policy for each multidim action
+    for i, base in enumerate(split_sample[0]):
+        idx = int(base)
+
+        if idx in config.NEEDS_2ND_DIM:
+            policy_sum = sum(split_policy[idx])
+            split_policy[0][i] += policy_sum
+
+    return split_sample, split_policy
+
+def split_sample_set_champ_decider(sample_mapping, target_policy):
+    split_sample = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+    split_policy = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
 
     for i, sample in enumerate(sample_mapping):
         base = sample[0]
@@ -169,7 +206,6 @@ def create_target_and_mask(target, idx_set):
     return target_filled
 
 
-
 # both are (num_dims, [(batch_size, dim) ...] )
 # TODO: Add a description of what this does
 def map_output_to_distribution(mapping, policy_logits):
@@ -214,3 +250,99 @@ def map_distribution_to_sample(mapping, policy_logits):
         sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).to(config.DEVICE))
         output_policy.append(sampled_policy)
     return output_policy
+
+class ValueEncoder:
+    """Encoder for reward and value targets from Appendix of MuZero Paper."""
+
+    def __init__(self,
+                 min_value,
+                 max_value,
+                 num_steps,
+                 use_contractive_mapping=True):
+
+        if not max_value > min_value:
+            raise ValueError('max_value must be > min_value')
+        if use_contractive_mapping:
+            max_value = contractive_mapping(max_value)
+            min_value = contractive_mapping(min_value)
+        if num_steps <= 0:
+            num_steps = torch.ceil(max_value) + 1 - torch.floor(min_value)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.value_range = max_value - min_value
+        self.num_steps = num_steps
+        self.step_size = self.value_range / (num_steps - 1)
+        self.step_range_int = torch.arange(
+            0, self.num_steps, dtype=torch.int64)
+        self.step_range_float = self.step_range_int.type(
+            torch.float32).to(config.DEVICE)
+        self.use_contractive_mapping = use_contractive_mapping
+
+    def encode(self, value):  # not worth optimizing
+        if len(value.shape) != 1:
+            raise ValueError(
+                'Expected value to be 1D Tensor [batch_size], but got {}.'.format(
+                    value.shape))
+        if self.use_contractive_mapping:
+            value = contractive_mapping(value)
+        value = torch.unsqueeze(value, -1)
+        clipped_value = torch.clip(value, self.min_value, self.max_value)
+        above_min = clipped_value - self.min_value
+        num_steps = above_min / self.step_size
+        lower_step = torch.floor(num_steps)
+        upper_mod = num_steps - lower_step
+        lower_step = lower_step.type(torch.int64)
+        upper_step = lower_step + 1
+        lower_mod = 1.0 - upper_mod
+        lower_encoding, upper_encoding = (
+            torch.eq(step, self.step_range_int).type(torch.float32) * mod
+            for step, mod in (
+                (lower_step, lower_mod),
+                (upper_step, upper_mod),)
+        )
+        return lower_encoding + upper_encoding
+
+    def decode(self, logits):  # not worth optimizing
+        if len(logits.shape) != 2:
+            raise ValueError(
+                'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
+                .format(logits.shape))
+        num_steps = torch.sum(logits * self.step_range_float, -1)
+        above_min = num_steps * self.step_size
+        value = above_min + self.min_value
+        if self.use_contractive_mapping:
+            value = inverse_contractive_mapping(value)
+        return value
+
+    def decode_softmax(self, logits):
+        return self.decode(torch.softmax(logits, dim=-1))
+
+# From the MuZero paper.
+
+
+def contractive_mapping(x, eps=0.001):
+    return torch.sign(x) * (torch.sqrt(torch.abs(x) + 1.) - 1.) + eps * x
+
+
+# From the MuZero paper.
+def inverse_contractive_mapping(x, eps=0.001):
+    return torch.sign(x) * \
+        (torch.square(
+            (torch.sqrt(4 * eps * (torch.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+
+# Softmax function in np because we're converting it anyway
+
+
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def dict_to_cpu(dictionary):
+    cpu_dict = {}
+    for key, value in dictionary.items():
+        if isinstance(value, torch.Tensor):
+            cpu_dict[key] = value.cpu()
+        elif isinstance(value, dict):
+            cpu_dict[key] = dict_to_cpu(value)
+        else:
+            cpu_dict[key] = value
+    return cpu_dict

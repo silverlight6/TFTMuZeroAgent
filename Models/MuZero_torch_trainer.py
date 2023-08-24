@@ -187,11 +187,19 @@ class Trainer(object):
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
 
-        for i in range(len(config.POLICY_HEAD_SIZES)):
-            self.summary_writer.add_scalar(
-                'episode_info/value_diff_{}'.format(i),
-                torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
-                          torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
+        # TODO: Figure out a way to get rid of this if statement
+        if config.CHAMP_DECIDER:
+            for i in range(len(config.CHAMPION_ACTION_DIM)):
+                self.summary_writer.add_scalar(
+                    'episode_info/value_diff_{}'.format(i),
+                    torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
+                              torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
+        else:
+            for i in range(len(config.POLICY_HEAD_SIZES)):
+                self.summary_writer.add_scalar(
+                    'episode_info/value_diff_{}'.format(i),
+                    torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
+                              torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
 
         self.summary_writer.flush()
 
@@ -225,10 +233,18 @@ class Trainer(object):
     # We need to mask the prediction so that only the sampled actions are used in the loss.
     # We also need to fill the target with zeros where the prediction is masked.
     def fill_policy(self, target, sample_set):
-        idx_set = sample_set_to_idx(sample_set)
-        target = create_target_and_mask(target, idx_set)
-
-        target = [torch.from_numpy(target_dim).to(config.DEVICE) for target_dim in target]
+        print(len(target))
+        print(len(target[0]))
+        print(len(target[0][0]))
+        print(len(sample_set))
+        print(len(sample_set[0]))
+        print(len(sample_set[0][0]))
+        if not config.CHAMP_DECIDER:
+            idx_set = sample_set_to_idx(sample_set)
+            target = create_target_and_mask(target, idx_set)
+            target = [torch.from_numpy(target_dim).to(config.DEVICE) for target_dim in target]
+        else:
+            target = [torch.tensor(target_dim).to(config.DEVICE) for target_dim in target]
 
         return target
 

@@ -17,8 +17,10 @@ from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
 
 from Models.MCTS_torch import MCTS
+from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.MuZero_torch_trainer import Trainer
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -29,16 +31,22 @@ Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any dif
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER, num_cpus=0.8)
 class DataWorker(object):
     def __init__(self, rank):
-        self.temp_model = TFTNetwork()
-        self.agent_network = MCTS(self.temp_model)
-        self.past_network = MCTS(self.temp_model)
+        if config.CHAMP_DECIDER:
+            self.temp_model = DefaultNetwork()
+            self.agent_network = Default_MCTS(self.temp_model)
+            self.past_network = Default_MCTS(self.temp_model)
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        else:
+            self.temp_model = TFTNetwork()
+            self.agent_network = MCTS(self.temp_model)
+            self.past_network = MCTS(self.temp_model)
+            # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            # Ensure we have at least one model player and for testing
+            # self.default_agent[0] = False
+
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
 
         # Testing purposes only
-        self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
-        # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
-        # Ensure we have at least one model player and for testing
-        # self.default_agent[0] = False
         self.live_game = True
         self.rank = rank
         self.ckpt_time = time.time_ns()
@@ -82,7 +90,6 @@ class DataWorker(object):
                 storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
 
-                # Take that action within the environment and return all of our information for the next player
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
@@ -139,6 +146,73 @@ class DataWorker(object):
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
             self.agent_network = MCTS(self.temp_model)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
+    def collect_default_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.reset(options={"default_agent": self.default_agent})
+            # This is here to make the input (1, observation_size) for initial_inference
+            player_observation = self.observation_to_input(player_observation)
+
+            # Used to know when players die and which agent is currently acting
+            terminated = {player_id: False for player_id in env.possible_agents}
+            reward = {player_id: 0 for player_id in env.possible_agents}
+            position = 8
+
+            # While the game is still going on.
+            while not all(terminated.values()):
+                info_values = list(info.values())
+                if info_values[0]['start_turn']:
+                    # Ask our model for an action and policy.
+                    # Use on normal case or if we only have current versions left
+                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+                    storage_actions = utils.decode_action(c_actions)
+                    step_actions = self.getStepActions(terminated, storage_actions)
+                    for player_id in step_actions.keys():
+                        info[player_id]['player'].default_champion_list(step_actions[player_id])
+
+                    # store the action for MuZero
+                    for i, key in enumerate(terminated.keys()):
+                        # Store the information in a buffer to train on later.
+                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
+                                                           reward[key], policy[i], string_samples[i], root_values[i])
+
+                actions = ["0"] * len(self.default_agent)
+                for i, default_agent in enumerate(self.default_agent):
+                    actions[i] = info_values[i]["player"].default_policy(info_values[i]["game_round"],
+                                                                         info_values[i]["shop"])
+                storage_actions = utils.decode_action(actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.step(step_actions)
+
+                offset = 0
+                for i, [key, terminate] in enumerate(terminated.items()):
+                    # Saying if that any of the 4 agents got first or second then we are saying we are not
+                    # Currently beating that checkpoint
+                    if terminate:
+                        # print("player {} got position {} of game {}".format(i, position, self.rank))
+                        buffers.set_ending_position.remote(key, position)
+                        position -= 1
+                        self.default_agent.pop(i - offset)
+                        offset += 1
+
+                # Set up the observation for the next action
+                player_observation = self.observation_to_input(next_observation)
+
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+
+            # buffers.rewardNorm.remote()
+            buffers.store_global_buffer.remote()
+            buffers = BufferWrapper.remote(global_buffer)
+
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = Default_MCTS(self.temp_model)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -441,7 +515,10 @@ class AIInterface:
         storage = Storage.remote(train_step)
         global_buffer = GlobalBuffer.remote(storage)
 
-        global_agent = TFTNetwork()
+        if config.CHAMP_DECIDER:
+            global_agent = DefaultNetwork()
+        else:
+            global_agent = TFTNetwork()
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
         global_agent.to(config.DEVICE)
@@ -457,8 +534,12 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            if config.CHAMP_DECIDER:
+                workers.append(worker.collect_default_experience.remote(env, buffers[i], global_buffer,
+                                                                        storage, weights))
+            else:
+                workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                         storage, weights))
             time.sleep(0.5)
         # ray.get(workers)
 
@@ -473,6 +554,7 @@ class AIInterface:
                 if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.store_checkpoint.remote(train_step)
                     global_agent.tft_save_model(train_step)
+
 
     '''
     Method used for testing the simulator. It does not call any AI and generates random actions from numpy. Intended

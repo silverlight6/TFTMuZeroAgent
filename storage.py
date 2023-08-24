@@ -3,6 +3,7 @@ import config
 import glob
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from checkpoint import Checkpoint
 from sys import getsizeof
 
@@ -28,7 +29,10 @@ class Storage:
 
     # Implementing saving.
     def load_model(self):
-        return TFTNetwork()
+        if config.CHAMP_DECIDER:
+            return DefaultNetwork()
+        else:
+            return TFTNetwork()
 
     def get_target_model(self):
         return self.target_model.get_weights()

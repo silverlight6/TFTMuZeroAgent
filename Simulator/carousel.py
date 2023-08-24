@@ -25,6 +25,7 @@ def carousel(players, r, pool_obj):
     # give all champions on the carousel an item
     for i, champ in enumerate(champions):
         champ.add_item(items[i])
+
     # player will choose the highest cost available regardless of item
     # needs to be changed to choose the "best" choice for each player
 
@@ -42,7 +43,7 @@ def carousel(players, r, pool_obj):
         pool_obj.update_pool(current, -1)
 
 # this will handle champion generation based on the current round
-def generateChampions(r , pool_obj):
+def generateChampions(r, pool_obj):
     oneCosts = list(COST_1.items())
     twoCosts = list(COST_2.items())
     threeCosts = list(COST_3.items())

@@ -325,8 +325,12 @@ class Player:
         else:
             self.generate_bench_vector()
 
+    def default_champion_list(self, champion_list):
+        self.default_agent.set_champion_list(champion_list)
+
     def default_policy(self, game_round, shop):
         return self.default_agent.policy(self, shop, game_round)
+
 
     """
     Description - Handles end of turn actions like moving units from bench to free slots until max_unit_in_play hit.

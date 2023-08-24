@@ -49,9 +49,11 @@ def decode_action(str_actions):
     for str_action in str_actions:
         num_items = str_action.count("_")
         split_action = str_action.split("_")
-        element_list = [0, 0, 0]
+        element_list = []
         for i in range(num_items + 1):
-            element_list[i] = int(split_action[i])
+            element_list.append(int(split_action[i]))
+        while len(element_list) < 3:
+            element_list.append(0)
         actions.append(np.asarray(element_list))
     return np.asarray(actions)
 

@@ -1,3 +1,4 @@
+import config
 import numpy as np
 import Simulator.champion as champion
 from Simulator.default_agent_stats import *
@@ -5,7 +6,7 @@ from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers
 from Simulator.origin_class import team_traits
 from Simulator.utils import x_y_to_1d_coord
-from Simulator.stats import COST
+from Simulator.stats import COST, BASE_CHAMPION_LIST
 from copy import deepcopy
 
 
@@ -19,11 +20,14 @@ class Default_Agent:
         self.require_pair_update = False
         self.round_11_clean_up = True
         self.comp_number = -1
+        self.champion_buy_list = [False for _ in range(len(BASE_CHAMPION_LIST))]
 
     def policy(self, player, shop, game_round):
         self.current_round = game_round
         if game_round == 1 or game_round == 2:
             return self.round_1_2(player, shop)
+        elif config.CHAMP_DECIDER:
+            return self.ai_round_default(player, shop)
         elif 2 < game_round < 11:
             if game_round == 3 and self.current_round == self.next_round:
                 self.update_pairs_list(player)
@@ -177,6 +181,9 @@ class Default_Agent:
             team_tiers[trait] = counter
         return team_comp, team_tiers
 
+    def set_champion_list(self, champion_list):
+        self.champion_buy_list = champion_list
+
     def round_1_2(self, player, shop):
         # buy every unit in the shop until no gold
         self.next_round = self.current_round + 1
@@ -195,8 +202,6 @@ class Default_Agent:
                     break
             # if no gold remains and we just bought a unit
             if shop_position != 5:
-                # print("buying {} with gold {} and cost {} for player {}".format(
-                #     shop[shop_position], player.gold, COST[shop[shop_position]], player.player_num))
                 return "1_" + str(shop_position)
         max_unit_check = self.max_unit_check(player)
         if max_unit_check != " ":
@@ -412,6 +417,112 @@ class Default_Agent:
                                         (player.board[x][y].name not in TEAM_COMPS[self.comp_number]
                                          and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
                                         (bench_score > base_score and bench_unit.name not in TEAM_COMPS[self.comp_number]
+                                         and player.board[x][y].name not in TEAM_COMPS[self.comp_number]):
+                                    # Reset shop checks in case new trait synergies happened due to the change.
+                                    self.round_11_end_checks[1] = True
+                                    return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
+            self.round_11_end_checks[2] = False
+
+        # Double check that the units in the front should be in the front and vise versa
+        if self.round_11_end_checks[3]:
+            for x in range(len(player.board)):
+                for y in range(len(player.board[x])):
+                    if player.board[x][y]:
+                        movement = self.check_unit_location(player, x, y, player.board[x][y].name)
+                        if movement:
+                            return movement
+            self.round_11_end_checks[3] = False
+
+        # Check the cost of the units on the bench that are not a pair with a unit on the board.
+        # If selling allows us to hit 10 gold, sell until 10 gold.
+        if self.round_11_end_checks[4]:
+            cost = 0
+            position = 0
+            for i, bench_unit in enumerate(player.bench):
+                if bench_unit:
+                    if (bench_unit.name + "_" + str(bench_unit.stars)) not in self.pairs \
+                            and bench_unit.name not in TEAM_COMPS[self.comp_number]:
+                        cost += bench_unit.cost
+                        position = i
+
+            if player.gold // 10 != (player.gold + cost) // 10 and player.gold < 50:
+                return "4_" + str(position)
+            self.round_11_end_checks[3] = False
+
+        # TODO: Implement usage for champion duplicator
+        # TODO: Implement spat usage
+
+        # If above 50 gold and not yet level or when low health, buy exp
+        if player.level < 8 and (player.gold >= 54 or (player.health < 30 and player.gold > 4)):
+            return "5"
+
+        # Refresh at level 8 or when you get a little desperate
+        if (player.level == 8 and player.gold >= 54) or (player.health < 30 and player.gold > 4):
+            self.round_11_end_checks[0] = True
+            self.round_11_end_checks[1] = True
+            self.round_11_end_checks[2] = True
+            return "6"
+
+        return "0"
+
+    def ai_round_default(self, player, shop):
+        if self.current_round == self.next_round:
+            self.round_11_end_checks = [True for _ in range(5)]
+
+        if self.require_pair_update:
+            self.update_pairs_list(player)
+            self.require_pair_update = False
+
+        self.next_round = self.current_round + 1
+
+        # Check if we are 4 exp from the next level. If so level.
+        if player.exp == player.level_costs[player.level] - 4:
+            return "5"
+
+        # Verify that we have a full board.
+        max_unit_check = self.max_unit_check(player)
+        if max_unit_check != " ":
+            return max_unit_check
+
+        # Check if bench is full. Default sell non 2 star non pair unit. If none, sell the lowest cost.
+        if player.bench_full():
+            return self.sell_bench_full(player)
+
+        # Look for pairs and comp units
+        if self.round_11_end_checks[0]:
+            for i, shop_unit in enumerate(shop):
+                if shop_unit.endswith("_c"):
+                    c_shop = shop_unit.split('_')[0]
+                    chosen_type = shop_unit.split('_')[1]
+                    # If it is more than a 1 cost champion, we have to buy, a type we are running, and want to buy.
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1 and \
+                            player.team_tiers[chosen_type] > 0 and \
+                            self.champion_buy_list[BASE_CHAMPION_LIST.index(c_shop)]:
+                        return "1_" + str(i)
+                elif shop_unit != " ":
+                    if self.champion_buy_list[BASE_CHAMPION_LIST.index(shop_unit)] and COST[shop_unit] <= player.gold:
+                        self.require_pair_update = True
+                        return "1_" + str(i)
+            self.round_11_end_checks[0] = False
+
+        # Do the same for the bench
+        # TODO: Do every unique champion combination available on bench and board.
+        if self.round_11_end_checks[2]:
+            base_score = self.rank_comp(player.board)
+            for i, bench_unit in enumerate(player.bench):
+                if bench_unit:
+                    for x in range(len(player.board)):
+                        for y in range(len(player.board[x])):
+                            if player.board[x][y]:
+                                board_copy = deepcopy(player.board)
+                                board_copy[x][y] = bench_unit
+                                bench_score = self.rank_comp(board_copy)
+                                # First option, both not in comp
+                                if (bench_score > base_score and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
+                                        (player.board[x][y].name not in TEAM_COMPS[self.comp_number]
+                                         and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
+                                        (bench_score > base_score and bench_unit.name not in TEAM_COMPS[
+                                            self.comp_number]
                                          and player.board[x][y].name not in TEAM_COMPS[self.comp_number]):
                                     # Reset shop checks in case new trait synergies happened due to the change.
                                     self.round_11_end_checks[1] = True
