@@ -59,7 +59,6 @@ class ReplayBuffer:
         samples_per_player = config.SAMPLES_PER_PLAYER \
             if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
             else len(self.gameplay_experiences) - config.UNROLL_STEPS
-        print("samples_per_player {}".format(samples_per_player))
         # if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
         if samples_per_player > 0:
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
@@ -103,7 +102,7 @@ class ReplayBuffer:
                     priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
-                    if current_index < num_steps - 1:
+                    if current_index < num_steps:
                         if current_index != sample:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
@@ -127,7 +126,7 @@ class ReplayBuffer:
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0, 0, 0])
-                        value_mask_set.append(1.0)
+                        value_mask_set.append(0.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(0.0)
                         # This is 0.0 in Google's code but thinking this should be the same as the reward?

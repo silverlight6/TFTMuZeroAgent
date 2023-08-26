@@ -1,7 +1,7 @@
 import config
 from Models.MCTS_Util import *
 from Models.abstract_model import AbstractNetwork
-from Models.mlp_layers import mlp, MultiMlp
+from Models.torch_layers import mlp, MultiMlp
 
 
 class MuZeroDefaultNetwork(AbstractNetwork):

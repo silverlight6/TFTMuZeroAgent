@@ -2,12 +2,13 @@ import math
 import time
 import numpy as np
 import random
-from Simulator import champion, origin_class
+
 import Simulator.utils as utils
 import Simulator.config as config
+from Simulator import champion, origin_class
 from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
     starting_items, trait_items, uncraftable_items
-
+from Simulator.utils import Encoded_List
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
@@ -29,22 +30,23 @@ class Player:
     # Explanation - We may switch to a class config for the AI side later so separating the two now is highly useful.
     def __init__(self, pool_pointer, player_num):
 
-        self.gold = 0
-        self.level = 1
-        self.exp = 0
-        self.health = 100
+        self._gold = 0
+        self._level = 1
+        self._exp = 0
+        self._health = 100
         self.player_num = player_num
+        self._turns_for_combat = 0
 
-        self.win_streak = 0  # For purposes of gold generation at start of turn
-        self.loss_streak = 0  # For purposes of gold generation at start of turn
+        self._win_streak = 0  # For purposes of gold generation at start of turn
+        self._loss_streak = 0  # For purposes of gold generation at start of turn
         self.fortune_loss_streak = 0  # For purposes of gold generation if fortune trait is active
 
         # array of champions, since order does not matter, can be unordered list
-        self.bench = [None for _ in range(9)]
+        self.bench = Encoded_List(9, utils.null_encode)
         # Champion array, this is a 7 by 4 array.
-        self.board = [[None for _ in range(4)] for _ in range(7)]
+        self.board = [Encoded_List(4, utils.encode_champ_object) for _ in range(7)]
         # List of items, there is no object for this so this is a string array
-        self.item_bench = [None for _ in range(10)]
+        self.item_bench = Encoded_List(10, utils.encode_item_object)
 
         # opponent and opponent_board not currently used
         # Leaving here in case we want to add values to the observation that include previous opponent
@@ -72,8 +74,18 @@ class Player:
         self.chosen_vector = np.zeros(5)
 
         # player related info split between what other players can see and what they can't see
-        self.player_public_vector = np.zeros(7)
-        self.player_private_vector = np.zeros(16)
+        # BOARD 1 * 1 * 1 -> 28 * 4 * 7
+        # INFO 1 * 1 * 8 -> 28 * 4 * 9 -> HP, MaxLevel, StreakLVL, TurnsForCombat, Level,  ExpToLevel, Gold, CurrentStreak
+        # SHOP 1 * 1 * 9 -> 28 * 5 * 10
+        # BENCH 1 * 5 * 1 -> 28 * 5 * 9
+        # ITEMS 1 * 6 * 1 -> 28 * 6 * 10
+        #
+        # INFO -> [HP, Level]
+        #         [StreakLVL, TurnsForCombat]
+        #         [Level, ExpToLevel]
+        #         [Gold, CurrentStreak]
+        self._player_public_vector = np.zeros((60 + 58 + 1 + 1 + 1, 4, 7))
+        self.player_private_vector = np.zeros((59 + 1 + 1 + 1, 4, 7))
 
         # Encoding board as an image, so we can run convolutions on it.
         self.board_vector = np.zeros(728)  # 26 size on each unit, 28 squares
@@ -169,6 +181,91 @@ class Player:
         self.generate_bench_vector()
         self.generate_item_vector()
         self.generate_chosen_vector()
+
+    @property
+    def health(self):
+        return self._health
+
+    @health.setter
+    def health(self, new_health):
+        self._health = new_health
+        self._player_public_vector[60 + 58] = np.ones((4, 7))
+
+    @property
+    def win_streak(self):
+        return self._win_streak
+
+    @win_streak.setter
+    def win_streak(self, new_loss):
+        self._win_streak = new_loss
+        if abs(self._loss_streak) > self._win_streak:
+            self.player_private_vector[61] = np.ones((4, 7)) * self._loss_streak
+        else:
+            self.player_private_vector[61] = np.ones((4, 7)) * self._win_streak
+
+    @property
+    def loss_streak(self):
+        return self._loss_streak
+
+    @loss_streak.setter
+    def loss_streak(self, new_loss):
+        self._loss_streak = new_loss
+        if abs(self._loss_streak) > self._win_streak:
+            self.player_private_vector[61] = np.ones((4, 7)) * self._loss_streak
+        else:
+            self.player_private_vector[61] = np.ones((4, 7)) * self._win_streak
+
+    @property
+    def turns_for_combat(self):
+        return self._turns_for_combat
+
+    @turns_for_combat.setter
+    def turns_for_combat(self, new_t_f_c):
+        self._turns_for_combat = new_t_f_c
+        self._player_public_vector[60 + 58 + 1] = np.ones((4, 7)) * new_t_f_c
+
+    @property
+    def level(self):
+        return self._level
+
+    @level.setter
+    def level(self, new_level):
+        self._level = new_level
+        self._player_public_vector[60 + 58 + 1 + 1] = np.ones((4, 7)) * new_level
+
+    @property
+    def exp(self):
+        return self._exp
+
+    @exp.setter
+    def exp(self, new_exp):
+        self._exp = new_exp
+        self.player_private_vector[59] = np.ones((4, 7)) * (self.level_costs[self.level] - self._exp)
+
+    @property
+    def gold(self):
+        return self._gold
+
+    @gold.setter
+    def gold(self, new_gold):
+        self._gold = new_gold
+        self.player_private_vector[60] = np.ones((4, 7)) * new_gold
+
+    @property
+    def player_public_vector(self):
+        output = np.zeros_like(self._player_public_vector)
+        output += self._player_public_vector
+        output[0:60, :, :] = np.concatenate([self.board[x].get_encoding().reshape((60, 4, 1)) for x in range(0, 7)],
+                                            axis=2)
+        bench_count = np.zeros(58)
+        for u in self.bench:
+            if u:
+                c_index = list(COST.keys()).index(u.name)
+                bench_count[c_index - 1] += 1
+        for n, _ in enumerate(bench_count):
+            output[60:60 + n] = np.ones((4, 7)) * bench_count[n]
+
+        return output
 
     """
     Description - Main method used in buy_champion to add units to the bench
@@ -431,23 +528,9 @@ class Player:
         for y in range(0, 4):
             # IMPORTANT TO HAVE THE X INSIDE -- Silver is not sure why but ok.
             for x in range(0, 7):
-                # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
-                champion_info_array = np.zeros(6 * 4 + 2)
+
                 if self.board[x][y]:
                     curr_champ = self.board[x][y]
-                    c_index = list(COST.keys()).index(curr_champ.name)
-                    champion_info_array[0:6] = utils.champ_binary_encode(c_index)
-                    champion_info_array[6] = curr_champ.stars / 3
-                    champion_info_array[7] = curr_champ.cost / 5
-                    for ind, item in enumerate(curr_champ.items):
-                        start = (ind * 6) + 7
-                        finish = start + 6
-                        i_index = []
-                        if item in uncraftable_items:
-                            i_index = list(uncraftable_items).index(item) + 1
-                        elif item in item_builds.keys():
-                            i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
-                        champion_info_array[start:finish] = utils.item_binary_encode(i_index)
 
                     # Masking
                     if len(curr_champ.items) == 3:
@@ -469,9 +552,6 @@ class Player:
                     self.dummy_mask[7 * y + x] = 0
                     self.board_full_items_mask[7 * y + x] = 0
 
-                # Fit the area into the designated spot in the vector
-                self.board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
-
         if self.num_units_in_play == self.max_units:
             self.util_mask[0] = 0
         else:
@@ -482,25 +562,9 @@ class Player:
     """
     def generate_bench_vector(self):
         space = 0
-        bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
         for x_bench in range(len(self.bench)):
-            # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
-            champion_info_array = np.zeros(6 * 4 + 2)
             if self.bench[x_bench]:
                 curr_champ = self.bench[x_bench]
-                c_index = list(COST.keys()).index(curr_champ.name)
-                champion_info_array[0:6] = utils.champ_binary_encode(c_index)
-                champion_info_array[6] = curr_champ.stars / 3
-                champion_info_array[7] = curr_champ.cost / 5
-                for ind, item in enumerate(curr_champ.items):
-                    start = (ind * 6) + 7
-                    finish = start + 6
-                    i_index = []
-                    if item in uncraftable_items:
-                        i_index = list(uncraftable_items).index(item) + 1
-                    elif item in item_builds.keys():
-                        i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
-                    champion_info_array[start:finish] = utils.item_binary_encode(i_index)
                 self.bench_mask[x_bench] = 1
                 if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
                     self.glove_item_mask[x_bench + 27] = 1
@@ -511,9 +575,6 @@ class Player:
                 self.bench_mask[x_bench] = 0
                 self.glove_item_mask[x_bench + 27] = 0
                 space = 1
-            bench[x_bench * config.CHAMP_ENCODING_SIZE:
-                  x_bench * config.CHAMP_ENCODING_SIZE + config.CHAMP_ENCODING_SIZE] = champion_info_array
-        self.bench_vector = bench
         self.util_mask[1] = space
 
     """
@@ -557,34 +618,6 @@ class Player:
     Description - All information that other players do not have access to is stored in this vector
     """
     def generate_private_player_vector(self):
-        self.player_private_vector[0] = self.gold / 100
-        self.player_private_vector[1] = self.exp / 100
-        self.player_private_vector[2] = self.round / 30
-
-        exp_to_level = 0
-        if self.level < self.max_level:
-            exp_to_level = self.level_costs[self.level] - self.exp
-        self.player_private_vector[4] = exp_to_level
-        self.player_private_vector[5] = max(self.win_streak, self.loss_streak)
-        if len(self.match_history) > 2:
-            self.player_private_vector[6] = self.match_history[-3]
-            self.player_private_vector[7] = self.match_history[-2]
-            self.player_private_vector[8] = self.match_history[-1]
-        # Who we can play against in the next round. / 20 to keep numbers between 0 and 1.
-        # TODO: Figure out a better way to get around this nested if statement that doesn't involve iterating over
-        # TODO: The entire list
-        for x in range(9, 17):
-            if (x - 9) < self.player_num:
-                if ("player_" + str(x - 9)) in self.opponent_options:
-                    self.player_private_vector[x] = self.opponent_options["player_" + str(x - 9)] / 20
-                else:
-                    self.player_private_vector[x] = -1
-            elif (x - 0) > self.player_num:
-                if ("player_" + str(x - 9)) in self.opponent_options:
-                    self.player_private_vector[x - 1] = self.opponent_options["player_" + str(x - 9)] / 20
-                else:
-                    self.player_private_vector[x - 1] = -1
-
         # if gold < 4 or already max level, do not allow to level
         if self.level == self.max_level or self.gold < 4:
             self.decision_mask[4] = 0
@@ -603,28 +636,11 @@ class Player:
             else:
                 self.shop_mask[idx] = 1
 
-    """
-    Description - All game state information that other players have access to is stored here..
-    """
-    def generate_public_player_vector(self):
-        self.player_private_vector[0] = self.health / 100
-        self.player_public_vector[1] = self.level / 10
-        self.player_public_vector[2] = self.max_units / 10
-        self.player_private_vector[3] = self.max_units / 10
-        self.player_public_vector[4] = self.num_units_in_play / self.max_units
-        self.player_public_vector[5] = min(floor(self.gold / 10), 5) / 5.0
-        streak_lvl = 0
-        if self.win_streak == 4:
-            streak_lvl = 0.5
-        elif self.win_streak >= 5:
-            streak_lvl = 1
-        self.player_private_vector[6] = streak_lvl
 
     """
     Description - So we can call one method instead of 2 in the dozen or so places where these vectors get updated.
     """
     def generate_player_vector(self):
-        self.generate_public_player_vector()
         self.generate_private_player_vector()
 
 
@@ -697,11 +713,11 @@ class Player:
         interest = min(floor(self.gold / 10), 5)
         self.gold += interest
         self.gold += 5
-        if self.win_streak == 2 or self.win_streak == 3 or self.loss_streak == 2 or self.loss_streak == 3:
+        if self.win_streak == 2 or self.win_streak == 3 or self.loss_streak == -2 or self.loss_streak == -3:
             self.gold += 1
-        elif self.win_streak == 4 or self.loss_streak == 4:
+        elif self.win_streak == 4 or self.loss_streak == -4:
             self.gold += 2
-        elif self.win_streak >= 5 or self.loss_streak >= 5:
+        elif self.win_streak >= 5 or self.loss_streak <= -5:
             self.gold += 3
         self.generate_player_vector()
 
@@ -779,7 +795,7 @@ class Player:
     # TODO: Separate losing a combat round and a minion round. They have differences related to win_streaks and classes
     def loss_round(self, damage):
         if not self.combat:
-            self.loss_streak += 1
+            self.loss_streak -= 1
             self.win_streak = 0
             # self.reward -= self.damage_reward * damage
             # self.print(str(-self.damage_reward * damage) +

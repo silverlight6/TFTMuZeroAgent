@@ -165,6 +165,9 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
+        for agent in self.agents:
+            self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN
+
         self.observations = {agent: self.game_observations[agent].observation(
             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
 
@@ -220,6 +223,7 @@ class TFT_Simulator(AECEnv):
             if self.actions_taken < config.ACTIONS_PER_TURN:
                 for agent in self.agents:
                     if not self.default_agent[agent]:
+                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
                         self.observations[agent] = self.game_observations[agent].observation(
                             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
@@ -267,6 +271,7 @@ class TFT_Simulator(AECEnv):
                     for agent in _live_agents:
                         # Not doing an if statement here so the default agent training gets a new observation
                         # At the start of the turn even though I have all agents set to default
+                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
                         self.observations[agent] = self.game_observations[agent].observation(
                             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 

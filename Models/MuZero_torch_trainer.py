@@ -128,6 +128,8 @@ class Trainer(object):
             step_target_policy = self.fill_policy(target_policy[tstep], sample_set[tstep])
             policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
+            if config.CHAMP_DECIDER:
+                policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_ACTION_DIM)))
 
             self.outputs.value_loss.append(value_loss)
             self.outputs.reward_loss.append(reward_loss)
@@ -233,12 +235,6 @@ class Trainer(object):
     # We need to mask the prediction so that only the sampled actions are used in the loss.
     # We also need to fill the target with zeros where the prediction is masked.
     def fill_policy(self, target, sample_set):
-        print(len(target))
-        print(len(target[0]))
-        print(len(target[0][0]))
-        print(len(sample_set))
-        print(len(sample_set[0]))
-        print(len(sample_set[0][0]))
         if not config.CHAMP_DECIDER:
             idx_set = sample_set_to_idx(sample_set)
             target = create_target_and_mask(target, idx_set)

@@ -113,7 +113,6 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
-                        game_observations[key].generate_game_comps_vector()
             elif action_selector == 3:
                 # Place item on champ
                 item_selector = action[2]

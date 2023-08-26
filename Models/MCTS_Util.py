@@ -87,49 +87,32 @@ def split_sample_set(sample_mapping, target_policy):
 
     return split_sample, split_policy
 
+# Size is [# of samples, len of champion list]
 def split_sample_set_champ_decider(sample_mapping, target_policy):
-    split_sample = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
-    split_policy = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
-
+    split_sample = [["0", "1"] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+    split_policy = [[0, 0] for _ in range(len(config.CHAMPION_ACTION_DIM))]
     for i, sample in enumerate(sample_mapping):
-        base = sample[0]
-        idx = int(base)
-
-        if idx in config.NEEDS_2ND_DIM:
-            location = sample[1:]
-
-            if base not in split_sample[0]:
-                split_sample[0].append(base)
-                split_policy[0].append(0)
-
-            split_sample[idx].append(location)
-            split_policy[idx].append(target_policy[i])
-            # split_policy[0][idx] += target_policy[i]
-        else:
-            split_sample[0].append(sample)
-            split_policy[0].append(target_policy[i])
-
-    # Accumulate the policy for each multidim action
-    for i, base in enumerate(split_sample[0]):
-        idx = int(base)
-
-        if idx in config.NEEDS_2ND_DIM:
-            policy_sum = sum(split_policy[idx])
-            split_policy[0][i] += policy_sum
-
+        for k in range(0, len(sample), 2):
+            base = sample[k]
+            idx = int(base)
+            split_policy[int(k/2)][idx] += target_policy[i]
     return split_sample, split_policy
 
 # [batch_size, unroll_steps, num_samples] to [unroll_steps, num dims, (batch_size, dim)]
 def split_batch(mapping_batch, policy_batch):
-    batch_size = len(mapping_batch)  # 256
-    unroll_steps = len(mapping_batch[0])  # 6
+    batch_size = len(mapping_batch)  # config.BATCH_SIZE
+    unroll_steps = len(mapping_batch[0])  # config.UNROLL_STEPS
 
     mapping = []
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        unroll_mapping = [[], [], [], [], []]
-        unroll_policy = [[], [], [], [], []]
+        if config.CHAMP_DECIDER:
+            unroll_mapping = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+            unroll_policy = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+        else:
+            unroll_mapping = [[], [], [], [], []]
+            unroll_policy = [[], [], [], [], []]
 
         for batch_idx in range(batch_size):
             local_mapping = mapping_batch[batch_idx][unroll_idx]
@@ -346,3 +329,38 @@ def dict_to_cpu(dictionary):
         else:
             cpu_dict[key] = value
     return cpu_dict
+
+def dcord_to_2dcord(dcord):
+    x = dcord % 7
+    y = (dcord - x) // 7
+    return x, y
+
+
+def action_to_3d(action):
+    cube_action = np.zeros((action.shape[0], 7, 4, 7))
+    for i in range(action.shape[0]):
+        action_selector = np.argmax(action[i][0])
+        if action_selector == 0:
+            cube_action[0, :, :] = np.ones((1, 4, 7))
+        elif action_selector == 1:
+            champ_shop_target = np.argmax(action[i][2])
+            if champ_shop_target < 5:
+                cube_action[1, champ_shop_target, 9] = 1
+        elif action_selector == 2:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[2, champ1[0], champ1[1]] = 1
+            champ2 = dcord_to_2dcord(action[i][2])
+            cube_action[2, champ2[0], champ2[1]] = 1
+        elif action_selector == 3:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[3, champ1[0], champ1[1]] = 1
+            cube_action[3, 5, action[i][2]] = 1
+        elif action_selector == 4:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[4, champ1[0], champ1[1]] = 1
+        elif action_selector == 5:
+            cube_action[5, :, :] = np.ones((1, 4, 7))
+        elif action_selector == 6:
+            cube_action[6, :, :] = np.ones((1, 4, 7))
+    return cube_action
+
