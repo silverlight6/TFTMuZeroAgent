@@ -40,6 +40,7 @@ class DataWorker(object):
             self.temp_model = TFTNetwork()
             self.agent_network = MCTS(self.temp_model)
             self.past_network = MCTS(self.temp_model)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player and for testing
             # self.default_agent[0] = False

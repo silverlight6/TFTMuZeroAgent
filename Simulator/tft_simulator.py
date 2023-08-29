@@ -91,7 +91,7 @@ class TFT_Simulator(AECEnv):
                 [
                     Dict({
                         "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8), 
+                        "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8),
                                        MultiDiscrete(np.ones(5) * 2, dtype=np.int8),
                                        MultiDiscrete(np.ones(28) * 2, dtype=np.int8),
                                        MultiDiscrete(np.ones(9) * 2, dtype=np.int8),
@@ -165,9 +165,6 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
-        for agent in self.agents:
-            self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN
-
         self.observations = {agent: self.game_observations[agent].observation(
             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
 
@@ -223,7 +220,6 @@ class TFT_Simulator(AECEnv):
             if self.actions_taken < config.ACTIONS_PER_TURN:
                 for agent in self.agents:
                     if not self.default_agent[agent]:
-                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
                         self.observations[agent] = self.game_observations[agent].observation(
                             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
@@ -269,11 +265,9 @@ class TFT_Simulator(AECEnv):
                     self.game_round.start_round()
 
                     for agent in _live_agents:
-                        # Not doing an if statement here so the default agent training gets a new observation
-                        # At the start of the turn even though I have all agents set to default
-                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
-                        self.observations[agent] = self.game_observations[agent].observation(
-                            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                        if not self.default_agent[agent]:
+                            self.observations[agent] = self.game_observations[agent].observation(
+                                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
             for player_id in self.PLAYERS:
                 if self.PLAYERS[player_id]:

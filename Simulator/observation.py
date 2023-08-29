@@ -3,8 +3,6 @@ import numpy as np
 import config
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
-import Simulator.utils as utils
-
 
 '''
 Includes the vector of the shop, bench, board, and item list.
@@ -13,13 +11,13 @@ action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_a
 '''
 class Observation:
     def __init__(self):
-        self.shop_vector = None
+        self.shop_vector = np.zeros(45)
         self.shop_mask = np.ones(5, dtype=np.int8)
         self.game_comp_vector = np.zeros(208)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                          config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): np.zeros((26, 6, 10))
+        self.other_player_observations = {"player_" + str(player_id): np.zeros(740)
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
         self.moves_left_in_turn = 1
@@ -34,12 +32,21 @@ class Observation:
                     The next action format to use if using a 1d action space.
     Outputs     - A dictionary with a tensor field (input to the representation network) and a mask for legal actions
     """
-    def observation(self, player):
+    def observation(self, player_id, player, action_vector=np.array([])):
         # Fetch the shop vector and game comp vector
         shop_vector = self.shop_vector
+        game_state_vector = self.game_comp_vector
         # Concatenate all vector based player information
-        player.player_private_vector += shop_vector
-        game_state_tensor = np.concatenate((player.player_public_vector, player.player_private_vector))
+        game_state_tensor = np.concatenate([shop_vector,
+                                            player.bench_vector,
+                                            player.chosen_vector,
+                                            player.item_vector,
+                                            player.player_public_vector,
+                                            player.player_private_vector,
+                                            player.board_vector,
+                                            game_state_vector,
+                                            action_vector,
+                                            np.array([self.turn_since_update, self.moves_left_in_turn])], axis=-1)
 
         # Initially fill the queue with duplicates of first observation
         # we can still sample when there aren't enough time steps yet
@@ -51,12 +58,25 @@ class Observation:
         # Enqueue the latest observation and pop the oldest (performed automatically by deque with maxLen configured)
         self.cur_player_observations.append(game_state_tensor)
 
+        # # sample every N time steps at M intervals, where maxLen of queue = M*N
+        # cur_player_observation = np.array([self.cur_player_observations[i]
+        #                               for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
+
         cur_player_tensor_observation = []
         for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL):
             tensor = self.cur_player_observations[i]
             cur_player_tensor_observation.append(tensor)
+        cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
 
-        total_tensor_observation = np.concatenate(cur_player_tensor_observation)
+        # Fetch other player data
+        other_player_tensor_observation_list = []
+        for k, v in self.other_player_observations.items():
+            if k != player_id:
+                other_player_tensor_observation_list.append(v)
+        other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+
+        # Gather all vectors into one place
+        total_tensor_observation = np.concatenate((cur_player_tensor_observation, other_player_tensor_observation))
 
         # Fetch and concatenate mask
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
@@ -96,7 +116,6 @@ class Observation:
                   on the left in TFT. 
     """
     # TODO: Add other player's compositions to the list of other player's vectors.
-    # TODO: TEST THIS
     def generate_game_comps_vector(self):
         output = np.zeros(208)
         for i in range(len(game_comp_tiers)):

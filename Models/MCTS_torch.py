@@ -114,7 +114,7 @@ class MCTS:
 
             self.max_depth_search = sum(results.get_search_len()) / len(results.get_search_len())
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, config.LAYER_HIDDEN_SIZE, 4, 7)).to('cuda')
+            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
