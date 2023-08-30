@@ -29,7 +29,7 @@ ACTION_ENCODING_SIZE = 1045
 ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
 
-POLICY_HEAD_SIZES = [7, 5, 630, 370, 37]  # [7 types, shop, movement, item, sell/item loc]
+POLICY_HEAD_SIZES = [1624+1+1+58+58+1]  # [All probabble actions without items]
 NEEDS_2ND_DIM = [1, 2, 3, 4]
 
 # ACTION_DIM = 10
@@ -44,8 +44,8 @@ N_HEAD_HIDDEN_LAYERS = 4
 ACTIONS_PER_TURN = 15
 CONCURRENT_GAMES = 8
 NUM_PLAYERS = 8
-NUM_SAMPLES = 75  # Normal is 25, can be anywhere from 5 to 50
-NUM_SIMULATIONS = 45
+NUM_SAMPLES = 25  # Normal is 25, can be anywhere from 5 to 50
+NUM_SIMULATIONS = 30
 SAMPLES_PER_PLAYER = 128  # Normal is 128
 UNROLL_STEPS = 5
 

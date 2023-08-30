@@ -4,44 +4,36 @@ import numpy as np
 
 
 def create_default_mapping():
-    local_type = []
-    local_shop = []
-    local_board = []
-    local_item = []
-    local_sell = []
+    local = []
 
     # Shop masking
-    for i in range(5):
-        local_shop.append(f"_{i}")
+    for i in range(58):
+        local.append(f"2_{i}")
 
     # Board masking
     # For all board + bench slots...
-    for a in range(37):
+    for a in range(28):
         # rest of board slot locs for moving, last for sale
-        for b in range(a, 37):
-            if a == b:
-                continue
-            if a > 27:
-                continue
-            local_board.append(f"_{a}_{b}")
+        for b in range(58):
+            local.append(f"1_{a}_{b}")
     # Item masking
     # For all board + bench slots...
-    for a in range(37):
-        # For every item slot...
-        for b in range(10):
-            # if there is a unit and there is an item
-            local_item.append(f"_{a}_{b}")
+    # TODO
+    # for a in range(37):
+    #     # For every item slot...
+    #     for b in range(10):
+    #         # if there is a unit and there is an item
+    #         local.append(f"_{a}_{b}")
+
     # Sell unit masking
-    for a in range(37):
-        local_sell.append(f"_{a}")
+    for a in range(58):
+        local.append(f"3_{a}")
 
-    # All Type mappings
-    for i in range(7):
-        local_type.append(f"{i}")
+    local.append("0")
+    local.append("4")
+    local.append("5")
 
-    mappings = [[local_type] * config.NUM_PLAYERS, [local_shop] * config.NUM_PLAYERS,
-                [local_board] * config.NUM_PLAYERS, [local_item] * config.NUM_PLAYERS,
-                [local_sell] * config.NUM_PLAYERS]
+    mappings = [local] * config.NUM_PLAYERS
 
     return mappings
 
@@ -49,38 +41,17 @@ def create_default_mapping():
 # ["0", "1_0", "2_20_20", "3_4_20", "4_10", "5", "6"] ->
 # [["0", "1", "2", "3", "4", "5", "6"], ["_0"], ["_20_20"], ["_4_20"], ["_10"]]
 def split_sample_set(sample_mapping, target_policy):
-    split_sample = [[], [], [], [], []]
-    split_policy = [[], [], [], [], []]
+    new_policy = np.zeros((1743))
 
-    # split_policy[0] = [0] * config.POLICY_HEAD_SIZES[0]
+    for index, str_action in enumerate(sample_mapping):
+        num_items = str_action.count("_")
+        split_action = str_action.split("_")
+        element_list = [0, 0, 0, 0]
+        for i in range(num_items + 1):
+            element_list[i] = int(split_action[i])
+        new_policy[element_list[3]] = target_policy[index]
 
-    for i, sample in enumerate(sample_mapping):
-        base = sample[0]
-        idx = int(base)
-
-        if idx in config.NEEDS_2ND_DIM:
-            location = sample[1:]
-
-            if base not in split_sample[0]:
-                split_sample[0].append(base)
-                split_policy[0].append(0)
-
-            split_sample[idx].append(location)
-            split_policy[idx].append(target_policy[i])
-            # split_policy[0][idx] += target_policy[i]
-        else:
-            split_sample[0].append(sample)
-            split_policy[0].append(target_policy[i])
-
-    # Accumulate the policy for each multidim action
-    for i, base in enumerate(split_sample[0]):
-        idx = int(base)
-
-        if idx in config.NEEDS_2ND_DIM:
-            policy_sum = sum(split_policy[idx])
-            split_policy[0][i] += policy_sum
-
-    return split_sample, split_policy
+    return sample_mapping, new_policy
 
 # [batch_size, unroll_steps, num_samples] to [unroll_steps, num dims, (batch_size, dim)]
 def split_batch(mapping_batch, policy_batch):
@@ -91,16 +62,14 @@ def split_batch(mapping_batch, policy_batch):
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        unroll_mapping = [[], [], [], [], []]
-        unroll_policy = [[], [], [], [], []]
+        unroll_mapping = []
+        unroll_policy = []
 
         for batch_idx in range(batch_size):
             local_mapping = mapping_batch[batch_idx][unroll_idx]
             local_policy = policy_batch[batch_idx][unroll_idx]
-
-            for dim_idx in range(len(local_mapping)):
-                unroll_mapping[dim_idx].append(local_mapping[dim_idx])
-                unroll_policy[dim_idx].append(local_policy[dim_idx])
+            unroll_mapping.append(local_mapping)
+            unroll_policy.append(local_policy)
 
         mapping.append(unroll_mapping)
         policy.append(unroll_policy)
@@ -142,22 +111,18 @@ def map_output_to_distribution(mapping, policy_logits):
 
     sampled_policy = []
 
-    for dim in range(num_dims):
-        batch_sampled_dim = []
-        for batch_idx in range(batch_size):
-            softmax_op = torch.nn.LogSoftmax(dim=-1)  # This may be able to be called outside this loop
-            local_dim = softmax_op(policy_logits[dim][batch_idx])
-            local_mapping = mapping[dim][batch_idx]
+    for batch_idx in range(batch_size):
+        softmax_op = torch.nn.LogSoftmax(dim=-1)  # This may be able to be called outside this loop
+        local_dim = softmax_op(policy_logits[batch_idx])
+        local_mapping = mapping[batch_idx]
 
-            sampled_dim = []
+        sampled_dim = []
 
-            for action in local_mapping:
-                mapped_idx = action_to_idx(action, dim)
-                sampled_dim.append(local_dim[mapped_idx])
+        # for action in local_mapping:
+            # mapped_idx = action_to_idx(action, dim)
+            # sampled_dim.append(local_dim[mapped_idx])
 
-            batch_sampled_dim.append(sampled_dim)
-
-        sampled_policy.append(batch_sampled_dim)
+        # sampled_policy.append(sampled_dim)
 
     return sampled_policy
 

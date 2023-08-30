@@ -157,6 +157,8 @@ class Player:
         # glove_mask = 1 if there is a sparring glove in that item slot, 0 if not
         self.glove_mask = np.zeros(10, dtype=np.int8)
         self.shop_costs = np.ones(5)
+        self.shop_elems = np.ones(5)
+        self.champ_elements = np.ones(58)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -356,6 +358,8 @@ class Player:
             return True
         bench_loc = self.bench_vacancy()
         self.bench[bench_loc] = a_champion
+        if COST[a_champion.name] != 0:
+            self.champ_elements[list(COST.keys()).index(a_champion.name) - 1] += 1
         a_champion.bench_loc = bench_loc
         if a_champion.chosen:
             self.print("Adding chosen champion {} of type {}".format(a_champion.name, a_champion.chosen))
@@ -426,7 +430,7 @@ class Player:
         if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
             if DEBUG:
-                print("No gold to buy champion")
+                print("No gold to buy champion ", a_champion.name, " from shop ", self.shop_elems)
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         if a_champion.name == 'kayn':
@@ -608,7 +612,7 @@ class Player:
                         self.dummy_mask[7 * y + x] = 1
                     else:
                         self.dummy_mask[7 * y + x] = 0
-                    self.board_mask[7 * y + x] = 1
+                    self.board_mask[7 * y + x] = list(COST.keys()).index(curr_champ.name) -1
                 else:
                     # Different from the board vector because it needs to match the MCTS encoder
                     self.board_mask[7 * y + x] = 0
@@ -648,7 +652,7 @@ class Player:
                 #     elif item in item_builds.keys():
                 #         i_index = list(item_builds.keys()).index(item) + 1 + len(uncraftable_items)
                 #     champion_info_array[start:finish] = utils.item_binary_encode(i_index)
-                self.bench_mask[x_bench] = 1
+                self.bench_mask[x_bench] = list(COST.keys()).index(curr_champ.name)
                 if len(curr_champ.items) > 0 and curr_champ.items[-1] == "sparring_gloves":
                     self.glove_item_mask[x_bench + 27] = 1
                     
@@ -1560,6 +1564,8 @@ class Player:
                     self.board[s_champion.x][s_champion.y].overlord = False
                     for coord in coords:
                         self.board[coord[0]][coord[1]] = None
+            if COST[self.board[s_champion.x][s_champion.y].name] != 0:
+                self.champ_elements[list(COST.keys()).index(self.board[s_champion.x][s_champion.y].name) - 1] -= 1
             self.board[s_champion.x][s_champion.y] = None
             self.generate_board_vector()
         if field:
@@ -1596,6 +1602,7 @@ class Player:
             return_champ = self.bench[location]
             self.print("selling champion " + self.bench[location].name + " with stars = " +
                        str(self.bench[location].stars) + " from bench_location " + str(location))
+            self.champ_elements[list(COST.keys()).index(self.bench[location].name) - 1] -= 1
             self.bench[location] = None
             self.generate_bench_vector()
             self.generate_item_vector()

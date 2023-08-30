@@ -396,25 +396,25 @@ class MultiMlp(torch.nn.Module):
                 output_activation()
             ).cuda()
         
-        self.head_1 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[1]),
-                output_activation()
-            ).cuda()
+        # self.head_1 = torch.nn.Sequential(
+        #         torch.nn.Linear(layer_sizes[-1], output_sizes[1]),
+        #         output_activation()
+        #     ).cuda()
         
-        self.head_2 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[2]),
-                output_activation()
-            ).cuda()
+        # self.head_2 = torch.nn.Sequential(
+        #         torch.nn.Linear(layer_sizes[-1], output_sizes[2]),
+        #         output_activation()
+        #     ).cuda()
         
-        self.head_3 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[3]),
-                output_activation()
-            ).cuda()
+        # self.head_3 = torch.nn.Sequential(
+        #         torch.nn.Linear(layer_sizes[-1], output_sizes[3]),
+        #         output_activation()
+        #     ).cuda()
         
-        self.head_4 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[4]),
-                output_activation()
-            ).cuda()
+        # self.head_4 = torch.nn.Sequential(
+        #         torch.nn.Linear(layer_sizes[-1], output_sizes[4]),
+        #         output_activation()
+        #     ).cuda()
 
         # for size in output_sizes:
         #     output_layer = torch.nn.Sequential(
@@ -431,10 +431,10 @@ class MultiMlp(torch.nn.Module):
         output = []
 
         output.append(self.head_0(x))
-        output.append(self.head_1(x))
-        output.append(self.head_2(x))
-        output.append(self.head_3(x))
-        output.append(self.head_4(x))
+        # output.append(self.head_1(x))
+        # output.append(self.head_2(x))
+        # output.append(self.head_3(x))
+        # output.append(self.head_4(x))
 
         # return torch.cat(output, dim=-1)
         return output

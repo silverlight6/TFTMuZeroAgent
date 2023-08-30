@@ -24,6 +24,7 @@ namespace tree {
         this->value_sum = 0;
         this->reward = 0.0;
         this->ptr_node_pool = nullptr;
+        this->children_index = std::vector<int>{};
         this->mappings = std::vector<std::string>{};
     }
 
@@ -36,6 +37,7 @@ namespace tree {
         this->ptr_node_pool = ptr_node_pool;
         this->hidden_state_index_x = -1;
         this->hidden_state_index_y = -1;
+        this->children_index = std::vector<int>{};
         this->mappings = std::vector<std::string>{};
     }
 
@@ -85,7 +87,7 @@ namespace tree {
             // Normalizes the array
             prior = policy[a] / policy_sum;
             int index = ptr_node_pool->size();
-            this->children_index.push_back(index);
+            this->children_index.push_back(index); // DIYING HERE
 
             // Add all of the nodes children to the ptr_node_pool
             ptr_node_pool->push_back(CNode(prior, ptr_node_pool));

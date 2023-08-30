@@ -82,7 +82,7 @@ class Observation:
         # Fetch and concatenate mask
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
                 player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask, player.dummy_mask,
-                player.board_full_items_mask)
+                player.board_full_items_mask, player.shop_elems, player.champ_elements)
 
         # Used to help the model know how outdated it's information on other players is.
         # Also helps with ensuring that two observations with the same board and bench are not equal.
@@ -143,6 +143,7 @@ class Observation:
         chosen_shop = ''
         shop_costs = np.zeros((5, 1))
         shop_counts = np.zeros((58,1))
+        shop_elems = np.zeros((5, 1))
         for x in range(0, len(shop)):
             if shop[x]:
                 chosen = 0
@@ -160,6 +161,7 @@ class Observation:
                 else:
                     shop_costs[x] = COST[shop[x]]
                 c_index = list(COST.keys()).index(shop[x])
+                shop_elems[x] = c_index-1
                 shop_counts[c_index-1] += 1
                 if c_index == 0:
                     self.shop_mask[x] = 0
@@ -183,6 +185,9 @@ class Observation:
             shop[chosen_shop_index] = chosen_shop
 
         player.shop_costs = shop_costs
+        player.shop_elems = shop_elems
+
+        # print(player.player_num, " has ", player.shop_elems, " = ", shop)
 
         for idx, cost in enumerate(player.shop_costs):
             if player.gold < cost or cost == 0:
