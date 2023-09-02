@@ -2,7 +2,7 @@ import torch
 import config
 import Models.MCTS_Util as utils
 from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import mlp, MultiMlp
+from Models.torch_layers import mlp, MultiMlp, resnet
 
 
 class MuZeroNetwork(AbstractNetwork):
@@ -10,19 +10,15 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                          config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
+        self.representation_network = RepNetwork(
+            [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+            config.HIDDEN_STATE_SIZE
+        )
 
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
-                                    config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
-
-        self.dynamics_hidden_state_network = torch.nn.LSTM(input_size=config.HIDDEN_STATE_SIZE,
-                                                           num_layers=config.NUM_RNN_CELLS,
-                                                           hidden_size=config.LSTM_SIZE,
-                                                           batch_first=True).to(config.DEVICE)
-
-        self.dynamics_reward_network = mlp(config.HIDDEN_STATE_SIZE, [
-                                           1] * 1, self.full_support_size)
+        self.dynamics_network = DynNetwork(input_size=config.HIDDEN_STATE_SIZE,
+                                                        num_layers=config.NUM_RNN_CELLS,
+                                                        hidden_size=config.LSTM_SIZE,
+                                                    )
 
         self.prediction_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
                                                   config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
@@ -191,70 +187,113 @@ class PredNetwork(torch.nn.Module):
 
         return policy, value
 
-    def __call__(self, x):
-        return self.forward(x)
-
 
 class RepNetwork(torch.nn.Module):
-    def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
+    def __init__(self, layer_sizes, output_size) -> torch.nn.Module:
         super().__init__()
-
-        self.conv1 = torch.nn.Conv2d(183, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn = torch.nn.BatchNorm2d(256)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.resnet = resnet(input_size, layer_sizes, output_size)
+        
+        def feature_encoder(input_size):
+            return mlp(input_size, layer_sizes, output_size)
+        
+        self.shop_encoder = feature_encoder(10)
+        self.board_encoder = feature_encoder(10)
+        self.bench_encoder = feature_encoder(10)
+        self.states_encoder = feature_encoder(10)
+        self.game_comp_encoder = feature_encoder(10)
+        self.other_players_encoder = feature_encoder(10)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.resnet(x)
+        shop = self.shop_encoder(x["shop"])
+        board = self.board_encoder(x["board"])
+        bench = self.bench_encoder(x["bench"])
+        states = self.states_encoder(x["states"])
+        game_comp = self.game_comp_encoder(x["game_comp"])
+        other_players = self.other_players_encoder(x["other_players"])
 
-        return x
-
-    def __call__(self, x):
-        return self.forward(x)
+        return {
+            "shop": shop,
+            "board": board,
+            "bench": bench,
+            "states": states,
+            "game_comp": game_comp, 
+            "other_players": other_players
+        }
 
 
 class DynNetwork(torch.nn.Module):
-    def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
+    def __init__(self, input_size, num_layers, hidden_size) -> torch.nn.Module:
         super().__init__()
 
-        self.conv1 = torch.nn.Conv2d(263, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn = torch.nn.BatchNorm2d(256)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.conv_reward = torch.nn.Conv2d(256, 1, 1)
-        self.bn_reward = torch.nn.BatchNorm2d(1)
-        self.fc_reward = mlp(28, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
-        self.resnet = resnet(input_size, layer_sizes, output_size)
-        # self.lstm = torch.nn.LSTM(input_size = 480,
-        #                   num_layers = config.NUM_RNN_CELLS, hidden_size = config.LSTM_SIZE, batch_first = True).cuda()
+        def lstm():
+            return torch.nn.LSTM(input_size,
+                                num_layers,
+                                hidden_size,
+                                batch_first=True).to(config.DEVICE)
+        
+        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
+                            config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+
+        self.dynamics_hidden_state_dict = torch.nn.ModuleDict({
+            "shop": lstm(),
+            "board": lstm(),
+            "bench": lstm(),
+            "states": lstm(),
+            "game_comp": lstm(),
+            "other_players": lstm()
+        })
+
+        self.dynamics_reward_network = mlp(hidden_size * 6, [1] * 1, self.full_support_size)
 
     def forward(self, x, action):
-        # print("x", x.shape)
-        # print("action", action.shape)
-        state = torch.concatenate((x, action), dim=1).type(torch.cuda.FloatTensor)
-        # print("action", action.shape)
-        x = self.conv1(state)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.resnet(x)
-        new_state = x
+        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
+        one_hot_action = torch.nn.functional.one_hot(
+            action[:, 0], config.ACTION_DIM[0])
+        one_hot_target_a = torch.nn.functional.one_hot(
+            action[:, 1], config.ACTION_DIM[1])
+        one_hot_target_b = torch.nn.functional.one_hot(
+            action[:, 2], config.ACTION_DIM[1])
 
-        reward = self.conv_reward(x)
-        reward = self.bn_reward(reward)
-        # print("reward", reward.shape)
-        flat = torch.flatten(reward, start_dim=1)
-        # lstm_state = self.flat_to_lstm_input(flat)
-        # h0, c0 = list(zip(*lstm_state))
-        # _, rnn_reward = self.lstm(action.reshape(8, ), (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
-        # flat_reward = self.rnn_to_flat(rnn_reward)
-        reward = self.fc_reward(flat)
+        action_one_hot = torch.cat(
+            [one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
 
-        return new_state, reward
+        action_encodings = self.action_encodings(action_one_hot)
 
-    def __call__(self, x, action):
-        return self.forward(x, action)
+        inputs = action_encodings
+        inputs = inputs[:, None, :]
+
+        new_states = {}
+
+        for key, hidden_state in x.items():
+            lstm_state = self.flat_to_lstm_input(hidden_state)
+            h0, c0 = list(zip(*lstm_state))
+            _, new_nested_states = self.dynamics_hidden_state_dict[key](inputs,
+                                                                        (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
+            
+            next_hidden_state = self.rnn_to_flat(
+                    new_nested_states)  # (8, 1024) ##DOUBLE CHECK THIS
+            
+            min_next_hidden_state = next_hidden_state.min(1, keepdim=True)[0]
+            max_next_hidden_state = next_hidden_state.max(1, keepdim=True)[0]
+            scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
+            scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
+            next_hidden_state_normalized = (
+                next_hidden_state - min_next_hidden_state
+            ) / scale_next_hidden_state
+
+            new_states[key] = next_hidden_state_normalized
+            
+        reward_input = torch.cat([
+            new_states["shop"],
+            new_states["board"],
+            new_states["bench"],
+            new_states["states"],
+            new_states["game_comp"],
+            new_states["other_players"]
+        ], dim=-1)
+
+        reward = self.dynamics_reward_network(reward_input)
+
+        return new_states, reward
 
     @staticmethod
     def flat_to_lstm_input(state):
