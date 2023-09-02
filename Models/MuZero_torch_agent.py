@@ -151,3 +151,129 @@ class MuZeroNetwork(AbstractNetwork):
             "hidden_state": next_hidden_state
         }
         return outputs
+
+
+class PredNetwork(torch.nn.Module):
+    def __init__(self) -> torch.nn.Module:
+        super().__init__()
+
+        self.conv_value = torch.nn.Conv2d(256, 3, 1)
+        self.bn_value = torch.nn.BatchNorm2d(3)
+        self.conv_policy = torch.nn.Conv2d(256, 3, 1)
+        self.bn_policy = torch.nn.BatchNorm2d(3)
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.fc_internal_v = torch.nn.Linear(84, 128)
+        self.fc_value = mlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.ENCODER_NUM_STEPS)
+        self.fc_internal_p = torch.nn.Linear(84, 128)
+        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                  config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
+
+    def forward(self, x):
+        x = self.resnet(x)
+
+        value = self.conv_value(x)
+        value = self.bn_value(value)
+        value = self.relu(value)
+        value = torch.flatten(value, start_dim=1)
+        # print("VALUE", value.shape)
+        value = self.fc_internal_v(value)
+        value = self.relu(value)
+        value = self.fc_value(value)
+
+        policy = self.conv_policy(x)
+        policy = self.bn_policy(policy)
+        policy = self.relu(policy)
+        policy = torch.flatten(policy, start_dim=1)
+        policy = self.fc_internal_p(policy)
+        policy = self.relu(policy)
+        # print("Policy", policy.shape)
+        policy = self.fc_policy(policy)
+
+        return policy, value
+
+    def __call__(self, x):
+        return self.forward(x)
+
+
+class RepNetwork(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
+        super().__init__()
+
+        self.conv1 = torch.nn.Conv2d(183, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn = torch.nn.BatchNorm2d(256)
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.resnet = resnet(input_size, layer_sizes, output_size)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.resnet(x)
+
+        return x
+
+    def __call__(self, x):
+        return self.forward(x)
+
+
+class DynNetwork(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
+        super().__init__()
+
+        self.conv1 = torch.nn.Conv2d(263, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn = torch.nn.BatchNorm2d(256)
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.conv_reward = torch.nn.Conv2d(256, 1, 1)
+        self.bn_reward = torch.nn.BatchNorm2d(1)
+        self.fc_reward = mlp(28, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
+        self.resnet = resnet(input_size, layer_sizes, output_size)
+        # self.lstm = torch.nn.LSTM(input_size = 480,
+        #                   num_layers = config.NUM_RNN_CELLS, hidden_size = config.LSTM_SIZE, batch_first = True).cuda()
+
+    def forward(self, x, action):
+        # print("x", x.shape)
+        # print("action", action.shape)
+        state = torch.concatenate((x, action), dim=1).type(torch.cuda.FloatTensor)
+        # print("action", action.shape)
+        x = self.conv1(state)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.resnet(x)
+        new_state = x
+
+        reward = self.conv_reward(x)
+        reward = self.bn_reward(reward)
+        # print("reward", reward.shape)
+        flat = torch.flatten(reward, start_dim=1)
+        # lstm_state = self.flat_to_lstm_input(flat)
+        # h0, c0 = list(zip(*lstm_state))
+        # _, rnn_reward = self.lstm(action.reshape(8, ), (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
+        # flat_reward = self.rnn_to_flat(rnn_reward)
+        reward = self.fc_reward(flat)
+
+        return new_state, reward
+
+    def __call__(self, x, action):
+        return self.forward(x, action)
+
+    @staticmethod
+    def flat_to_lstm_input(state):
+        """Maps flat vector to LSTM state."""
+        tensors = []
+        cur_idx = 0
+        for size in config.RNN_SIZES:
+            states = (state[Ellipsis, cur_idx:cur_idx + size],
+                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
+
+            cur_idx += 2 * size
+            tensors.append(states)
+        # assert cur_idx == state.shape[-1]
+        return tensors
+
+    @staticmethod
+    def rnn_to_flat(state):
+        """Maps LSTM state to flat vector."""
+        states = []
+        for cell_state in state:
+            states.extend(cell_state)
+        return torch.cat(states, dim=-1)

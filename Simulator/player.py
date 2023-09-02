@@ -13,7 +13,7 @@ from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from Simulator.default_agent import Default_Agent
 from math import floor
-from config import DEBUG
+from config import DEBUG, TIERS_FLATTEN_LENGTH
 
 """
 Description - This is the base player class
@@ -78,6 +78,8 @@ class Player:
         # Encoding board as an image, so we can run convolutions on it.
         self.board_vector = np.zeros(728)  # 26 size on each unit, 28 squares
         self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
+
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH)
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
@@ -626,6 +628,16 @@ class Player:
         self.generate_public_player_vector()
         self.generate_private_player_vector()
 
+    def generate_tier_vector(self):
+        # Create a vector where there is a 1 for the tier of the specific trait.
+        current_position = 0
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH)
+        base_tier_values = list(tiers.values())
+        player_tier_values = list(self.team_tiers.values())
+        for i in range(len(base_tier_values)):
+            self.tiers_vector[current_position + player_tier_values[i]] = 1
+            current_position += len(base_tier_values[i])
+        print("Current tiers_vector {}".format(self.tiers_vector))
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.
@@ -1629,6 +1641,7 @@ class Player:
                     break
             self.team_tiers[trait] = counter
         origin_class.game_comp_tiers[self.player_num] = self.team_tiers
+        self.generate_tier_vector()
 
     """
     Description - Method for keeping track of which units are golden
