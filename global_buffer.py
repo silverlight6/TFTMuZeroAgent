@@ -9,7 +9,7 @@ from collections import deque
 @ray.remote
 class GlobalBuffer:
     def __init__(self, storage_ptr):
-        self.gameplay_experiences = PriorityQueue(maxsize=50000)
+        self.gameplay_experiences = deque(maxlen=50000)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
         self.average_position = deque(maxlen=50000)
@@ -22,7 +22,7 @@ class GlobalBuffer:
         sample_set_batch = []
         for _ in range(self.batch_size):
             observation, action_history, value_mask, reward_mask, policy_mask, \
-                value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
+                value, reward, policy, sample_set = self.gameplay_experiences.pop()
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -63,21 +63,20 @@ class GlobalBuffer:
             
         return obs_reshaped
 
-
     def store_replay_sequence(self, sample, position):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
-        self.gameplay_experiences.put((sample[0], sample[1]))
+        self.gameplay_experiences.append(sample[1])
         self.average_position.append(position)
 
     def available_batch(self):
-        queue_length = self.gameplay_experiences.qsize()
+        queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
             self.storage_ptr.set_trainer_busy.remote(True)
-            print(queue_length)
+            print("QUEUE_LENGTH {}".format(queue_length))
             return True
-        time.sleep(5)
+        time.sleep(1)
         return False
 
     # Leaving this transpose method here in case some model other than

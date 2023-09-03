@@ -1,6 +1,7 @@
 import Simulator.config as config
 import numpy as np
 import Simulator.champion as champion
+from config import DEBUG
 
 """
 Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 
@@ -570,6 +571,8 @@ class Step_Function:
     '''
     def batch_shop(self, shop_action, player, game_observation, player_id):
         if shop_action > 4:
+            if DEBUG:
+                print("shop action > 4: {}, Taking a random shop action".format(shop_action))
             shop_action = int(np.floor(np.random.rand(1, 1) * 5))
 
         if self.shops[player_id][shop_action] == " ":

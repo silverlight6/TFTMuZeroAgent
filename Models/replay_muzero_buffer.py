@@ -162,7 +162,11 @@ class ReplayBuffer:
                 div = -priority
                 for i in priority_set:
                     div += i 
-                priority = priority/div 
+                priority = priority/div
+                # print("priority {}".format(priority))
+                # print("game_experiences[sample] {}".format(self.gameplay_experiences[sample]))
+                # print("action_set {}".format(action_set))
+                # print("sample_set {}".format(sample_set))
 
                 # priority = 1/priority because priority queue stores in ascending order. 
                 output_sample_set = [1 / priority, [self.gameplay_experiences[sample], action_set, value_mask_set,

@@ -33,39 +33,6 @@ class Observation:
     Outputs     - A dictionary with a tensor field (input to the representation network) and a mask for legal actions
     """
     def observation(self, player_id, player):
-        # Shop vector, bench vector, board vector, item + state vectors, game_comp vector, other_player vector
-        # Concatenate all vector based player information
-        # game_state_tensor = np.concatenate([self.shop_vector,
-        #                                     player.bench_vector,
-        #                                     player.chosen_vector,
-        #                                     player.item_vector,
-        #                                     player.player_public_vector,
-        #                                     player.player_private_vector,
-        #                                     player.board_vector,
-        #                                     player.tiers_vector,
-        #                                     self.game_comp_vector,
-        #                                     np.array([self.turn_since_update, self.moves_left_in_turn])], axis=-1)
-
-        # Initially fill the queue with duplicates of first observation
-        # we can still sample when there aren't enough time steps yet
-        # maxLen = config.OBSERVATION_TIME_STEPS * config.OBSERVATION_TIME_STEP_INTERVAL
-        # if len(self.cur_player_observations) == 0:
-        #     for _ in range(maxLen):
-        #         self.cur_player_observations.append(game_state_tensor)
-        #
-        # # Enqueue the latest observation and pop the oldest (performed automatically by deque with maxLen configured)
-        # self.cur_player_observations.append(game_state_tensor)
-        #
-        # # # sample every N time steps at M intervals, where maxLen of queue = M*N
-        # # cur_player_observation = np.array([self.cur_player_observations[i]
-        # #                               for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL)]).flatten()
-        #
-        # cur_player_tensor_observation = []
-        # for i in range(0, maxLen, config.OBSERVATION_TIME_STEP_INTERVAL):
-        #     tensor = self.cur_player_observations[i]
-        #     cur_player_tensor_observation.append(tensor)
-        # cur_player_tensor_observation = np.asarray(cur_player_tensor_observation).flatten()
-
         # Fetch other player data
         other_player_tensor_observation_list = []
         for k, v in self.other_player_observations.items():

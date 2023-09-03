@@ -96,11 +96,11 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i] and not self.default_agent[i]:
+                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION):
                             # Store the information in a buffer to train on later.
-                            
-                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i), storage_actions[i],
-                                                               reward[key], policy[i], string_samples[i], root_values[i])
+                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
+                                                               storage_actions[i], reward[key], policy[i],
+                                                               string_samples[i], root_values[i])
 
                 offset = 0
                 for i, [key, terminate] in enumerate(terminated.items()):
@@ -122,7 +122,9 @@ class DataWorker(object):
                 player_observation = self.observation_to_input(next_observation)
 
             # buffers.rewardNorm.remote()
+            # print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
             buffers.store_global_buffer.remote()
+            # print("FINISHED SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
             buffers = BufferWrapper.remote(global_buffer)
 
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
@@ -141,8 +143,8 @@ class DataWorker(object):
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player
-            if all(self.default_agent):
-                self.default_agent[0] = False
+            # if all(self.default_agent):
+            #     self.default_agent[0] = False
 
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
@@ -210,7 +212,9 @@ class DataWorker(object):
             self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
 
             # buffers.rewardNorm.remote()
-            buffers.store_global_buffer.remote()
+            print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
+            ray.get(buffers.store_global_buffer.remote())
+            print("FINISHED SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
             buffers = BufferWrapper.remote(global_buffer)
 
             # All the probability distributions will be within the storage class as well.
@@ -319,12 +323,15 @@ class DataWorker(object):
     def model_call(self, player_observation, info):
         if config.IMITATION:
             actions, policy, string_samples, root_values = self.imitation_learning(player_observation[:2], info)
-        #  If all of our agents are current versions
+        # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
-        # if all of our agents are past versions. (Should exceedingly rarely come here)
+        # Ff all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
+        # If all of our versions are default agents
+        elif all(self.default_agent):
+            actions, policy, string_samples, root_values = self.default_model_call(info)
         # If there are no default agents but a mix of past and present
         elif not any(self.default_agent):
             actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation[:2])
@@ -398,7 +405,7 @@ class DataWorker(object):
                 live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
                 live_agent_masks.append(player_observation[1][i])
 
-        live_observation = [np.asarray(live_agent_observations), live_agent_masks]
+        live_observation = [live_agent_observations, live_agent_masks]
         if len(live_observation[0]) != 0:
             live_actions, live_policy, live_string_samples, live_root_values = \
                 self.agent_network.policy(live_observation)
@@ -420,6 +427,7 @@ class DataWorker(object):
             local_info = list(info.values())
             for i, default_agent in enumerate(self.default_agent):
                 if default_agent:
+                    print("{} and player_num {} also why".format(i, local_info[i]["player"].player_num))
                     actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"],
                                                                         local_info[i]["shop"])
                     # Turn action into one hot policy
@@ -440,11 +448,11 @@ class DataWorker(object):
         root_values = [None] * len(self.default_agent)
         return actions, policy, string_samples, root_values
 
-    def defualt_model_call(self, info):
+    def default_model_call(self, info):
         actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
         string_samples = [None] * len(self.default_agent)
-        root_values = [0] * len(self.default_agent)
+        root_values = [1] * len(self.default_agent)
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
             if default_agent:
@@ -454,14 +462,14 @@ class DataWorker(object):
     def imitation_learning(self, player_observation, info):
         policy = [[1.0] for _ in range(len(self.default_agent))]
         string_samples = [[] for _ in range(len(self.default_agent))]
-
-        actions, _, _, root_values = \
-            self.agent_network.policy(player_observation)
+        root_values = [1 for _ in range(len(self.default_agent))]
+        actions = ["0" for _ in range(len(self.default_agent))]
 
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
             string_samples[i] = [local_info[i]["player"].default_policy(local_info[i]["game_round"],
                                                                         local_info[i]["shop"])]
+            actions[i] = string_samples[i][0]
         return actions, policy, string_samples, root_values
 
     '''
@@ -556,9 +564,7 @@ class AIInterface:
         global_agent.set_weights(global_agent_weights)
         global_agent.to(config.DEVICE)
         
-        total_params = sum(p.numel() for p in global_agent.parameters())
-        print(total_params)
-
+        # total_params = sum(p.numel() for p in global_agent.parameters())
 
         trainer = Trainer(global_agent, train_summary_writer)
 
@@ -578,7 +584,7 @@ class AIInterface:
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                          storage, weights))
             time.sleep(0.5)
-        ray.get(workers)
+        # ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

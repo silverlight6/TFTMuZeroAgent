@@ -275,7 +275,8 @@ class Player:
             self.reward += self.mistake_reward
             if DEBUG:
                 # print("No gold to buy champion for player {}".format(self.player_num))
-                print(f"No gold to buy champion for player {self.player_num}; gold {self.gold}, mask {self.shop_mask}, cost: {a_champion.cost}, chosen: {a_champion.chosen}")
+                print(f"No gold to buy champion {a_champion.name} for player {self.player_num}; gold {self.gold}, "
+                      f"mask {self.shop_mask}, cost: {a_champion.cost}, chosen: {a_champion.chosen}")
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         if a_champion.name == 'kayn':
@@ -687,6 +688,7 @@ class Player:
 
         self.add_to_bench(b_champion)
         if y != -1:
+            # print("GOLDEN {}, bench {}, x {}, y {}".format(b_champion.name, b_champion.bench_loc, x, y))
             self.move_bench_to_board(b_champion.bench_loc, x, y)
         self.print("champion {} was made golden".format(b_champion.name))
         return b_champion
@@ -827,10 +829,12 @@ class Player:
                         m_champion.x = bench_x
                         m_champion.y = -1
                         self.print("Failed to move {} from bench {} to board [{}, {}]; {} already on board"
-                                   .format(self.bench[bench_x].name, bench_x, board_x, board_y), self.board[board_x][board_y])
+                                   .format(self.bench[bench_x].name, bench_x, board_x, board_y,
+                                           self.board[board_x][board_y].name))
                         if DEBUG:
-                            print("Failed to move {} from bench {} to board [{}, {}]"
-                                  .format(self.bench[bench_x].name, bench_x, board_x, board_y))
+                            print("Failed to move {} from bench {} to board [{}, {}]; {} already on board"
+                                  .format(self.bench[bench_x].name, bench_x, board_x, board_y,
+                                          self.board[board_x][board_y].name))
                         return False
                 self.board[board_x][board_y] = m_champion
                 # tracking thiefs gloves location

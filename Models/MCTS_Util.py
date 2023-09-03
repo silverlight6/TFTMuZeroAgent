@@ -141,6 +141,8 @@ def action_to_idx(action, dim):
         from_loc = int(action[1])  # ["", "20", "21"] -> "20"
         to_loc = int(action[2])  # ["", "20", "21"] -> "21"
         mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+        if mapped_idx > 629:
+            mapped_idx = 629
 
     elif dim == 3:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
         action = action.split('_')  # "_10_9" -> ["", "10", "9"]
@@ -149,7 +151,7 @@ def action_to_idx(action, dim):
         mapped_idx = (10 * item_loc) + champ_loc
 
     elif dim == 4:  # sell dim; 37; "_0", "_1", "_36"
-        mapped_idx = int(action[1:])  # "_15" -> "15"
+        mapped_idx = int(action[1:])  # "_15" -> "15
 
     return mapped_idx
 

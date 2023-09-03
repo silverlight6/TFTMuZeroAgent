@@ -215,6 +215,8 @@ class Default_Agent:
                     break
             # if no gold remains and we just bought a unit
             if shop_position != 5:
+                # print("buying round 1_2 {} with position {} and player_num {}".format(shop[shop_position],
+                # shop_position, player.player_num))
                 return "1_" + str(shop_position)
         max_unit_check = self.max_unit_check(player)
         if max_unit_check != " ":
@@ -252,6 +254,7 @@ class Default_Agent:
                 if shop_unit != " ":
                     if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold and not shop_unit.endswith("_c"):
                         self.require_pair_update = True
+                        # print("buying triple {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[0] = False
 
@@ -267,16 +270,19 @@ class Default_Agent:
                             if player.board[x][y]:
                                 # If what I am buying is a pair
                                 if player.board[x][y].name == shop_unit:
+                                    # print("buying pair {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                                 # If it improves my comp
                                 shop_score = self.compare_shop_unit(shop_unit, deepcopy(player.board), x, y)
                                 if shop_score > base_score:
+                                    # print("buying shop score {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
                     if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1:
+                        # print("buying chosen {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[1] = False
 
@@ -320,20 +326,27 @@ class Default_Agent:
                     num_items = len(champion.items)
                     if num_items == 0:
                         item, idx = item_idx.pop()
-                        return "3_" + str(idx) + "_" + str(coord)
+                        # print("item {} start ".format(item))
+                        return "3_" + str(coord) + "_" + str(idx)
                     
                     last_item = champion.items[-1]
                     is_last_complete_item = last_item in starting_items
                     item, idx = item_idx.pop()
                     is_complete_item = item in starting_items
+                    is_thieves_glove = (last_item == "thieves_gloves") or (item == "thieves_gloves")
+                    is_glove = (last_item == "sparring_gloves") and (item == "sparring_gloves")
                     
                     if num_items >= 3 and is_last_complete_item:
                         break
                     if num_items >= 3 and is_complete_item:
                         item_idx.append((item, idx))
                         break
+                    if (num_items > 0 and is_thieves_glove) or (num_items > 1 and is_glove):
+                        # print("breaking due a thieves gloves error")
+                        break
                     if num_items < 3:
-                        return "3_" + str(idx) + "_" + str(coord)
+                        # print("item {} end ".format(item))
+                        return "3_" + str(coord) + "_" + str(idx)
         
             self.round_3_10_checks[5] = False
 
@@ -423,6 +436,7 @@ class Default_Agent:
                     if (shop_unit + "_1" in self.pairs or shop_unit in TEAM_COMPS[self.comp_number]) \
                             and COST[shop_unit] <= player.gold:
                         self.require_pair_update = True
+                        # print("buying triple or comp unit {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_11_end_checks[0] = False
 
@@ -437,6 +451,7 @@ class Default_Agent:
                                 # If what I am buying is a pair
                                 if player.board[x][y].name == shop_unit:
                                     self.require_pair_update = True
+                                    # print("buying pair 11_end {}".format(shop_unit))
                                     return "1_" + str(i)
                                 # If it improves my comp and is not part of the desired comp.
                                 # I buy all units that are part of the desired comp above
@@ -444,6 +459,7 @@ class Default_Agent:
                                 if shop_score > base_score and \
                                         player.board[x][y].name not in TEAM_COMPS[self.comp_number]:
                                     self.require_pair_update = True
+                                    # print("buying shop_score 11_end {}".format(shop_unit))
                                     return "1_" + str(i)
                 # Buy chosen unit for the given comp
                 elif shop_unit.endswith("_c"):
@@ -451,6 +467,7 @@ class Default_Agent:
                     chosen_type = shop_unit.split('_')[1]
                     if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1 and \
                             chosen_type == TEAM_COMP_TRAITS[self.comp_number]:
+                        # print("buying chosen 11_end {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_11_end_checks[1] = False
 
