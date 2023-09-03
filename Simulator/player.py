@@ -274,7 +274,8 @@ class Player:
         if cost_star_values[a_champion.cost - 1][a_champion.stars - 1] > self.gold or a_champion.cost == 0:
             self.reward += self.mistake_reward
             if DEBUG:
-                print("No gold to buy champion for player {}".format(self.player_num))
+                # print("No gold to buy champion for player {}".format(self.player_num))
+                print(f"No gold to buy champion for player {self.player_num}; gold {self.gold}, mask {self.shop_mask}, cost: {a_champion.cost}, chosen: {a_champion.chosen}")
             return False
         self.gold -= cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
         if a_champion.name == 'kayn':
@@ -825,8 +826,8 @@ class Player:
                         self.bench[bench_x] = m_champion
                         m_champion.x = bench_x
                         m_champion.y = -1
-                        self.print("Failed to move {} from bench {} to board [{}, {}]"
-                                   .format(self.bench[bench_x].name, bench_x, board_x, board_y))
+                        self.print("Failed to move {} from bench {} to board [{}, {}]; {} already on board"
+                                   .format(self.bench[bench_x].name, bench_x, board_x, board_y), self.board[board_x][board_y])
                         if DEBUG:
                             print("Failed to move {} from bench {} to board [{}, {}]"
                                   .format(self.bench[bench_x].name, bench_x, board_x, board_y))

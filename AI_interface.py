@@ -40,7 +40,7 @@ class DataWorker(object):
             self.temp_model = TFTNetwork()
             self.agent_network = MCTS(self.temp_model)
             self.past_network = MCTS(self.temp_model)
-            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player and for testing
             # self.default_agent[0] = False
@@ -98,7 +98,8 @@ class DataWorker(object):
                     if not info[key]["state_empty"]:
                         if not self.past_version[i] and not self.default_agent[i]:
                             # Store the information in a buffer to train on later.
-                            buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
+                            
+                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i), storage_actions[i],
                                                                reward[key], policy[i], string_samples[i], root_values[i])
 
                 offset = 0
@@ -129,6 +130,7 @@ class DataWorker(object):
             self.live_game = np.random.rand() <= 1.8
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
+                print('---------------- here ------------------')
                 past_weights, self.past_episode, self.prob = ray.get(storage.sample_past_model.remote())
                 self.past_network = MCTS(self.temp_model)
                 self.past_network.network.set_weights(past_weights)
@@ -136,7 +138,8 @@ class DataWorker(object):
                 self.past_update = False
 
             # Reset the default agents for the next set of games.
-            self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player
             if all(self.default_agent):
                 self.default_agent[0] = False
@@ -271,7 +274,17 @@ class DataWorker(object):
             "other_players": np.array(other_players)
         }
         return [tensors, masks, keys]
-
+    
+    def get_obs_idx(self, observation, idx):
+        return {
+            "shop": observation["shop"][idx],
+            "board": observation["board"][idx],
+            "bench": observation["bench"][idx],
+            "states": observation["states"][idx],
+            "game_comp": observation["game_comp"][idx],
+            "other_players": observation["other_players"][idx]
+        }
+    
     '''
     Description -
         Turns a string action into a series of one_hot lists that can be used in the step_function.
@@ -342,7 +355,7 @@ class DataWorker(object):
 
         for i, past_version in enumerate(self.past_version):
             if not past_version:
-                live_agent_observations.append(player_observation[0][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
                 live_agent_masks.append(player_observation[1][i])
             else:
                 past_agent_observations.append(player_observation[0][i])
@@ -382,7 +395,7 @@ class DataWorker(object):
 
         for i, default_agent in enumerate(self.default_agent):
             if not default_agent:
-                live_agent_observations.append(player_observation[0][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
                 live_agent_masks.append(player_observation[1][i])
 
         live_observation = [np.asarray(live_agent_observations), live_agent_masks]
@@ -538,9 +551,14 @@ class AIInterface:
             global_agent = DefaultNetwork()
         else:
             global_agent = TFTNetwork()
+        
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
         global_agent.to(config.DEVICE)
+        
+        total_params = sum(p.numel() for p in global_agent.parameters())
+        print(total_params)
+
 
         trainer = Trainer(global_agent, train_summary_writer)
 
@@ -560,7 +578,7 @@ class AIInterface:
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                          storage, weights))
             time.sleep(0.5)
-        ray.get(workers)
+        # ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

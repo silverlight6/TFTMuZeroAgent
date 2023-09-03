@@ -80,7 +80,7 @@ class Trainer(object):
             output = self.network.recurrent_inference(
                 hidden_state, action_history[:, unroll_step])
 
-            scale_gradient(hidden_state, grad_scale)
+            scale_dict_gradient(hidden_state, grad_scale)
 
             predictions.append(
                 Prediction(
@@ -273,6 +273,11 @@ Helper functions
 def scale_gradient(x, scale):
     x.requires_grad_(True)
     x.register_hook(lambda grad: grad * scale)
+    
+def scale_dict_gradient(x, scale):
+    for key in x:
+        x[key].requires_grad_(True)
+        x[key].register_hook(lambda grad: grad * scale)
 
 
 def cross_entropy_loss(prediction, target):

@@ -363,4 +363,3 @@ def action_to_3d(action):
         elif action_selector == 6:
             cube_action[6, :, :] = np.ones((1, 4, 7))
     return cube_action
-
