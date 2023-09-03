@@ -72,15 +72,17 @@ class Observation:
             if k != player_id:
                 other_player_tensor_observation_list.append(v)
         other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        state = np.concatenate([player.item_vector, player.player_public_vector, player.player_private_vector,
+                               [self.turn_since_update], [self.moves_left_in_turn]])
+        game_comp = np.concatenate([player.tiers_vector, player.chosen_vector])
 
         # Gather all vectors into one place
         total_tensor_observation = {
             "shop": self.shop_vector,
             "board": player.board_vector,
             "bench": player.bench_vector,
-            "states": np.concatenate([player.item_vector, player.player_public_vector, player.player_private_vector,
-                                      self.turn_since_update, self.moves_left_in_turn]),
-            "game_comp": np.concatenate([player.tiers_vector, player.chosen_vector]),
+            "states": state,
+            "game_comp": game_comp,
             "other_players": other_player_tensor_observation
         }
 

@@ -42,7 +42,8 @@ class Trainer(object):
             param_group["lr"] = lr
 
     def train_network(self, batch, train_step):
-        observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, sample_set = batch
+        observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
+            sample_set = batch
         self.adjust_lr(train_step)
 
         predictions = self.compute_forward(observation, action_history)

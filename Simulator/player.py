@@ -171,6 +171,7 @@ class Player:
         self.generate_bench_vector()
         self.generate_item_vector()
         self.generate_chosen_vector()
+        self.generate_tier_vector()
 
     """
     Description - Main method used in buy_champion to add units to the bench
@@ -636,8 +637,8 @@ class Player:
         player_tier_values = list(self.team_tiers.values())
         for i in range(len(base_tier_values)):
             self.tiers_vector[current_position + player_tier_values[i]] = 1
-            current_position += len(base_tier_values[i])
-        print("Current tiers_vector {}".format(self.tiers_vector))
+            current_position += len(base_tier_values[i]) + 1
+        # print("Current tiers_vector {}".format(self.tiers_vector))
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.

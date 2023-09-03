@@ -7,7 +7,7 @@ STORAGE_GPU_SIZE = 0.1
 
 DEVICE = "cuda"
 IMITATION = False
-CHAMP_DECIDER = True
+CHAMP_DECIDER = False
 
 # AI RELATED VALUES START HERE
 
@@ -37,7 +37,15 @@ ACTION_DIM = [7, 37, 10]
 CHAMPION_ACTION_DIM = [2 for _ in range(58)]
 TIERS_FLATTEN_LENGTH = 97
 
+# INPUT SIZES
+SHOP_INPUT_SIZE = 45
+BOARD_INPUT_SIZE = 728
+BENCH_INPUT_SIZE = 234
+STATE_INPUT_SIZE = 85
+COMP_INPUT_SIZE = 102
+OTHER_PLAYER_INPUT_SIZE = 5180
 
+OBSERVATION_LABELS = ["shop", "board", "bench", "states", "game_comp", "other_players"]
 POLICY_HEAD_SIZES = [7, 5, 630, 370, 9]  # [7 types, shop, movement, item, sell/item loc]
 NEEDS_2ND_DIM = [1, 2, 3, 4]
 

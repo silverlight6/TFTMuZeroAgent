@@ -245,14 +245,32 @@ class DataWorker(object):
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
     def observation_to_input(self, observation):
-        tensors = []
         masks = []
         keys = []
+        shop = []
+        board = []
+        bench = []
+        states = []
+        game_comp = []
+        other_players = []
         for key, obs in observation.items():
-            tensors.append(obs["tensor"])
+            shop.append(obs["tensor"]["shop"])
+            board.append(obs["tensor"]["board"])
+            bench.append(obs["tensor"]["bench"])
+            states.append(obs["tensor"]["states"])
+            game_comp.append(obs["tensor"]["game_comp"])
+            other_players.append(obs["tensor"]["other_players"])
             masks.append(obs["mask"])
             keys.append(key)
-        return [np.asarray(tensors), masks, keys]
+        tensors = {
+            "shop": np.array(shop),
+            "board": np.array(board),
+            "bench": np.array(bench),
+            "states": np.array(states),
+            "game_comp": np.array(game_comp),
+            "other_players": np.array(other_players)
+        }
+        return [tensors, masks, keys]
 
     '''
     Description -
@@ -542,7 +560,7 @@ class AIInterface:
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                          storage, weights))
             time.sleep(0.5)
-        # ray.get(workers)
+        ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

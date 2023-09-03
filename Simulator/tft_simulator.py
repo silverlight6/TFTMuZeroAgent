@@ -165,8 +165,8 @@ class TFT_Simulator(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
-        self.observations = {agent: self.game_observations[agent].observation(
-            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector) for agent in self.agents}
+        self.observations = {agent: self.game_observations[agent].observation(agent, self.PLAYERS[agent])
+                             for agent in self.agents}
 
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -220,8 +220,7 @@ class TFT_Simulator(AECEnv):
             if self.actions_taken < config.ACTIONS_PER_TURN:
                 for agent in self.agents:
                     if not self.default_agent[agent]:
-                        self.observations[agent] = self.game_observations[agent].observation(
-                            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                        self.observations[agent] = self.game_observations[agent].observation(agent, self.PLAYERS[agent])
 
             # If at the end of the turn
             if self.actions_taken >= config.ACTIONS_PER_TURN:
@@ -266,8 +265,8 @@ class TFT_Simulator(AECEnv):
 
                     for agent in _live_agents:
                         if not self.default_agent[agent]:
-                            self.observations[agent] = self.game_observations[agent].observation(
-                                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                            self.observations[agent] = self.game_observations[agent].observation(agent,
+                                                                                                 self.PLAYERS[agent])
 
             for player_id in self.PLAYERS:
                 if self.PLAYERS[player_id]:

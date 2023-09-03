@@ -15,16 +15,10 @@ class MuZeroNetwork(AbstractNetwork):
             config.HIDDEN_STATE_SIZE
         )
 
-        self.dynamics_network = DynNetwork(input_size=config.HIDDEN_STATE_SIZE,
-                                                        num_layers=config.NUM_RNN_CELLS,
-                                                        hidden_size=config.LSTM_SIZE,
-                                                    )
+        self.dynamics_network = DynNetwork(input_size=config.HIDDEN_STATE_SIZE, num_layers=config.NUM_RNN_CELLS,
+                                           hidden_size=config.LSTM_SIZE,)
 
-        self.prediction_policy_network = MultiMlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                                  config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
-
-        self.prediction_value_network = mlp(config.HIDDEN_STATE_SIZE, [config.LAYER_HIDDEN_SIZE] *
-                                            config.N_HEAD_HIDDEN_LAYERS, self.full_support_size)
+        self.prediction_network = PredNetwork()
 
         map_min = torch.tensor(-300., dtype=torch.float32)
         map_max = torch.tensor(300., dtype=torch.float32)
@@ -34,22 +28,24 @@ class MuZeroNetwork(AbstractNetwork):
             *tuple(map(utils.inverse_contractive_mapping, (map_min, map_max))), 0)
 
     def prediction(self, encoded_state):
-        policy_logits = self.prediction_policy_network(encoded_state)
-        value = self.prediction_value_network(encoded_state)
+        policy_logits, value = self.prediction_network(encoded_state)
         return policy_logits, value
 
     def representation(self, observation):
-        observation = torch.from_numpy(observation).float().to(config.DEVICE)
+        observation = {label: torch.from_numpy(value).float().to(config.DEVICE) for label, value in observation.items()}
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
-        min_encoded_state = encoded_state.min(1, keepdim=True)[0]
-        max_encoded_state = encoded_state.max(1, keepdim=True)[0]
-        scale_encoded_state = max_encoded_state - min_encoded_state
-        scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
-        encoded_state_normalized = (
-            encoded_state - min_encoded_state
-        ) / scale_encoded_state
-        return encoded_state_normalized
+        encoded_state_dict = {}
+        for state, value in encoded_state.items():
+            min_encoded_state = value.min(1, keepdim=True)[0]
+            max_encoded_state = value.max(1, keepdim=True)[0]
+            scale_encoded_state = max_encoded_state - min_encoded_state
+            scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
+            encoded_state_normalized = (
+                value - min_encoded_state
+            ) / scale_encoded_state
+            encoded_state_dict[state] = encoded_state_normalized
+        return encoded_state_dict
 
     def dynamics(self, hidden_state, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
@@ -68,6 +64,7 @@ class MuZeroNetwork(AbstractNetwork):
         lstm_state = self.flat_to_lstm_input(hidden_state)
 
         inputs = action_encodings
+        inputs = inputs[:, None, :]
         inputs = inputs[:, None, :]
 
         h0, c0 = list(zip(*lstm_state))
@@ -96,7 +93,7 @@ class MuZeroNetwork(AbstractNetwork):
 
         value = self.value_encoder.decode_softmax(value_logits)
 
-        reward = torch.zeros(observation.shape[0])
+        reward = torch.zeros(observation["shop"].shape[0])
         reward_logits = self.reward_encoder.encode(reward)
 
         outputs = {
@@ -153,39 +150,77 @@ class PredNetwork(torch.nn.Module):
     def __init__(self) -> torch.nn.Module:
         super().__init__()
 
-        self.conv_value = torch.nn.Conv2d(256, 3, 1)
-        self.bn_value = torch.nn.BatchNorm2d(3)
-        self.conv_policy = torch.nn.Conv2d(256, 3, 1)
-        self.bn_policy = torch.nn.BatchNorm2d(3)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.fc_internal_v = torch.nn.Linear(84, 128)
-        self.fc_value = mlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.ENCODER_NUM_STEPS)
-        self.fc_internal_p = torch.nn.Linear(84, 128)
-        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                  config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
+        def feature_encoder(input_size, layer_sizes, output_size):
+            return mlp(input_size, layer_sizes, output_size)
+
+        # 6 is the number of separate dynamic networks
+        self.prediction_value_network = feature_encoder(config.HIDDEN_STATE_SIZE * 6,
+                                                        [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                        config.ENCODER_NUM_STEPS)
+        self.decision_network = feature_encoder(config.HIDDEN_STATE_SIZE * 6,
+                                                [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                config.POLICY_HEAD_SIZES[0])
+        # Just shop
+        self.shop_action_network = feature_encoder(config.HIDDEN_STATE_SIZE + config.POLICY_HEAD_SIZES[0],
+                                                   [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                   config.POLICY_HEAD_SIZES[1])
+        # Board, Bench, Comp, Other player
+        self.movement_action_network = feature_encoder(config.HIDDEN_STATE_SIZE * 4 + config.POLICY_HEAD_SIZES[0],
+                                                       [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                       config.POLICY_HEAD_SIZES[2])
+        # Game_state, Board, Comp
+        self.item_action_network = feature_encoder(config.HIDDEN_STATE_SIZE * 3 + config.POLICY_HEAD_SIZES[0],
+                                                   [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                   config.POLICY_HEAD_SIZES[3])
+        # Bench, Game_State
+        self.sell_action_network = feature_encoder(config.HIDDEN_STATE_SIZE * 2 + config.POLICY_HEAD_SIZES[0],
+                                                   [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                   config.POLICY_HEAD_SIZES[4])
 
     def forward(self, x):
-        x = self.resnet(x)
+        value_decision_input = torch.cat([
+            x["shop"],
+            x["board"],
+            x["bench"],
+            x["states"],
+            x["game_comp"],
+            x["other_players"]
+        ], dim=-1)
 
-        value = self.conv_value(x)
-        value = self.bn_value(value)
-        value = self.relu(value)
-        value = torch.flatten(value, start_dim=1)
-        # print("VALUE", value.shape)
-        value = self.fc_internal_v(value)
-        value = self.relu(value)
-        value = self.fc_value(value)
+        value = self.prediction_value_network(value_decision_input)
+        decision = self.decision_network(value_decision_input)
 
-        policy = self.conv_policy(x)
-        policy = self.bn_policy(policy)
-        policy = self.relu(policy)
-        policy = torch.flatten(policy, start_dim=1)
-        policy = self.fc_internal_p(policy)
-        policy = self.relu(policy)
-        # print("Policy", policy.shape)
-        policy = self.fc_policy(policy)
+        shop_input = torch.cat([
+            decision,
+            x["shop"]
+        ], 1)
+        shop = self.shop_action_network(shop_input)
 
-        return policy, value
+        movement_input = torch.cat([
+            decision,
+            x["board"],
+            x["bench"],
+            x["game_comp"],
+            x["other_players"]
+        ], 1)
+        movement = self.movement_action_network(movement_input)
+
+        item_input = torch.cat([
+            decision,
+            x["states"],
+            x["board"],
+            x["game_comp"]
+        ], 1)
+        item = self.item_action_network(item_input)
+
+        sell_input = torch.cat([
+            decision,
+            x["bench"],
+            x["states"]
+        ], 1)
+        sell = self.sell_action_network(sell_input)
+
+        return [decision, shop, movement, item, sell], value
 
 
 class RepNetwork(torch.nn.Module):
@@ -195,12 +230,12 @@ class RepNetwork(torch.nn.Module):
         def feature_encoder(input_size):
             return mlp(input_size, layer_sizes, output_size)
         
-        self.shop_encoder = feature_encoder(10)
-        self.board_encoder = feature_encoder(10)
-        self.bench_encoder = feature_encoder(10)
-        self.states_encoder = feature_encoder(10)
-        self.game_comp_encoder = feature_encoder(10)
-        self.other_players_encoder = feature_encoder(10)
+        self.shop_encoder = feature_encoder(config.SHOP_INPUT_SIZE)
+        self.board_encoder = feature_encoder(config.BOARD_INPUT_SIZE)
+        self.bench_encoder = feature_encoder(config.BENCH_INPUT_SIZE)
+        self.states_encoder = feature_encoder(config.STATE_INPUT_SIZE)
+        self.game_comp_encoder = feature_encoder(config.COMP_INPUT_SIZE)
+        self.other_players_encoder = feature_encoder(config.OTHER_PLAYER_INPUT_SIZE)
 
     def forward(self, x):
         shop = self.shop_encoder(x["shop"])
@@ -225,10 +260,7 @@ class DynNetwork(torch.nn.Module):
         super().__init__()
 
         def lstm():
-            return torch.nn.LSTM(input_size,
-                                num_layers,
-                                hidden_size,
-                                batch_first=True).to(config.DEVICE)
+            return torch.nn.LSTM(input_size, num_layers, hidden_size, batch_first=True).to(config.DEVICE)
         
         self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
                             config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
@@ -242,7 +274,7 @@ class DynNetwork(torch.nn.Module):
             "other_players": lstm()
         })
 
-        self.dynamics_reward_network = mlp(hidden_size * 6, [1] * 1, self.full_support_size)
+        self.dynamics_reward_network = mlp(hidden_size * 6, [1] * 1, config.ENCODER_NUM_STEPS)
 
     def forward(self, x, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
@@ -256,9 +288,9 @@ class DynNetwork(torch.nn.Module):
         action_one_hot = torch.cat(
             [one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
 
-        action_encodings = self.action_encodings(action_one_hot)
+        action_encoding = self.action_encodings(action_one_hot)
 
-        inputs = action_encodings
+        inputs = action_encoding
         inputs = inputs[:, None, :]
 
         new_states = {}

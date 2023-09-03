@@ -1,4 +1,5 @@
 import config
+import torch
 from Models.MCTS_Util import *
 from Models.abstract_model import AbstractNetwork
 from Models.torch_layers import mlp, MultiMlp
