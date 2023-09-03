@@ -135,7 +135,6 @@ class Observation:
                     tiers = tiers / tierMax
                 output[k * 26: k * 26 + 26] = tiers
                 k += 1
-        print(self.game_comp_vector)
         self.game_comp_vector = output
 
     '''

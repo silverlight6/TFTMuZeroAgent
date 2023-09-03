@@ -1,11 +1,14 @@
 import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
-NUM_CPUS = 28
-GPU_SIZE_PER_WORKER = 0.18
-STORAGE_GPU_SIZE = 0.1
+# NUM_CPUS = 28
+# GPU_SIZE_PER_WORKER = 0.18
+# STORAGE_GPU_SIZE = 0.1
+NUM_CPUS = 8
+GPU_SIZE_PER_WORKER = 0.0
+STORAGE_GPU_SIZE = 0.0
 
-DEVICE = "cuda"
+DEVICE = "cpu"
 IMITATION = False
 CHAMP_DECIDER = False
 
@@ -58,7 +61,7 @@ N_HEAD_HIDDEN_LAYERS = 4
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 1
+CONCURRENT_GAMES = 6
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 10
 NUM_SIMULATIONS = 50
@@ -94,5 +97,5 @@ RUN_MINION_TESTS = False
 RUN_DROP_TESTS = False
 RUN_MCTS_TESTS = False
 RUN_MAPPING_TESTS = False
-RUN_CHECKPOINT_TESTS = True  # NOTE: This test requires the first 20 checkpoints (0 - 2000) be available
+RUN_CHECKPOINT_TESTS = False  # NOTE: This test requires the first 20 checkpoints (0 - 2000) be available
 LOG_COMBAT = False

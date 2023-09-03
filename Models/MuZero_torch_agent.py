@@ -2,7 +2,7 @@ import torch
 import config
 import Models.MCTS_Util as utils
 from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import mlp, MultiMlp, resnet
+from Models.torch_layers import mlp, MultiMlp, resnet, Normalize, MemoryLayer
 
 
 class MuZeroNetwork(AbstractNetwork):
@@ -16,7 +16,7 @@ class MuZeroNetwork(AbstractNetwork):
         )
 
         self.dynamics_network = DynNetwork(input_size=config.HIDDEN_STATE_SIZE, num_layers=config.NUM_RNN_CELLS,
-                                           hidden_size=config.LSTM_SIZE,)
+                                           hidden_size=config.LSTM_SIZE)
 
         self.prediction_network = PredNetwork()
 
@@ -33,59 +33,10 @@ class MuZeroNetwork(AbstractNetwork):
 
     def representation(self, observation):
         observation = {label: torch.from_numpy(value).float().to(config.DEVICE) for label, value in observation.items()}
-        encoded_state = self.representation_network(observation)
-        # Scale encoded state between [0, 1] (See appendix paper Training)
-        encoded_state_dict = {}
-        for state, value in encoded_state.items():
-            min_encoded_state = value.min(1, keepdim=True)[0]
-            max_encoded_state = value.max(1, keepdim=True)[0]
-            scale_encoded_state = max_encoded_state - min_encoded_state
-            scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
-            encoded_state_normalized = (
-                value - min_encoded_state
-            ) / scale_encoded_state
-            encoded_state_dict[state] = encoded_state_normalized
-        return encoded_state_dict
+        return self.representation_network(observation)
 
-    def dynamics(self, hidden_state, action):
-        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        one_hot_action = torch.nn.functional.one_hot(
-            action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(
-            action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(
-            action[:, 2], config.ACTION_DIM[1])
-
-        action_one_hot = torch.cat(
-            [one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
-
-        action_encodings = self.action_encodings(action_one_hot)
-
-        lstm_state = self.flat_to_lstm_input(hidden_state)
-
-        inputs = action_encodings
-        inputs = inputs[:, None, :]
-        inputs = inputs[:, None, :]
-
-        h0, c0 = list(zip(*lstm_state))
-        _, new_nested_states = self.dynamics_hidden_state_network(inputs,
-                                                                  (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
-
-        next_hidden_state = self.rnn_to_flat(
-            new_nested_states)  # (8, 1024) ##DOUBLE CHECK THIS
-
-        reward = self.dynamics_reward_network(next_hidden_state)
-
-        # Scale encoded state between [0, 1] (See paper appendix Training)
-        min_next_hidden_state = next_hidden_state.min(1, keepdim=True)[0]
-        max_next_hidden_state = next_hidden_state.max(1, keepdim=True)[0]
-        scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
-        scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
-        next_hidden_state_normalized = (
-            next_hidden_state - min_next_hidden_state
-        ) / scale_next_hidden_state
-
-        return next_hidden_state_normalized, reward
+    def dynamics(self, x, action):
+        return self.dynamics_network(x, action)
 
     def initial_inference(self, observation):
         hidden_state = self.representation(observation)
@@ -228,7 +179,10 @@ class RepNetwork(torch.nn.Module):
         super().__init__()
         
         def feature_encoder(input_size):
-            return mlp(input_size, layer_sizes, output_size)
+            return torch.nn.Sequential(
+                mlp(input_size, layer_sizes, output_size),
+                Normalize()
+            ).to(config.DEVICE)
         
         self.shop_encoder = feature_encoder(config.SHOP_INPUT_SIZE)
         self.board_encoder = feature_encoder(config.BOARD_INPUT_SIZE)
@@ -259,22 +213,25 @@ class DynNetwork(torch.nn.Module):
     def __init__(self, input_size, num_layers, hidden_size) -> torch.nn.Module:
         super().__init__()
 
-        def lstm():
-            return torch.nn.LSTM(input_size, num_layers, hidden_size, batch_first=True).to(config.DEVICE)
+        def memory():
+            return torch.nn.Sequential(
+                MemoryLayer(input_size, num_layers, hidden_size),
+                Normalize()
+            ).to(config.DEVICE)
         
         self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
                             config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
 
-        self.dynamics_hidden_state_dict = torch.nn.ModuleDict({
-            "shop": lstm(),
-            "board": lstm(),
-            "bench": lstm(),
-            "states": lstm(),
-            "game_comp": lstm(),
-            "other_players": lstm()
+        self.dynamics_memory = torch.nn.ModuleDict({
+            "shop": memory(),
+            "board": memory(),
+            "bench": memory(),
+            "states": memory(),
+            "game_comp": memory(),
+            "other_players": memory()
         })
 
-        self.dynamics_reward_network = mlp(hidden_size * 6, [1] * 1, config.ENCODER_NUM_STEPS)
+        self.dynamics_reward_network = mlp(input_size * 6, [1] * 1, config.ENCODER_NUM_STEPS)
 
     def forward(self, x, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
@@ -296,23 +253,7 @@ class DynNetwork(torch.nn.Module):
         new_states = {}
 
         for key, hidden_state in x.items():
-            lstm_state = self.flat_to_lstm_input(hidden_state)
-            h0, c0 = list(zip(*lstm_state))
-            _, new_nested_states = self.dynamics_hidden_state_dict[key](inputs,
-                                                                        (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
-            
-            next_hidden_state = self.rnn_to_flat(
-                    new_nested_states)  # (8, 1024) ##DOUBLE CHECK THIS
-            
-            min_next_hidden_state = next_hidden_state.min(1, keepdim=True)[0]
-            max_next_hidden_state = next_hidden_state.max(1, keepdim=True)[0]
-            scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
-            scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
-            next_hidden_state_normalized = (
-                next_hidden_state - min_next_hidden_state
-            ) / scale_next_hidden_state
-
-            new_states[key] = next_hidden_state_normalized
+            new_states[key] = self.dynamics_memory[key]((inputs, hidden_state))
             
         reward_input = torch.cat([
             new_states["shop"],
@@ -321,30 +262,8 @@ class DynNetwork(torch.nn.Module):
             new_states["states"],
             new_states["game_comp"],
             new_states["other_players"]
-        ], dim=-1)
+        ], dim=1)
 
         reward = self.dynamics_reward_network(reward_input)
 
         return new_states, reward
-
-    @staticmethod
-    def flat_to_lstm_input(state):
-        """Maps flat vector to LSTM state."""
-        tensors = []
-        cur_idx = 0
-        for size in config.RNN_SIZES:
-            states = (state[Ellipsis, cur_idx:cur_idx + size],
-                      state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
-
-            cur_idx += 2 * size
-            tensors.append(states)
-        # assert cur_idx == state.shape[-1]
-        return tensors
-
-    @staticmethod
-    def rnn_to_flat(state):
-        """Maps LSTM state to flat vector."""
-        states = []
-        for cell_state in state:
-            states.extend(cell_state)
-        return torch.cat(states, dim=-1)

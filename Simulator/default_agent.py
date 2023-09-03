@@ -7,6 +7,7 @@ from Simulator.origin_class_stats import tiers
 from Simulator.origin_class import team_traits
 from Simulator.utils import x_y_to_1d_coord
 from Simulator.stats import COST, BASE_CHAMPION_LIST
+from Simulator.item_stats import starting_items
 from copy import deepcopy
 
 
@@ -56,11 +57,14 @@ class Default_Agent:
                     return "2_" + str(bench_location) + "_" + str(17 - displacement)
             print("Empty Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
+            is_full = self.is_row_full(player, 0)
+            start_idx = 3 if not is_full else 10
+            row_idx = 0 if not is_full else 1
             for displacement in range(4):
-                if not player.board[3 + displacement][0]:
-                    return "2_" + str(bench_location) + "_" + str(3 + displacement)
-                if not player.board[3 - displacement][0]:
-                    return "2_" + str(bench_location) + "_" + str(3 - displacement)
+                if not player.board[3 + displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx + displacement)
+                if not player.board[3 - displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx - displacement)
             print("Empty Back line with board {}".format(player.board))
         return "0"
 
@@ -84,11 +88,14 @@ class Default_Agent:
                 print("Check Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
             if y != 0:
+                is_full = self.is_row_full(player, 0)
+                start_idx = 3 if not is_full else 10
+                row_idx = 0 if not is_full else 1
                 for displacement in range(4):
-                    if not player.board[3 + displacement][0]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 + displacement)
-                    if not player.board[3 - displacement][0]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 - displacement)
+                    if not player.board[3 + displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                    if not player.board[3 - displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
                 print("Check Back line with board {}".format(player.board))
         return False
 
@@ -99,6 +106,12 @@ class Default_Agent:
                 if bench_slot:
                     return self.move_bench_to_empty_board(player, 28 + i, bench_slot.name)
         return " "
+    
+    def is_row_full(self, player, row):
+        for col in player.board:
+            if col[row] is None:
+                return False
+        return True
 
     def update_pairs_list(self, player):
         list_of_units = []
@@ -211,7 +224,7 @@ class Default_Agent:
     def round_3_10(self, player, shop):
         # Reset checks
         if self.current_round == self.next_round:
-            self.round_3_10_checks = [True for _ in range(5)]
+            self.round_3_10_checks = [True for _ in range(6)]
 
         if self.require_pair_update:
             self.update_pairs_list(player)
@@ -237,7 +250,7 @@ class Default_Agent:
         if self.round_3_10_checks[0]:
             for i, shop_unit in enumerate(shop):
                 if shop_unit != " ":
-                    if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold:
+                    if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold and not shop_unit.endswith("_c"):
                         self.require_pair_update = True
                         return "1_" + str(i)
             self.round_3_10_checks[0] = False
@@ -283,6 +296,46 @@ class Default_Agent:
                                     self.round_3_10_checks[1] = True
                                     return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
             self.round_3_10_checks[2] = False
+            
+        if self.round_3_10_checks[5]:
+            # Add items to highest level units
+            item_idx = []
+            for i, item in enumerate(player.item_bench):
+                if item is not None and not (item == "champion_duplicator" or item == "spatula"):
+                    item_idx.append((item, i))
+            # check how many items we can make
+            champions = []
+            for x in range(len(player.board)):
+                for y in range(len(player.board[x])):
+                    if player.board[x][y]:
+                        champions.append((player.board[x][y], x_y_to_1d_coord(x, y)))
+            # sort champions by level
+            champions.sort(key=lambda x: x[0].cost * x[0].stars, reverse=True)
+            
+            # add items to champions
+            for champion, coord in champions:
+                if len(item_idx) == 0:
+                    break
+                while len(item_idx) > 0:
+                    num_items = len(champion.items)
+                    if num_items == 0:
+                        item, idx = item_idx.pop()
+                        return "3_" + str(idx) + "_" + str(coord)
+                    
+                    last_item = champion.items[-1]
+                    is_last_complete_item = last_item in starting_items
+                    item, idx = item_idx.pop()
+                    is_complete_item = item in starting_items
+                    
+                    if num_items >= 3 and is_last_complete_item:
+                        break
+                    if num_items >= 3 and is_complete_item:
+                        item_idx.append((item, idx))
+                        break
+                    if num_items < 3:
+                        return "3_" + str(idx) + "_" + str(coord)
+        
+            self.round_3_10_checks[5] = False
 
         # Double check that the units in the front should be in the front and vise versa
         if self.round_3_10_checks[3]:

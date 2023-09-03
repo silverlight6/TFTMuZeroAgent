@@ -33,7 +33,8 @@ class GlobalBuffer:
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
 
-        observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
+        # observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
+        observation_batch = self.reshape_observation(obs_tensor_batch)
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')
         target_reward_batch = np.asarray(target_reward_batch).astype('float32')
@@ -47,6 +48,21 @@ class GlobalBuffer:
 
         return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
                 target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch], np.mean(position_batch)
+        
+    def reshape_observation(self, obs_batch):
+        obs_reshaped = {}
+
+        for obs in obs_batch:
+            for key in obs:
+                if key not in obs_reshaped:
+                    obs_reshaped[key] = []
+                obs_reshaped[key].append(obs[key])
+                
+        for key in obs_reshaped:
+            obs_reshaped[key] = np.stack(obs_reshaped[key], axis=0)
+            
+        return obs_reshaped
+
 
     def store_replay_sequence(self, sample, position):
         # Records a single step of gameplay experience
