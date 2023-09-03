@@ -578,7 +578,7 @@ class AIInterface:
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
                                                                          storage, weights))
             time.sleep(0.5)
-        # ray.get(workers)
+        ray.get(workers)
 
         while True:
             if ray.get(global_buffer.available_batch.remote()):

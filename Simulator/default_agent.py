@@ -7,6 +7,7 @@ from Simulator.origin_class_stats import tiers
 from Simulator.origin_class import team_traits
 from Simulator.utils import x_y_to_1d_coord
 from Simulator.stats import COST, BASE_CHAMPION_LIST
+from Simulator.item_stats import starting_items
 from copy import deepcopy
 
 
@@ -223,7 +224,7 @@ class Default_Agent:
     def round_3_10(self, player, shop):
         # Reset checks
         if self.current_round == self.next_round:
-            self.round_3_10_checks = [True for _ in range(5)]
+            self.round_3_10_checks = [True for _ in range(6)]
 
         if self.require_pair_update:
             self.update_pairs_list(player)
@@ -295,6 +296,46 @@ class Default_Agent:
                                     self.round_3_10_checks[1] = True
                                     return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
             self.round_3_10_checks[2] = False
+            
+        if self.round_3_10_checks[5]:
+            # Add items to highest level units
+            item_idx = []
+            for i, item in enumerate(player.item_bench):
+                if item is not None and not (item == "champion_duplicator" or item == "spatula"):
+                    item_idx.append((item, i))
+            # check how many items we can make
+            champions = []
+            for x in range(len(player.board)):
+                for y in range(len(player.board[x])):
+                    if player.board[x][y]:
+                        champions.append((player.board[x][y], x_y_to_1d_coord(x, y)))
+            # sort champions by level
+            champions.sort(key=lambda x: x[0].cost * x[0].stars, reverse=True)
+            
+            # add items to champions
+            for champion, coord in champions:
+                if len(item_idx) == 0:
+                    break
+                while len(item_idx) > 0:
+                    num_items = len(champion.items)
+                    if num_items == 0:
+                        item, idx = item_idx.pop()
+                        return "3_" + str(idx) + "_" + str(coord)
+                    
+                    last_item = champion.items[-1]
+                    is_last_complete_item = last_item in starting_items
+                    item, idx = item_idx.pop()
+                    is_complete_item = item in starting_items
+                    
+                    if num_items >= 3 and is_last_complete_item:
+                        break
+                    if num_items >= 3 and is_complete_item:
+                        item_idx.append((item, idx))
+                        break
+                    if num_items < 3:
+                        return "3_" + str(idx) + "_" + str(coord)
+        
+            self.round_3_10_checks[5] = False
 
         # Double check that the units in the front should be in the front and vise versa
         if self.round_3_10_checks[3]:
