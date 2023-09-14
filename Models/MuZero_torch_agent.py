@@ -278,7 +278,7 @@ class RepNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
 
-        self.conv1 = torch.nn.Conv2d(183, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = torch.nn.Conv2d(184, 256, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn = torch.nn.BatchNorm2d(256)
         self.relu = torch.nn.ReLU(inplace=True)
         self.resnet = resnet(input_size, layer_sizes, output_size)

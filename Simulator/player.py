@@ -107,7 +107,7 @@ class Player:
         self.num_units_in_play = 0
         self.max_units = 1
         self.exp_cost = 4
-        self.round = 0
+        self._round = 0
 
         # This could be in a config file, but we could implement something that alters the
         # Amount of gold required to level that differs player to player
@@ -131,19 +131,19 @@ class Player:
         #         [StreakLVL, TurnsForCombat]
         #         [Level, ExpToLevel]
         #         [Gold, CurrentStreak]
-        self._player_public_vector = np.zeros((60 + 58 + 1 + 1 + 1, 4, 7))
+        self._player_public_vector = np.zeros((60 + 58 + 1 + 1 + 1 + 1, 4, 7))
         self.player_private_vector = np.zeros((59 + 1 + 1 + 1, 4, 7))
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
         # locations of champions on the board, 1 for spot taken 0 for not
-        self.board_mask = np.ones(28, dtype=np.int8)
+        self.board_mask = np.zeros(28, dtype=np.int8)
         # locations of champions on the board that have full items, 1 for full items 0 for not
         self.board_full_items_mask = np.ones(28, dtype=np.int8)
         # locations of units that are not champions on the board
         self.dummy_mask = np.ones(28, dtype=np.int8)
         # locations of champions on the bench, 1 for spot taken 0 for not
-        self.bench_mask = np.ones(9, dtype=np.int8)
+        self.bench_mask = np.zeros(9, dtype=np.int8)
         self.item_mask = np.ones(10, dtype=np.int8)
         # random useful masks
         # util_mask[0] = 0 if board is full, 1 if not
@@ -158,7 +158,7 @@ class Player:
         self.glove_mask = np.zeros(10, dtype=np.int8)
         self.shop_costs = np.ones(5)
         self.shop_elems = np.ones(5)
-        self.champ_elements = np.ones(58)
+        self.champ_elements = np.zeros(58)
 
         # Using this to track the reward gained by each player for the AI to train.
         self.reward = 0.0
@@ -248,6 +248,15 @@ class Player:
         elif self._win_streak >= 5:
             streak_lvl = 1
         # self._player_public_vector[0,1,7] = streak_lvl
+
+    @property
+    def round(self):
+        return self._round
+    
+    @round.setter
+    def round(self, new_round):
+        self._round = new_round
+        self._player_public_vector[60+58+1+1+1] = np.ones((4,7)) * new_round
 
     @property
     def turns_for_combat(self):
@@ -612,7 +621,7 @@ class Player:
                         self.dummy_mask[7 * y + x] = 1
                     else:
                         self.dummy_mask[7 * y + x] = 0
-                    self.board_mask[7 * y + x] = list(COST.keys()).index(curr_champ.name) -1
+                    self.board_mask[7 * y + x] = list(COST.keys()).index(curr_champ.name)
                 else:
                     # Different from the board vector because it needs to match the MCTS encoder
                     self.board_mask[7 * y + x] = 0

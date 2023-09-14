@@ -13,13 +13,12 @@ class Trainer(object):
     def __init__(self, global_agent):
         self.global_agent = global_agent
         self.init_learning_rate = config.INIT_LEARNING_RATE
-        self.decay_steps = config.WEIGHT_DECAY
+        self.decay_steps = 1.0
         self.alpha = config.LR_DECAY_FUNCTION
         self.optimizer = self.create_optimizer()
 
     def create_optimizer(self):
-        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE,
-                                     weight_decay=config.WEIGHT_DECAY)
+        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE)
         return optimizer
 
     def decayed_learning_rate(self, step):
@@ -30,7 +29,7 @@ class Trainer(object):
 
     # Same as muzero-general
     def adjust_lr(self, train_step):
-        lr = self.decayed_learning_rate(train_step)
+        lr = self.init_learning_rate
 
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
@@ -157,8 +156,8 @@ class Trainer(object):
             # output_policy ->   [(256, 7), (256, n), ...]
             policy_loss = []
             for batch_idx in range(len(target_policy[tstep])):
-                local_policy_loss = (torch.tensor(target_policy[tstep][batch_idx]).cuda() *
-                                              (torch.tensor(policy_logits[0][batch_idx]).cuda())).sum(-1)
+                local_policy_loss = (-torch.tensor(target_policy[tstep][batch_idx]).cuda() *
+                                              torch.log(torch.tensor(policy_logits[0][batch_idx]).cuda()))
 
                 policy_loss.append(torch.tensor(local_policy_loss).sum(-1))
 

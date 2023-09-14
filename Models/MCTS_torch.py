@@ -41,6 +41,7 @@ class MCTS:
 
             # 0.01 seconds
             policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+            # print(string_mapping[7], policy_logits_pool[7])
         
             noises = [
                     np.random.dirichlet(
@@ -238,24 +239,30 @@ class MCTS:
                 if i in mask[idx][11] and mask[idx][5][1] and mask[idx][1][np.where(mask[idx][11] == i)[0][0]]:
                     # print(mask[idx][11], i+1)
                     masked_dim.append(policy_logits[0][idx][1624+1+1+58+i])
-                    masked_dim_mapping.append(f"2_{i}_{1624+1+1+58+i}")
+                    masked_dim_mapping.append(f"2_{i}_0_{1624+1+1+58+i}")
 
             # Move actions
             for pos in range(28):
                 for champ in range(58):
-                    if not champ in mask[idx][12]:
+                    if not mask[idx][12][champ]:
                         continue
 
-                    champs_in_board, = np.where(mask[idx][2] == champ)
-                    for i in champs_in_board:
-                        masked_dim.append(policy_logits[0][idx][champ * 58 + pos])
-                        masked_dim_mapping.append(f"1_{i}_{pos}_{champ * 58 + pos}")
-
+                    added = False
                     champs_in_bench, = np.where(mask[idx][3] == champ+1)
                     if mask[idx][5][0] or mask[idx][2][pos]:
                         for i in champs_in_bench:
-                            masked_dim.append(policy_logits[0][idx][champ * 58 + pos])
-                            masked_dim_mapping.append(f"1_{28 + i}_{pos}_{champ * 58 + pos}")
+                            masked_dim.append(policy_logits[0][idx][pos * 58 + champ])
+                            masked_dim_mapping.append(f"1_{28 + i}_{pos}_{pos * 58 + champ}")
+                            added = True
+                            break
+
+                    if added:
+                        continue
+                    champs_in_board, = np.where(mask[idx][2] == champ+1)
+                    for i in champs_in_board:
+                        masked_dim.append(policy_logits[0][idx][pos * 58 + champ])
+                        masked_dim_mapping.append(f"1_{i}_{pos}_{pos * 58 + champ}")
+                        break
         
             # Item actions
             # TODO
@@ -275,17 +282,17 @@ class MCTS:
             # Selling action
             for champ in range(58):
                 # If unit exists
-                if not champ in mask[idx][12]:
+                if not mask[idx][12][champ]:
                         continue
                 champs_in_board, = np.where(mask[idx][2] == champ)
                 for i in champs_in_board:
                         masked_dim.append(policy_logits[0][idx][1624+1+1+ champ])
-                        masked_dim_mapping.append(f"3_{i}_{1624+1+1+ champ}")
+                        masked_dim_mapping.append(f"3_{i}_0_{1624+1+1+ champ}")
 
                 champs_in_bench, = np.where(mask[idx][3] == champ+1)
                 for i in champs_in_bench:
                     masked_dim.append(policy_logits[0][idx][1624+1+1+ champ])
-                    masked_dim_mapping.append(f"3_{28 + i}_{1624+1+1+ champ}")
+                    masked_dim_mapping.append(f"3_{28 + i}_0_{1624+1+1+ champ}")
 
             # Always append pass action
             masked_dim.append(policy_logits[0][idx][0])
