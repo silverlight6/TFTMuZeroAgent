@@ -4,6 +4,7 @@ import collections
 import numpy as np
 import time
 import os
+import MCTS
 
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
@@ -96,9 +97,6 @@ class MuZeroNetwork(AbstractNetwork):
         super().__init__()
         self.full_support_size = config.ENCODER_NUM_STEPS
 
-        # self.representation_network = mlp(config.OBSERVATION_SIZE, [config.LAYER_HIDDEN_SIZE] *
-        #                                   config.N_HEAD_HIDDEN_LAYERS, config.HIDDEN_STATE_SIZE)
-
         self.representation_network = RepNetwork(28, [256] * 16, 1, config.HIDDEN_STATE_SIZE).cuda()
 
         # self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [config.LAYER_HIDDEN_SIZE] * 0,
@@ -111,6 +109,13 @@ class MuZeroNetwork(AbstractNetwork):
         self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
         self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+
+    def calculate_loss(self, observations, n_observations, real_value, real_reward, real_action):
+        # PLACEHOLDER
+        return 0
+    
+    def select_action(self, observations):
+        
 
     def prediction(self, encoded_state):
         # print("encoded", encoded_state.shape)
