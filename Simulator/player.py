@@ -13,7 +13,7 @@ from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from Simulator.default_agent import Default_Agent
 from math import floor
-from config import DEBUG, TIERS_FLATTEN_LENGTH
+from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMPION_ACTION_DIM
 
 """
 Description - This is the base player class
@@ -80,6 +80,8 @@ class Player:
         self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
 
         self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH)
+        self.team_tier_labels = [np.zeros(tier_size) for tier_size in TEAM_TIERS_VECTOR]
+        self.team_champion_labels = [np.zeros(champion_length) for champion_length in CHAMPION_ACTION_DIM]
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
@@ -432,6 +434,9 @@ class Player:
                   If there is no unit on the square, 0s will fill that position. Stars and cost are not binary
     """
     def generate_board_vector(self):
+        for i in range(len(CHAMPION_ACTION_DIM)):
+            self.team_champion_labels[i][0] = 1
+            self.team_champion_labels[i][1] = 0
         for y in range(0, 4):
             # IMPORTANT TO HAVE THE X INSIDE -- Silver is not sure why but ok.
             for x in range(0, 7):
@@ -440,6 +445,11 @@ class Player:
                 if self.board[x][y]:
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
+
+                    # create the label for the champion to help with training
+                    if c_index < len(CHAMPION_ACTION_DIM):
+                        self.team_champion_labels[c_index - 1][0] = 0
+                        self.team_champion_labels[c_index - 1][1] = 1
                     champion_info_array[0:6] = utils.champ_binary_encode(c_index)
                     champion_info_array[6] = curr_champ.stars / 3
                     champion_info_array[7] = curr_champ.cost / 5
@@ -638,9 +648,23 @@ class Player:
         base_tier_values = list(tiers.values())
         player_tier_values = list(self.team_tiers.values())
         for i in range(len(base_tier_values)):
-            self.tiers_vector[current_position + player_tier_values[i]] = 1
-            current_position += len(base_tier_values[i]) + 1
+            try:
+                self.tiers_vector[current_position + player_tier_values[i]] = 1
+                self.team_tier_labels[i] = np.zeros(TEAM_TIERS_VECTOR[i])
+                self.team_tier_labels[i][player_tier_values[i]] = 1
+                current_position += len(base_tier_values[i]) + 1
+            except IndexError:
+                print("index i {} with player_tier_values[i] {}".format(i, player_tier_values[i]))
+                print("team_tier_labels {}".format(self.team_tier_labels))
+
         # print("Current tiers_vector {}".format(self.tiers_vector))
+        # print("Current team_tier_labels {}".format(self.team_tier_labels))
+
+    def get_team_tier_labels(self):
+        return self.team_tier_labels
+
+    def get_team_champion_labels(self):
+        return self.team_champion_labels
 
     """
     Description - This takes every occurrence of a champion at a given level and returns 1 of a higher level.

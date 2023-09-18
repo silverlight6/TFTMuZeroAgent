@@ -7,10 +7,10 @@ class AbstractNetwork(torch.nn.Module):
         super().__init__()
         pass
 
-    def initial_inference(self, observation):
+    def initial_inference(self, observation, training=False):
         pass
 
-    def recurrent_inference(self, encoded_state, action):
+    def recurrent_inference(self, encoded_state, action, training=False):
         pass
 
     def get_weights(self):

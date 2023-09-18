@@ -43,11 +43,14 @@ class Default_Agent:
 
     def move_bench_to_empty_board(self, player, bench_location, unit):
         if unit in FRONT_LINE_UNITS:
+            is_full = self.is_row_full(player, 3)
+            start_idx = 24 if not is_full else 10
+            row_idx = 3 if not is_full else 1
             for displacement in range(4):
-                if not player.board[3 + displacement][3]:
-                    return "2_" + str(bench_location) + "_" + str(24 + displacement)
-                if not player.board[3 - displacement][3]:
-                    return "2_" + str(bench_location) + "_" + str(24 - displacement)
+                if not player.board[3 + displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx + displacement)
+                if not player.board[3 - displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx - displacement)
             print("Empty Front line with board {}".format(player.board))
         if unit in MIDDLE_LINE_UNITS:
             for displacement in range(4):
@@ -71,11 +74,14 @@ class Default_Agent:
     def check_unit_location(self, player, x, y, unit):
         if unit in FRONT_LINE_UNITS:
             if y != 3:
+                is_full = self.is_row_full(player, 3)
+                start_idx = 24 if not is_full else 10
+                row_idx = 3 if not is_full else 1
                 for displacement in range(4):
-                    if not player.board[3 + displacement][3]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 + displacement)
-                    if not player.board[3 - displacement][3]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 - displacement)
+                    if not player.board[3 + displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                    if not player.board[3 - displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
                 print("Check Front line with board {}".format(player.board))
 
         if unit in MIDDLE_LINE_UNITS:
@@ -157,7 +163,7 @@ class Default_Agent:
 
         for x in range(7):
             for y in range(4):
-                if board[x][y]:
+                if board[x][y] and board[x][y].name in BASE_CHAMPION_LIST:
                     score += cost_star_values[board[x][y].cost - 1][board[x][y].stars - 1]
                     if board[x][y].chosen:
                         chosen = board[x][y].chosen
@@ -179,7 +185,7 @@ class Default_Agent:
         for x in range(0, 7):
             for y in range(0, 4):
                 if board[x][y]:
-                    if board[x][y].name not in unique_champions:
+                    if board[x][y].name not in unique_champions and board[x][y].name in BASE_CHAMPION_LIST:
                         unique_champions.append(board[x][y].name)
                         for trait in board[x][y].origin:
                             team_comp[trait] += 1
@@ -281,7 +287,7 @@ class Default_Agent:
                                     return "1_" + str(i)
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1:
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1:
                         # print("buying chosen {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[1] = False
@@ -293,7 +299,7 @@ class Default_Agent:
                 if bench_unit:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
-                            if player.board[x][y]:
+                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
                                 board_copy = deepcopy(player.board)
                                 board_copy[x][y] = bench_unit
                                 bench_score = self.rank_comp(board_copy)
@@ -341,7 +347,7 @@ class Default_Agent:
                     if num_items >= 3 and is_complete_item:
                         item_idx.append((item, idx))
                         break
-                    if (num_items > 0 and is_thieves_glove) or (num_items > 1 and is_glove):
+                    if is_thieves_glove or is_glove:
                         # print("breaking due a thieves gloves error")
                         break
                     if num_items < 3:
@@ -465,7 +471,7 @@ class Default_Agent:
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
                     chosen_type = shop_unit.split('_')[1]
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1 and \
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1 and \
                             chosen_type == TEAM_COMP_TRAITS[self.comp_number]:
                         # print("buying chosen 11_end {}".format(shop_unit))
                         return "1_" + str(i)
@@ -478,7 +484,7 @@ class Default_Agent:
                 if bench_unit:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
-                            if player.board[x][y]:
+                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
                                 board_copy = deepcopy(player.board)
                                 board_copy[x][y] = bench_unit
                                 bench_score = self.rank_comp(board_copy)
@@ -565,7 +571,7 @@ class Default_Agent:
                     c_shop = shop_unit.split('_')[0]
                     chosen_type = shop_unit.split('_')[1]
                     # If it is more than a 1 cost champion, we have to buy, a type we are running, and want to buy.
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1 and \
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1 and \
                             player.team_tiers[chosen_type] > 0 and \
                             self.champion_buy_list[BASE_CHAMPION_LIST.index(c_shop)]:
                         return "1_" + str(i)

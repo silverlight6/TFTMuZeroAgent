@@ -240,13 +240,6 @@ class TFT_Simulator(AECEnv):
 
                     self.terminations = {a: True for a in self.agents}
 
-                self.infos = {a: {"state_empty": False,
-                                  "player": self.PLAYERS[a],
-                                  "game_round": self.game_round.current_round,
-                                  "shop": self.step_function.shops[a],
-                                  "start_turn": True
-                                  } for a in self.agents}
-
                 _live_agents = self.agents[:]
                 for k in self.kill_list:
                     self.terminations[k] = True
@@ -267,6 +260,13 @@ class TFT_Simulator(AECEnv):
                         if not self.default_agent[agent]:
                             self.observations[agent] = self.game_observations[agent].observation(agent,
                                                                                                  self.PLAYERS[agent])
+                            self.infos[agent] = {
+                                "state_empty": False,
+                                "player": self.PLAYERS[agent],
+                                "game_round": self.game_round.current_round,
+                                "shop": self.step_function.shops[agent],
+                                "start_turn": True
+                            }
 
             for player_id in self.PLAYERS:
                 if self.PLAYERS[player_id]:

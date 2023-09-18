@@ -2,7 +2,7 @@ import torch
 import config
 import Models.MCTS_Util as utils
 from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import mlp, MultiMlp, resnet, Normalize, MemoryLayer
+from Models.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer
 
 
 class MuZeroNetwork(AbstractNetwork):
@@ -27,9 +27,13 @@ class MuZeroNetwork(AbstractNetwork):
         self.reward_encoder = utils.ValueEncoder(
             *tuple(map(utils.inverse_contractive_mapping, (map_min, map_max))), 0)
 
-    def prediction(self, encoded_state):
-        policy_logits, value = self.prediction_network(encoded_state)
-        return policy_logits, value
+    def prediction(self, encoded_state, training=False):
+        if training:
+            policy_logits, value, comp, final_comp, champ = self.prediction_network(encoded_state, training)
+            return policy_logits, value, comp, final_comp, champ
+        else:
+            policy_logits, value = self.prediction_network(encoded_state, training)
+            return policy_logits, value
 
     def representation(self, observation):
         observation = {label: torch.from_numpy(value).float().to(config.DEVICE) for label, value in observation.items()}
@@ -38,23 +42,44 @@ class MuZeroNetwork(AbstractNetwork):
     def dynamics(self, x, action):
         return self.dynamics_network(x, action)
 
-    def initial_inference(self, observation):
+    def initial_inference(self, observation, training=False):
         hidden_state = self.representation(observation)
-        policy_logits, value_logits = self.prediction(hidden_state)
+        if training:
+            policy_logits, value_logits, comp, final_comp, champ = self.prediction(hidden_state, training)
 
-        value = self.value_encoder.decode_softmax(value_logits)
+            value = self.value_encoder.decode_softmax(value_logits)
 
-        reward = torch.zeros(observation["shop"].shape[0])
-        reward_logits = self.reward_encoder.encode(reward)
+            reward = torch.zeros(observation["shop"].shape[0])
+            reward_logits = self.reward_encoder.encode(reward)
 
-        outputs = {
-            "value": value,
-            "value_logits": value_logits,
-            "reward": reward,
-            "reward_logits": reward_logits,
-            "policy_logits": policy_logits,
-            "hidden_state": hidden_state
-        }
+            outputs = {
+                "value": value,
+                "value_logits": value_logits,
+                "reward": reward,
+                "reward_logits": reward_logits,
+                "policy_logits": policy_logits,
+                "hidden_state": hidden_state,
+                "comp": comp,
+                "final_comp": final_comp,
+                "champ": champ
+            }
+
+        else:
+            policy_logits, value_logits = self.prediction(hidden_state)
+
+            value = self.value_encoder.decode_softmax(value_logits)
+
+            reward = torch.zeros(observation["shop"].shape[0])
+            reward_logits = self.reward_encoder.encode(reward)
+
+            outputs = {
+                "value": value,
+                "value_logits": value_logits,
+                "reward": reward,
+                "reward_logits": reward_logits,
+                "policy_logits": policy_logits,
+                "hidden_state": hidden_state
+            }
         return outputs
 
     @staticmethod
@@ -79,21 +104,35 @@ class MuZeroNetwork(AbstractNetwork):
         # assert cur_idx == state.shape[-1]
         return tensors
 
-    def recurrent_inference(self, hidden_state, action):
+    def recurrent_inference(self, hidden_state, action, training=False):
         next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
-        policy_logits, value_logits = self.prediction(next_hidden_state)
-
-        value = self.value_encoder.decode_softmax(value_logits)
-        reward = self.reward_encoder.decode_softmax(reward_logits)
-
-        outputs = {
-            "value": value,
-            "value_logits": value_logits,
-            "reward": reward,
-            "reward_logits": reward_logits,
-            "policy_logits": policy_logits,
-            "hidden_state": next_hidden_state
-        }
+        if training:
+            policy_logits, value_logits, comp, final_comp, champ = self.prediction(next_hidden_state, training)
+            value = self.value_encoder.decode_softmax(value_logits)
+            reward = self.reward_encoder.decode_softmax(reward_logits)
+            outputs = {
+                "value": value,
+                "value_logits": value_logits,
+                "reward": reward,
+                "reward_logits": reward_logits,
+                "policy_logits": policy_logits,
+                "hidden_state": next_hidden_state,
+                "comp": comp,
+                "final_comp": final_comp,
+                "champ": champ
+            }
+        else:
+            policy_logits, value_logits = self.prediction(next_hidden_state)
+            value = self.value_encoder.decode_softmax(value_logits)
+            reward = self.reward_encoder.decode_softmax(reward_logits)
+            outputs = {
+                "value": value,
+                "value_logits": value_logits,
+                "reward": reward,
+                "reward_logits": reward_logits,
+                "policy_logits": policy_logits,
+                "hidden_state": next_hidden_state
+            }
         return outputs
 
 
@@ -102,7 +141,7 @@ class PredNetwork(torch.nn.Module):
         super().__init__()
 
         def feature_encoder(input_size, layer_sizes, output_size):
-            return mlp(input_size, layer_sizes, output_size)
+            return torch.nn.Sequential(mlp(input_size, layer_sizes, output_size)).to(config.DEVICE)
 
         # 6 is the number of separate dynamic networks
         self.prediction_value_network = feature_encoder(config.HIDDEN_STATE_SIZE * 6,
@@ -128,7 +167,19 @@ class PredNetwork(torch.nn.Module):
                                                    [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
                                                    config.POLICY_HEAD_SIZES[4])
 
-    def forward(self, x):
+        self.comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
+                                               [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                               config.TEAM_TIERS_VECTOR)
+
+        self.final_comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE * 4,
+                                                     [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                     config.TEAM_TIERS_VECTOR)
+
+        self.champ_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
+                                                [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+                                                config.CHAMPION_ACTION_DIM)
+
+    def forward(self, x, training=True):
         value_decision_input = torch.cat([
             x["shop"],
             x["board"],
@@ -144,7 +195,7 @@ class PredNetwork(torch.nn.Module):
         shop_input = torch.cat([
             decision,
             x["shop"]
-        ], 1)
+        ], dim=-1)
         shop = self.shop_action_network(shop_input)
 
         movement_input = torch.cat([
@@ -153,7 +204,7 @@ class PredNetwork(torch.nn.Module):
             x["bench"],
             x["game_comp"],
             x["other_players"]
-        ], 1)
+        ], dim=-1)
         movement = self.movement_action_network(movement_input)
 
         item_input = torch.cat([
@@ -161,17 +212,31 @@ class PredNetwork(torch.nn.Module):
             x["states"],
             x["board"],
             x["game_comp"]
-        ], 1)
+        ], dim=-1)
         item = self.item_action_network(item_input)
 
         sell_input = torch.cat([
             decision,
             x["bench"],
             x["states"]
-        ], 1)
+        ], dim=-1)
         sell = self.sell_action_network(sell_input)
 
-        return [decision, shop, movement, item, sell], value
+        if not training:
+            return [decision, shop, movement, item, sell], value
+        else:
+            comp = self.comp_predictor_network(x["game_comp"])
+
+            final_comp_input = torch.cat([
+                x["board"],
+                x["game_comp"],
+                x["states"],
+                x["other_players"]
+            ], dim=-1)
+            final_comp = self.final_comp_predictor_network(final_comp_input)
+
+            champ = self.champ_predictor_network(x["board"])
+            return [decision, shop, movement, item, sell], value, comp, final_comp, champ
 
 
 class RepNetwork(torch.nn.Module):

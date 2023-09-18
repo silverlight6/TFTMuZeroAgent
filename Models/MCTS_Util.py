@@ -140,9 +140,10 @@ def action_to_idx(action, dim):
         action = action.split('_')  # "_20_21" -> ["", "20", "21"]
         from_loc = int(action[1])  # ["", "20", "21"] -> "20"
         to_loc = int(action[2])  # ["", "20", "21"] -> "21"
-        mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
-        if mapped_idx > 629:
-            mapped_idx = 629
+        if from_loc < 28:
+            mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+        else:
+            mapped_idx = sum([35 - i for i in range(28)]) + (to_loc - 1)
 
     elif dim == 3:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
         action = action.split('_')  # "_10_9" -> ["", "10", "9"]
@@ -311,9 +312,7 @@ def contractive_mapping(x, eps=0.001):
 
 # From the MuZero paper.
 def inverse_contractive_mapping(x, eps=0.001):
-    return torch.sign(x) * \
-        (torch.square(
-            (torch.sqrt(4 * eps * (torch.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+    return torch.sign(x) * (torch.square((torch.sqrt(4 * eps * (torch.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
 
 # Softmax function in np because we're converting it anyway
 

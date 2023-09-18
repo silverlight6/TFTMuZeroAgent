@@ -83,7 +83,7 @@ class MuZeroDefaultNetwork(AbstractNetwork):
 
         return next_hidden_state_normalized, reward
 
-    def initial_inference(self, observation):
+    def initial_inference(self, observation, training=False):
         hidden_state = self.representation(observation)
         policy_logits, value_logits = self.prediction(hidden_state)
 
@@ -124,7 +124,7 @@ class MuZeroDefaultNetwork(AbstractNetwork):
         # assert cur_idx == state.shape[-1]
         return tensors
 
-    def recurrent_inference(self, hidden_state, action):
+    def recurrent_inference(self, hidden_state, action, training=False):
         next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
         policy_logits, value_logits = self.prediction(next_hidden_state)
 

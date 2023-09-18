@@ -2,7 +2,7 @@ import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
 NUM_CPUS = 28
-GPU_SIZE_PER_WORKER = 0.18
+GPU_SIZE_PER_WORKER = 0.3
 STORAGE_GPU_SIZE = 0.1
 # NUM_CPUS = 8
 # GPU_SIZE_PER_WORKER = 0.0
@@ -38,6 +38,8 @@ ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
 # 57 is the number of champions in set 4. Don't want to add an import to the STATS in the simulator in a config file
 CHAMPION_ACTION_DIM = [2 for _ in range(58)]
+# Number of categories for each trait tier. Emperor for example has 2, no emperors or 1.
+TEAM_TIERS_VECTOR = [4, 5, 4, 4, 4, 3, 3, 3, 2, 4, 4, 4, 5, 3, 5, 2, 3, 5, 4, 4, 3, 4, 4, 4, 2, 5]
 TIERS_FLATTEN_LENGTH = 97
 
 # INPUT SIZES
@@ -61,17 +63,17 @@ N_HEAD_HIDDEN_LAYERS = 4
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 20
+CONCURRENT_GAMES = 4
 NUM_PLAYERS = 8 
-NUM_SAMPLES = 10
-NUM_SIMULATIONS = 50
+NUM_SAMPLES = 30
+NUM_SIMULATIONS = 100
 
 # Set to -1 to turn off.
 TD_STEPS = -1 
 # This should be 1000 + because we want to be sampling everything when using priority.
 # To change, look into the code in replay_muzero_buffer
-SAMPLES_PER_PLAYER = 1000  
-UNROLL_STEPS = 5
+SAMPLES_PER_PLAYER = 64
+UNROLL_STEPS = 15
 
 ### TRAINING ###
 BATCH_SIZE = 256
@@ -81,8 +83,9 @@ LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
+GAME_METRICS_SCALING = 1
 
-AUTO_BATTLER_PERCENTAGE = 1
+AUTO_BATTLER_PERCENTAGE = 0
 
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
