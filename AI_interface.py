@@ -17,21 +17,57 @@ from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
 
 from Models.MCTS_torch import MCTS
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.MuZero_torch_agent import MuZeroAgent
 import Models.MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
 import torch
+from Models.Common_agents import RandomAgent
 
+class Agregator:
+    def __init__(self):
+        self.agents = {}
+        self.player_to_agents = {}
+
+    def add_agent(self, new_agent, player_name):
+        if not new_agent.__class__ in self.agents.keys():
+            self.agents[new_agent.__class__] = new_agent
+        self.player_to_agents[player_name] = new_agent.__class__
+
+    def player_died(self, player_name):
+        for dicts in self.names_per_agent:
+            if player_name in dicts:
+                dicts = dicts.remove(player_name)
+
+    def get_actions(self, observations):
+        mapped_obs = {}
+        mapped_mask = {}
+        mapped_players = {}
+        actions = {}
+        for player in observations.keys():
+            agent = self.player_to_agents[player]
+            if not agent in mapped_obs.keys():
+                mapped_obs[agent] = []
+                mapped_mask[agent] = []
+                mapped_players[agent] = []
+            mapped_obs[agent].append(observations[player]['tensor'])
+            mapped_mask[agent].append(observations[player]['mask'])
+            mapped_players[agent].append(player)
+
+        for key in mapped_obs.keys():
+            concat_actions = self.agents[key].select_action(np.array(mapped_obs[key]), 
+                                                            np.array(mapped_mask[key]))
+            for i, player in enumerate(mapped_players[key]):
+                actions[player] = concat_actions[i]
+        return actions
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
-    def __init__(self, rank, global_buffer):
-        self.agent_network = TFTNetwork()
+    def __init__(self, rank, experience_buffer):
         self.rank = rank
         self.ckpt_time = time.time()
         self.env = parallel_env()
-        self.buffer = BufferWrapper(global_buffer)
+        self.buffer = experience_buffer
 
     '''
     Description -
@@ -52,42 +88,55 @@ class DataWorker(object):
     def collect_gameplay_experience(self, weights):
         # self.agent_network.set_weights(weights)
         # agent = MCTS(self.agent_network)
-        # self.ckpt_time = time.time()
+        agent_1 = MuZeroAgent(config.POLICY_HEAD_SIZES[0], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS)
+        agent_random = RandomAgent(config.POLICY_HEAD_SIZES[0])
+        self.ckpt_time = time.time()
         # Reset the environment
         players_observation = self.env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         # players_observation = self.observation_to_input(players_observation)
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in self.env.possible_agents}
+        agregator = Agregator()
+        agregator.add_agent(agent_1, "player_0")
+        agregator.add_agent(agent_1, "player_1")
+        agregator.add_agent(agent_random, "player_2")
+        agregator.add_agent(agent_random, "player_3")
+        agregator.add_agent(agent_random, "player_4")
+        agregator.add_agent(agent_random, "player_5")
+        agregator.add_agent(agent_random, "player_6")
+        agregator.add_agent(agent_random, "player_7")
 
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            # actions = agregator.get_actions(players_observation)/
+            actions = agregator.get_actions(players_observation)
+            # print(actions)
 
             # step_actions = self.getStepActions(terminated, actions)
             # storage_actions = utils.decode_action(actions)
 
             # Take that action within the environment and return all of our information for the next player
-            next_observation, reward, terminated, _, info = self.env.step(actions)
+            players_observation, reward, terminated, _, info = self.env.step(actions)
             # print(terminated)
             # store the action for MuZero
-            for i, key in enumerate(terminated.keys()):
-                if not info[key]["state_empty"]:
-                    # Store the information in a buffer to train on later.
-                    self.buffer.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
-                                                        reward[key], policy[i], string_samples[i])
+            # for i, key in enumerate(terminated.keys()):
+            #     if not info[key]["state_empty"]:
+            #         # Store the information in a buffer to train on later.
+            #         self.buffer.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
+            #                                             reward[key], policy[i], string_samples[i])
 
             # Set up the observation for the next action
-            player_observation = self.observation_to_input(next_observation)
+            # player_observation = self.observation_to_input(next_observation)
 
         # weights = copy.deepcopy(ray.get(storage).get_model())
         # agent.network.set_weights(weights)
         # self.rank += config.CONCURRENT_GAMES
-        self.buffer.store_global_buffer()
-        self.buffer.reset()
+        # self.buffer.store_global_buffer()
+        # self.buffer.reset()
         if config.DEBUG:
-            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search / agent.runs}')
+            # print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search / agent.runs}')
+            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes.')
         return self.rank
 
     '''
@@ -183,17 +232,22 @@ class AIInterface:
         # global_agent.set_weights(global_agent_weights)
         # global_agent.to("cuda")
 
+        weights = np.array([])
+        weights_ref = ray.put(weights)
+
         # Load model weights into shared memory
 
         # Create trainer with a ref to that shared memory
 
         # trainer = MuZero_trainer.Trainer(weights_ref)
 
-        # Create experience buffer
+        # Create replay buffer
+        replay = np.array([])
+        replay_buffer = ray.put(replay)
 
-        data_workers = [DataWorker.remote(agent_num, replay_buffer) for agent_num in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(agent_num, [replay_buffer]) for agent_num in range(config.CONCURRENT_GAMES)]
         # weights = storage.get_target_model()
-        workers = [worker.collect_gameplay_experience.remote(weights_ref) for worker in data_workers]
+        workers = [worker.collect_gameplay_experience.remote([weights_ref]) for worker in data_workers]
         while True:
             while True:
                 with open("run.txt", "r") as file:
@@ -205,18 +259,18 @@ class AIInterface:
             done, workers = ray.wait(workers)
             rank = ray.get(done)[0]
             print(f'Spawning agent {rank}')
-            workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights_ref)])
+            workers.extend([data_workers[rank].collect_gameplay_experience.remote([weights_ref])])
             print("Starting training")
-            while replay_buffer.available_batch():
-                gameplay_experience_batch = replay_buffer.sample_batch()
-                trainer.train_network(gameplay_experience_batch, weights_ref, train_step, train_summary_writer)
-                # storage.set_trainer_busy.remote(False)
-                train_step += 1
-                if train_step % config.CHECKPOINT_STEPS == 0:
-                    global_agent.tft_save_model(train_step)
-                    # Evaluate
-                if train_step % config.UPDATE_MODEL_STEPS == 0:
-                    trainer.update_ref()
+            # while replay_buffer.available_batch():
+            #     gameplay_experience_batch = replay_buffer.sample_batch()
+            #     trainer.train_network(gameplay_experience_batch, weights_ref, train_step, train_summary_writer)
+            #     # storage.set_trainer_busy.remote(False)
+            #     train_step += 1
+            #     if train_step % config.CHECKPOINT_STEPS == 0:
+            #         global_agent.tft_save_model(train_step)
+            #         # Evaluate
+            #     if train_step % config.UPDATE_MODEL_STEPS == 0:
+            #         trainer.update_ref()
             print("Finished training")
             
 
