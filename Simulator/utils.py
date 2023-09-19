@@ -2,6 +2,7 @@ import Simulator.config as config
 import numpy as np
 from functools import wraps
 from time import time
+from Simulator.stats import COST
 
 
 
@@ -56,3 +57,49 @@ def x_y_to_1d_coord(x1, y1):
         return x1 + 28
     else:
         return 7 * y1 + x1
+    
+def gold_from_obs(observation):
+    return observation[60 + 58 + 1 + 1 + 1 + 1 + 60][0][0]
+
+def units_in_shop_from_obs(observation):
+    units = observation[60 + 58 + 1 + 1 + 1 + 1 : 60 + 58 + 1 + 1 + 1 + 1 + 58, 0, 0]
+    chosen = observation[60 + 58 + 1 + 1 + 1 + 1 + 58][0][0]
+    if int(chosen) > 0:
+        chosen = list(COST.keys())[int(chosen)+1] + "_chosen"
+    else:
+        chosen = ""
+    parsed_units = []
+    for i, count in enumerate(units):
+        if count > 0:
+            parsed_units.append(list(COST.keys())[i+1])
+    return parsed_units, chosen
+
+def board_from_obs(observation):
+    board = observation[0:58]
+    stars = observation[58]
+    chosen = observation[59]
+    champs = []
+    for i, unit_board in enumerate(board):
+        indexes = np.where(unit_board == 1.0)
+        if not len(indexes[0]) == 0:
+            # print(list(COST.keys())[i+1], indexes[0], indexes[1], stars[indexes[0], indexes[1]], chosen[indexes[0], indexes[1]])
+            champ = {"name":list(COST.keys())[i+1],
+                     "id": i,
+                     "pos_y": indexes[0][0],
+                     "pos_x": indexes[1][0],
+                     "stars": stars[indexes[0], indexes[1]][0],
+                     "chosen": chosen[indexes[0], indexes[1]][0] > 0.}
+            # print(champ)
+            champs.append(champ)
+    return champs
+
+def bench_from_obs(observation):
+    #TODO not working
+    bench = observation[60:60+58, 0, 0]
+    return bench
+
+def champ_id_from_name(champ_name):
+    return (list(COST.keys()).index(champ_name)) - 1
+
+def level_from_obs(observation):
+    return observation[60 + 58 + 1 + 1][0][0]

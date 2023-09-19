@@ -141,7 +141,7 @@ class Step_Function:
             elif action_selector == 4:
                 # Refresh shop
                 if player.refresh():
-                    self.shops[key] = self.pool_obj.sample(player, 5)
+                    self.shops[player.player_num] = self.pool_obj.sample(player, 5)
 
     '''
     Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 
@@ -153,6 +153,7 @@ class Step_Function:
 
         # name = list(COST.items())[shop_action+1][0]
         champ_index = np.where(player.shop_elems == shop_action)
+        # print("Triying to buy ", shop_action, player.shop_elems, len(champ_index[0]))
         # print(player_id, player.player_num, " Champ Index ", champ_index, shop_action," in shop ", self.shops[player_id], " elems ", player.shop_elems)
 
         if len(champ_index[0]) == 0:

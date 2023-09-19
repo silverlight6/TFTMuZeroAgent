@@ -331,6 +331,7 @@ class Player:
                 bench_count[c_index-1] += 1
         for n, _ in enumerate(bench_count):
             output[60:60+n] = np.ones((4,7)) * bench_count[n]
+        # print(bench_count)
 
         # output[60:120, :, :] = self.bench.get_encoding()
         # output[:, 5:6, 0:10] = self.item_bench.get_encoding()

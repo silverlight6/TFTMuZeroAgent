@@ -8,4 +8,4 @@ class MCTS:
 
   def generate_action(self, n_simulations, observation):
     # PLACEHOLDER
-    return np.random.rand(observation.shape[0], self.action_size)
+    return np.random.randint([6, 37, 28], size=(observation.shape[0], self.action_size))

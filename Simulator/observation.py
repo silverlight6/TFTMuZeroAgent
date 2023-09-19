@@ -37,8 +37,7 @@ class Observation:
         shop_vector = self.shop_vector
         game_state_vector = self.game_comp_vector
         # Concatenate all vector based player information
-        player.player_private_vector += shop_vector
-        game_state_tensor = np.concatenate((player.player_public_vector, player.player_private_vector))
+        game_state_tensor = np.concatenate((player.player_public_vector, player.player_private_vector + shop_vector))
         # player.bench_vector,
         # player.chosen_vector,
         # player.item_vector,

@@ -21,22 +21,20 @@ from Models.MuZero_torch_agent import MuZeroAgent
 import Models.MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
 import torch
-from Models.Common_agents import RandomAgent
+from Models.Common_agents import RandomAgent, BuyingAgent
 
 class Agregator:
     def __init__(self):
         self.agents = {}
         self.player_to_agents = {}
 
+    def get_player_to_agent_mapping(self):
+        return self.player_to_agents
+
     def add_agent(self, new_agent, player_name):
         if not new_agent.__class__ in self.agents.keys():
             self.agents[new_agent.__class__] = new_agent
         self.player_to_agents[player_name] = new_agent.__class__
-
-    def player_died(self, player_name):
-        for dicts in self.names_per_agent:
-            if player_name in dicts:
-                dicts = dicts.remove(player_name)
 
     def get_actions(self, observations):
         mapped_obs = {}
@@ -88,8 +86,9 @@ class DataWorker(object):
     def collect_gameplay_experience(self, weights):
         # self.agent_network.set_weights(weights)
         # agent = MCTS(self.agent_network)
-        agent_1 = MuZeroAgent(config.POLICY_HEAD_SIZES[0], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS)
-        agent_random = RandomAgent(config.POLICY_HEAD_SIZES[0])
+        agent_1 = MuZeroAgent(3, config.OBSERVATION_SIZE, config.NUM_SIMULATIONS)
+        agent_random = RandomAgent(3)
+        agent_buying = BuyingAgent(3, ["elise", "twistedfate", "pyke", "evelynn", "kalista", "aatrox", "jhin", "zilean"])
         self.ckpt_time = time.time()
         # Reset the environment
         players_observation = self.env.reset()
@@ -97,6 +96,8 @@ class DataWorker(object):
         # players_observation = self.observation_to_input(players_observation)
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in self.env.possible_agents}
+        placements = {i: "" for i, _ in enumerate(self.env.possible_agents)}
+        scores = {player_id: 0 for player_id in self.env.possible_agents}
         agregator = Agregator()
         agregator.add_agent(agent_1, "player_0")
         agregator.add_agent(agent_1, "player_1")
@@ -105,7 +106,7 @@ class DataWorker(object):
         agregator.add_agent(agent_random, "player_4")
         agregator.add_agent(agent_random, "player_5")
         agregator.add_agent(agent_random, "player_6")
-        agregator.add_agent(agent_random, "player_7")
+        agregator.add_agent(agent_buying, "player_7")
 
         # While the game is still going on.
         while not all(terminated.values()):
@@ -118,6 +119,9 @@ class DataWorker(object):
 
             # Take that action within the environment and return all of our information for the next player
             players_observation, reward, terminated, _, info = self.env.step(actions)
+            for player in terminated.keys():
+                if terminated[player]:
+                    scores[player] = reward[player]
             # print(terminated)
             # store the action for MuZero
             # for i, key in enumerate(terminated.keys()):
@@ -134,9 +138,17 @@ class DataWorker(object):
         # self.rank += config.CONCURRENT_GAMES
         # self.buffer.store_global_buffer()
         # self.buffer.reset()
+        
         if config.DEBUG:
+            agent_mapping = agregator.get_player_to_agent_mapping()
+            scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            for i, player in enumerate(scores):
+                placements[i] = f'{player[0]} -> {agent_mapping[player[0]]}'
             # print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search / agent.runs}')
             print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes.')
+            for x in placements.keys():
+                print(f'{x+1} place -> {placements[x]}')
+        exit()
         return self.rank
 
     '''
