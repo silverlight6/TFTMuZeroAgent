@@ -36,9 +36,10 @@ class Agregator:
             self.agents[new_agent.__class__] = new_agent
         self.player_to_agents[player_name] = new_agent.__class__
 
-    def get_actions(self, observations):
+    def get_actions(self, observations, rewards):
         mapped_obs = {}
         mapped_mask = {}
+        mapped_reward = {}
         mapped_players = {}
         actions = {}
         for player in observations.keys():
@@ -46,14 +47,17 @@ class Agregator:
             if not agent in mapped_obs.keys():
                 mapped_obs[agent] = []
                 mapped_mask[agent] = []
+                mapped_reward[agent] = []
                 mapped_players[agent] = []
             mapped_obs[agent].append(observations[player]['tensor'])
             mapped_mask[agent].append(observations[player]['mask'])
+            mapped_mask[agent].append(rewards[player])
             mapped_players[agent].append(player)
 
         for key in mapped_obs.keys():
             concat_actions = self.agents[key].select_action(np.array(mapped_obs[key]), 
-                                                            np.array(mapped_mask[key]))
+                                                            np.array(mapped_mask[key]),
+                                                            mapped_reward[key])
             for i, player in enumerate(mapped_players[key]):
                 actions[player] = concat_actions[i]
         return actions
@@ -61,11 +65,11 @@ class Agregator:
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
-    def __init__(self, rank, experience_buffer):
+    def __init__(self, rank, shared_information):
         self.rank = rank
         self.ckpt_time = time.time()
         self.env = parallel_env()
-        self.buffer = experience_buffer
+        self.shared_information = shared_information
 
     '''
     Description -
@@ -83,12 +87,12 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-    def collect_gameplay_experience(self, weights):
+    def collect_gameplay_experience(self):
         # self.agent_network.set_weights(weights)
         # agent = MCTS(self.agent_network)
-        agent_1 = MuZeroAgent(3, config.OBSERVATION_SIZE, config.NUM_SIMULATIONS)
+        agent_1 = MuZeroAgent(3, config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, self.shared_information)
         agent_random = RandomAgent(3)
-        agent_buying = BuyingAgent(3, ["elise", "twistedfate", "pyke", "evelynn", "kalista", "aatrox", "jhin", "zilean"])
+        agent_buying = BuyingAgent(3, ["elise", "twistedfate", "pyke", "evelynn", "aatrox", "zilean"])
         self.ckpt_time = time.time()
         # Reset the environment
         players_observation = self.env.reset()
@@ -96,6 +100,7 @@ class DataWorker(object):
         # players_observation = self.observation_to_input(players_observation)
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in self.env.possible_agents}
+        reward = {player_id: 0.0 for player_id in self.env.possible_agents}
         placements = {i: "" for i, _ in enumerate(self.env.possible_agents)}
         scores = {player_id: 0 for player_id in self.env.possible_agents}
         agregator = Agregator()
@@ -111,7 +116,7 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions = agregator.get_actions(players_observation)
+            actions = agregator.get_actions(players_observation, reward)
             # print(actions)
 
             # step_actions = self.getStepActions(terminated, actions)
@@ -148,7 +153,6 @@ class DataWorker(object):
             print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes.')
             for x in placements.keys():
                 print(f'{x+1} place -> {placements[x]}')
-        exit()
         return self.rank
 
     '''
@@ -257,9 +261,9 @@ class AIInterface:
         replay = np.array([])
         replay_buffer = ray.put(replay)
 
-        data_workers = [DataWorker.remote(agent_num, [replay_buffer]) for agent_num in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(agent_num, [replay_buffer, weights_ref]) for agent_num in range(config.CONCURRENT_GAMES)]
         # weights = storage.get_target_model()
-        workers = [worker.collect_gameplay_experience.remote([weights_ref]) for worker in data_workers]
+        workers = [worker.collect_gameplay_experience.remote() for worker in data_workers]
         while True:
             while True:
                 with open("run.txt", "r") as file:
@@ -271,7 +275,7 @@ class AIInterface:
             done, workers = ray.wait(workers)
             rank = ray.get(done)[0]
             print(f'Spawning agent {rank}')
-            workers.extend([data_workers[rank].collect_gameplay_experience.remote([weights_ref])])
+            workers.extend([data_workers[rank].collect_gameplay_experience.remote()])
             print("Starting training")
             # while replay_buffer.available_batch():
             #     gameplay_experience_batch = replay_buffer.sample_batch()

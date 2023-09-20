@@ -144,7 +144,7 @@ class Observation:
         shop_counts = np.zeros((58,1))
         shop_elems = np.zeros((5, 1))
         for x in range(0, len(shop)):
-            if shop[x]:
+            if shop[x] != " ":
                 chosen = 0
                 if shop[x].endswith("_c"):
                     chosen_shop_index = x
@@ -162,25 +162,22 @@ class Observation:
                 c_index = list(COST.keys()).index(shop[x])
                 shop_elems[x] = c_index-1
                 shop_counts[c_index-1] += 1
-                if c_index == 0:
-                    self.shop_mask[x] = 0
-                # This should update the item name section of the vector
-                for z in range(6, 0, -1):
-                    if c_index > 2 ** (z - 1):
-                        c_index -= 2 ** (z - 1)
                 self.shop_mask[x] = 1
+            else:
+                shop_elems[x] = -1
+                self.shop_mask[x] = 0
 
             # Input chosen mechanics once I go back and update the chosen mechanics.
             self.shop_mask[x] = 0
         if shop_chosen:
-            if shop_chosen == 'the':
-                shop_chosen = 'the_boss'
-            c_index = list(team_traits.keys()).index(shop_chosen)
-            # This should update the item name section of the vector
-            for z in range(5, 0, -1):
-                if c_index > 2 * z:
-                    # output_array[45 - z] = 1
-                    c_index -= 2 * z
+            # if shop_chosen == 'the':
+            #     shop_chosen = 'the_boss'
+            # c_index = list(team_traits.keys()).index(shop_chosen)
+            # # This should update the item name section of the vector
+            # for z in range(5, 0, -1):
+            #     if c_index > 2 * z:
+            #         # output_array[45 - z] = 1
+            #         c_index -= 2 * z
             shop[chosen_shop_index] = chosen_shop
 
         player.shop_costs = shop_costs
