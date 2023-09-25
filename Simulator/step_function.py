@@ -141,7 +141,7 @@ class Step_Function:
             elif action_selector == 4:
                 # Refresh shop
                 if player.refresh():
-                    self.shops[key] = self.pool_obj.sample(player, 5)
+                    self.generate_shop(key, player)
 
     '''
     Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 
