@@ -3,19 +3,21 @@ import config
 from Simulator import utils
 
 class RandomAgent:
-    def __init__(self, action_size):
+    def __init__(self, action_size, action_limits):
         self.action_size = action_size
+        self.action_limits = action_limits
 
-    def select_action(self, observation, mask, reward):
-        return np.random.randint([6, 37, 28], size=(observation.shape[0], self.action_size))
+    def select_action(self, observation, mask, reward, terminated):
+        return np.random.randint(self.action_limits, size=(observation.shape[0], self.action_size))
     
 class BuyingAgent:
 
-    def __init__(self, action_size, units_to_buy):
+    def __init__(self, action_size, action_limits, units_to_buy):
         self.action_size = action_size
         self.units_to_buy = units_to_buy
+        self.action_limits = action_limits
 
-    def select_action(self, observation, mask, reward):
+    def select_action(self, observation, mask, reward, terminated):
         gold = utils.gold_from_obs(observation[0])
         # print(gold)
         units_in_shop, chosen = utils.units_in_shop_from_obs(observation[0])

@@ -36,10 +36,11 @@ class Agregator:
             self.agents[new_agent.__class__] = new_agent
         self.player_to_agents[player_name] = new_agent.__class__
 
-    def get_actions(self, observations, rewards):
+    def get_actions(self, observations, rewards, terminated):
         mapped_obs = {}
         mapped_mask = {}
         mapped_reward = {}
+        mapped_terminated = {}
         mapped_players = {}
         actions = {}
         for player in observations.keys():
@@ -49,27 +50,31 @@ class Agregator:
                 mapped_mask[agent] = []
                 mapped_reward[agent] = []
                 mapped_players[agent] = []
+                mapped_terminated[agent] = []
             mapped_obs[agent].append(observations[player]['tensor'])
             mapped_mask[agent].append(observations[player]['mask'])
-            mapped_mask[agent].append(rewards[player])
+            mapped_reward[agent].append(rewards[player])
+            mapped_terminated[agent].append(terminated[player])
             mapped_players[agent].append(player)
 
         for key in mapped_obs.keys():
             concat_actions = self.agents[key].select_action(np.array(mapped_obs[key]), 
                                                             np.array(mapped_mask[key]),
-                                                            mapped_reward[key])
+                                                            mapped_reward[key],
+                                                            mapped_terminated[key])
             for i, player in enumerate(mapped_players[key]):
                 actions[player] = concat_actions[i]
         return actions
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
+@ray.remote
 class DataWorker(object):
-    def __init__(self, rank, shared_information):
+    def __init__(self, rank, weights, global_buffer):
         self.rank = rank
         self.ckpt_time = time.time()
         self.env = parallel_env()
-        self.shared_information = shared_information
+        self.weights = weights
+        self.global_buffer = global_buffer
 
     '''
     Description -
@@ -90,9 +95,9 @@ class DataWorker(object):
     def collect_gameplay_experience(self):
         # self.agent_network.set_weights(weights)
         # agent = MCTS(self.agent_network)
-        agent_1 = MuZeroAgent(3, config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, self.shared_information)
-        agent_random = RandomAgent(3)
-        agent_buying = BuyingAgent(3, ["elise", "twistedfate", "pyke", "evelynn", "aatrox", "zilean"])
+        agent_1 = MuZeroAgent(3, [6, 37, 28], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, self.weights, self.global_buffer)
+        agent_random = RandomAgent(3, [6, 37, 28])
+        agent_buying = BuyingAgent(3, [6, 37, 28], ["elise", "twistedfate", "pyke", "evelynn", "aatrox", "zilean"])
         self.ckpt_time = time.time()
         # Reset the environment
         players_observation = self.env.reset()
@@ -116,14 +121,15 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions = agregator.get_actions(players_observation, reward)
+            actions = agregator.get_actions(players_observation, reward, terminated)
             # print(actions)
 
             # step_actions = self.getStepActions(terminated, actions)
             # storage_actions = utils.decode_action(actions)
 
-            # Take that action within the environment and return all of our information for the next player
+            # Take that action within the environment and return all of our information for the next turn
             players_observation, reward, terminated, _, info = self.env.step(actions)
+            #TODO move this to info from simulator
             for player in terminated.keys():
                 if terminated[player]:
                     scores[player] = reward[player]
@@ -258,10 +264,9 @@ class AIInterface:
         # trainer = MuZero_trainer.Trainer(weights_ref)
 
         # Create replay buffer
-        replay = np.array([])
-        replay_buffer = ray.put(replay)
+        replay_buffer = GlobalBuffer.remote()
 
-        data_workers = [DataWorker.remote(agent_num, [replay_buffer, weights_ref]) for agent_num in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(agent_num, [weights_ref], replay_buffer) for agent_num in range(config.CONCURRENT_GAMES)]
         # weights = storage.get_target_model()
         workers = [worker.collect_gameplay_experience.remote() for worker in data_workers]
         while True:
@@ -276,9 +281,10 @@ class AIInterface:
             rank = ray.get(done)[0]
             print(f'Spawning agent {rank}')
             workers.extend([data_workers[rank].collect_gameplay_experience.remote()])
-            print("Starting training")
-            # while replay_buffer.available_batch():
-            #     gameplay_experience_batch = replay_buffer.sample_batch()
+            print("Starting training ", ray.get(replay_buffer.available_batch.remote()))
+            while ray.get(replay_buffer.available_batch.remote()):
+                training_batch = ray.get(replay_buffer.sample_batch.remote())
+                print(len(training_batch))
             #     trainer.train_network(gameplay_experience_batch, weights_ref, train_step, train_summary_writer)
             #     # storage.set_trainer_busy.remote(False)
             #     train_step += 1
