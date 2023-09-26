@@ -168,7 +168,7 @@ class MuZeroNetwork(AbstractNetwork):
 
         reward = np.zeros(observation.shape[0])
 
-        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
+        value = self.value_encoder.decode(value_logits.detach().cpu().numpy())
         reward_logits = self.reward_encoder.encode(reward)
 
         outputs = {
@@ -207,8 +207,8 @@ class MuZeroNetwork(AbstractNetwork):
         next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
         policy_logits, value_logits = self.prediction(next_hidden_state)
 
-        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
-        reward = self.reward_encoder.decode(torch.softmax(reward_logits, dim=-1).detach().cpu().numpy())
+        value = self.value_encoder.decode(value_logits.detach().cpu().numpy())
+        reward = self.reward_encoder.decode(reward_logits.detach().cpu().numpy())
 
         outputs = {
             "value": value,

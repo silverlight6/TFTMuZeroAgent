@@ -55,9 +55,9 @@ class Trainer(object):
     def compute_loss(self, agent, observation, history, target_value_mask, target_reward_mask, target_policy_mask,
                      target_value, target_reward, target_policy, sample_set, train_step, summary_writer):
 
-        target_value_mask = torch.from_numpy(target_value_mask).to('cuda')
-        target_reward_mask = torch.from_numpy(target_reward_mask).to('cuda')
-        target_policy_mask = torch.from_numpy(target_policy_mask).to('cuda')
+        # target_value_mask = torch.from_numpy(target_value_mask).to('cuda')
+        # target_reward_mask = torch.from_numpy(target_reward_mask).to('cuda')
+        # target_policy_mask = torch.from_numpy(target_policy_mask).to('cuda')
         target_reward = torch.from_numpy(target_reward).to('cuda')
         target_value = torch.from_numpy(target_value).to('cuda')
 
@@ -115,6 +115,7 @@ class Trainer(object):
                                                  (agent.value_encoder, target_value)))
 
         accs = collections.defaultdict(list)
+        target_policy = torch.reshape(torch.tensor(np.array(target_policy)), (-1, num_target_steps, 1743)).to('cuda').requires_grad_(True)
         for tstep, prediction in enumerate(predictions):
             # prediction.value_logits is [batch_size, 601]
 
@@ -126,8 +127,7 @@ class Trainer(object):
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
                 else torch.tensor(prediction.reward_logits).to('cuda')
             reward_logits = reward_logits.requires_grad_(True)
-            policy_logits = torch.tensor(prediction.policy_logits[0]).to('cuda').requires_grad_(True)
-            target_policy = torch.reshape(torch.tensor(target_policy), (-1, num_target_steps, 1743)).to('cuda').requires_grad_(True)
+            policy_logits = prediction.policy_logits[0].to('cuda').requires_grad_(True)
 
             cross_loss = torch.nn.CrossEntropyLoss(reduction = 'sum')
 
