@@ -88,10 +88,6 @@ class Step_Function:
             # game_observations[key].generate_other_player_vectors(player, players)
             if action_selector == 0:
                 player.print(f"pass action")
-            elif action_selector == 2:
-                # Buy from shop
-                champ_shop_target = action[1]
-                self.batch_shop(champ_shop_target, player, game_observations[key], key)
             elif action_selector == 1:
                 # Swap champ place
                 target_1 = action[1]
@@ -115,7 +111,10 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
-                        # game_observations[key].generate_game_comps_vector()
+            elif action_selector == 2:
+                # Buy from shop
+                champ_shop_target = action[1]
+                self.batch_shop(champ_shop_target, player, game_observations[key], key)
             # elif action_selector == 6:
             #     # Place item on champ
             #     item_selector = np.argmax(action[44:54])
@@ -135,13 +134,13 @@ class Step_Function:
                         player.sell_champion(player.board[x][y], field=True)
                 else:
                     player.sell_from_bench(target_1 - 28)
-            elif action_selector == 5:
-                # Buy EXP
-                player.buy_exp()
             elif action_selector == 4:
                 # Refresh shop
                 if player.refresh():
                     self.generate_shop(key, player)
+            elif action_selector == 5:
+                # Buy EXP
+                player.buy_exp()
 
     '''
     Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 

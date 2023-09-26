@@ -228,6 +228,7 @@ class MCTS:
         batch_size = policy_logits[0].shape[0]  # 8
         masked_policy_logits = []  # Start with empty type_dim
         masked_policy_mappings = []
+        prob_sum = 0
 
         for idx in range(batch_size):
 
@@ -238,38 +239,35 @@ class MCTS:
             for i in range(58):
                 if i in mask[idx][11] and mask[idx][5][1] and mask[idx][1][np.where(mask[idx][11] == i)[0][0]]:
                     # print(mask[idx][11], i+1)
-                    masked_dim.append(policy_logits[0][idx][1624+1+1+58+i])
-                    masked_dim_mapping.append(f"2_{i}_0_{1624+1+1+58+i}")
+                    prob = policy_logits[0][idx][378+252+1+1+37+i]
+                    prob_sum += prob
+                    masked_dim.append(prob)
+                    masked_dim_mapping.append(f"2_{i}_0_{378+252+1+1+37+i}")
 
             # Move actions
-            for pos in range(28):
-                for champ in range(58):
-                    if not mask[idx][12][champ]:
+            move_index = -1
+            for pos_1 in range(27):
+                for pos_2 in range(pos_1 + 1, 28):
+                    move_index += 1
+                    if not mask[idx][2][pos_1] and not mask[idx][2][pos_2]:
                         continue
+                    prob = policy_logits[0][idx][move_index]
+                    prob_sum += prob
+                    masked_dim.append(prob)
+                    masked_dim_mapping.append(f"1_{pos_1}_{pos_2}_{move_index}")
 
-                    added_champ = False
-                    champs_in_bench, = np.where(mask[idx][3] == champ+1)
-                    if mask[idx][5][0] or mask[idx][2][pos]:
-                        for i in champs_in_bench:
-                            if pos == 28 + i:
-                                continue
-                            if added_champ:
-                                continue
-                            masked_dim.append(policy_logits[0][idx][pos * 58 + champ])
-                            masked_dim_mapping.append(f"1_{28 + i}_{pos}_{pos * 58 + champ}")
-                            added_champ = True
-                                
+            # Bench to Board
+            move_index = -1
+            for bench in range(9):
+                for pos in range(28):
+                    move_index += 1
+                    if not mask[idx][5][0] and not mask[idx][2][pos]:
+                        continue
+                    prob = policy_logits[0][idx][378 + move_index]
+                    prob_sum += prob
+                    masked_dim.append(prob)
+                    masked_dim_mapping.append(f"1_{bench}_{pos}_{378 + move_index}")
 
-                    champs_in_board, = np.where(mask[idx][2] == champ+1)
-                    for i in champs_in_board:
-                        if pos == i:
-                            continue
-                        if added_champ:
-                            continue
-                        masked_dim.append(policy_logits[0][idx][pos * 58 + champ])
-                        masked_dim_mapping.append(f"1_{i}_{pos}_{pos * 58 + champ}")
-                        added_champ = True
-        
             # Item actions
             # TODO
             # for a in range(37):
@@ -286,37 +284,34 @@ class MCTS:
             #         masked_dim_mapping.append(f"3_{a}_{b}")
 
             # Selling action
-            for champ in range(58):
+            for pos in range(37):
                 # If unit exists
-                if not mask[idx][12][champ]:
-                        continue 
-                sold_champ = False
-                champs_in_board, = np.where(mask[idx][2] == champ)
-                for i in champs_in_board:
-                    if sold_champ:
-                        continue
-                    masked_dim.append(policy_logits[0][idx][1624+1+1+champ])
-                    masked_dim_mapping.append(f"3_{i}_0_{1624+1+1+champ}")
-                    sold_champ = True
-                champs_in_bench, = np.where(mask[idx][3] == champ+1)
-                for i in champs_in_bench:
-                    if sold_champ:
-                        continue
-                    masked_dim.append(policy_logits[0][idx][1624+1+1+champ])
-                    masked_dim_mapping.append(f"3_{28 + i}_0_{1624+1+1+champ}")
-                    sold_champ = True
+                if not ((pos < 28 and mask[idx][2][pos] and not mask[idx][9][pos]) or (pos > 27 and mask[idx][3][pos - 28])):
+                    continue
+                prob = policy_logits[0][idx][378+252+1+1+pos]
+                prob_sum += prob
+                masked_dim.append(prob)
+                masked_dim_mapping.append(f"3_{i}_0_{378+252+1+1+pos}")
 
             # Always append pass action
-            masked_dim.append(policy_logits[0][idx][0])
-            masked_dim_mapping.append("0_0_0_0")
+            prob = policy_logits[0][idx][378+252+1+1+37+58]
+            prob_sum += prob
+            masked_dim.append(prob)
+            masked_dim_mapping.append(f"0_0_0_{378+252+1+1+37+58}")
 
             if mask[idx][0][4]:
-                masked_dim.append(policy_logits[0][idx][5])
-                masked_dim_mapping.append("5_0_0_5")
+                prob = policy_logits[0][idx][378+252]
+                prob_sum += prob
+                masked_dim.append(prob)
+                masked_dim_mapping.append(f"5_0_0_{378+252}")
 
             if mask[idx][0][5]:
-                masked_dim.append(policy_logits[0][idx][6])
-                masked_dim_mapping.append("4_0_0_6")
+                prob = policy_logits[0][idx][6]
+                prob_sum += prob
+                masked_dim.append(prob)
+                masked_dim_mapping.append(f"4_0_0_{378+252+1}")
+            
+            masked_dim = [n / prob_sum for n in masked_dim]
 
             masked_policy_logits.append(masked_dim)
             masked_policy_mappings.append(masked_dim_mapping)

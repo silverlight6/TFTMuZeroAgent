@@ -41,7 +41,7 @@ def create_default_mapping():
 # ["0", "1_0", "2_20_20", "3_4_20", "4_10", "5", "6"] ->
 # [["0", "1", "2", "3", "4", "5", "6"], ["_0"], ["_20_20"], ["_4_20"], ["_10"]]
 def split_sample_set(sample_mapping, target_policy):
-    new_policy = np.zeros((1743))
+    new_policy = np.zeros((728))
 
     for index, str_action in enumerate(sample_mapping):
         num_items = str_action.count("_")

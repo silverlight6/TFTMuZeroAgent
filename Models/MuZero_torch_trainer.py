@@ -115,7 +115,7 @@ class Trainer(object):
                                                  (agent.value_encoder, target_value)))
 
         accs = collections.defaultdict(list)
-        target_policy = torch.reshape(torch.tensor(np.array(target_policy)), (-1, num_target_steps, 1743)).to('cuda').requires_grad_(True)
+        target_policy = torch.reshape(torch.tensor(np.array(target_policy)), (-1, num_target_steps, 728)).to('cuda').requires_grad_(True)
         for tstep, prediction in enumerate(predictions):
             # prediction.value_logits is [batch_size, 601]
 
