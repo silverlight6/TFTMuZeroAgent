@@ -94,7 +94,7 @@ class ReplayBuffer:
                         value_set.append(value)
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
-                        reward_set.append(0)
+                        reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[current_index])
                         sample_set.append(self.string_samples[current_index])
                     elif current_index == num_steps:
@@ -103,7 +103,7 @@ class ReplayBuffer:
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
                         value_set.append(self.rewards[-1])
-                        reward_set.append(0)
+                        reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[current_index])
                         sample_set.append(self.string_samples[current_index])
                     else:

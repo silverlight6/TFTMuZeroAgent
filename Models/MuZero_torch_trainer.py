@@ -175,7 +175,6 @@ class Trainer(object):
         loss = accs['value_loss'] + config.REWARD_LOSS_SCALING * accs[
             'reward_loss'] + config.POLICY_LOSS_SCALING * accs['policy_loss']
         mean_loss = torch.sum(loss, -1).to('cuda')  # aggregating over time
-        print(f'Policy {torch.sum(accs["policy_loss"])}, Value {torch.sum(accs["value_loss"])}, Total {mean_loss.item()}')
 
         # Leaving this here in case I want to use it later.
         # This was used in Atari but not in board games. Also, very unclear how to
