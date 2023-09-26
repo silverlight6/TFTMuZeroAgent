@@ -18,7 +18,7 @@ class Trainer(object):
         self.optimizer = self.create_optimizer()
 
     def create_optimizer(self):
-        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE)
+        optimizer = torch.optim.Adam(self.global_agent.parameters(), lr=config.INIT_LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
         return optimizer
 
     def decayed_learning_rate(self, step):
@@ -46,7 +46,7 @@ class Trainer(object):
         loss = self.compute_loss(agent, observation, history, value_mask, reward_mask, policy_mask,
                                  value, reward, policy, sample_set, train_step, summary_writer)
 
-        loss = loss.mean()
+        loss = loss.sum()
 
         loss.backward()
 
@@ -99,14 +99,14 @@ class Trainer(object):
             'There should be as many predictions ({}) as targets ({})'.format(
                 len(predictions), num_target_steps))
 
-        masks = {
-            'value': target_value_mask,
-            'reward': target_reward_mask,
-            'policy': target_policy_mask,
-        }
+        # masks = {
+        #     'value': target_value_mask,
+        #     'reward': target_reward_mask,
+        #     'policy': target_policy_mask,
+        # }
 
-        def name_to_mask(name):
-            return next(k for k in masks if k in name)
+        # def name_to_mask(name):
+        #     return next(k for k in masks if k in name)
 
         target_reward_encoded, target_value_encoded = (torch.reshape(
             torch.tensor(enc.encode(torch.reshape(v, (-1,)).to('cpu'))).to('cuda'),
@@ -126,18 +126,19 @@ class Trainer(object):
             reward_logits = prediction.reward_logits.to('cuda') if torch.is_tensor(prediction.reward_logits) \
                 else torch.tensor(prediction.reward_logits).to('cuda')
             reward_logits = reward_logits.requires_grad_(True)
-            policy_logits = prediction.policy_logits
+            policy_logits = torch.tensor(prediction.policy_logits[0]).to('cuda').requires_grad_(True)
+            target_policy = torch.reshape(torch.tensor(target_policy), (-1, num_target_steps, 1743)).to('cuda').requires_grad_(True)
 
-            value_loss = (-target_value_encoded[:, tstep] *
-                          torch.nn.LogSoftmax(dim=-1)(value_logits)).sum(-1)
+            cross_loss = torch.nn.CrossEntropyLoss(reduction = 'sum')
+
+            value_loss = cross_loss(target_value_encoded[:, tstep], value_logits)
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['value_loss'].append(
                 value_loss
             )
 
-            reward_loss = (-target_reward_encoded[:, tstep] *
-                           torch.nn.LogSoftmax(dim=-1)(reward_logits)).sum(-1)
+            reward_loss = cross_loss(target_reward_encoded[:, tstep], reward_logits)
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['reward_loss'].append(
@@ -154,14 +155,7 @@ class Trainer(object):
 
             # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
             # output_policy ->   [(256, 7), (256, n), ...]
-            policy_loss = []
-            for batch_idx in range(len(target_policy[tstep])):
-                local_policy_loss = (-torch.tensor(target_policy[tstep][batch_idx]).cuda() *
-                                              torch.log(torch.tensor(policy_logits[0][batch_idx]).cuda()))
-
-                policy_loss.append(torch.tensor(local_policy_loss).sum(-1))
-
-            policy_loss = torch.stack(policy_loss).cuda().requires_grad_(True)
+            policy_loss = cross_loss(target_policy[:, tstep], policy_logits)
 
             policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
@@ -176,7 +170,7 @@ class Trainer(object):
             accs['target_value'].append(target_value[:, tstep])
             accs['target_reward'].append(target_reward[:, tstep])
 
-        accs = {k: torch.stack(v, -1) * masks[name_to_mask(k)] for k, v in accs.items()}
+        accs = {k: torch.stack(v, -1) for k, v in accs.items()}
 
         loss = accs['value_loss'] + config.REWARD_LOSS_SCALING * accs[
             'reward_loss'] + config.POLICY_LOSS_SCALING * accs['policy_loss']
@@ -199,12 +193,12 @@ class Trainer(object):
         mean_loss += l2_loss
 
         sum_accs = {k: torch.sum(a, -1) for k, a in accs.items()}
-        sum_masks = {
-            k: torch.maximum(torch.sum(m, -1), torch.tensor(1.)) for k, m in masks.items()
-        }
+        # sum_masks = {
+        #     k: torch.maximum(torch.sum(m, -1), torch.tensor(1.)) for k, m in masks.items()
+        # }
 
         def get_mean(k):
-            return torch.mean(sum_accs[k] / sum_masks[name_to_mask(k)])
+            return torch.mean(sum_accs[k])
 
         summary_writer.add_scalar('prediction/value', get_mean('value'), train_step)
         summary_writer.add_scalar('prediction/reward', get_mean('reward'), train_step)

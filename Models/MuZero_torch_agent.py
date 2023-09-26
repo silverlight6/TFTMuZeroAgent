@@ -246,7 +246,7 @@ class PredNetwork(torch.nn.Module):
         self.fc_internal_v = torch.nn.Linear(84, 128)
         self.fc_value = mlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
         self.fc_internal_p = torch.nn.Linear(84, 128)
-        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
+        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
 
     def forward(self, x):
         x = self.resnet(x)
@@ -392,8 +392,7 @@ class MultiMlp(torch.nn.Module):
         # self.output_heads = []
 
         self.head_0 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[0]),
-                output_activation()
+                torch.nn.Linear(layer_sizes[-1], output_sizes[0])
             ).cuda()
         
         # self.head_1 = torch.nn.Sequential(
