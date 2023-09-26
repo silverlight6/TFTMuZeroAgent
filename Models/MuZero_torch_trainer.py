@@ -131,14 +131,14 @@ class Trainer(object):
 
             cross_loss = torch.nn.CrossEntropyLoss(reduction = 'sum')
 
-            value_loss = cross_loss(target_value_encoded[:, tstep], value_logits)
+            value_loss = cross_loss(value_logits, target_value_encoded[:, tstep])
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['value_loss'].append(
                 value_loss
             )
 
-            reward_loss = cross_loss(target_reward_encoded[:, tstep], reward_logits)
+            reward_loss = cross_loss(reward_logits, target_reward_encoded[:, tstep])
             reward_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             accs['reward_loss'].append(
@@ -155,7 +155,7 @@ class Trainer(object):
 
             # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
             # output_policy ->   [(256, 7), (256, n), ...]
-            policy_loss = cross_loss(target_policy[:, tstep], policy_logits)
+            policy_loss = cross_loss(policy_logits, target_policy[:, tstep])
 
             policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
@@ -175,6 +175,7 @@ class Trainer(object):
         loss = accs['value_loss'] + config.REWARD_LOSS_SCALING * accs[
             'reward_loss'] + config.POLICY_LOSS_SCALING * accs['policy_loss']
         mean_loss = torch.sum(loss, -1).to('cuda')  # aggregating over time
+        print(f'Policy {torch.sum(accs["policy_loss"])}, Value {torch.sum(accs["value_loss"])}, Total {mean_loss.item()}')
 
         # Leaving this here in case I want to use it later.
         # This was used in Atari but not in board games. Also, very unclear how to
@@ -183,14 +184,14 @@ class Trainer(object):
         # mean_loss = tf.math.divide_no_nan(
         #     tf.reduce_sum(loss), tf.reduce_sum(importance_weights))
 
-        if config.WEIGHT_DECAY > 0.:
-            l2_loss = config.WEIGHT_DECAY * sum(
-                self.l2_loss(p)
-                for p in agent.parameters())
-        else:
-            l2_loss = mean_loss * 0.
+        # if config.WEIGHT_DECAY > 0.:
+        #     l2_loss = config.WEIGHT_DECAY * sum(
+        #         self.l2_loss(p)
+        #         for p in agent.parameters())
+        # else:
+        #     l2_loss = mean_loss * 0.
 
-        mean_loss += l2_loss
+        # mean_loss += l2_loss
 
         sum_accs = {k: torch.sum(a, -1) for k, a in accs.items()}
         # sum_masks = {
@@ -210,7 +211,7 @@ class Trainer(object):
         summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss'] / config.UNROLL_STEPS), train_step)
         summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss'] / config.UNROLL_STEPS), train_step)
         summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
-        summary_writer.add_scalar('losses/l2', l2_loss, train_step)
+        # summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 
         summary_writer.add_scalar('accuracy/value', -get_mean('value_diff'), train_step)
         summary_writer.add_scalar('accuracy/reward', -get_mean('reward_diff'), train_step)
