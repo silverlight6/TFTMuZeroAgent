@@ -8,14 +8,20 @@ def create_default_mapping():
 
     # Shop masking
     for i in range(58):
-        local.append(f"2_{i}")
+        local.append(f"2_{i}_0_{378+252+1+1+37+i}")
 
     # Board masking
-    # For all board + bench slots...
-    for a in range(28):
-        # rest of board slot locs for moving, last for sale
-        for b in range(58):
-            local.append(f"1_{a}_{b}")
+    move_index = -1
+    for pos_1 in range(27):
+        for pos_2 in range(pos_1 + 1, 28):
+            move_index += 1
+            local.append(f"1_{pos_1}_{pos_2}_{move_index}")
+
+    move_index = -1
+    for bench in range(9):
+        for pos in range(28):
+            move_index += 1
+            local.append(f"1_{bench}_{pos}_{378 + move_index}")
     # Item masking
     # For all board + bench slots...
     # TODO
@@ -26,12 +32,12 @@ def create_default_mapping():
     #         local.append(f"_{a}_{b}")
 
     # Sell unit masking
-    for a in range(58):
-        local.append(f"3_{a}")
+    for pos in range(37):
+        local.append(f"3_{pos}_0_{378+252+1+1+pos}")
 
-    local.append("0")
-    local.append("4")
-    local.append("5")
+    local.append(f"0_0_0_{378+252+1+1+37+58}")
+    local.append(f"4_0_0_{378+252+1}")
+    local.append(f"5_0_0_{378+252}")
 
     mappings = [local] * config.NUM_PLAYERS
 

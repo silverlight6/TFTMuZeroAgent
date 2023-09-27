@@ -291,7 +291,7 @@ class MCTS:
                 prob = policy_logits[0][idx][378+252+1+1+pos]
                 prob_sum += prob
                 masked_dim.append(prob)
-                masked_dim_mapping.append(f"3_{i}_0_{378+252+1+1+pos}")
+                masked_dim_mapping.append(f"3_{pos}_0_{378+252+1+1+pos}")
 
             # Always append pass action
             prob = policy_logits[0][idx][378+252+1+1+37+58]
@@ -306,16 +306,18 @@ class MCTS:
                 masked_dim_mapping.append(f"5_0_0_{378+252}")
 
             if mask[idx][0][5]:
-                prob = policy_logits[0][idx][6]
+                prob = policy_logits[0][idx][378+252+1]
                 prob_sum += prob
                 masked_dim.append(prob)
                 masked_dim_mapping.append(f"4_0_0_{378+252+1}")
             
             masked_dim = [n / prob_sum for n in masked_dim]
+            # print(masked_dim_mapping)
+            # print(masked_dim)
 
             masked_policy_logits.append(masked_dim)
             masked_policy_mappings.append(masked_dim_mapping)
-        
+        # input()
         return masked_policy_logits, masked_policy_mappings
 
     """
@@ -343,7 +345,7 @@ class MCTS:
                       Number of samples per player, can change if legal actions < num_samples
     """
     def sample(self, policy_logits, string_mapping, num_samples):
-        # policy_logits [(8, max 1443)]
+        # policy_logits [(8, max 728)]
         batch_size = len(policy_logits)  # 8
         # print("SIZE", len(policy_logits[0]))
         # print("SIZE STRING", len(string_mapping[0]))
@@ -364,17 +366,20 @@ class MCTS:
             samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
             counts = np.bincount(samples, minlength=len(policy_logits[idx]))
 
-            for i, count in enumerate(counts[counts > 0]):
-                dim_base_string = string_mapping[idx][i]
-                local_logits.append(((1 / num_samples) * count))
-                local_string.append(dim_base_string)
-                local_byte.append(bytes(dim_base_string, "utf-8"))
+            for i, count in enumerate(counts):
+                if count > 0:
+                    dim_base_string = string_mapping[idx][i]
+                    local_logits.append(((1 / num_samples) * count))
+                    local_string.append(dim_base_string)
+                    local_byte.append(bytes(dim_base_string, "utf-8"))
            
             output_logits.append(local_logits)
             output_string_mapping.append(local_string)
+            # print(local_string)
+            # input()
             output_byte_mapping.append(local_byte)
             policy_sizes.append(len(local_logits))
-            
+
         return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
