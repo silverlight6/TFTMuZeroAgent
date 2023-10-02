@@ -262,9 +262,6 @@ class AIInterface:
                         break
             done, workers = ray.wait(workers)
             rank = ray.get(done)[0]
-            print(f'Spawning agent {rank}')
-            weights = storage.get_target_model()
-            workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights)])
             while ray.get(global_buffer.available_batch.remote()):
                 print("Starting training")
                 gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
@@ -276,6 +273,9 @@ class AIInterface:
                     storage.set_model()
                     global_agent.tft_save_model(train_step)
                 print("Finished training")
+            print(f'Spawning agent {rank}')
+            weights = storage.get_target_model()
+            workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights)])
             
 
     '''

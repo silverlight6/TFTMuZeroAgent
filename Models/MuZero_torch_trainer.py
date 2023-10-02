@@ -129,7 +129,7 @@ class Trainer(object):
             reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits[0].to('cuda').requires_grad_(True)
 
-            cross_loss = torch.nn.CrossEntropyLoss(reduction = 'sum')
+            cross_loss = torch.nn.CrossEntropyLoss(reduction = 'mean')
 
             value_loss = cross_loss(value_logits, target_value_encoded[:, tstep])
             value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
@@ -206,9 +206,9 @@ class Trainer(object):
         summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
         summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
 
-        summary_writer.add_scalar('losses/value', torch.mean(sum_accs['value_loss'] / config.UNROLL_STEPS), train_step)
-        summary_writer.add_scalar('losses/reward', torch.mean(sum_accs['reward_loss'] / config.UNROLL_STEPS), train_step)
-        summary_writer.add_scalar('losses/policy', torch.mean(sum_accs['policy_loss'] / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/value', get_mean('value_loss') / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/reward', get_mean('reward_loss') / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/policy', get_mean('policy_loss') / config.UNROLL_STEPS), train_step)
         summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
         # summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 

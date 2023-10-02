@@ -747,8 +747,9 @@ class Player:
 
         # Decision mask parameters
 
-        # if gold < 4 or already max level, do not allow to level
-        if self.level == self.max_level or self.gold < 4:
+        # if gold < 4 or already max level, do not allow to level 
+        required_gold = math.ceil((self.level_costs[self.level] - self._exp) / 4.0) * 4
+        if self.level == self.max_level or self.gold < required_gold:
             self.decision_mask[4] = 0
         else:
             self.decision_mask[4] = 1

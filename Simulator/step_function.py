@@ -140,7 +140,9 @@ class Step_Function:
                     self.generate_shop(key, player)
             elif action_selector == 5:
                 # Buy EXP
-                player.buy_exp()
+                current_level = player.level
+                while player.level == current_level:
+                    player.buy_exp()
 
     '''
     Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 
