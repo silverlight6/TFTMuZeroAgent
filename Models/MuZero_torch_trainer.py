@@ -206,9 +206,9 @@ class Trainer(object):
         summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
         summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
 
-        summary_writer.add_scalar('losses/value', get_mean('value_loss') / config.UNROLL_STEPS), train_step)
-        summary_writer.add_scalar('losses/reward', get_mean('reward_loss') / config.UNROLL_STEPS), train_step)
-        summary_writer.add_scalar('losses/policy', get_mean('policy_loss') / config.UNROLL_STEPS), train_step)
+        summary_writer.add_scalar('losses/value', get_mean('value_loss') / config.UNROLL_STEPS, train_step)
+        summary_writer.add_scalar('losses/reward', get_mean('reward_loss') / config.UNROLL_STEPS, train_step)
+        summary_writer.add_scalar('losses/policy', get_mean('policy_loss') / config.UNROLL_STEPS, train_step)
         summary_writer.add_scalar('losses/total', torch.mean(mean_loss), train_step)
         # summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 
