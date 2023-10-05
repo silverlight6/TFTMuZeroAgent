@@ -141,7 +141,7 @@ class Step_Function:
             elif action_selector == 5:
                 # Buy EXP
                 current_level = player.level
-                while player.level == current_level:
+                while player.level == current_level and player.level < 9:
                     player.buy_exp()
 
     '''
