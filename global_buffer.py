@@ -31,13 +31,13 @@ class GlobalBuffer:
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
 
-        observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
-        action_history_batch = np.asarray(action_history_batch)
-        target_value_batch = np.asarray(target_value_batch).astype('float32')
-        target_reward_batch = np.asarray(target_reward_batch).astype('float32')
-        value_mask_batch = np.asarray(value_mask_batch).astype('float32')
-        reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
-        policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
+        observation_batch = np.squeeze(np.asarray(obs_tensor_batch).astype('float16'))
+        action_history_batch = np.asarray(action_history_batch).astype('float16')
+        target_value_batch = np.asarray(target_value_batch).astype('float16')
+        target_reward_batch = np.asarray(target_reward_batch).astype('float16')
+        value_mask_batch = np.asarray(value_mask_batch).astype('float16')
+        reward_mask_batch = np.asarray(reward_mask_batch).astype('float16')
+        policy_mask_batch = np.asarray(policy_mask_batch).astype('float16')
 
         return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
                 target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch]
