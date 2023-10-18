@@ -312,7 +312,8 @@ class Trainer(object):
     def supervised_loss(self, prediction, target):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
-            loss += mean_squared_error_loss(pred_dim, torch.tensor(target_dim, dtype=torch.float32).to(config.DEVICE))
+            loss += cross_entropy_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
+                                                              dtype=torch.float32).to(config.DEVICE))
         return loss
 
     def l2_regularization(self):

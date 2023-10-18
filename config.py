@@ -41,6 +41,7 @@ CHAMPION_ACTION_DIM = [2 for _ in range(58)]
 # Number of categories for each trait tier. Emperor for example has 2, no emperors or 1.
 TEAM_TIERS_VECTOR = [4, 5, 4, 4, 4, 3, 3, 3, 2, 4, 4, 4, 5, 3, 5, 2, 3, 5, 4, 4, 3, 4, 4, 4, 2, 5]
 TIERS_FLATTEN_LENGTH = 97
+CHANCE_BUFFER_SEND = 0.2
 
 # INPUT SIZES
 SHOP_INPUT_SIZE = 45
@@ -76,7 +77,7 @@ SAMPLES_PER_PLAYER = 64
 UNROLL_STEPS = 15
 
 ### TRAINING ###
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 INIT_LEARNING_RATE = 0.01
 LEARNING_RATE_DECAY = int(350e3)
 LR_DECAY_FUNCTION = 0.1

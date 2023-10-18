@@ -1,6 +1,5 @@
 import numpy as np
 import config
-import ray
 import time
 from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_decide
@@ -80,6 +79,7 @@ class ReplayBuffer:
             num_steps = len(self.gameplay_experiences)
             reward_correction = []
             prev_reward = 0
+            output_sample_set = []
             for reward in self.rewards:
                 reward_correction.append(reward - prev_reward)  # Getting instant rewards not cumulative
                 prev_reward = reward
@@ -96,7 +96,7 @@ class ReplayBuffer:
                 reward_set = []
                 policy_set = []
                 sample_set = []
-                # priority_set = []
+                priority_set = []
                 tier_set = []
                 final_tier_set = []
                 champion_set = []
@@ -114,10 +114,10 @@ class ReplayBuffer:
                     for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
                         value += reward_corrected * config.DISCOUNT ** i
                     
-                    # priority = 0.001
-                    # if current_index < num_steps:
-                    #     priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
-                    # priority_set.append(priority)
+                    priority = 0.001
+                    if current_index < num_steps:
+                        priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
+                    priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
@@ -185,26 +185,17 @@ class ReplayBuffer:
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
                 
-                # formula for priority over unroll steps 
-                # priority = priority_set[0]
-                # div = -priority
-                # for i in priority_set:
-                #     div += i
-                # priority = priority / div
-
-                # if sample == 0 or sample > num_steps - config.UNROLL_STEPS - 1:
-                #     print("Sample {}".format(sample))
-                #     # print(self.gameplay_experiences[sample])
-                #     print(action_set)
-                #     print(sample_set)
-                #     print(reward_set)
-                #     print(tier_set)
-                #     print(final_tier_set)
-                #     print(champion_set)
-                # print("sample {} with num_step {}".format(sample, num_steps))
+                # formula for priority over unroll steps,
+                # adding small randomness to get around a priority queue error where it crashes if you add two items
+                # with identical priorities
+                priority = priority_set[0]
+                div = -priority
+                for i in priority_set:
+                    div += i
+                priority = 1 / (priority / div) + np.random.rand() * 0.00001
 
                 # priority = 1 / priority because priority queue stores in ascending order.
-                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set,
-                                     reward_mask_set, policy_mask_set, value_set, reward_set,
-                                     policy_set, sample_set, tier_set, final_tier_set, champion_set]
-                ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set, self.ending_position))
+                output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
+                                                     reward_mask_set, policy_mask_set, value_set, reward_set,
+                                                     policy_set, sample_set, tier_set, final_tier_set, champion_set]])
+            self.g_buffer.store_replay_sequence.remote([output_sample_set, self.ending_position])

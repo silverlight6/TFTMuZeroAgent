@@ -105,7 +105,8 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION):
+                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION)\
+                                and np.random.rand() < config.CHANCE_BUFFER_SEND:
                             if info[key]["player"]:
                                 current_comp[key] = info[key]["player"].get_team_tier_labels()
                                 current_champs[key] = info[key]["player"].get_team_champion_labels()
@@ -564,7 +565,7 @@ class AIInterface:
         train_step = starting_train_step
 
         storage = Storage.remote(train_step)
-        global_buffer = GlobalBuffer.remote(storage)
+        global_buffer = GlobalBuffer.options(max_concurrency=10).remote(storage)
 
         if config.CHAMP_DECIDER:
             global_agent = DefaultNetwork()
@@ -598,16 +599,24 @@ class AIInterface:
         # ray.get(workers)
 
         while True:
+            ckpt_time = time.time_ns()
             if ray.get(global_buffer.available_batch.remote()):
-                gameplay_experience_batch, average_position = ray.get(global_buffer.sample_batch.remote())
-                train_summary_writer.add_scalar('episode_info/average_position', average_position, train_step)
-                trainer.train_network(gameplay_experience_batch, train_step)
+                print("Available_batch took {} time".format(time.time_ns() - ckpt_time))
+                ckpt_time = time.time_ns()
+                gameplay_experience_batch = ray.get(global_buffer.sample_batch.remote())
+                print("AI_INTERFACE Sample_batch took {} time".format(time.time_ns() - ckpt_time))
+                print("Scaler is {}".format(gameplay_experience_batch[1]))
+                train_summary_writer.add_scalar('episode_info/average_position', gameplay_experience_batch[1], train_step)
+                ckpt_time = time.time_ns()
+                trainer.train_network(gameplay_experience_batch[0], train_step)
+                print("Finished trainer took {} time".format(time.time_ns() - ckpt_time))
                 storage.set_trainer_busy.remote(False)
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
                 if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.store_checkpoint.remote(train_step)
                     global_agent.tft_save_model(train_step)
+                ckpt_time = time.time_ns()
 
     '''
     Method used for testing the simulator. It does not call any AI and generates random actions from numpy. Intended
