@@ -4,7 +4,8 @@ import time
 import numpy as np
 
 
-@ray.remote(scheduling_strategy="SPREAD")
+# @ray.remote(, )
+@ray.remote(memory=config.BATCH_SIZE * 10000, num_cpus=2, num_gpus=0.1)
 class GlobalBuffer:
     def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(10000)
@@ -17,7 +18,6 @@ class GlobalBuffer:
 
     # Might be a bug with the action_batch not always having correct dims
     def sample_batch(self):
-        self.ckpt_time = time.time_ns()
         # Returns: a batch of gameplay experiences without regard to which agent.
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
@@ -53,10 +53,12 @@ class GlobalBuffer:
         position_batch = np.asarray(position_batch)
         position_batch = np.mean(position_batch)
 
-        print("sample_batch took {} time".format(time.time_ns() - self.ckpt_time))
-        return [[observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
-                target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch, tier_batch,
-                final_tier_batch, champion_batch], np.mean(position_batch)]
+        data_list = [
+            observation_batch, action_history_batch, value_mask_batch, reward_mask_batch,
+            policy_mask_batch, target_value_batch, target_reward_batch, target_policy_batch,
+            sample_set_batch, tier_batch, final_tier_batch, champion_batch, np.array(position_batch)
+        ]
+        return np.array(data_list, dtype=object)
 
     def reshape_observation(self, obs_batch):
         obs_reshaped = {}
@@ -85,7 +87,7 @@ class GlobalBuffer:
             self.storage_ptr.set_trainer_busy.remote(True)
             return True
         time.sleep(1)
-        # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
+        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False
 
     # Leaving this transpose method here in case some model other than

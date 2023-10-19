@@ -1,8 +1,7 @@
 import time
-
+import ray
 import config
 import collections
-import time
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -48,8 +47,14 @@ class Trainer(object):
             param_group["lr"] = lr
 
     def train_network(self, batch, train_step):
+
+        self.model_ckpt_time = time.time_ns()
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set = batch
+            sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch).tolist()
+        print("Finished fetch batch took {} time".format(time.time_ns() - self.model_ckpt_time))
+
+        self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
+
         self.adjust_lr(train_step)
 
         predictions = self.compute_forward(observation, action_history)
