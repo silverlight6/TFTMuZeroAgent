@@ -15,6 +15,8 @@ from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
+from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+from ray.util.placement_group import placement_group
 
 from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
@@ -28,7 +30,7 @@ import torch
 Data workers are the "workers" or threads that collect game play experience. 
 Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
 '''
-@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER, num_cpus=0.8)
+@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER, num_cpus=1)
 class DataWorker(object):
     def __init__(self, rank):
         if config.CHAMP_DECIDER:
@@ -137,7 +139,7 @@ class DataWorker(object):
 
             # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote()
-            buffers = BufferWrapper.remote(global_buffer)
+            buffers.reset_buffers.remote(global_buffer)
 
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
             # Disabling to test out the default agent
@@ -227,7 +229,7 @@ class DataWorker(object):
             print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
             ray.get(buffers.store_global_buffer.remote())
             print("FINISHED SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
-            buffers = BufferWrapper.remote(global_buffer)
+            buffers = BufferWrapper.reset.remote(global_buffer)
 
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
@@ -558,6 +560,8 @@ class AIInterface:
     def train_torch_model(self, starting_train_step=0):
         gpus = torch.cuda.device_count()
         ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
+        global_pg = placement_group([{"CPU": 2, "GPU": 1}])
+        buffer_pg = placement_group([{"CPU": 4, "GPU": 1}])
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -565,7 +569,8 @@ class AIInterface:
         train_step = starting_train_step
 
         storage = Storage.remote(train_step)
-        global_buffer = GlobalBuffer.options(max_concurrency=10).remote(storage)
+        global_buffer = GlobalBuffer.options(scheduling_strategy=PlacementGroupSchedulingStrategy(
+            placement_group=global_pg, placement_group_bundle_index=0)).remote(storage)
 
         if config.CHAMP_DECIDER:
             global_agent = DefaultNetwork()
@@ -575,7 +580,7 @@ class AIInterface:
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
         global_agent.to(config.DEVICE)
-        
+
         # total_params = sum(p.numel() for p in global_agent.parameters())
 
         trainer = Trainer(global_agent, train_summary_writer)
@@ -587,7 +592,8 @@ class AIInterface:
 
         weights = ray.get(storage.get_target_model.remote())
         workers = []
-        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+        data_workers = [DataWorker.options(scheduling_strategy=PlacementGroupSchedulingStrategy(
+            placement_group=buffer_pg)).remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
             if config.CHAMP_DECIDER:
                 workers.append(worker.collect_default_experience.remote(env, buffers[i], global_buffer,

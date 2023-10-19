@@ -4,7 +4,7 @@ import time
 import numpy as np
 
 
-@ray.remote
+@ray.remote(scheduling_strategy="SPREAD")
 class GlobalBuffer:
     def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(10000)
@@ -81,10 +81,11 @@ class GlobalBuffer:
     def available_batch(self):
         queue_length = self.gameplay_experiences.size
         if queue_length >= self.batch_size and not ray.get(self.storage_ptr.get_trainer_busy.remote()):
+            print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
             self.storage_ptr.set_trainer_busy.remote(True)
             return True
         time.sleep(1)
-        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
+        # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False
 
     # Leaving this transpose method here in case some model other than
