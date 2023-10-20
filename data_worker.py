@@ -145,6 +145,10 @@ class DataWorker(object):
             # if all(self.default_agent):
             #     self.default_agent[0] = False
 
+            while ray.get(global_buffer.buffer_size.remote()) > 5000:
+                print("Here")
+                time.sleep(5)
+
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.

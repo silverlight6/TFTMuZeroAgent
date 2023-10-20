@@ -87,7 +87,7 @@ class GlobalBuffer:
             self.storage_ptr.set_trainer_busy.remote(True)
             return True
         time.sleep(1)
-        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
+        # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False
 
     # Leaving this transpose method here in case some model other than
@@ -104,6 +104,9 @@ class GlobalBuffer:
             matrix_T.append(row)
 
         return matrix_T
+
+    def buffer_size(self):
+        return self.gameplay_experiences.size
 
 
 # Code taken from https://www.geeksforgeeks.org/max-heap-in-python/ and adjusted for the use-case

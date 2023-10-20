@@ -48,10 +48,8 @@ class Trainer(object):
 
     def train_network(self, batch, train_step):
 
-        self.model_ckpt_time = time.time_ns()
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
             sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch).tolist()
-        print("Finished fetch batch took {} time".format(time.time_ns() - self.model_ckpt_time))
 
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
 
@@ -197,8 +195,9 @@ class Trainer(object):
         champ_loss = torch.stack(self.outputs.champ_loss, -1) * policy_mask
 
         self.loss = torch.sum(
-            value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING +
-            tier_loss * config.GAME_METRICS_SCALING + final_tier_loss * config.GAME_METRICS_SCALING +
+            value_loss * config.VALUE_LOSS_SCALING + reward_loss * config.REWARD_LOSS_SCALING +
+            policy_loss * config.POLICY_LOSS_SCALING + tier_loss * config.GAME_METRICS_SCALING +
+            final_tier_loss * config.GAME_METRICS_SCALING +
             champ_loss * config.GAME_METRICS_SCALING, -1).to(config.DEVICE)
         self.loss = torch.sum(
             value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
