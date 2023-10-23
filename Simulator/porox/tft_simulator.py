@@ -59,7 +59,7 @@ class TFT_Simulator(ParallelEnv):
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
         """
-        Action Space is an 11x5x38 Dimension MultiDiscrete Tensor
+        Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
                      11
            |P|L|R|B|B|B|B|B|B|B|S| 
            |b|b|b|B|B|B|B|B|B|B|S|
@@ -89,7 +89,7 @@ class TFT_Simulator(ParallelEnv):
         Item only uses 37 dimensions, as you cannot sell an item
 
         """
-        return MultiDiscrete([11, 5, 38])
+        return MultiDiscrete([5, 11, 38])
 
     def render(self):
         pass
