@@ -58,7 +58,38 @@ class TFT_Simulator(ParallelEnv):
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return None
+        """
+        Action Space is an 11x5x38 Dimension MultiDiscrete Tensor
+                     11
+           |P|L|R|B|B|B|B|B|B|B|S| 
+           |b|b|b|B|B|B|B|B|B|B|S|
+        5  |b|b|b|B|B|B|B|B|B|B|S| x 38
+           |b|b|b|B|B|B|B|B|B|B|S|
+           |I|I|I|I|I|I|I|I|I|I|S|
+
+        P = Pass Action
+        L = Level Action
+        R = Refresh Action
+        B = Board Slot
+        b = Bench Slot
+        I = Item Slot
+        S = Shop Slot
+
+        Pass, Level, Refresh, and Shop are single action spaces,
+        meaning we only use the first dimension of the MultiDiscrete Space
+
+        Board, Bench, and Item are multi action spaces,
+        meaning we use all 3 dimensions of the MultiDiscrete Space
+
+        0-26 -> Board Slots
+        27-36 -> Bench Slots
+        37 -> Sell Slot
+
+        Board and Bench use all 38 dimensions,
+        Item only uses 37 dimensions, as you cannot sell an item
+
+        """
+        return MultiDiscrete([11, 5, 38])
 
     def render(self):
         pass
@@ -118,7 +149,6 @@ class TFT_Simulator(ParallelEnv):
 
         for key, p in self.player_states.items():
             self.step_function.generate_shop(key, p)
-        # self.step_function.generate_shop_vectors(self.player_states)
 
         observations = self.player_observations
         infos = self.player_game_states
@@ -181,9 +211,13 @@ class TFT_Simulator(ParallelEnv):
         Actions is a dictionary of actions from each agent.
         Ex:
             {
-                "player_0": "[0, 0, 0]",
-                "player_1": "[1, 1, 0]",
-                "player_2": "[2, 2, 32]",
+                "player_0": "[0, 0, 0]", - Pass action
+                "player_1": "[1, 0, 0]", - Level action
+                "player_2": "[2, 0, 0]", - Refresh action
+                "player_3": "[3, X1, 0]", - Buy action
+                "player_4": "[4, X1, 0]", - Sell action
+                "player_5": "[5, X1, X2]", - Move action
+                "player_6": "[6, X1, X2]", - Item action
                 ...
             }
         """
@@ -191,8 +225,7 @@ class TFT_Simulator(ParallelEnv):
         for player_id, action in actions.items():
             if self.is_alive(player_id) and self.taking_actions(player_id):
                 # Perform action
-                self.step_function.perform_action(
-                    action, self.player_states[player_id], self.player_states, player_id, self.player_observations)
+                self.player_states[player_id].perform_action(action)
 
                 self.player_game_states[player_id]["actions_taken"] += 1
 
