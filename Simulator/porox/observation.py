@@ -184,6 +184,112 @@ class Observation:
             player.gold,
         ])
 
+    # -- Public Vectors -- #
+    def create_board_vector(self, player):
+        """Create a board vector for a player
+
+        Board Vector: (7, 4, champion_vector_length)
+
+        Array board layout
+                        Left
+            | (0,0) (0,1) (0,2) (0,3) |
+            | (1,0) (1,1) (1,2) (1,3) |
+            | (2,0) (2,1) (2,2) (2,3) |
+    Bottom  | (3,0) (3,1) (3,2) (3,3) |  Top
+            | (4,0) (4,1) (4,2) (4,3) |
+            | (5,0) (5,1) (5,2) (5,3) |
+            | (6,0) (6,1) (6,2) (6,3) |
+                        Right
+
+        Rotated to match the board in game
+                                Top
+        | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
+  Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+        | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
+        | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
+                                Bottom
+
+        """
+
+        board_vector = np.zeros((7, 4, player.champion_vector_length))
+
+        for x in player.board:
+            for y in player.board[x]:
+                if champion := player.board[x][y]:
+                    champion_vector = player.create_champion_vector(champion)
+
+                    board_vector[x][y] = champion_vector
+
+        return self.apply_champion_normalization(board_vector)
+
+    def create_bench_vector(self, player):
+        """Create a bench vector for a player
+
+        Bench Vector: (9, champion_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+        """
+
+        bench_vector = np.zeros((9, self.champion_vector_length))
+
+        for idx, champion in enumerate(player.bench):
+            if champion:
+                champion_vector = self.create_champion_vector(champion)
+                bench_vector[idx] = champion_vector
+
+        return self.apply_champion_normalization(bench_vector)
+
+    def create_item_bench_vector(self, player):
+        """Create a item bench vector for a player
+
+        Item Bench Vector: (10, item_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+        """
+
+        item_bench_vector = np.zeros((10, self.item_vector_length))
+
+        for idx, item in enumerate(player.item_bench):
+            if item:
+                item_vector, _ = self.create_item_vector(item)
+                item_bench_vector[idx] = item_vector
+
+        return self.apply_item_normalization(item_bench_vector)
+
+    def create_trait_vector(self, player):
+        """Create trait vector for a player
+
+        Each trait is represented by traitID, and traitLevel
+        """
+
+        trait_vector = np.zeros((self.tier_player_vector_length, 2))
+
+        for origin, id in self.tier_ids.items():
+            trait_vector[id][0] = id
+            trait_vector[id][1] = player.team_tiers[origin]
+
+        return trait_vector.flatten()
+
+    # -- Private Vectors -- #
+    def create_shop_vector(self, player):
+        """Create shop vector for a player
+
+        Shop Vector: (5, champion_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 |
+        """
+
+        shop_vector = np.zeros((5, self.champion_vector_length))
+
+        for idx, champion in enumerate(player.shop_champions):
+            if champion:
+                champion_vector = self.create_champion_vector(champion)
+                shop_vector[idx] = champion_vector
+
+        return self.apply_champion_normalization(shop_vector)
+
+    # --- Champion and Item Vectors --- #
+
     def create_champion_vector(self, champion):
         """Create a champion vector for a champion
 
@@ -343,109 +449,8 @@ class Observation:
 
         return item_vector, stat_modifiers
 
-    def create_board_vector(self, player):
-        """Create a board vector for a player
-
-        Board Vector: (7, 4, champion_vector_length)
-
-        Array board layout
-                        Left
-            | (0,0) (0,1) (0,2) (0,3) |
-            | (1,0) (1,1) (1,2) (1,3) |
-            | (2,0) (2,1) (2,2) (2,3) |
-    Bottom  | (3,0) (3,1) (3,2) (3,3) |  Top
-            | (4,0) (4,1) (4,2) (4,3) |
-            | (5,0) (5,1) (5,2) (5,3) |
-            | (6,0) (6,1) (6,2) (6,3) |
-                        Right
-
-        Rotated to match the board in game
-                                Top
-        | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
-  Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
-        | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
-        | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
-                                Bottom
-
-        """
-
-        board_vector = np.zeros((7, 4, player.champion_vector_length))
-
-        for x in player.board:
-            for y in player.board[x]:
-                if champion := player.board[x][y]:
-                    champion_vector = player.create_champion_vector(champion)
-
-                    board_vector[x][y] = champion_vector
-
-        return board_vector
-
-    def create_bench_vector(self, player):
-        """Create a bench vector for a player
-
-        Bench Vector: (9, champion_vector_length)
-
-        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-        """
-
-        bench_vector = np.zeros((9, self.champion_vector_length))
-
-        for idx, champion in enumerate(player.bench):
-            if champion:
-                champion_vector = self.create_champion_vector(champion)
-                bench_vector[idx] = champion_vector
-
-        return bench_vector
-
-    def create_item_bench_vector(self, player):
-        """Create a item bench vector for a player
-
-        Item Bench Vector: (10, item_vector_length)
-
-        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-        """
-
-        item_bench_vector = np.zeros((10, self.item_vector_length))
-
-        for idx, item in enumerate(player.item_bench):
-            if item:
-                item_vector, _ = self.create_item_vector(item)
-                item_bench_vector[idx] = item_vector
-
-        return item_bench_vector
-
-    def create_shop_vector(self, player):
-        """Create shop vector for a player
-
-        Shop Vector: (5, champion_vector_length)
-
-        | 0 | 1 | 2 | 3 | 4 |
-        """
-
-        shop_vector = np.zeros((5, self.champion_vector_length))
-
-        for idx, champion in enumerate(player.shop_champions):
-            if champion:
-                champion_vector = self.create_champion_vector(champion)
-                shop_vector[idx] = champion_vector
-
-        return shop_vector
-
-    def create_trait_vector(self, player):
-        """Create trait vector for a player
-
-        Each trait is represented by traitID, and traitLevel
-        """
-
-        trait_vector = np.zeros((self.tier_player_vector_length, 2))
-
-        for origin, id in self.tier_ids.items():
-            trait_vector[id][0] = id
-            trait_vector[id][1] = player.team_tiers[origin]
-
-        return trait_vector.flatten()
-
     # --- Normalization --- #
+
     def apply_champion_normalization(self, champion_vectors):
         """
             0-10: item1: item vector
