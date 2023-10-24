@@ -75,16 +75,18 @@ class Observation:
         self.item_ids = {k: idx for idx, k in enumerate(items.keys())}
         # Reverse trait_items dictionary to get the trait from the item
         self.item_traits = {v: k for k, v in trait_items.items()}
+
+        # TODO: Figure out the best scaling for each stat
         self.item_transformations = {
-            "AD": lambda x: x / 2,
-            "crit_chance": lambda x: x * 255,
+            "AD": lambda x: x,
+            "crit_chance": lambda x: x,
             "armor": lambda x: x,
             "MR": lambda x: x,
-            "dodge": lambda x: x * 400,
-            "health": lambda x: (x ** 0.5) * 3,
-            "mana": lambda x: x * 2.5,
-            "AS": lambda x: (x - 1) * 2.5,
-            "SP": lambda x: x * 3,
+            "dodge": lambda x: x,
+            "health": lambda x: x,
+            "mana": lambda x: x,
+            "AS": lambda x: x,
+            "SP": lambda x: x,
             # TODO: "range"; rfc gives range
         }
         self.item_vector_length = 10
@@ -92,30 +94,92 @@ class Observation:
         # Create ids for tiers
         self.tier_ids = {k: idx for idx, k in enumerate(tiers.keys())}
         # 3 possible tiers from champion, 3 possible tiers from items, 1 possible tier from chosen
-        self.tier_vector_length = 7
+        self.tier_champion_vector_length = 7
+        self.tier_player_vector_length = len(self.tier_ids) + 1
 
         # Create ids for champions
         self.champion_ids = {k: idx for idx, k in enumerate(COST.keys())}
-        # Trick to get the championIDs in the same order as the champions dictionary
+
+        # TODO: Figure out the best scaling for each stat
         self.champion_transformations = {
-            "AD": lambda x: x / 2,
-            "crit_chance": lambda x: x * 255,
+            "AD": lambda x: x,
+            "crit_chance": lambda x: x,
             "armor": lambda x: x,
             "MR": lambda x: x,
-            "dodge": lambda x: x * 255,
-            "health": lambda x: (x ** 0.5) * 3,
-            "mana": lambda x: x,  # Special case dealt with later
-            "AS": lambda x: x * 100,
-            "SP": lambda x: x * 100,
-            "maxmana": lambda x: x * 1.45,
-            "range": lambda x: x * 32
+            "dodge": lambda x: x,
+            "health": lambda x: x,
+            "mana": lambda x: x,
+            "AS": lambda x: x,
+            "SP": lambda x: x,
+            "maxmana": lambda x: x,
+            "range": lambda x: x,
         }
         self.stat_vector_length = 11
 
-        # Trick to get the championIDs in the same order as the champions dictionary
+        # championID, items, origins, stats
+        self.champion_vector_length = 1 + self.item_vector_length * \
+            3 + self.tier_champion_vector_length + self.stat_vector_length
+
+        # Invalid Champions: Sandguard, Dummy
+        # TODO: Give dummy a discrete id instead of using len(champion_ids)
+        self.invalid_champions = [
+            self.champion_ids["sandguard"], len(self.champion_ids)]
+
+    # --- Observation Vectors --- #
+
+    def create_game_scalars(self, player):
+        """Create game scalars for a player
+
+        Game Scalars:
+            - Round: int
+            - Actions remaining: int
+            - Action History?: [[int, int, int], [int, int, int], ...] # TODO
+        """
+
+        return np.array([
+            player.round,
+            player.max_actions - player.actions_remaining,
+        ])
+
+    def create_public_scalars(self, player):
+        """Create public scalars for a player
+
+        Public Scalars:
+            - health: int
+            - level: int
+            - win streak: int
+            - loss streak: int
+            - max units: int
+            - available units: int
+        """
+
+        return np.array([
+            player.health,
+            player.level,
+            player.win_streak,
+            player.loss_streak,
+            player.max_units,
+            self.max_units - self.num_units_in_play,
+        ])
+
+    def create_private_scalars(self, player):
+        """Create private scalars for a player
+
+        Private Scalars:
+            - exp: int
+            - exp to next level: int
+            - gold: int
+        """
+
+        return np.array([
+            player.exp,
+            self.level_costs[player.level] - player.exp,
+            player.gold,
+        ])
 
     def create_champion_vector(self, champion):
-        """
+        """Create a champion vector for a champion
+
         Champion Vector:
         id: int
         items: [
@@ -149,22 +213,21 @@ class Observation:
         ]
         """
 
-        # TODO: Champion ID
+        # Champion ID
         if champion.target_dummy:
             championID = len(self.champion_ids)
         else:
             championID = self.champion_ids[champion.name]
 
         # Items
-        item_vectors = np.zeros(3, self.item_vector_length).astype("uint8")
+        item_vectors = np.zeros((3, self.item_vector_length))
         item_modifiers = []
 
         # Origins
-        origin_vector = np.zeros(self.tier_vector_length).astype("uint8")
+        origin_vector = np.zeros(self.tier_champion_vector_length)
         origins = champion.origins.copy()
 
         # Stats
-        # stats_vector = np.zeros(self.stat_vector_length).astype("uint8")
         stats = {
             "AD": champion.AD,
             "crit_chance": champion.crit_chance,
@@ -183,51 +246,48 @@ class Observation:
 
         # Create item vectors and stat modifiers
         for idx, item in enumerate(champion.items):
-            encoding, stats = self.create_item_vector(item)
+            item_vector, stat_modifiers = self.create_item_vector(item)
 
-            item_vectors[idx] = encoding
-            item_modifiers.append(stats)
+            item_vectors[idx] = item_vector
+            item_modifiers.append(stat_modifiers)
 
             # Add trait if item is a spatula item
             if item in self.item_traits:
                 origins.append(self.item_traits[item])
 
         # -- Origins -- #
+
         if champion.chosen:
             origins.append(champion.chosen)
 
         for idx, origin in enumerate(origins):
-            originID = self.tier_ids[origin] + 1
+            originID = self.tier_ids[origin] + 1  # 0 is reserved for no origin
             origin_vector[idx] = originID
 
         # -- Stats -- #
+
         # Add stat modifiers from items to champion stats
         for stat, modifier in item_modifiers.items():
             stats[stat] += modifier
 
-        # Transform stats for encoding
-        for stat, value in stats.items():
-            stats[stat] = self.champion_transformations[stat](value)
-
         # Special case for mana, we want a ratio of current mana to max mana
-        stats["mana"] = (stats["mana"] / stats["maxmana"]) * 255
+        stats["mana"] = (stats["mana"] / stats["maxmana"]) * 100
 
-        # Min-max normalization
-        # stats_vector = self.minmaxnorm(np.array(list(stats.values())), 0, 255)
+        # Special case for AS, as it is a percentage
+        stats["AS"] = stats["AS"] * 100
 
-        # Clip values between 0 and 255
-        stats_vector = self.clip(
-            np.array(list(stats.values())), 0, 255).astype("uint8")
+        stats_vector = np.array(list(stats.values()))
 
-        return {
-            "id": championID,
-            "items": item_vectors,
-            "origins": origin_vector,
-            "stats": stats_vector
-        }
+        champion_vector = np.concatenate(
+            (item_vectors, origin_vector, stats_vector))
+
+        champion_vector = np.append(championID, champion_vector)
+
+        return champion_vector
 
     def create_item_vector(self, item):
-        """
+        """Create an item vector for an item
+
         'items' is a dictionary of item names and their stat bonuses.
         We can use this to encode an item as its index in the dictionary
         and its stat bonuses as a vector.
@@ -248,7 +308,7 @@ class Observation:
         item = items[item]  # item is a dictionary of stat bonuses
         itemID = self.item_ids[item]  # itemID is the index of the item
 
-        stats = {
+        stat_modifiers = {
             "AD": 0,
             "crit_chance": 0,
             "armor": 0,
@@ -260,24 +320,261 @@ class Observation:
             "SP": 0,
         }
 
-        encoding = stats.copy()
+        stat_encoding = stat_modifiers.copy()
 
         for stat, value in item.items():
-            stats[stat] = value
-            encoding[stat] = self.item_transformations[stat](value)
+            stat_modifiers[stat] = value
+            stat_encoding[stat] = value
 
-        # Min-max normalization
-        # encoding = self.minmaxnorm(np.array(list(encoding.values())), 0, 255)
-
-        # Clip values between 0 and 255
-        encoding = self.clip(
-            np.array(list(encoding.values())), 0, 255).astype("uint8")
+        stat_encoding = np.array(list(stat_encoding.values()))
 
         # Special case for AS, as it is a percentage
-        if stats["AS"] > 0:
-            stats["AS"] -= 1
+        if stat_modifiers["AS"] > 0:
+            stat_modifiers["AS"] -= 1
 
-        return np.append(itemID, encoding), stats
+        item_vector = np.append(itemID, stat_encoding)
+
+        return item_vector, stat_modifiers
+
+    def create_board_vector(self, player):
+        """Create a board vector for a player
+
+        Board Vector: (7, 4, champion_vector_length)
+
+        Array board layout
+                        Left
+            | (0,0) (0,1) (0,2) (0,3) |
+            | (1,0) (1,1) (1,2) (1,3) |
+            | (2,0) (2,1) (2,2) (2,3) |
+    Bottom  | (3,0) (3,1) (3,2) (3,3) |  Top
+            | (4,0) (4,1) (4,2) (4,3) |
+            | (5,0) (5,1) (5,2) (5,3) |
+            | (6,0) (6,1) (6,2) (6,3) |
+                        Right
+
+        Rotated to match the board in game
+                                Top
+        | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
+  Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+        | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
+        | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
+                                Bottom
+
+        """
+
+        board_vector = np.zeros((7, 4, player.champion_vector_length))
+
+        for x in player.board:
+            for y in player.board[x]:
+                if champion := player.board[x][y]:
+                    champion_vector = player.create_champion_vector(champion)
+
+                    board_vector[x][y] = champion_vector
+
+        return board_vector
+
+    def create_bench_vector(self, player):
+        """Create a bench vector for a player
+
+        Bench Vector: (9, champion_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+        """
+
+        bench_vector = np.zeros((9, self.champion_vector_length))
+
+        for idx, champion in enumerate(player.bench):
+            if champion:
+                champion_vector = self.create_champion_vector(champion)
+                bench_vector[idx] = champion_vector
+
+        return bench_vector
+
+    def create_item_bench_vector(self, player):
+        """Create a item bench vector for a player
+
+        Item Bench Vector: (10, item_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+        """
+
+        item_bench_vector = np.zeros((10, self.item_vector_length))
+
+        for idx, item in enumerate(player.item_bench):
+            if item:
+                item_vector, _ = self.create_item_vector(item)
+                item_bench_vector[idx] = item_vector
+
+        return item_bench_vector
+
+    def create_shop_vector(self, player):
+        """Create shop vector for a player
+
+        Shop Vector: (5, champion_vector_length)
+
+        | 0 | 1 | 2 | 3 | 4 |
+        """
+
+        shop_vector = np.zeros((5, self.champion_vector_length))
+
+        for idx, champion in enumerate(player.shop_champions):
+            if champion:
+                champion_vector = self.create_champion_vector(champion)
+                shop_vector[idx] = champion_vector
+
+        return shop_vector
+
+    def create_trait_vector(self, player):
+        """Create trait vector for a player
+
+        Each trait is represented by traitID, and traitLevel
+        """
+
+        trait_vector = np.zeros((self.tier_player_vector_length, 2))
+
+        for origin, id in self.tier_ids.items():
+            trait_vector[id][0] = id
+            trait_vector[id][1] = player.team_tiers[origin]
+
+        return trait_vector.flatten()
+
+    # --- Action Masking --- #
+    def create_exp_action_mask(self, player):
+        """Create exp action mask
+
+        Invalid:
+            - Player is max level
+            - Player has less than 4 gold
+
+        Exp Action Vector: (1)
+        """
+
+        exp_action_mask = 1
+
+        if player.gold < player.exp_cost or player.level == player.max_level:
+            exp_action_mask = 0
+
+        return exp_action_mask
+
+    def create_refresh_action_mask(self, player):
+        """Create refresh action mask
+
+        Invalid:
+            - Player has less than 2 gold
+
+        Refresh Action Vector: (1)
+        """
+
+        refresh_action_mask = 1
+
+        if player.gold < 2:
+            refresh_action_mask = 0
+
+        return refresh_action_mask
+
+    def create_buy_action_mask(self, player):
+        """Create buy action mask
+
+        Invalid:
+            - Player has no champions in the shop
+            - Player has no room on their bench
+            - Player doesn't have enough gold to buy the champion
+
+        Buy Action Vector: (5)
+        """
+
+        buy_action_mask = np.zeros(5)
+
+        if player.bench_full() or player.shop_empty():
+            return buy_action_mask
+
+        for i, champion in enumerate(player.shop_champions):
+            if champion and player.gold >= champion.cost:
+                buy_action_mask[i] = 1
+
+        return buy_action_mask
+
+    def create_sell_action_mask(self, player):
+        """Create sell action mask
+
+        Invalid:
+            - No champion is selected
+            - Champion is an invalid champion (Sandguard, Dummy)
+            ? Champion is on the board (Not yet)
+
+        Sell Board Action Vector: (7, 4)
+        Sell Bench Action Vector: (9)
+        """
+
+        sell_board_action_mask = np.zeros((7, 4))
+        sell_bench_action_mask = np.zeros(9)
+
+        # Sell board action mask
+        for idx, champion in enumerate(player.bench):
+            if champion:
+                sell_bench_action_mask[idx] = 1
+
+        for x in player.board:
+            for y in player.board[x]:
+                if champion := player.board[x][y]:
+                    if not (champion.target_dummy or champion.overlord):
+                        sell_board_action_mask[x][y] = 1
+
+        return sell_bench_action_mask, sell_board_action_mask
+
+    def create_move_action_mask(self, player):
+        """Create move action mask
+
+        Invalid:
+            - No champion is selected for both from and to
+            - Board to bench when is invalid champion (Sandguard, Dummy)
+            - Bench to board when board is full
+            - Bench to bench
+
+        Move Board Action Vector: (7, 4, 37)
+        Move Bench Action Vector: (9, 37)
+        """
+
+        move_board_action_mask = np.zeros((7, 4, 37))
+        move_bench_action_mask = np.zeros((9, 37))
+
+        # --- Utility Masks --- #
+        invalid_champion_mask = np.ones(28)
+        board_champion_mask = np.zeros(28)
+        bench_to_bench_mask = np.zeros(9)
+
+        default_board_mask = np.ones(37)
+        invalid_board_mask = np.concatenate((np.ones(28), np.zeros(9)))
+
+        # --- Board Mask --- #
+        for x in player.board:
+            for y in player.board[x]:
+                if champion := player.board[x][y]:
+                    # Update utility masks to be used for bench mask
+                    board_champion_mask[x * 4 + y] = 1
+                    if champion.target_dummy or champion.overlord:
+                        invalid_champion_mask[x * 4 + y] = 0
+
+                    # Update board mask if champion is on the board
+                        move_board_action_mask[x][y] = invalid_board_mask
+                    else:
+                        move_board_action_mask[x][y] = default_board_mask
+
+        # --- Bench Mask --- #
+        # When board is not full, all board indices are valid
+        # Except invalid champions (Sandguard, Dummy)
+        if player.num_units_in_play < player.max_units:
+            board_mask = np.ones(28) * invalid_champion_mask
+        else:
+            board_mask = board_champion_mask * invalid_champion_mask
+
+        bench_mask = np.append(board_mask, bench_to_bench_mask)
+
+        for idx, champion in enumerate(player.bench):
+            if champion:
+                move_bench_action_mask[idx] = bench_mask
+
+        return move_bench_action_mask, move_board_action_mask
 
     def minmaxnorm(self, X, min, max):
         """Helper function to normalize values between 0 and 1"""

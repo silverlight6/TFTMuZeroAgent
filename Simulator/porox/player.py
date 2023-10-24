@@ -96,6 +96,7 @@ class Player:
         # 5 slots for champions
         # | 0 | 1 | 2 | 3 | 4 |
         self.shop = [None for _ in range(5)]
+        self.shop_champions = [None for _ in range(5)]
 
         # --- Game Related Variables ---
         self.round = 0
@@ -320,10 +321,29 @@ class Player:
 
         self.gold -= self.refresh_cost
         self.shop = self.pool_obj.sample(self, 5)
+        self.shop_champions = self.create_shop_champions()
 
         self.print("Refreshed shop")
 
         return True
+
+    def create_shop_champions(self):
+        """Utility function that creates the champion objects from the shop."""
+
+        shop_champions = []
+
+        for champion in self.shop:
+            if champion is None:
+                a_champion = None
+            elif champion.endswith("_c"):
+                champion_name = champion[:-2]
+                a_champion = champion.champion(champion_name, chosen=True)
+            else:
+                a_champion = champion.champion(champion)
+
+            shop_champions.append(a_champion)
+
+        return shop_champions
 
     # --- Buy Action --- #
     def buy_shop_action(self, x1):
@@ -344,27 +364,19 @@ class Player:
                 print("Invalid shop index")
             return False
 
-        shop_champion = self.shop[x1]
+        a_champion = self.shop_champions[x1]
 
         # No champion in shop slot
-        if shop_champion is None:
+        if a_champion is None:
             if DEBUG:
                 print("Shop slot is empty")
             return False
-
-        # Champion is a chosen champion
-        if shop_champion.endswith("_c"):
-            champion_name = shop_champion[:-2]
-            a_champion = champion.champion(champion_name, chosen=True)
-
-        # Champion is a normal champion
-        else:
-            a_champion = champion.champion(shop_champion)
 
         bought_champion = self.buy_champion(a_champion)
 
         if bought_champion:
             self.shop[x1] = None
+            self.shop_champions[x1] = None
             self.print(f"Bought champion {a_champion.name}")
             return True
 
@@ -1045,6 +1057,14 @@ class Player:
             if not u:
                 return free_slot
         return False
+
+    def shop_empty(self):
+        """Queries if the shop is empty.
+
+        Returns:
+            bool: True if shop is empty, False otherwise.
+        """
+        return all(self.shop)
 
     # --- Game Mechanics Functions --- #
     def gold_income(self, t_round):
