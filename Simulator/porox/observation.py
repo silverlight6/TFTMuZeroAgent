@@ -5,7 +5,7 @@ import config
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.origin_class_stats import tiers
-from Simulator.item_stats import items, trait_items
+from Simulator.item_stats import items, trait_items, basic_items, item_builds
 
 
 class Observation:
@@ -71,59 +71,30 @@ class Observation:
     """
 
     def __init__(self):
+        # -- Items -- #
         # Create ids for items
         self.item_ids = {k: idx for idx, k in enumerate(items.keys())}
         # Reverse trait_items dictionary to get the trait from the item
         self.item_traits = {v: k for k, v in trait_items.items()}
-
-        # TODO: Figure out the best scaling for each stat
-        self.item_transformations = {
-            "AD": lambda x: x,
-            "crit_chance": lambda x: x,
-            "armor": lambda x: x,
-            "MR": lambda x: x,
-            "dodge": lambda x: x,
-            "health": lambda x: x,
-            "mana": lambda x: x,
-            "AS": lambda x: x,
-            "SP": lambda x: x,
-            # TODO: "range"; rfc gives range
-        }
         self.item_vector_length = 10
 
+        self.item_components = set(basic_items)
+        self.full_items = set(item_builds.keys())
+
+        # -- Tiers -- #
         # Create ids for tiers
         self.tier_ids = {k: idx for idx, k in enumerate(tiers.keys())}
         # 3 possible tiers from champion, 3 possible tiers from items, 1 possible tier from chosen
         self.tier_champion_vector_length = 7
         self.tier_player_vector_length = len(self.tier_ids) + 1
 
+        # -- Champions -- #
         # Create ids for champions
         self.champion_ids = {k: idx for idx, k in enumerate(COST.keys())}
-
-        # TODO: Figure out the best scaling for each stat
-        self.champion_transformations = {
-            "AD": lambda x: x,
-            "crit_chance": lambda x: x,
-            "armor": lambda x: x,
-            "MR": lambda x: x,
-            "dodge": lambda x: x,
-            "health": lambda x: x,
-            "mana": lambda x: x,
-            "AS": lambda x: x,
-            "SP": lambda x: x,
-            "maxmana": lambda x: x,
-            "range": lambda x: x,
-        }
         self.stat_vector_length = 11
-
         # championID, items, origins, stats
         self.champion_vector_length = 1 + self.item_vector_length * \
             3 + self.tier_champion_vector_length + self.stat_vector_length
-
-        # Invalid Champions: Sandguard, Dummy
-        # TODO: Give dummy a discrete id instead of using len(champion_ids)
-        self.invalid_champions = [
-            self.champion_ids["sandguard"], len(self.champion_ids)]
 
     # --- Observation Vectors --- #
 
@@ -439,6 +410,7 @@ class Observation:
         return trait_vector.flatten()
 
     # --- Action Masking --- #
+
     def create_exp_action_mask(self, player):
         """Create exp action mask
 
@@ -494,36 +466,8 @@ class Observation:
 
         return buy_action_mask
 
-    def create_sell_action_mask(self, player):
-        """Create sell action mask
-
-        Invalid:
-            - No champion is selected
-            - Champion is an invalid champion (Sandguard, Dummy)
-            ? Champion is on the board (Not yet)
-
-        Sell Board Action Vector: (7, 4)
-        Sell Bench Action Vector: (9)
-        """
-
-        sell_board_action_mask = np.zeros((7, 4))
-        sell_bench_action_mask = np.zeros(9)
-
-        # Sell board action mask
-        for idx, champion in enumerate(player.bench):
-            if champion:
-                sell_bench_action_mask[idx] = 1
-
-        for x in player.board:
-            for y in player.board[x]:
-                if champion := player.board[x][y]:
-                    if not (champion.target_dummy or champion.overlord):
-                        sell_board_action_mask[x][y] = 1
-
-        return sell_bench_action_mask, sell_board_action_mask
-
-    def create_move_action_mask(self, player):
-        """Create move action mask
+    def create_move_and_sell_action_mask(self, player):
+        """Create move and sell action masks
 
         Invalid:
             - No champion is selected for both from and to
@@ -531,20 +475,25 @@ class Observation:
             - Bench to board when board is full
             - Bench to bench
 
-        Move Board Action Vector: (7, 4, 37)
-        Move Bench Action Vector: (9, 37)
+        0-27 -> Board Slots
+        28-37 -> Bench Slots
+        38 -> Sell Slot
+
+        Move Board Action Vector: (7, 4, 38)
+        Move Bench Action Vector: (9, 38)
         """
 
-        move_board_action_mask = np.zeros((7, 4, 37))
-        move_bench_action_mask = np.zeros((9, 37))
+        move_sell_board_action_mask = np.zeros((7, 4, 38))
+        move_sell_bench_action_mask = np.zeros((9, 38))
 
         # --- Utility Masks --- #
         invalid_champion_mask = np.ones(28)
         board_champion_mask = np.zeros(28)
         bench_to_bench_mask = np.zeros(9)
 
-        default_board_mask = np.ones(37)
-        invalid_board_mask = np.concatenate((np.ones(28), np.zeros(9)))
+        default_board_mask = np.ones(38)
+        invalid_board_mask = np.concatenate(
+            (np.ones(28), np.zeros(9), np.zeros(1)))
 
         # --- Board Mask --- #
         for x in player.board:
@@ -556,9 +505,9 @@ class Observation:
                         invalid_champion_mask[x * 4 + y] = 0
 
                     # Update board mask if champion is on the board
-                        move_board_action_mask[x][y] = invalid_board_mask
+                        move_sell_board_action_mask[x][y] = invalid_board_mask
                     else:
-                        move_board_action_mask[x][y] = default_board_mask
+                        move_sell_board_action_mask[x][y] = default_board_mask
 
         # --- Bench Mask --- #
         # When board is not full, all board indices are valid
@@ -568,13 +517,119 @@ class Observation:
         else:
             board_mask = board_champion_mask * invalid_champion_mask
 
-        bench_mask = np.append(board_mask, bench_to_bench_mask)
+        bench_mask = np.append(board_mask, bench_to_bench_mask, np.ones(1))
 
         for idx, champion in enumerate(player.bench):
             if champion:
-                move_bench_action_mask[idx] = bench_mask
+                move_sell_bench_action_mask[idx] = bench_mask
 
-        return move_bench_action_mask, move_board_action_mask
+        return move_sell_bench_action_mask, move_sell_board_action_mask
+
+    def create_item_action_mask(self, player):
+        """Create item action mask
+
+        Invalid:
+            - No champion is selected
+            - Champion is an invalid champion (Sandguard, Dummy)
+            - Champion has 3 items
+            - Item is full item and champion has 2 full items and 1 component item
+            - Kayn Item on a champion that is not Kayn
+            - Reforge Item on a champion with no items
+            - Duplicator when board is full
+
+        Item Action Vector: (10, 38); 10 item slots, 38 will always be 0
+        """
+
+        item_action_mask = np.zeros((10, 38))
+
+        valid_component_mask = np.zeros(38)
+        valid_full_item_mask = np.zeros(38)
+
+        valid_theives_gloves_mask = np.zeros(38)
+        valid_glove_mask = np.zeros(38)
+
+        valid_kayn_mask = np.zeros(38)
+
+        valid_reforge_mask = np.zeros(38)
+        valid_duplicator_mask = np.zeros(38)
+
+        def update_masks(champion, idx):
+            if champion.target_dummy or champion.overlord:
+                return
+
+            # Valid component and full item
+            if (len(champion.items) == 3 and champion.items[2] in self.item_components):
+                valid_component_mask[idx] = 1
+            elif len(champion.items) < 3:
+                valid_component_mask[idx] = 1
+                valid_full_item_mask[idx] = 1
+                valid_glove_mask[idx] = 1
+
+            # Valid Glove
+            if len(champion.items) > 0 and champion.items[-1] == 'sparring_gloves':
+                valid_glove_mask[idx] = 0
+
+            # Valid Theives Gloves
+            if len(champion.items) == 0:
+                valid_theives_gloves_mask[idx] = 1
+
+            # Valid Kayn
+            if champion.kayn_form:
+                valid_kayn_mask[idx] = 1
+
+            # Valid Reforge
+            if len(champion.items) > 0:
+                valid_reforge_mask[idx] = 1
+
+            # Valid Duplicator
+            valid_duplicator_mask[idx] = 1
+
+        for x in player.board:
+            for y in player.board[x]:
+                if champion := player.board[x][y]:
+                    idx = x * 4 + y
+                    update_masks(champion, idx)
+
+        for idx, champion in enumerate(player.bench):
+            if champion:
+                idx += 28
+                update_masks(champion, idx)
+
+        # If bench is full, remove valid duplicator
+        if player.bench_full():
+            valid_duplicator_mask = np.zeros(38)
+
+        for idx, item in enumerate(player.item_bench):
+            if item:
+                # Edge cases first
+                # Is glove
+                if item == 'sparring_gloves':
+                    item_action_mask[idx] = valid_glove_mask
+
+                # Is theives gloves
+                elif item == 'theives_gloves':
+                    item_action_mask[idx] = valid_theives_gloves_mask
+
+                # Is kayn
+                elif item.startswith('kayn'):
+                    item_action_mask[idx] = valid_kayn_mask
+
+                # Is reforge
+                elif item == 'reforger':
+                    item_action_mask[idx] = valid_reforge_mask
+
+                # Is duplicator
+                elif item == 'champion_duplicator':
+                    item_action_mask[idx] = valid_duplicator_mask
+
+                # Regular cases
+                elif item in self.full_items:
+                    item_action_mask[idx] = valid_full_item_mask
+
+                elif item in self.item_components:
+                    item_action_mask[idx] = valid_component_mask
+
+        return item_action_mask
 
     def minmaxnorm(self, X, min, max):
         """Helper function to normalize values between 0 and 1"""
