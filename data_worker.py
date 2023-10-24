@@ -146,7 +146,6 @@ class DataWorker(object):
             #     self.default_agent[0] = False
 
             while ray.get(global_buffer.buffer_size.remote()) > 5000:
-                print("Here")
                 time.sleep(5)
 
             # So if I do not have a live game, I need to sample a past model

@@ -43,7 +43,7 @@ class MultiMlp(nn.Module):
         self.output_heads = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(sizes[-1], size),
-                output_activation()
+                output_activation(),
             ) for size in output_sizes
         ]).to(config.DEVICE)
 

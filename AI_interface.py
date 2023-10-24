@@ -31,12 +31,12 @@ class AIInterface:
     '''
     def train_torch_model(self, starting_train_step=0):
         gpus = torch.cuda.device_count()
-        ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
+        ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI")
 
         train_step = starting_train_step
 
-        storage = Storage.remote(train_step)
-        global_buffer = GlobalBuffer.remote(storage)
+        storage = Storage.options(name="Storage").remote(train_step)
+        global_buffer = GlobalBuffer.options(name="Global_Buffer").remote(storage)
         # global_buffer = GlobalBuffer(storage)
 
         if config.CHAMP_DECIDER:
@@ -50,7 +50,7 @@ class AIInterface:
 
         # total_params = sum(p.numel() for p in global_agent.parameters())
 
-        training_loop = TrainingLoop.remote(global_agent)
+        training_loop = TrainingLoop.options(name="Training_Loop").remote(global_agent)
 
         env = parallel_env()
 

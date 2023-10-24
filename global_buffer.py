@@ -5,7 +5,7 @@ import numpy as np
 
 
 # @ray.remote(, )
-@ray.remote(memory=config.BATCH_SIZE * 10000, num_cpus=2, num_gpus=0.1)
+@ray.remote(memory=config.BATCH_SIZE * 10000, num_cpus=14)
 class GlobalBuffer:
     def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(10000)
@@ -59,6 +59,7 @@ class GlobalBuffer:
             sample_set_batch, tier_batch, final_tier_batch, champion_batch, np.array(position_batch)
         ]
         return np.array(data_list, dtype=object)
+        # return data_list
 
     def reshape_observation(self, obs_batch):
         obs_reshaped = {}

@@ -50,9 +50,12 @@ class Trainer(object):
 
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
             sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch).tolist()
+        # observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
+        #     sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch)
 
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
 
+        self.loss_ckpt_time = time.time_ns()
         self.adjust_lr(train_step)
 
         predictions = self.compute_forward(observation, action_history)
@@ -65,6 +68,7 @@ class Trainer(object):
         self.backpropagate()
 
         self.write_summaries(train_step)
+        print("TRAINING TOOK {} time".format(time.time_ns() - self.loss_ckpt_time))
 
     def compute_forward(self, observation, action_history):
         self.network.train()
@@ -199,9 +203,9 @@ class Trainer(object):
             policy_loss * config.POLICY_LOSS_SCALING + tier_loss * config.GAME_METRICS_SCALING +
             final_tier_loss * config.GAME_METRICS_SCALING +
             champ_loss * config.GAME_METRICS_SCALING, -1).to(config.DEVICE)
-        self.loss = torch.sum(
-            value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
-            -1).to(config.DEVICE)
+        # self.loss = torch.sum(
+        #     value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
+        #     -1).to(config.DEVICE)
 
         self.loss += l2_loss
 
@@ -316,8 +320,9 @@ class Trainer(object):
     def supervised_loss(self, prediction, target):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
-            loss += cross_entropy_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
-                                                              dtype=torch.float32).to(config.DEVICE))
+            # print(pred_dim)
+            loss += mean_squared_error_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
+                                                                   dtype=torch.float32).to(config.DEVICE))
         return loss
 
     def l2_regularization(self):
@@ -346,5 +351,5 @@ def cross_entropy_loss(prediction, target):
     return -(target * F.log_softmax(prediction, -1)).sum(-1)
 
 def mean_squared_error_loss(prediction, target):
-    return F.mse_loss(prediction, target).sum(-1)
+    return F.mse_loss(torch.softmax(prediction, -1), target).sum(-1)
 
