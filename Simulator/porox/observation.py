@@ -2,6 +2,8 @@ import collections
 import numpy as np
 import config
 
+from Simulator.porox.normalization import batch_apply_z_score_champion, batch_apply_z_score_item
+
 from Simulator.stats import COST
 from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.origin_class_stats import tiers
@@ -65,9 +67,43 @@ class Observation:
         item2: item vector
         item3: item vector
 
-        origin1: trait vector
-        origin2: trait vector
-        origin3: trait vector
+        origin1: champion trait
+        origin2: champion trait 
+        origin3: champion trait 
+        origin4: item trait
+        origin5: item trait
+        origin6: item trait
+        origin7: chosen trait
+
+        championID: int
+
+        AD: int
+        crit_chance: int
+        crit_damage: int
+        armor: int
+        MR: int
+        dodge: int
+        health: int
+        mana: int
+        AS: float
+        SP: int
+        maxmana: int
+        range: int
+
+    Item Vector:
+        itemID: int
+
+        AD: int
+        crit_chance: int
+        crit_damage: int
+        armor: int
+        MR: int
+        dodge: int
+        health: int
+        mana: int
+        AS: float
+        SP: int
+
     """
 
     def __init__(self):
@@ -76,7 +112,7 @@ class Observation:
         self.item_ids = {k: idx for idx, k in enumerate(items.keys())}
         # Reverse trait_items dictionary to get the trait from the item
         self.item_traits = {v: k for k, v in trait_items.items()}
-        self.item_vector_length = 10
+        self.item_vector_length = 11
 
         self.item_components = set(basic_items)
         self.full_items = set(item_builds.keys())
@@ -91,7 +127,7 @@ class Observation:
         # -- Champions -- #
         # Create ids for champions
         self.champion_ids = {k: idx for idx, k in enumerate(COST.keys())}
-        self.stat_vector_length = 11
+        self.stat_vector_length = 12
         # championID, items, origins, stats
         self.champion_vector_length = 1 + self.item_vector_length * \
             3 + self.tier_champion_vector_length + self.stat_vector_length
@@ -152,14 +188,13 @@ class Observation:
         """Create a champion vector for a champion
 
         Champion Vector:
-        id: int
-        items: [
+        items: (shape: 3 * item_vector_length) [
             item1: item vector
             item2: item vector
             item3: item vector
         ]
 
-        origins: [
+        origins: (shape: 7) [
             origin1: traitID # Champion
             origin2: traitID # Champion
             origin3: traitID # Champion
@@ -169,9 +204,12 @@ class Observation:
             origin7: traitID # Chosen
         ]
 
-        stats: [
+        championID: int
+
+        stats: (shape: stat_vector_length) [
             AD: int
             crit_chance: int
+            crit_damage: int
             armor: int
             MR: int
             dodge: int
@@ -185,6 +223,7 @@ class Observation:
         """
 
         # Champion ID
+        # TODO: make target_dummy have its own championID
         if champion.target_dummy:
             championID = len(self.champion_ids)
         else:
@@ -202,6 +241,7 @@ class Observation:
         stats = {
             "AD": champion.AD,
             "crit_chance": champion.crit_chance,
+            "crit_damage": champion.crit_damage,
             "armor": champion.armor,
             "MR": champion.MR,
             "dodge": champion.dodge,
@@ -241,32 +281,30 @@ class Observation:
         for stat, modifier in item_modifiers.items():
             stats[stat] += modifier
 
-        # Special case for mana, we want a ratio of current mana to max mana
-        stats["mana"] = (stats["mana"] / stats["maxmana"]) * 100
-
-        # Special case for AS, as it is a percentage
-        stats["AS"] = stats["AS"] * 100
-
         stats_vector = np.array(list(stats.values()))
 
         champion_vector = np.concatenate(
-            (item_vectors, origin_vector, stats_vector))
-
-        champion_vector = np.append(championID, champion_vector)
+            item_vectors.flatten(),
+            origin_vector,
+            np.array([championID]),
+            stats_vector
+        )
 
         return champion_vector
 
-    def create_item_vector(self, item):
+    def create_item_vector(self, item_name):
         """Create an item vector for an item
 
         'items' is a dictionary of item names and their stat bonuses.
         We can use this to encode an item as its index in the dictionary
         and its stat bonuses as a vector.
 
-        Item Vector: Shape (10)
+        Item Vector: Shape (11)
             itemID: int
+
             AD: int
             crit_chance: int
+            crit_damage: int
             armor: int
             MR: int
             dodge: int
@@ -276,12 +314,13 @@ class Observation:
             SP: int
 
         """
-        item = items[item]  # item is a dictionary of stat bonuses
-        itemID = self.item_ids[item]  # itemID is the index of the item
+        item_stats = items[item_name]  # item_stats is a dictionary of stat bonuses
+        itemID = self.item_ids[item_name]  # itemID is the index of the item
 
         stat_modifiers = {
             "AD": 0,
             "crit_chance": 0,
+            "crit_damage": 0,
             "armor": 0,
             "MR": 0,
             "dodge": 0,
@@ -291,13 +330,10 @@ class Observation:
             "SP": 0,
         }
 
-        stat_encoding = stat_modifiers.copy()
-
-        for stat, value in item.items():
+        for stat, value in item_stats.items():
             stat_modifiers[stat] = value
-            stat_encoding[stat] = value
 
-        stat_encoding = np.array(list(stat_encoding.values()))
+        stat_encoding = np.array(list(stat_modifiers.values()))
 
         # Special case for AS, as it is a percentage
         if stat_modifiers["AS"] > 0:
@@ -408,6 +444,112 @@ class Observation:
             trait_vector[id][1] = player.team_tiers[origin]
 
         return trait_vector.flatten()
+
+    # --- Normalization --- #
+    def apply_champion_normalization(self, champion_vectors):
+        """
+            0-10: item1: item vector
+            11-21: item2: item vector
+            22-32: item3: item vector
+
+            33: origin1: champion trait
+            34: origin2: champion trait
+            35: origin3: champion trait
+            36: origin4: item trait
+            37: origin5: item trait
+            38: origin6: item trait
+            39: origin7: chosen trait
+
+            40: championID: int
+
+            41: AD: int
+            42: crit_chance: int
+            43: crit_damage: int
+            44: armor: int
+            45: MR: int
+            46: dodge: int
+            47: health: int
+            48: mana: int
+            49: AS: float
+            50: SP: int
+            51: maxmana: int
+            52: range: int
+        """
+
+        original_shape = champion_vectors.shape
+
+        champion_vectors = champion_vectors.reshape(
+            -1, self.champion_vector_length)
+
+        # --- Items --- #
+        # Batch of item vectors
+        item_vectors = champion_vectors[:, :33].reshape(-1, 3, 11)
+        item_vectors_norm = self.apply_item_normalization(item_vectors)
+        champion_vectors[:, :33] = item_vectors_norm.reshape(-1, 33)
+
+        # Champion Stats --- #
+        champion_vectors[:, 41] = batch_apply_z_score_champion(
+            champion_vectors[:, 41], 'AD')
+        champion_vectors[:, 42] = batch_apply_z_score_champion(
+            champion_vectors[:, 42], 'crit_chance')
+        champion_vectors[:, 43] = batch_apply_z_score_champion(
+            champion_vectors[:, 43], 'crit_damage')
+        champion_vectors[:, 44] = batch_apply_z_score_champion(
+            champion_vectors[:, 44], 'armor')
+        champion_vectors[:, 45] = batch_apply_z_score_champion(
+            champion_vectors[:, 45], 'MR')
+        champion_vectors[:, 46] = batch_apply_z_score_champion(
+            champion_vectors[:, 46], 'dodge')
+        champion_vectors[:, 47] = batch_apply_z_score_champion(
+            champion_vectors[:, 47], 'health')
+        champion_vectors[:, 48] = batch_apply_z_score_champion(
+            champion_vectors[:, 48], 'mana')
+        champion_vectors[:, 49] = batch_apply_z_score_champion(
+            champion_vectors[:, 49], 'AS')
+        champion_vectors[:, 50] = batch_apply_z_score_champion(
+            champion_vectors[:, 50], 'SP')
+        champion_vectors[:, 51] = batch_apply_z_score_champion(
+            champion_vectors[:, 51], 'maxmana')
+        champion_vectors[:, 52] = batch_apply_z_score_champion(
+            champion_vectors[:, 52], 'range')
+
+        return champion_vectors.reshape(original_shape)
+
+    def apply_item_normalization(self, item_vectors):
+        """
+            0: itemID: int
+            1: AD: int
+            2: crit_chance: int
+            3: crit_damage: int
+            4: armor: int
+            5: MR: int
+            6: dodge: int
+            7: health: int
+            8: mana: int
+            9: AS: float
+            10: SP: int
+
+        """
+
+        item_vectors[:, 1] = batch_apply_z_score_item(item_vectors[:, 1], 'AD')
+        item_vectors[:, 2] = batch_apply_z_score_item(
+            item_vectors[:, 2], 'crit_chance')
+        item_vectors[:, 3] = batch_apply_z_score_item(
+            item_vectors[:, 3], 'crit_damage')
+        item_vectors[:, 4] = batch_apply_z_score_item(
+            item_vectors[:, 4], 'armor')
+        item_vectors[:, 5] = batch_apply_z_score_item(item_vectors[:, 5], 'MR')
+        item_vectors[:, 6] = batch_apply_z_score_item(
+            item_vectors[:, 6], 'dodge')
+        item_vectors[:, 7] = batch_apply_z_score_item(
+            item_vectors[:, 7], 'health')
+        item_vectors[:, 8] = batch_apply_z_score_item(
+            item_vectors[:, 8], 'mana')
+        item_vectors[:, 9] = batch_apply_z_score_item(item_vectors[:, 9], 'AS')
+        item_vectors[:, 10] = batch_apply_z_score_item(
+            item_vectors[:, 10], 'SP')
+
+        return item_vectors
 
     # --- Action Masking --- #
 
