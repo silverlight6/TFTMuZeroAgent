@@ -1,24 +1,36 @@
-import collections
 import numpy as np
-import config
-
-from Simulator.porox.normalization import batch_apply_z_score_champion, batch_apply_z_score_item
 
 from Simulator.stats import COST
-from Simulator.origin_class import team_traits, game_comp_tiers
 from Simulator.origin_class_stats import tiers
 from Simulator.item_stats import items, trait_items, basic_items, item_builds
 
+from Simulator.porox.observation.normalization import batch_apply_z_score_champion, batch_apply_z_score_item
 
-class Observation:
+
+class ObservationHelper:
     """Observation object used to generate the observation for each player.
 
     Format:
     {
         "player": PlayerObservation
-        "mask": (5, 11, 38) # Same as action space
+        "mask": (5, 11, 38)  # Same as action space
         "opponents": [PlayerPublicObservation, PlayerPublicObservation, ...]
     }
+
+    PlayerObservation:
+        scalars: [Game Values, Public Scalars, Private Scalars]
+        board: board vector
+        bench: bench vector
+        shop: shop vector
+        items: item vector
+        traits: trait vector
+
+    PlayerPublicObservation:
+        scalars: [Public Scalars]
+        board: board vector
+        bench: bench vector
+        items: item vector
+        traits: trait vector
 
     Game Values:
         - Round: int
@@ -47,29 +59,14 @@ class Observation:
     Private Vectors:
         - shop vector: [champion vector, champion vector, ...]
 
-    PlayerObservation:
-        scalars: [Game Values, Public Scalars, Private Scalars]
-        board: board vector
-        bench: bench vector
-        shop: shop vector
-        items: item vector
-        traits: trait vector
-
-    PlayerPublicObservation:
-        scalars: [Public Scalars]
-        board: board vector
-        bench: bench vector
-        items: item vector
-        traits: trait vector
-
     Champion Vector:
         item1: item vector
         item2: item vector
         item3: item vector
 
         origin1: champion trait
-        origin2: champion trait 
-        origin3: champion trait 
+        origin2: champion trait
+        origin3: champion trait
         origin4: item trait
         origin5: item trait
         origin6: item trait
@@ -140,7 +137,7 @@ class Observation:
         Game Scalars:
             - Round: int
             - Actions remaining: int
-            - Action History?: [[int, int, int], [int, int, int], ...] # TODO
+            - Action History?: [[int, int, int], [int, int, int], ...]  # TODO
         """
 
         return np.array([
@@ -670,7 +667,7 @@ class Observation:
             if champion:
                 move_sell_bench_action_mask[idx] = bench_mask
 
-        return move_sell_bench_action_mask, move_sell_board_action_mask
+        return move_sell_board_action_mask, move_sell_bench_action_mask
 
     def create_item_action_mask(self, player):
         """Create item action mask
@@ -777,11 +774,3 @@ class Observation:
                     item_action_mask[idx] = valid_component_mask
 
         return item_action_mask
-
-    def minmaxnorm(self, X, min, max):
-        """Helper function to normalize values between 0 and 1"""
-        return (X - min) / (max - min)
-
-    def clip(self, X, min, max):
-        """Helper function to clip values between min and max"""
-        return np.clip(X, min, max)

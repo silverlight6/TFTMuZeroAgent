@@ -1,7 +1,8 @@
-import Simulator.config as config
 import numpy as np
+
+import Simulator.config as config
 import Simulator.champion as champion
-from config import DEBUG
+from Simulator.porox.observation.observation_helper import ObservationManager
 
 """
 Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 

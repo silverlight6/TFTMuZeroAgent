@@ -11,8 +11,9 @@ from Simulator import pool
 from Simulator.game_round import Game_Round
 
 from Simulator.porox.player import Player as player_class
+from Simulator.porox.player_manager import PlayerManager
 from Simulator.porox.step_function import Step_Function
-from Simulator.porox.observation import Observation
+from Simulator.porox.observation.observation_helper import Observation
 
 
 def env():
@@ -121,22 +122,12 @@ class TFT_Simulator(ParallelEnv):
         self.pool_obj = pool.pool()
 
         # --- TFT Player Related Variables ---
-        self.player_states = {
-            "player_" + str(player_id): player_class(self.pool_obj, player_id)
-            for player_id in range(self.num_players)
-        }
+        self.player_manager = PlayerManager(self.num_players)
         self.player_game_states = {
             "player_" + str(player_id): {
                 "actions_taken": 0,
             }
             for player_id in range(self.num_players)
-        }
-        # self.player_observations = {
-        #     "player_" + str(player_id): Observation()
-        #     for player_id in range(num_players)
-        # }  # ?
-        self.player_observations = {
-            player: self.player_states[player].observation() for player in self.player_states
         }
 
         # --- TFT Game Round Related Variables ---
@@ -150,7 +141,7 @@ class TFT_Simulator(ParallelEnv):
         for key, p in self.player_states.items():
             self.step_function.generate_shop(key, p)
 
-        observations = self.player_observations
+        observations = self.player_manager.generate_observations()
         infos = self.player_game_states
 
         return observations, infos
@@ -225,7 +216,7 @@ class TFT_Simulator(ParallelEnv):
         for player_id, action in actions.items():
             if self.is_alive(player_id) and self.taking_actions(player_id):
                 # Perform action
-                self.player_states[player_id].perform_action(action)
+                self.player_manager.perform_action(player_id, action)
 
                 self.player_game_states[player_id]["actions_taken"] += 1
 
