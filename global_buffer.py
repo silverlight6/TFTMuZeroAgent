@@ -5,7 +5,7 @@ import numpy as np
 
 
 # @ray.remote(, )
-@ray.remote(memory=config.BATCH_SIZE * 10000, num_cpus=14)
+@ray.remote(num_cpus=14)
 class GlobalBuffer:
     def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(10000)
@@ -53,6 +53,10 @@ class GlobalBuffer:
         position_batch = np.asarray(position_batch)
         position_batch = np.mean(position_batch)
 
+        # return observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch, \
+        #     target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch, tier_batch, \
+        #     final_tier_batch, champion_batch, np.array(position_batch)
+
         data_list = [
             observation_batch, action_history_batch, value_mask_batch, reward_mask_batch,
             policy_mask_batch, target_value_batch, target_reward_batch, target_policy_batch,
@@ -60,6 +64,11 @@ class GlobalBuffer:
         ]
         return np.array(data_list, dtype=object)
         # return data_list
+
+    def sample_batch_generator(self):
+        for batch_num in range(self.batch_size):
+            yield self.gameplay_experiences.extractMax()
+            # print(f"yielded return value {batch_num}")
 
     def reshape_observation(self, obs_batch):
         obs_reshaped = {}
@@ -202,5 +211,4 @@ class PriorityBuffer:
         self.Replay_Heap[self.FRONT] = self.Replay_Heap[self.size]
         self.size -= 1
         self.maxHeapify(self.FRONT)
-
         return popped

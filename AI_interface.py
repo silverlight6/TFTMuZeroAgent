@@ -13,8 +13,6 @@ from Models.replay_buffer_wrapper import BufferWrapper
 from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
-from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-from ray.util.placement_group import placement_group
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from data_worker import DataWorker

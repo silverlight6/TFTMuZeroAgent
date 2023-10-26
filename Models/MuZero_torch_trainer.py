@@ -48,11 +48,12 @@ class Trainer(object):
 
     def train_network(self, batch, train_step):
 
-        observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch).tolist()
         # observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-        #     sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch)
+        #     sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch).tolist()
+        observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
+            sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch)
 
+        # disabling this for the moment while I get the rest working, will add back later.
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
 
         self.loss_ckpt_time = time.time_ns()
