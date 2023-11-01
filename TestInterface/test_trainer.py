@@ -1,5 +1,4 @@
 import time
-import ray
 import config
 import collections
 import torch
@@ -49,7 +48,7 @@ class Trainer(object):
     def train_network(self, batch, train_step):
 
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch)
+        sample_set, tier_set, final_tier_set, champion_set, position = batch
 
         # disabling this for the moment while I get the rest working, will add back later.
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
@@ -339,7 +338,8 @@ Helper functions
 def scale_gradient(x, scale):
     x.requires_grad_(True)
     x.register_hook(lambda grad: grad * scale)
-    
+
+
 def scale_dict_gradient(x, scale):
     for key in x:
         x[key].requires_grad_(True)
@@ -348,6 +348,7 @@ def scale_dict_gradient(x, scale):
 
 def cross_entropy_loss(prediction, target):
     return -(target * F.log_softmax(prediction, -1)).sum(-1)
+
 
 def mean_squared_error_loss(prediction, target):
     return F.mse_loss(torch.softmax(prediction, -1), target).sum(-1)

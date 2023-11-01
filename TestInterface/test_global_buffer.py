@@ -1,21 +1,26 @@
 import config
 import time
 import numpy as np
-from queue import PriorityQueue
+from priority_queue import PriorityBuffer
 
 class GlobalBuffer:
     def __init__(self):
-        self.gameplay_experiences = PriorityQueue(maxsize=25000)
+        self.gameplay_experiences = PriorityBuffer(10000)
+        self.average_position = PriorityBuffer(10000)
         self.batch_size = config.BATCH_SIZE
 
     def sample_batch(self):
         # Returns: a batch of gameplay experiences without regard to which agent.
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
-        sample_set_batch = []
-        for gameplay_experience in range(self.batch_size):
-            observation, action_history, value_mask, reward_mask, policy_mask,\
-                value, reward, policy, sample_set = self.gameplay_experiences.get()[1]
+        sample_set_batch, tier_batch, final_tier_batch, champion_batch, position_batch = [], [], [], [], []
+        for batch_num in range(self.batch_size):
+            # Setting the position gameplay_experiences get and position get next to each other to try to minimize
+            # The number of multiprocessing errors that could occur by having them be too far apart.
+
+            observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy, \
+            sample_set, tier_set, final_tier_set, champion_set = self.gameplay_experiences.extractMax()
+            position_batch.append(self.average_position.extractMax())
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
             value_mask_batch.append(value_mask)
@@ -25,26 +30,54 @@ class GlobalBuffer:
             target_reward_batch.append(reward)
             target_policy_batch.append(policy)
             sample_set_batch.append(sample_set)
+            tier_batch.append(tier_set)
+            final_tier_batch.append(final_tier_set)
+            champion_batch.append(champion_set)
 
-        observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
+        # observation_batch = np.squeeze(np.asarray(obs_tensor_batch))
+        observation_batch = self.reshape_observation(obs_tensor_batch)
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')
         target_reward_batch = np.asarray(target_reward_batch).astype('float32')
         value_mask_batch = np.asarray(value_mask_batch).astype('float32')
         reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
+        position_batch = np.asarray(position_batch)
+        position_batch = np.mean(position_batch)
 
-        return [observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch,
-                target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch]
+        # return observation_batch, action_history_batch, value_mask_batch, reward_mask_batch, policy_mask_batch, \
+        #     target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch, tier_batch, \
+        #     final_tier_batch, champion_batch, np.array(position_batch)
 
-    def store_replay_sequence(self, sample):
-        # Records a single step of gameplay experience
-        # First few are self-explanatory
-        # done is boolean if game is done after taking said action
-        self.gameplay_experiences.put((sample[0],sample[1]))
+        data_list = [
+            observation_batch, action_history_batch, value_mask_batch, reward_mask_batch,
+            policy_mask_batch, target_value_batch, target_reward_batch, target_policy_batch,
+            sample_set_batch, tier_batch, final_tier_batch, champion_batch, np.array(position_batch)
+        ]
+        return np.array(data_list, dtype=object)
+
+    def reshape_observation(self, obs_batch):
+        obs_reshaped = {}
+
+        for obs in obs_batch:
+            for key in obs:
+                if key not in obs_reshaped:
+                    obs_reshaped[key] = []
+                obs_reshaped[key].append(obs[key])
+
+        for key in obs_reshaped:
+            obs_reshaped[key] = np.stack(obs_reshaped[key], axis=0)
+
+        return obs_reshaped
+
+    def store_replay_sequence(self, samples):
+        for sample in samples[0]:
+            if self.gameplay_experiences.size / 25000 < 0.9 and sample[0] > 1:
+                self.gameplay_experiences.insert(sample[0], sample[1])
+                self.average_position.insert(sample[0], samples[1])
 
     def available_batch(self):
-        queue_length = self.gameplay_experiences.qsize()
+        queue_length = self.gameplay_experiences.size
         if queue_length >= self.batch_size:
             return True
         return False

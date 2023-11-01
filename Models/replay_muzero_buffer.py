@@ -5,7 +5,7 @@ from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
-    def __init__(self, g_buffer: GlobalBuffer):
+    def __init__(self):
         self.gameplay_experiences = []
         self.rewards = []
         self.policy_distributions = []
@@ -14,7 +14,6 @@ class ReplayBuffer:
         self.root_values = []
         self.team_tiers = []
         self.team_champions = []
-        self.g_buffer = g_buffer
         self.ending_position = -1
         self.ckpt_time = time.time_ns()
         self.local_ckpt_time = time.time_ns()
@@ -62,7 +61,7 @@ class ReplayBuffer:
     def set_ending_position(self, ending_position):
         self.ending_position = ending_position
 
-    def store_global_buffer(self):
+    def store_global_buffer(self, global_buffer):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -86,8 +85,6 @@ class ReplayBuffer:
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
                 # and that takes a lot of time.
-                self.local_ckpt_time = time.time_ns()
-
                 action_set = []
                 value_mask_set = []
                 reward_mask_set = []
@@ -198,4 +195,4 @@ class ReplayBuffer:
                 output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
                                                      reward_mask_set, policy_mask_set, value_set, reward_set,
                                                      policy_set, sample_set, tier_set, final_tier_set, champion_set]])
-            self.g_buffer.store_replay_sequence.remote([output_sample_set, self.ending_position])
+            global_buffer.store_replay_sequence.remote([output_sample_set, self.ending_position])

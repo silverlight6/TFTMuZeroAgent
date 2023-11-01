@@ -29,46 +29,45 @@ class AIInterface:
     '''
     def train_torch_model(self, starting_train_step=0):
         gpus = torch.cuda.device_count()
-        ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI")
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = starting_train_step
 
-        train_step = starting_train_step
+            storage = Storage.remote(train_step)
+            global_buffer = GlobalBuffer.remote(storage)
+            # global_buffer = GlobalBuffer(storage)
 
-        storage = Storage.options(name="Storage").remote(train_step)
-        global_buffer = GlobalBuffer.options(name="Global_Buffer").remote(storage)
-        # global_buffer = GlobalBuffer(storage)
-
-        if config.CHAMP_DECIDER:
-            global_agent = DefaultNetwork()
-        else:
-            global_agent = TFTNetwork()
-        
-        global_agent_weights = ray.get(storage.get_target_model.remote())
-        global_agent.set_weights(global_agent_weights)
-        global_agent.to(config.DEVICE)
-
-        # total_params = sum(p.numel() for p in global_agent.parameters())
-
-        training_loop = TrainingLoop.options(name="Training_Loop").remote(global_agent)
-
-        env = parallel_env()
-
-        buffers = [BufferWrapper.remote(global_buffer)
-                   for _ in range(config.CONCURRENT_GAMES)]
-
-        weights = ray.get(storage.get_target_model.remote())
-        workers = []
-        data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
-        for i, worker in enumerate(data_workers):
             if config.CHAMP_DECIDER:
-                workers.append(worker.collect_default_experience.remote(env, buffers[i], global_buffer,
-                                                                        storage, weights))
+                global_agent = DefaultNetwork()
             else:
-                workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                         storage, weights))
-            time.sleep(0.5)
-        # ray.get(workers)
+                global_agent = TFTNetwork()
 
-        ray.get(training_loop.loop.remote(global_buffer, global_agent, storage, train_step))
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            # total_params = sum(p.numel() for p in global_agent.parameters())
+
+            training_loop = TrainingLoop.remote(global_agent)
+
+            env = parallel_env()
+
+            buffers = [BufferWrapper.remote()
+                       for _ in range(config.CONCURRENT_GAMES)]
+
+            weights = ray.get(storage.get_target_model.remote())
+            workers = []
+            data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+            for i, worker in enumerate(data_workers):
+                if config.CHAMP_DECIDER:
+                    workers.append(worker.collect_default_experience.remote(env, buffers[i], global_buffer,
+                                                                            storage, weights))
+                else:
+                    workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                             storage, weights))
+                time.sleep(0.5)
+
+            training_loop.loop.remote(global_agent, global_buffer, storage, train_step)
+            ray.get(workers)
 
     '''
     Method used for testing the simulator. It does not call any AI and generates random actions from numpy. Intended
