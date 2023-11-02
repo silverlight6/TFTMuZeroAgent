@@ -1,7 +1,6 @@
 import config
-import time
 import numpy as np
-from priority_queue import PriorityBuffer
+from Concurrency.priority_queue import PriorityBuffer
 
 class GlobalBuffer:
     def __init__(self):

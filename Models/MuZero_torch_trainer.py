@@ -49,12 +49,11 @@ class Trainer(object):
     def train_network(self, batch, train_step):
 
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set, position = ray.get(batch)
+            sample_set, tier_set, final_tier_set, champion_set, position = batch
 
         # disabling this for the moment while I get the rest working, will add back later.
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
 
-        self.loss_ckpt_time = time.time_ns()
         self.adjust_lr(train_step)
 
         predictions = self.compute_forward(observation, action_history)
@@ -67,7 +66,6 @@ class Trainer(object):
         self.backpropagate()
 
         self.write_summaries(train_step)
-        print("TRAINING TOOK {} time".format(time.time_ns() - self.loss_ckpt_time))
 
     def compute_forward(self, observation, action_history):
         self.network.train()

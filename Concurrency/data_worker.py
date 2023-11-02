@@ -11,8 +11,9 @@ from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 
 '''
-Data workers are the "workers" or threads that collect game play experience. 
-Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
+Description - 
+    Data workers are the "workers" or threads that collect game play experience. Can add scheduling_strategy="SPREAD" 
+    to ray.remote. Not sure if it makes any difference
 '''
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
 class DataWorker(object):
@@ -57,7 +58,6 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-
     def collect_gameplay_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.network.set_weights(weights)
         self.past_network.network.set_weights(weights)
@@ -124,6 +124,7 @@ class DataWorker(object):
 
             # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote(global_buffer)
+
             buffers.reset_buffers.remote()
 
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
@@ -145,7 +146,9 @@ class DataWorker(object):
             # if all(self.default_agent):
             #     self.default_agent[0] = False
 
-            while ray.get(global_buffer.buffer_size.remote()) > 5000:
+            # This is just to try to give the buffer some time to train on the data we have and not slow down our
+            # buffers by sending thousands of store commands when the buffer is already full.
+            while global_buffer.buffer_size() > 8000:
                 time.sleep(5)
 
             # So if I do not have a live game, I need to sample a past model
@@ -157,6 +160,23 @@ class DataWorker(object):
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
+    '''
+    Description -
+        Each worker runs one full game and will restart after the game finishes. At the end of the game, 
+        it will fetch a new agent. Same as above but runs the default model architecture instead of the model 
+        architecture that decides every action. 
+    Inputs -   
+        env 
+            A parallel environment of our tft simulator. This is the game that the worker interacts with.
+        buffers
+            One buffer wrapper that holds a series of buffers that we store all information required to train in.
+        global_buffer
+            A buffer that all the individual game buffers send their information to.
+        storage
+            An object that stores global information like the weights of the global model and current training progress
+        weights
+            Weights of the initial model for the agent to play the game with.
+    '''
     def collect_default_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.network.set_weights(weights)
         while True:
@@ -239,7 +259,6 @@ class DataWorker(object):
         step_actions
             A dictionary of player_ids and actions usable by the environment.
     '''
-
     def getStepActions(self, terminated, actions):
         step_actions = {}
         i = 0
@@ -254,7 +273,6 @@ class DataWorker(object):
         Turns a dictionary of player observations into a list of list format that the model can use.
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
-
     def observation_to_input(self, observation):
         masks = []
         keys = []
@@ -298,7 +316,6 @@ class DataWorker(object):
         Turns a string action into a series of one_hot lists that can be used in the step_function.
         More specifics on what every list means can be found in the step_function.
     '''
-
     def decode_action_to_one_hot(self, str_action):
         num_items = str_action.count("_")
         split_action = str_action.split("_")
@@ -324,9 +341,18 @@ class DataWorker(object):
             decoded_action[7:44] = utils.one_hot_encode_number(element_list[1], 37)
         return decoded_action
 
+    """
+    Description - 
+        Determines which model call is needed for the current timestep.
+    Inputs      -
+        player_observation
+            The dictionary of vectors that is the agents view of the world.
+        info
+            The dictionary of info that is returned from the simulator. Used for default agents.
+    """
     def model_call(self, player_observation, info):
         if config.IMITATION:
-            actions, policy, string_samples, root_values = self.imitation_learning(player_observation[:2], info)
+            actions, policy, string_samples, root_values = self.imitation_learning(info)
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
@@ -347,17 +373,11 @@ class DataWorker(object):
             actions, policy, string_samples, root_values = self.default_model_call(info)
         return actions, policy, string_samples, root_values
 
+    """
+    Description - 
+        Model call if some of the players are current agents and some of the players are past agents.
+    """
     def mixed_ai_model_call(self, player_observation):
-        # I need to send the observations that are part of the past players to one vector
-        # and send the ones that are part of the live players to another vector
-        # Problem comes if I want to do multiple different versions in a game.
-        # I could limit it to one past verison. That is probably going to be fine for our purposes
-        # Note for later that the current implementation is only going to be good for one past version
-        # For our purposes, lets just start with half of the agents being false.
-
-        # Now that I have the array for the past versions down to only the remaining players
-        # Separate the observation.
-
         print("In the mixed model call")
         live_agent_observations = []
         past_agent_observations = []
@@ -395,6 +415,10 @@ class DataWorker(object):
                 counter_live += 1
         return actions, policy, string_samples, root_values
 
+    """
+    Description - 
+        Model call if some of the agents are live and some of them are default agents.
+    """
     def live_default_model_call(self, player_observation, info):
         actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
@@ -439,6 +463,10 @@ class DataWorker(object):
                     counter_default += 1
         return actions, policy, string_samples, root_values
 
+    """
+    Description - 
+        Model call if all of the agents are a mix of default and past. Currently never called.
+    """
     def past_default_model_call(self, info):
         actions = [None] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
@@ -446,6 +474,10 @@ class DataWorker(object):
         root_values = [None] * len(self.default_agent)
         return actions, policy, string_samples, root_values
 
+    """
+    Description - 
+        Model call if you have a mix of all 3 model types in a timestep. Currently never called.
+    """
     def live_past_default_model_call(self, info):
         actions = [None] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
@@ -453,6 +485,10 @@ class DataWorker(object):
         root_values = [None] * len(self.default_agent)
         return actions, policy, string_samples, root_values
 
+    """
+    Description - 
+        Called if all players are default agents.
+    """
     def default_model_call(self, info):
         actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
@@ -464,7 +500,11 @@ class DataWorker(object):
                 actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])
         return actions, policy, string_samples, root_values
 
-    def imitation_learning(self, player_observation, info):
+    """
+    Description - 
+        Model call if doing imitation learning. Only calls the default policy
+    """
+    def imitation_learning(self, info):
         policy = [[1.0] for _ in range(len(self.default_agent))]
         string_samples = [[] for _ in range(len(self.default_agent))]
         root_values = [0 for _ in range(len(self.default_agent))]
@@ -472,8 +512,8 @@ class DataWorker(object):
 
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
-            string_samples[i] = [local_info[i]["player"].default_policy(local_info[i]["game_round"],
-                                                                        local_info[i]["shop"])]
+            string_samples[i] = \
+                [local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])]
             actions[i] = string_samples[i][0]
         return actions, policy, string_samples, root_values
 
@@ -484,6 +524,11 @@ class DataWorker(object):
         skill level of the current agent and to see how well our agents are training. Metrics from this method are 
         stored in the storage class because this is the data worker side so there are intended to be multiple copies
         of this method running at once. 
+    Inputs
+        env 
+            A parallel environment of our tft simulator. This is the game that the worker interacts with.
+        storage
+            An object that stores global information like the weights of the global model and current training progress
     '''
 
     def evaluate_agents(self, env, storage):

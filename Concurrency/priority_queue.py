@@ -1,6 +1,9 @@
-
-# Code taken from https://www.geeksforgeeks.org/max-heap-in-python/ and adjusted for the use-case
-
+"""
+Description - Code taken from https://www.geeksforgeeks.org/max-heap-in-python/ and adjusted for the use-case
+Inputs      -
+    maxsize
+        The maximum size of the priority queue.
+"""
 class PriorityBuffer(object):
     def __init__(self, maxsize):
         self.maxsize = maxsize
@@ -13,37 +16,48 @@ class PriorityBuffer(object):
     def qsize(self):
         return self.size
 
-    # Function to return the position of
-    # parent for the node currently
-    # at pos
+    '''
+    Description - 
+        Function to return the position of parent for the node currently at pos
+    '''
     def parent(self, pos):
         return pos // 2
 
-    # Function to return the position of
-    # the left child for the node currently
-    # at pos
+    '''
+    Description -
+        Function to return the position of the left child for the node currently at pos
+    '''
     def leftChild(self, pos):
         return 2 * pos
 
-    # Function to return the position of
-    # the right child for the node currently
-    # at pos
+    '''
+    Description - 
+        Function to return the position of the right child for the node currently at pos
+    '''
     def rightChild(self, pos):
         return (2 * pos) + 1
 
-    # Function that returns true if the passed
-    # node is a leaf node
+    '''
+    Description -
+        Function that returns true if the passed node is a leaf node
+    '''
     def isLeaf(self, pos):
         if (self.size // 2) <= pos <= self.size:
             return True
         return False
 
-    # Function to swap two nodes of the heap
+    '''
+    Description - 
+        Function to swap two nodes of the heap
+    '''
     def swap(self, fpos, spos):
         self.Heap[fpos], self.Heap[spos] = (self.Heap[spos], self.Heap[fpos])
         self.Replay_Heap[fpos], self.Replay_Heap[spos] = (self.Replay_Heap[spos], self.Replay_Heap[fpos])
 
-    # Function to heapify the node at pos
+    '''
+    Description - 
+        Function to heapify the node at pos
+    '''
     def maxHeapify(self, pos):
         # If the node is a non-leaf node and smaller
         # than any of its child
@@ -64,10 +78,13 @@ class PriorityBuffer(object):
                     self.swap(pos, self.rightChild(pos))
                     self.maxHeapify(self.rightChild(pos))
 
-    # Function to insert a node into the heap
+    # TODO: Reimplement overflow to remove the last if priority lower than current.
+    '''
+    Description - 
+        Function to insert a node into the heap
+    '''
     def insert(self, priority, time_step):
         if self.size >= self.maxsize:
-            # Reimplement this to instead of remove the last and insert at a random location.
             return
         self.size += 1
         self.Heap[self.size] = priority
@@ -80,15 +97,20 @@ class PriorityBuffer(object):
             self.swap(current, self.parent(current))
             current = self.parent(current)
 
-    # Function to print the contents of the heap
+    '''
+    Description - 
+        Function to print the contents of the heap. Here for debugging purposes.
+    '''
     def Print(self):
         for i in range(1, (self.size // 2) + 1):
             print("PARENT : " + str(self.Heap[i]) +
                   "LEFT CHILD : " + str(self.Heap[2 * i]) +
                   "RIGHT CHILD : " + str(self.Heap[2 * i + 1]))
 
-    # Function to remove and return the maximum
-    # element from the heap
+    '''
+    Description - 
+        Function to remove and return the maximum element from the heap
+    '''
     def extractMax(self):
         popped = self.Replay_Heap[self.FRONT]
         self.Heap[self.FRONT] = self.Heap[self.size]

@@ -4,10 +4,16 @@ import glob
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from checkpoint import Checkpoint
-from sys import getsizeof
+from Concurrency.checkpoint import Checkpoint
 
-
+"""
+Description - 
+    Class that stores the global agent and other meta data that all of the data workers can access. 
+    Stores all checkpoints. Also stores a boolean to know if the trainer is currently busy or not. 
+Inputs      - 
+    episode 
+        Checkpoint number to load in for the global agent.
+"""
 @ray.remote(num_gpus=config.STORAGE_GPU_SIZE, num_cpus=0.1)
 class Storage:
     def __init__(self, episode):
@@ -24,45 +30,108 @@ class Storage:
         self.store_base_checkpoint()
         self.populate_checkpoints()
 
+    """
+    Description - 
+        Returns the most recent checkpoint.
+    Outputs     - 
+        Model related to the most recent checkpoint
+    """
     def get_model(self):
         return self.checkpoint_list[-1].get_model()
 
     # Implementing saving.
+    """
+    Description - 
+        Returns a new model.
+    Outputs     - 
+        A fresh model. 
+    """
     def load_model(self):
         if config.CHAMP_DECIDER:
             return DefaultNetwork()
         else:
             return TFTNetwork()
 
+    """
+    Description - 
+        Returns the current target model weights.
+    Outputs     - 
+        Target model weights.
+    """
     def get_target_model(self):
         return self.target_model.get_weights()
 
+    """
+    Description - 
+        Sets new weights for the target model. Called after every gradiant update round.
+    Inputs      - 
+        weights
+            weights of the target model. 
+    """
     def set_target_model(self, weights):
         return self.target_model.set_weights(weights)
 
+    """
+    Description - 
+        Returns the current episode / train_step.
+    Outputs     - 
+        Current episode
+    """
     def get_episode_played(self):
         return self.episode_played
 
+    """
+    Description - 
+        Increments the current episode. Stored here so all data workers can access this.
+    """
     def increment_episode_played(self):
         self.episode_played += 1
 
+    """
+    Description - 
+        Updates the trainer_busy status. Called by available_batch and training loop after training.
+    Inputs      - 
+        status - boolean
+            New status
+    """
     def set_trainer_busy(self, status):
         self.trainer_busy = status
 
+    """
+    Description - 
+        Returns the trainer_busy status. Called by available_batch.
+    Outputs     - 
+        current status
+    """
     def get_trainer_busy(self):
         return self.trainer_busy
 
+    """
+    Description - 
+    Inputs      - 
+        placement - Dictionary
+            placement of the agents. Checkpoint_num: position
+    """
     def record_placements(self, placement):
         print(placement)
         for key in self.placements.keys():
             # Increment which position each model got.
             self.placements[key][placement[key]] += 1
 
+    """
+    Description - 
+        Inputs the checkpoint related to a fresh model into the checkpoint list.
+    """
     def store_base_checkpoint(self):
         base_checkpoint = Checkpoint(0, 1)
         # TODO: Verify if this is super inefficient or if there is a better way.
         self.checkpoint_list = np.append(self.checkpoint_list, [base_checkpoint])
 
+    # TODO: Add description / inputs when doing unit testing on this method
+    """
+    Description -
+    Inputs      - 
+    """
     def store_checkpoint(self, episode):
         print("STORING CHECKPOINT")
         checkpoint = Checkpoint(episode, self.max_q_value)
@@ -74,11 +143,21 @@ class Storage:
             self.checkpoint_list = self.checkpoint_list[1:]
         print("FINISHED STORING CHECKPOINT")
 
+    # TODO: Add description / inputs when doing unit testing on this method
+    """
+    Description - 
+    Inputs      - 
+    """
     def update_checkpoint_score(self, episode, prob):
         checkpoint = next((x for x in self.checkpoint_list if x.epoch == episode), None)
         if checkpoint:
             checkpoint.update_q_score(self.checkpoint_list[-1].epoch, prob)
 
+    # TODO: Add description / outputs when doing unit testing on this method
+    """
+    Description - 
+    Outputs     - 
+    """
     def sample_past_model(self):
         # List of probabilities for each past model
         probabilities = np.array([], dtype=np.float32)
@@ -105,6 +184,10 @@ class Storage:
         print("fetching model for past game {}".format(choice))
         return self.checkpoint_list[index].get_model(), choice, probabilities[index]
 
+    # TODO: Add description when doing unit testing on this method
+    """
+    Description - 
+    """
     # Method used to load in all checkpoints available on the system in the same folder as where we save checkpoints
     def populate_checkpoints(self):
         # Find all files within ./Checkpoints that follow the format Checkpoint_{integer}
@@ -114,5 +197,10 @@ class Storage:
             checkpoint_int = int(path.split('_')[-1])
             self.store_checkpoint(checkpoint_int)
 
+    # TODO: Add description / inputs when doing unit testing on this method
+    """
+    Description - 
+    Outputs     - 
+    """
     def get_checkpoint_list(self):
         return self.checkpoint_list

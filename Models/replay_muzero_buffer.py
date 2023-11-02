@@ -1,7 +1,6 @@
 import numpy as np
 import config
 import time
-from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
@@ -191,8 +190,17 @@ class ReplayBuffer:
                     div += i
                 priority = 1 / (priority / div) + np.random.rand() * 0.00001
 
+                # print(action_set[0][0].is_cuda)
+                # print(value_set[0][0].is_cuda)
+                # print(reward_set[0][0].is_cuda)
+                # print(policy_set[0][0].is_cuda)
+                # print(sample_set[0][0].is_cuda)
+                # print(tier_set[0][0].is_cuda)
+                # print(final_tier_set[0][0].is_cuda)
+                # print(champion_set[0][0].is_cuda)
+                # print(self.gameplay_experiences[sample].is_cuda)
                 # priority = 1 / priority because priority queue stores in ascending order.
                 output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
                                                      reward_mask_set, policy_mask_set, value_set, reward_set,
                                                      policy_set, sample_set, tier_set, final_tier_set, champion_set]])
-            global_buffer.store_replay_sequence.remote([output_sample_set, self.ending_position])
+            global_buffer.store_replay_sequence([output_sample_set, self.ending_position])
