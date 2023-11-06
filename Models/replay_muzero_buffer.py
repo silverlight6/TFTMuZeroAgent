@@ -190,15 +190,6 @@ class ReplayBuffer:
                     div += i
                 priority = 1 / (priority / div) + np.random.rand() * 0.00001
 
-                # print(action_set[0][0].is_cuda)
-                # print(value_set[0][0].is_cuda)
-                # print(reward_set[0][0].is_cuda)
-                # print(policy_set[0][0].is_cuda)
-                # print(sample_set[0][0].is_cuda)
-                # print(tier_set[0][0].is_cuda)
-                # print(final_tier_set[0][0].is_cuda)
-                # print(champion_set[0][0].is_cuda)
-                # print(self.gameplay_experiences[sample].is_cuda)
                 # priority = 1 / priority because priority queue stores in ascending order.
                 output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
                                                      reward_mask_set, policy_mask_set, value_set, reward_set,

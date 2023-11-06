@@ -1,5 +1,4 @@
 import time
-import ray
 import config
 import collections
 import torch
@@ -14,7 +13,7 @@ Prediction = collections.namedtuple(
 LossOutput = collections.namedtuple(
     'LossOutput',
     'value_loss reward_loss policy_loss tier_loss final_tier_loss champ_loss '
-    'value reward policy target_value target_reward l2_loss')
+    'value reward policy target_value target_reward l2_loss importance_weights')
 
 
 class Trainer(object):
@@ -49,7 +48,7 @@ class Trainer(object):
     def train_network(self, batch, train_step):
 
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set, position = batch
+            sample_set, importance_weights, tier_set, final_tier_set, champion_set, position = batch
 
         # disabling this for the moment while I get the rest working, will add back later.
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
@@ -60,8 +59,8 @@ class Trainer(object):
 
         sample_set, target_policy = split_batch(sample_set, target_policy)
 
-        self.compute_loss(predictions, target_value, target_reward, target_policy, sample_set,
-                          value_mask, reward_mask, policy_mask, tier_set, final_tier_set, champion_set)
+        self.compute_loss(predictions, target_value, target_reward, target_policy, sample_set,  value_mask,
+                          reward_mask, policy_mask, importance_weights, tier_set, final_tier_set, champion_set)
 
         self.backpropagate()
 
@@ -109,10 +108,11 @@ class Trainer(object):
         return predictions
 
     def compute_loss(self, predictions, target_value, target_reward, target_policy, sample_set,
-                     value_mask, reward_mask, policy_mask, tier_set, final_tier_set, champion_set):
+                     value_mask, reward_mask, policy_mask, importance_weights, tier_set, final_tier_set, champion_set):
         value_mask = torch.from_numpy(value_mask).to(config.DEVICE)
         reward_mask = torch.from_numpy(reward_mask).to(config.DEVICE)
         policy_mask = torch.from_numpy(policy_mask).to(config.DEVICE)
+        importance_weights = torch.from_numpy(importance_weights).to(config.DEVICE)
 
         target_value = self.encode_target(
             target_value, self.network.value_encoder).to(config.DEVICE)
@@ -131,7 +131,8 @@ class Trainer(object):
             policy=[],
             target_value=[],
             target_reward=[],
-            l2_loss=[]
+            l2_loss=[],
+            importance_weights=[]
         )
 
         for tstep, prediction in enumerate(predictions):
@@ -204,9 +205,12 @@ class Trainer(object):
         #     value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
         #     -1).to(config.DEVICE)
 
-        self.loss += l2_loss
+        self.loss = self.loss * importance_weights
+
+        self.outputs.importance_weights.append(importance_weights[0].to('cpu'))
 
         self.loss = self.loss.mean()
+        self.loss += l2_loss
 
     def backpropagate(self):
         self.optimizer.zero_grad()
@@ -245,6 +249,10 @@ class Trainer(object):
             'episode_max/value', torch.max(torch.stack(self.outputs.target_value)), train_step)
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
+
+        self.summary_writer.add_scalar(
+            'episode_info/importance_weights', np.mean(self.outputs.importance_weights), train_step
+        )
 
         # TODO: Figure out a way to get rid of this if statement
         if config.CHAMP_DECIDER:
@@ -318,8 +326,8 @@ class Trainer(object):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
             # print(pred_dim)
-            loss += mean_squared_error_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
-                                                                   dtype=torch.float32).to(config.DEVICE))
+            loss += cross_entropy_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
+                                                              dtype=torch.float32).to(config.DEVICE))
         return loss
 
     def l2_regularization(self):

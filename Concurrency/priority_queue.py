@@ -1,3 +1,5 @@
+import numpy as np
+
 """
 Description - Code taken from https://www.geeksforgeeks.org/max-heap-in-python/ and adjusted for the use-case
 Inputs      -
@@ -78,13 +80,22 @@ class PriorityBuffer(object):
                     self.swap(pos, self.rightChild(pos))
                     self.maxHeapify(self.rightChild(pos))
 
-    # TODO: Reimplement overflow to remove the last if priority lower than current.
     '''
     Description - 
         Function to insert a node into the heap
     '''
     def insert(self, priority, time_step):
+        # If max size, check a random place and see if the priority is higher.
         if self.size >= self.maxsize:
+            # Start of the leaf positions to the end of the array
+            random_pos = np.random.randint(self.maxsize // 2 + 1, self.maxsize - 1)
+            if priority > self.Heap[random_pos]:
+                self.Heap[random_pos] = priority
+                self.Replay_Heap[random_pos] = time_step
+                while (self.Heap[random_pos] >
+                       self.Heap[self.parent(random_pos)]):
+                    self.swap(random_pos, self.parent(random_pos))
+                    random_pos = self.parent(random_pos)
             return
         self.size += 1
         self.Heap[self.size] = priority
@@ -113,8 +124,9 @@ class PriorityBuffer(object):
     '''
     def extractMax(self):
         popped = self.Replay_Heap[self.FRONT]
+        priority_popped = self.Heap[self.FRONT]
         self.Heap[self.FRONT] = self.Heap[self.size]
         self.Replay_Heap[self.FRONT] = self.Replay_Heap[self.size]
         self.size -= 1
         self.maxHeapify(self.FRONT)
-        return popped
+        return popped, priority_popped

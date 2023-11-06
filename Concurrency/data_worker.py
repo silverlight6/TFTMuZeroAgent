@@ -148,7 +148,7 @@ class DataWorker(object):
 
             # This is just to try to give the buffer some time to train on the data we have and not slow down our
             # buffers by sending thousands of store commands when the buffer is already full.
-            while global_buffer.buffer_size() > 8000:
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
                 time.sleep(5)
 
             # So if I do not have a live game, I need to sample a past model
