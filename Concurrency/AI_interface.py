@@ -36,6 +36,8 @@ class AIInterface:
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
             train_step = starting_train_step
 
+            workers = []
+            data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
             storage = Storage.remote(train_step)
             if config.CHAMP_DECIDER:
                 global_agent = DefaultNetwork()
@@ -57,8 +59,7 @@ class AIInterface:
                        for _ in range(config.CONCURRENT_GAMES)]
 
             weights = ray.get(storage.get_target_model.remote())
-            workers = []
-            data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+
             for i, worker in enumerate(data_workers):
                 if config.CHAMP_DECIDER:
                     workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager,
@@ -71,6 +72,7 @@ class AIInterface:
             training_manager.loop(storage, train_step)
 
             # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # ray.get(storage)
             ray.get(workers)
 
     '''

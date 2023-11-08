@@ -9,6 +9,7 @@ gym~=0.23.1
 PettingZoo~=1.23.1
 gymnasium~=0.28.0
 cython==0.29.23
+pytest==7.4.3
 
 setuptools~=66.1.1
 scipy~=1.10.1

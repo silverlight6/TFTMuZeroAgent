@@ -13,6 +13,7 @@ class GlobalBuffer(object):
     Args:
         storage_ptr (pointer): Pointer to the storage object to keep track of the current trainer status.
     """
+
     def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.batch_size = config.BATCH_SIZE
@@ -43,7 +44,7 @@ class GlobalBuffer(object):
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
             [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
-                sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
+             sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
             position, _ = self.average_position.extractMax()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
@@ -68,7 +69,7 @@ class GlobalBuffer(object):
         reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
         importance_weights_batch = np.asarray(importance_weights).astype('float32')
-        importance_weights_batch = importance_weights_batch / np.linalg.norm(importance_weights_batch)
+        importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
         position_batch = np.asarray(position_batch)
         position_batch = np.mean(position_batch)
 
@@ -103,7 +104,7 @@ class GlobalBuffer(object):
         Description:
             Async method to store data into the global buffer. Some quick checking to ensure data validity.
 
-        Inputs:
+        Args:
             samples (list): All samples from one game from one agent.
         """
         for sample in samples[0]:
@@ -127,4 +128,3 @@ class GlobalBuffer(object):
         await asyncio.sleep(2)
         # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False
-

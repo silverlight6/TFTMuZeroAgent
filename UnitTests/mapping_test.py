@@ -41,5 +41,5 @@ def mapping_test():
                 mapped_idx = int(sell_action[1:])  # "_15" -> "15"
                 assert sell_action == local_mapping[mapped_idx]
 
-def list_of_tests():
+def test_list():
     mapping_test()

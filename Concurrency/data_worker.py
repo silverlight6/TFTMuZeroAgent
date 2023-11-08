@@ -129,11 +129,10 @@ class DataWorker(object):
 
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
             # Disabling to test out the default agent
-            self.live_game = np.random.rand() <= 1.8
+            self.live_game = np.random.rand() <= 0.5
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
-                print('---------------- here ------------------')
-                past_weights, self.past_episode, self.prob = ray.get(storage.sample_past_model.remote())
+                [past_weights, self.past_episode, self.prob] = ray.get(storage.sample_past_model.remote())
                 self.past_network = MCTS(self.temp_model)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
@@ -378,21 +377,7 @@ class DataWorker(object):
         Model call if some of the players are current agents and some of the players are past agents.
     """
     def mixed_ai_model_call(self, player_observation):
-        print("In the mixed model call")
-        live_agent_observations = []
-        past_agent_observations = []
-        live_agent_masks = []
-        past_agent_masks = []
-
-        for i, past_version in enumerate(self.past_version):
-            if not past_version:
-                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
-                live_agent_masks.append(player_observation[1][i])
-            else:
-                past_agent_observations.append(player_observation[0][i])
-                past_agent_masks.append(player_observation[1][i])
-        live_observation = [np.asarray(live_agent_observations), live_agent_masks]
-        past_observation = [np.asarray(past_agent_observations), past_agent_masks]
+        live_observation, past_observation = self.split_live_past_observations(player_observation)
         live_actions, live_policy, live_string_samples, live_root_values = self.agent_network.policy(live_observation)
         past_actions, past_policy, past_string_samples, past_root_values = self.past_network.policy(past_observation)
         actions = [None] * len(self.past_version)
@@ -414,6 +399,48 @@ class DataWorker(object):
                 root_values[i] = live_root_values[counter_live]
                 counter_live += 1
         return actions, policy, string_samples, root_values
+
+    def split_live_past_observations(self, player_observation):
+        live_agent_observations = {
+            "shop": [],
+            "board": [],
+            "bench": [],
+            "states": [],
+            "game_comp": [],
+            "other_players": []
+        }
+        past_agent_observations = {
+            "shop": [],
+            "board": [],
+            "bench": [],
+            "states": [],
+            "game_comp": [],
+            "other_players": []
+        }
+        live_agent_masks = []
+        past_agent_masks = []
+
+        for i, past_version in enumerate(self.past_version):
+            local_obs = self.get_obs_idx(player_observation[0], i)
+            local_mask = player_observation[1][i]
+            if not past_version:
+                for key in live_agent_observations.keys():
+                    live_agent_observations[key].append(local_obs[key])
+                live_agent_masks.append(local_mask)
+            else:
+                for key in past_agent_observations.keys():
+                    past_agent_observations[key].append(local_obs[key])
+                past_agent_masks.append(local_mask)
+
+        for key in live_agent_observations.keys():
+            live_agent_observations[key] = np.asarray(live_agent_observations[key])
+
+        for key in past_agent_observations.keys():
+            past_agent_observations[key] = np.asarray(past_agent_observations[key])
+
+        live_observation = [live_agent_observations, live_agent_masks]
+        past_observation = [past_agent_observations, past_agent_masks]
+        return live_observation, past_observation
 
     """
     Description - 

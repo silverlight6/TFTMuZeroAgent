@@ -1,5 +1,7 @@
 import ray
 import asyncio
+
+import config
 from Concurrency.training_loop import TrainingLoop
 from Concurrency.global_buffer import GlobalBuffer
 
@@ -68,7 +70,7 @@ Inputs      -
     storage
         An object that stores global information like the weights of the global model and current training progress
 """
-@ray.remote(num_gpus=1)
+@ray.remote(num_gpus=config.TRAINER_GPU_SIZE)
 class _TrainActor:
     def __init__(self, global_agent, storage):
         self.global_buffer = GlobalBuffer(storage)

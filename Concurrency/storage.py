@@ -6,16 +6,16 @@ from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.checkpoint import Checkpoint
 
-"""
-Description - 
-    Class that stores the global agent and other meta data that all of the data workers can access. 
-    Stores all checkpoints. Also stores a boolean to know if the trainer is currently busy or not. 
-Inputs      - 
-    episode 
-        Checkpoint number to load in for the global agent.
-"""
+
 @ray.remote(num_gpus=config.STORAGE_GPU_SIZE, num_cpus=0.1)
 class Storage:
+    """
+    Class that stores the global agent and other meta data that all of the data workers can access.
+    Stores all checkpoints. Also stores a boolean to know if the trainer is currently busy or not.
+
+    Args:
+        episode (int): Checkpoint number to load in for the global agent.
+    """
     def __init__(self, episode):
         self.target_model = self.load_model()
         if episode > 0:
@@ -30,45 +30,47 @@ class Storage:
         self.store_base_checkpoint()
         self.populate_checkpoints()
 
-    """
-    Description - 
-        Returns the most recent checkpoint.
-    Outputs     - 
-        Model related to the most recent checkpoint
-    """
     def get_model(self):
+        """
+        Returns the most recent checkpoint.
+
+        Returns:
+            Pytorch Model Weights:
+                Model related to the most recent checkpoint
+        """
         return self.checkpoint_list[-1].get_model()
 
-    # Implementing saving.
-    """
-    Description - 
-        Returns a new model.
-    Outputs     - 
-        A fresh model. 
-    """
     def load_model(self):
+        """
+        Returns a new model.
+
+        Returns:
+            Pytorch Model Weights:
+                Weights for a fresh model
+        """
         if config.CHAMP_DECIDER:
             return DefaultNetwork()
         else:
             return TFTNetwork()
 
-    """
-    Description - 
-        Returns the current target model weights.
-    Outputs     - 
-        Target model weights.
-    """
     def get_target_model(self):
+        """
+        Returns the current target model weights.
+
+        Returns:
+            Pytorch Model Weights:
+                Target model weights.
+        """
         return self.target_model.get_weights()
 
-    """
-    Description - 
-        Sets new weights for the target model. Called after every gradiant update round.
-    Inputs      - 
-        weights
-            weights of the target model. 
-    """
     def set_target_model(self, weights):
+        """
+        Sets new weights for the target model. Called after every gradiant update round.
+
+        Args:
+            Pytorch Model Weights:
+                Weights of the target model.
+        """
         return self.target_model.set_weights(weights)
 
     """
@@ -133,7 +135,9 @@ class Storage:
     Inputs      - 
     """
     def store_checkpoint(self, episode):
-        print("STORING CHECKPOINT")
+        for checkpoint in self.checkpoint_list:
+            if checkpoint.epoch == episode:
+                return
         checkpoint = Checkpoint(episode, self.max_q_value)
         self.checkpoint_list = np.append(self.checkpoint_list, [checkpoint])
 
@@ -141,7 +145,6 @@ class Storage:
         # Want something so it doesn't expand infinitely
         if len(self.checkpoint_list) > 1000:
             self.checkpoint_list = self.checkpoint_list[1:]
-        print("FINISHED STORING CHECKPOINT")
 
     # TODO: Add description / inputs when doing unit testing on this method
     """
@@ -168,20 +171,19 @@ class Storage:
         # Populate the lists
         for checkpoint in self.checkpoint_list:
             probabilities = np.append(probabilities, [np.exp(checkpoint.q_score)])
-            checkpoints = np.append(checkpoints, [int(checkpoint.epoch)])
+            checkpoints = np.append(checkpoints, [str(int(checkpoint.epoch))])
 
         # Normalize the probabilities to create a probability distribution
-        probabilities = probabilities / np.linalg.norm(probabilities)
+        probabilities = self.softmax(probabilities)
 
         # Pick the sample
-        choice = int(np.random.choice(checkpoints, 1, probabilities))
+        choice = np.random.choice(a=checkpoints, size=1, p=probabilities)
 
         # Find the index, so we can return the probability as well in case we need to update the value
         index = np.where(checkpoints == choice)[0][0]
+        choice = int(choice)
 
         # Return the model and the probability
-        print("Checkpoint choices {}".format(checkpoints))
-        print("fetching model for past game {}".format(choice))
         return self.checkpoint_list[index].get_model(), choice, probabilities[index]
 
     # TODO: Add description when doing unit testing on this method
@@ -204,3 +206,8 @@ class Storage:
     """
     def get_checkpoint_list(self):
         return self.checkpoint_list
+
+    def softmax(self, x):
+        """Compute softmax values for each sets of scores in x."""
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum()

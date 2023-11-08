@@ -160,6 +160,6 @@ def defaultMappingTest():
     pass
 
 
-def list_of_tests():
+def test_list():
     encodeTest()
     defaultMappingTest()
