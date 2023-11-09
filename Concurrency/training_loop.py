@@ -47,6 +47,9 @@ class TrainingLoop:
                 storage.set_target_model.remote(global_agent.get_weights())
                 train_step += 1
 
-                if train_step % config.CHECKPOINT_STEPS == 0:
+                # Because the champ decider produces 125 samples per game whereas the standard trainer produces
+                # closer to 3000, setting the checkpoints to be produced more rapidly.
+                if (train_step % config.CHECKPOINT_STEPS == 0) or \
+                        (config.CHAMP_DECIDER and train_step % config.CHECKPOINT_STEPS % 10 == 0):
                     storage.store_checkpoint.remote(train_step)
                     global_agent.tft_save_model(train_step)

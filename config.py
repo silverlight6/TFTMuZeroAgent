@@ -12,7 +12,7 @@ TRAINER_GPU_SIZE = 0.2
 
 DEVICE = "cuda"
 IMITATION = False
-CHAMP_DECIDER = False
+CHAMP_DECIDER = True
 
 # AI RELATED VALUES START HERE
 
@@ -66,7 +66,7 @@ MAX_GRAD_NORM = 5
 N_HEAD_HIDDEN_LAYERS = 2
 
 ### TIME RELATED VALUES ###
-ACTIONS_PER_TURN = 10
+ACTIONS_PER_TURN = 15
 CONCURRENT_GAMES = 20
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 30
@@ -76,8 +76,9 @@ NUM_SIMULATIONS = 50
 TD_STEPS = -1 
 # This should be 1000 + because we want to be sampling everything when using priority.
 # To change, look into the code in replay_muzero_buffer
-SAMPLES_PER_PLAYER = 64
-UNROLL_STEPS = 15
+SAMPLES_PER_PLAYER = 1000
+# For default agent, this needs to be low because there often isn't many samples per game.
+UNROLL_STEPS = 5
 
 ### TRAINING ###
 BATCH_SIZE = 1024

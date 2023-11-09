@@ -61,6 +61,7 @@ class ReplayBuffer:
         self.ending_position = ending_position
 
     def store_global_buffer(self, global_buffer):
+
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -180,7 +181,7 @@ class ReplayBuffer:
                     split_mapping, split_policy = split_sample_decide(sample_set[i], policy_set[i])
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
-                
+
                 # formula for priority over unroll steps,
                 # adding small randomness to get around a priority queue error where it crashes if you add two items
                 # with identical priorities

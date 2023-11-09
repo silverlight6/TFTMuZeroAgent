@@ -1,6 +1,6 @@
 import numpy as np
 import config
-from Concurrency.global_buffer import GlobalBuffer
+from TestInterface.test_global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_decide
 
 

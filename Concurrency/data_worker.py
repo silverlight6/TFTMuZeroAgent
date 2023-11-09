@@ -22,7 +22,7 @@ class DataWorker(object):
             self.temp_model = DefaultNetwork()
             self.agent_network = Default_MCTS(self.temp_model)
             self.past_network = Default_MCTS(self.temp_model)
-            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork()
             self.agent_network = MCTS(self.temp_model)
@@ -189,6 +189,15 @@ class DataWorker(object):
             reward = {player_id: 0 for player_id in env.possible_agents}
             position = 8
 
+            # Doing this to try to get around the edge case of the very last time step for each player where
+            # The player is null but we still need to collect a reward.
+            current_comp = {
+                key: info[key]["player"].get_team_tier_labels() for key in terminated.keys()
+            }
+            current_champs = {
+                key: info[key]["player"].get_team_champion_labels() for key in terminated.keys()
+            }
+
             # While the game is still going on.
             while not all(terminated.values()):
                 info_values = list(info.values())
@@ -203,12 +212,17 @@ class DataWorker(object):
 
                     # store the action for MuZero
                     for i, key in enumerate(terminated.keys()):
+                        if info[key]["player"]:
+                            current_comp[key] = info[key]["player"].get_team_tier_labels()
+                            current_champs[key] = info[key]["player"].get_team_champion_labels()
                         # Store the information in a buffer to train on later.
-                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
-                                                           reward[key], policy[i], string_samples[i], root_values[i])
+                        buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
+                                                           storage_actions[i], reward[key], policy[i],
+                                                           string_samples[i], root_values[i], current_comp[key],
+                                                           current_champs[key])
 
                 actions = ["0"] * len(self.default_agent)
-                for i, default_agent in enumerate(self.default_agent):
+                for i, _ in enumerate(self.default_agent):
                     actions[i] = info_values[i]["player"].default_policy(info_values[i]["game_round"],
                                                                          info_values[i]["shop"])
                 storage_actions = utils.decode_action(actions)
@@ -230,13 +244,11 @@ class DataWorker(object):
                 # Set up the observation for the next action
                 player_observation = self.observation_to_input(next_observation)
 
-            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
 
             # buffers.rewardNorm.remote()
-            print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
-            ray.get(buffers.store_global_buffer.remote())
-            print("FINISHED SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
-            buffers = BufferWrapper.reset.remote(global_buffer)
+            buffers.store_global_buffer.remote(global_buffer)
+            buffers.reset_buffers.remote()
 
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
