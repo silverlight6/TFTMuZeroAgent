@@ -13,6 +13,7 @@ from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
 from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMPION_ACTION_DIM
+from Simulator.porox.observation import Observation
 
 """
 Description - This is the base player class
@@ -25,7 +26,7 @@ Inputs      - pool_pointer: Pool object pointer
 
 
 class Player:
-    def __init__(self, player_num, pool_pointer):
+    def __init__(self, pool_pointer, player_num):
 
         self.player_num = player_num
 
@@ -169,61 +170,6 @@ class Player:
         # Context For Loot Orbs
         self.orb_history = []
 
-    def perform_action(self, action):
-        """Performs the action given by the agent.
-
-        7 Types of actions:
-        [0, 0, 0] - Pass action
-        [1, 0, 0] - Level up action
-        [2, 0, 0] - Refresh action
-        [3, X1, 0] - Buy action; X1 is an index from 0 to 4 for the shop locations
-        [4, X1, 0] - Sell Action; X1 is the index of the champion to sell (0 to 36)
-        [5, X1, X2] - Move Action; X1 is the index of the champion to move (0 to 36), X2 is the index of the location to move to (0 to 36)
-        [6, X1, X2] - Item Action; X1 is the index of the item to move (0 to 9), X2 is the index of the champion to move to (0 to 36)
-
-        Args:
-            action (list): Action to perform. Must be of length 3.
-
-        Returns:
-            bool: True if action was performed successfully, False otherwise.
-        """
-        if len(action) != 3:
-            print(f"Action is not of length 3: {action}")
-            return
-        action_type, x1, x2 = action
-
-        # Pass Action
-        if action_type == 0:
-            self.pass_action()
-
-        # Level Action
-        elif action_type == 1:
-            self.buy_exp_action()
-
-        # Refresh Action
-        elif action_type == 2:
-            self.refresh_shop_action()
-
-        # Buy Action
-        elif action_type == 3:
-            self.buy_shop_action(x1)
-
-        # Sell Action
-        elif action_type == 4:
-            self.sell_action(x1)
-
-        # Move/Sell Action
-        elif action_type == 5:
-            self.move_champ_action(x1, x2)
-
-        # Item action
-        elif action_type == 6:
-            self.move_item_action(x1, x2)
-
-        else:
-            self.print(f"Action Type is invalid: {action}")
-            self.pass_action()
-
     def dcord_to_2dcord(self, dcord):
         """ Calculates the 2 dimentional position from an index.
 
@@ -234,15 +180,15 @@ class Player:
             int: x coordinate of the position.
             int: y coordinate of the position.
         """
-        x = dcord % 7
-        y = (dcord - x) // 7
+        x = dcord // 4
+        y = dcord - (x * 4)
         return x, y
 
     # --- Action Functions --- #
 
     # --- Pass Action --- #
     def pass_action(self):
-        """Does not update the player state. TODO: Should update opponent observations
+        """Does not update the player state.
 
         Returns:
             bool: True if action was performed successfully, False otherwise.
@@ -320,10 +266,20 @@ class Player:
             return False
 
         self.gold -= self.refresh_cost
+        self.refresh_shop()
+        self.print("Refreshed shop")
+
+        return True
+
+    def refresh_shop(self):
+        """Refreshes the shop with new champions.
+
+        Returns:
+            bool: True if action was performed successfully, False otherwise.
+        """
+
         self.shop = self.pool_obj.sample(self, 5)
         self.shop_champions = self.create_shop_champions()
-
-        self.print("Refreshed shop")
 
         return True
 
@@ -332,14 +288,16 @@ class Player:
 
         shop_champions = []
 
-        for champion in self.shop:
-            if champion is None:
+        for champion_name in self.shop:
+            if champion_name is None:
                 a_champion = None
-            elif champion.endswith("_c"):
-                champion_name = champion[:-2]
-                a_champion = champion.champion(champion_name, chosen=True)
+            elif champion_name.endswith("_c"):
+                champion_name = champion_name[:-2]
+                # Chosen champions are defined as `<name>_<trait>_c`
+                champion_name, chosen_trait = champion_name.split("_")
+                a_champion = champion.champion(champion_name, chosen=chosen_trait)
             else:
-                a_champion = champion.champion(champion)
+                a_champion = champion.champion(champion_name)
 
             shop_champions.append(a_champion)
 
@@ -402,7 +360,15 @@ class Player:
         # I don't know what the second condition is for but I don't intend to find out...
         if champion_cost > self.gold or a_champion.cost == 0:
             if DEBUG:
-                print("No gold to buy champion")
+                print(f"No gold to buy champion, {champion_cost}, {self.gold}, {a_champion.name}")
+                observation = Observation(self)
+                np.set_printoptions(threshold=np.inf)
+                print(self.shop)
+                print([(c.cost, c.stars) for c in self.shop_champions])
+                print(observation.buy_mask)
+                print(self.gold)
+                print('----------------- OBS MASK ---------------')
+                print(np.reshape(observation.fetch_action_mask_v2(), (55, 38)))
             return False
 
         if a_champion.name == 'kayn':
@@ -483,7 +449,7 @@ class Player:
             a_champion.name, a_champion.items, a_champion.chosen))
 
         # If champion has thieves gloves, add to thieves gloves list
-        if self.bench[bench_loc].items[0] == 'thieves_gloves':
+        if self.bench[bench_loc].items and self.bench[bench_loc].items[0] == 'thieves_gloves':
             self.thieves_gloves_loc.append([bench_loc, -1])
             self.thieves_gloves(bench_loc, -1)
 
@@ -633,7 +599,7 @@ class Player:
                 print("Invalid sell index")
             return False
 
-        if x < 28:
+        if x1 < 28:
             x, y = self.dcord_to_2dcord(x1)
 
             if self.board[x][y] is None:
@@ -728,8 +694,8 @@ class Player:
     def move_champ_action(self, x1, x2):
         """Moves champion from one location to another.
 
-        0-26 -> Board Slots
-        27-36 -> Bench Slots
+        0-27 -> Board Slots
+        28-36 -> Bench Slots
 
         Conditions:
             - x1 must be between 0 and 36
@@ -760,9 +726,9 @@ class Player:
                 x2, y2 = self.dcord_to_2dcord(move_loc_to)
 
                 if self.board[x1][y1]:
-                    self.move_bench_to_board(x1, y1, x2, y2)
+                    self.move_board_to_board(x1, y1, x2, y2)
                 elif self.board[x2][y2]:
-                    self.move_bench_to_board(x2, y2, x1, y1)
+                    self.move_board_to_board(x2, y2, x1, y1)
                 else:
                     if DEBUG:
                         print("No champion to move")
@@ -838,7 +804,7 @@ class Player:
         self.reward += self.mistake_reward
         if DEBUG:
             print(f"Outside board range, bench: {self.bench[bench_x]}, board: {self.board[board_x][board_y]}, \
-                             bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, util_mask: {self.util_mask[0]}, \
+                             bench_x: {bench_x}, board_x: {board_x}, board_y: {board_y}, \
                              with units in play {self.num_units_in_play} and max units {self.max_units}")
         return False
 
@@ -850,7 +816,9 @@ class Player:
                   False if coords are outside allowable range or could not sell unit
     """
 
-    def move_board_to_bench(self, x, y, x_bench) -> bool:
+    def move_board_to_bench(self, x, y, x_bench=None) -> bool:
+        if x_bench is None:
+            x_bench = self.bench_vacancy()
         if 0 <= x < 7 and 0 <= y < 4 and 0 <= x_bench < 9:
             if self.bench[x_bench] and self.board[x][y] and not self.board[x][y].target_dummy:
                 s_champion = self.bench[x_bench]
@@ -901,7 +869,15 @@ class Player:
                     return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print(f"Move board to bench outside board limits: {x}, {y}")
+            print(f"Move board to bench outside board limits: {x}, {y}, {x_bench}, {self.bench[x_bench]}, {self.board[x][y]}")
+            observation = Observation(self)
+            np.set_printoptions(threshold=np.inf)
+            print(self.board)
+            print(observation.move_sell_board_mask)
+            print(self.bench)
+            print(observation.move_sell_bench_mask)
+            print('----------------- OBS MASK ---------------')
+            print(np.reshape(observation.fetch_action_mask_v2(), (55, 38)))
         return False
 
     """
@@ -1058,13 +1034,16 @@ class Player:
                 return free_slot
         return False
 
+    def item_bench_open_slots(self) -> int:
+        return self.item_bench.count(None)
+
     def shop_empty(self):
         """Queries if the shop is empty.
 
         Returns:
             bool: True if shop is empty, False otherwise.
         """
-        return all(self.shop)
+        return not all(self.shop)
 
     # --- Game Mechanics Functions --- #
     def gold_income(self, t_round):
@@ -1337,8 +1316,7 @@ class Player:
         self.reward += self.mistake_reward
         if DEBUG:
             print(
-                f"Failed to add item {self.item_bench[xBench]} in slot {xBench} to {champ} in {x}, {y}, "
-                f"item_mask: {self.item_mask}")
+                f"Failed to add item {self.item_bench[xBench]} in slot {xBench} to {champ} in {x}, {y}.")
             if champ:
                 print(f'{champ} had {len(champ.items)} items')
         return False
@@ -1410,8 +1388,7 @@ class Player:
                                self.board[x][y].name, self.board[x][y].stars,
                                self.board[x][y].items, self.board[x][y].chosen))
         self.print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
-                   "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
-                   "default {}".format(self.default_player))
+                   "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health))
 
     """
     Description -
@@ -1857,3 +1834,8 @@ class Player:
                 self.fortune_loss_streak += 1
                 if self.team_tiers['fortune'] > 1:
                     self.fortune_loss_streak += 1
+
+
+    # --- Some deprecated functions to avoid clashes with original api
+    def generate_bench_vector(self):
+        pass

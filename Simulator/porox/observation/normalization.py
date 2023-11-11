@@ -20,7 +20,7 @@ def calculate_residuals(stats):
     residuals = {}
     for stat, value in stats.items():
         mu = np.mean(value)
-        sigma = np.std(value)
+        sigma = np.std(value) + 1e-9 # Just to ensure no zeros
         residuals[stat] = (mu, sigma)
 
     return residuals
@@ -93,6 +93,10 @@ def calculate_champion_statistics():
     def calculate_star_stats(name, STAT):
         """Calculate stats that change depending on champion star level"""
         for champion, stat in STAT.items():
+            # Special case for galio who's in this list for some reason
+            if type(stat) is list:
+                continue
+
             for star in range(1, 4):
                 scaled_stat = stat * (STARMULTIPLIER ** (star - 1))
                 stats[name].append(scaled_stat)
@@ -100,6 +104,10 @@ def calculate_champion_statistics():
     def calculate_regular_stats(name, STAT):
         """Calculate stats that are the same for all star levels"""
         for champion, stat in STAT.items():
+            # Special case for galio who's in this list for some reason
+            if type(stat) is list:
+                continue
+
             stats[name].append(stat)
 
     # Only Health and AD change depending on star level

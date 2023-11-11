@@ -1,19 +1,15 @@
 import functools
 
-from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
+from gymnasium.spaces import MultiDiscrete
 
-from pettingzoo.utils.env import ParallelEnv
-from pettingzoo.utils import wrappers
-
-import numpy as np
+from pettingzoo.utils import wrappers, agent_selector
+from pettingzoo.utils.env import AECEnv
+from pettingzoo.utils.conversions import parallel_wrapper_fn
 
 from Simulator import pool
 from Simulator.game_round import Game_Round
 
-from Simulator.porox.player import Player as player_class
 from Simulator.porox.player_manager import PlayerManager
-from Simulator.porox.step_function import Step_Function
-from Simulator.porox.observation.observation_helper import Observation
 
 
 def env():
@@ -22,15 +18,14 @@ def env():
     You can find full documentation for these methods
     elsewhere in the developer pettingzoo documentation.
     """
-    local_env = TFT_Simulator(env_config=None)
+    local_env = TFT_Simulator()
 
-    # Provides a wide vareity of helpful user errors
-    # Strongly recommended
     local_env = wrappers.OrderEnforcingWrapper(local_env)
     return local_env
 
+parallel_env = parallel_wrapper_fn(env)
 
-class TFT_Simulator(ParallelEnv):
+class TFT_Simulator(AECEnv):
     metadata = {"is_parallelizable": True, "name": "tft-set4-v0"}
 
     def __init__(self,
@@ -58,7 +53,7 @@ class TFT_Simulator(ParallelEnv):
         return None
 
     @functools.lru_cache(maxsize=None)
-    def action_space(self, agent):
+    def action_space_v1(self, agent):
         """
         Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
                      11
@@ -91,26 +86,58 @@ class TFT_Simulator(ParallelEnv):
 
         """
         return MultiDiscrete([5, 11, 38])
+    
+    @functools.lru_cache(maxsize=None)
+    def action_space_v2(self, agent):
+        """
+        v2 Action Space is an 55x38 Dimension MultiDiscrete Tensor to keep my sanity
+        
+        v2 action space: (55, 38)
+            55 
+        1 | | | | | ... | | x 38
+        
+        55 :
+        0-27 -> Board Slots (28)
+        28-36 -> Bench Slots (9)
+        37-46 -> Item Bench Slots (10)
+        47-51 -> Shop Slots (5)
+        52 -> Pass
+        53 -> Level
+        54 -> Refresh
+        
+        38 :
+        0-27 -> Board Slots
+        28-36 -> Bench Slots
+        37 -> Sell Slot
+        
+        """
+        return MultiDiscrete([55, 38])
+    
+    @functools.lru_cache(maxsize=None)
+    def action_space(self, agent):
+        return self.action_space_v2(agent)
 
     def render(self):
         pass
 
     def observe(self, agent):
-        return None
+        return self.player_manager.fetch_observation(agent)
 
     def close(self):
         pass
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         # --- PettingZoo AECEnv Variables ---
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
+        self.infos = {
+            "player_" + str(player_id): {
+                "actions_taken": 0,
+            } for player_id in range(self.num_players)
+        }
 
         # --- TFT Reward Related Variables ---
-        self.previous_rewards = {
-            "player_" + str(player_id): 0 for player_id in range(self.num_players)
-        }
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
@@ -122,31 +149,19 @@ class TFT_Simulator(ParallelEnv):
         self.pool_obj = pool.pool()
 
         # --- TFT Player Related Variables ---
-        self.player_manager = PlayerManager(self.num_players)
-        self.player_game_states = {
-            "player_" + str(player_id): {
-                "actions_taken": 0,
-            }
-            for player_id in range(self.num_players)
-        }
+        self.player_manager = PlayerManager(self.num_players, self.pool_obj)
 
         # --- TFT Game Round Related Variables ---
-        self.step_function = Step_Function(self.pool_obj)
         self.game_round = Game_Round(
-            self.player_states, self.pool_obj, self.step_function)
-
+            self.player_manager.player_states, self.pool_obj, self.player_manager)
         # --- TFT Starting Game State ---
         self.game_round.play_game_round()
-
-        for key, p in self.player_states.items():
-            self.step_function.generate_shop(key, p)
-
-        observations = self.player_manager.generate_observations()
-        infos = self.player_game_states
-
-        return observations, infos
-
-    # --- Utility Functions ---
+        self.player_manager.generate_shops(self.agents)
+        self.player_manager.update_game_round()
+        
+        # --- Agent Selector API ---
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.next()
 
     # -- Query Functions --
     def is_alive(self, player_id):
@@ -156,7 +171,7 @@ class TFT_Simulator(ParallelEnv):
         return not self.truncations[player_id]
 
     def taken_max_actions(self, player_id):
-        return self.player_game_states[player_id]["actions_taken"] >= self.max_actions_per_round
+        return self.infos[player_id]["actions_taken"] >= self.max_actions_per_round
 
     def round_done(self):
         return all(self.truncations.values())
@@ -166,9 +181,10 @@ class TFT_Simulator(ParallelEnv):
 
     # -- Update Functions --
     def reset_max_actions(self):
-        for player_id in self.player_game_states:
-            self.player_game_states[player_id]["actions_taken"] = 0
-            self.truncations[player_id] = False
+        for player_id in self.infos:
+            if self.is_alive(player_id):
+                self.infos[player_id]["actions_taken"] = 0
+                self.truncations[player_id] = False
 
     def calculate_winloss(self, placement):
         MAX_REWARD = 400
@@ -177,27 +193,29 @@ class TFT_Simulator(ParallelEnv):
         return MAX_REWARD - (placement - 1) * STEP
 
     def update_dead(self):
-        for player_id, player in self.player_states.items():
+        killed_agents = []
+        for player_id, player in self.player_manager.player_states.items():
             if self.is_alive(player_id) and \
                     player.health <= 0:
                 self.num_dead += 1
                 self.num_alive -= 1
 
-                self.game_round.NUM_DEAD = self.num_dead
-                self.pool_obj.return_hero(player)
-
                 self.rewards[player_id] = self.calculate_winloss(
                     self.num_alive + 1)
-                self._cumulative_rewards[player_id] = self.rewards[player_id]
 
-                self.player_states[player_id] = None
-                self.game_round.update_players(self.player_states)
+                self.player_manager.kill_player(player_id)
+
+                self.game_round.NUM_DEAD = self.num_dead
+                self.game_round.update_players(self.player_manager.player_states)
 
                 self.terminations[player_id] = True
+                self.truncations[player_id] = True
+                killed_agents.append(player_id)
+        return killed_agents
 
     # --- Step Function ---
 
-    def step(self, actions):
+    def step(self, action):
         """
         Actions is a dictionary of actions from each agent.
         Ex:
@@ -211,61 +229,66 @@ class TFT_Simulator(ParallelEnv):
                 "player_6": "[6, X1, X2]", - Item action
                 ...
             }
+
+        A regular game round consists of the following:
+            1. Players shops refresh, unless locked (not implemented yet)
+            2. Players perform actions
+                - In this env, players can only take MAX_ACTIONS_PER_ROUND actions per round
+                - If a player takes MAX_ACTIONS_PER_ROUND actions, they are truncated
+            3. Players battle after all alive players have taken their actions
         """
-        # Perform actions
-        for player_id, action in actions.items():
-            if self.is_alive(player_id) and self.taking_actions(player_id):
-                # Perform action
-                self.player_manager.perform_action(player_id, action)
+        if (
+            self.terminations[self.agent_selection]
+            or self.truncations[self.agent_selection]
+        ):
+            self._was_dead_step(action)
+            return
+        
+        
+        agent = self.agent_selection
+        # Perform action and update observations
+        self.player_manager.perform_action(agent, action)
+        
+        # Update actions taken and truncate if needed
+        self.infos[agent]["actions_taken"] += 1
+        if self.taken_max_actions(agent):
+            self.truncations[agent] = True
+            
+        if self._agent_selector.is_last():
+            # TODO: Update rewards
+            ...
+            
+            # If round is over
+            if self.round_done():
+                self.game_round.play_game_round()
+                killed_agents = self.update_dead()
+                
+                # Check if the game is over
+                if self.game_over():
+                    for player_id in self.agents:
+                        if not self.terminations[player_id]:
+                            self.rewards[player_id] = self.calculate_winloss(1)
+                            self.player_manager.kill_player(player_id)
+                    
+                    self.terminations = {a: True for a in self.agents}
+                    
+                # Update observations and start the next round
+                if not all(self.terminations.values()):
+                    self.reset_max_actions()
+                    self.game_round.start_round()
+                    self.player_manager.update_game_round()
+                    
+                # Update agent_selector if agents died this round
+                if len(killed_agents) > 0:
+                    _live_agents = [a for a in self.agents if not self.terminations[a]]
+                    self.agents = _live_agents
+                    self._agent_selector.reinit(self.agents)
 
-                self.player_game_states[player_id]["actions_taken"] += 1
-
-                if self.taken_max_actions(player_id):
-                    self.truncations[player_id] = True
-
-                # Update observations
-                self.player_observations[player_id] = self.player_states[player_id].observation(
-                )
-
-        # Check if round is over
-        if self.round_done():
-            # Battle
-            self.game_round.play_game_round()
-
-            # Update dead
-            self.update_dead()
-
-            # Check if the game is over
-            if self.game_over():
-                for player_id in self.agents:
-                    if not self.terminations[player_id]:
-                        self.rewards[player_id] = self.calculate_winloss(1)
-                        self._cumulative_rewards[player_id] = self.rewards[player_id]
-                        # Without this the reward is reset
-                        self.player_states[player_id] = None
-
-                self.terminations = {a: True for a in self.agents}
-
-            # Update observations and start next round
-            if not all(self.terminations.values()):
-                # Reset Game Info
-                self.reset_max_actions()
-                self.game_round.start_round()
-
-                for player_id in self.agents:
-                    if self.is_alive(player_id):
-                        self.player_observations[player_id] = self.player_states[player_id].observation(
-                        )
-
-        obs = {
-            player_id: self.player_observations[player_id] for player_id in actions}
-        rewards = {
-            player_id: self.rewards[player_id] for player_id in actions}
-        terminations = {
-            player_id: self.terminations[player_id] for player_id in actions}
-        truncations = {
-            player_id: self.truncations[player_id] for player_id in actions}
-        infos = {
-            player_id: self.player_game_states[player_id] for player_id in actions}
-
-        return obs, rewards, terminations, truncations, infos
+                    
+        else:
+            self._clear_rewards()
+                    
+        if len(self._agent_selector.agent_order):
+            self.agent_selection = self._agent_selector.next()
+        self._accumulate_rewards()
+        

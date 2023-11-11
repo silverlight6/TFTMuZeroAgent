@@ -3,6 +3,7 @@ import numpy as np
 from Simulator.stats import COST
 from Simulator.origin_class_stats import tiers
 from Simulator.item_stats import items, trait_items, basic_items, item_builds
+from Simulator.pool_stats import cost_star_values
 
 from Simulator.porox.observation.normalization import batch_apply_z_score_champion, batch_apply_z_score_item
 
@@ -142,7 +143,8 @@ class ObservationHelper:
 
         return np.array([
             player.round,
-            player.max_actions - player.actions_remaining,
+            # TODO: Add this
+            # player.max_actions - player.actions_remaining,
         ])
 
     def create_public_scalars(self, player):
@@ -163,7 +165,7 @@ class ObservationHelper:
             player.win_streak,
             player.loss_streak,
             player.max_units,
-            self.max_units - self.num_units_in_play,
+            player.max_units - player.num_units_in_play,
         ])
 
     def create_private_scalars(self, player):
@@ -177,7 +179,7 @@ class ObservationHelper:
 
         return np.array([
             player.exp,
-            self.level_costs[player.level] - player.exp,
+            player.level_costs[player.level] - player.exp,
             player.gold,
         ])
 
@@ -208,12 +210,12 @@ class ObservationHelper:
 
         """
 
-        board_vector = np.zeros((7, 4, player.champion_vector_length))
+        board_vector = np.zeros((7, 4, self.champion_vector_length))
 
-        for x in player.board:
-            for y in player.board[x]:
+        for x in range(len(player.board)):
+            for y in range(len(player.board[x])):
                 if champion := player.board[x][y]:
-                    champion_vector = player.create_champion_vector(champion)
+                    champion_vector = self.create_champion_vector(champion)
 
                     board_vector[x][y] = champion_vector
 
@@ -338,7 +340,7 @@ class ObservationHelper:
 
         # Origins
         origin_vector = np.zeros(self.tier_champion_vector_length)
-        origins = champion.origins.copy()
+        origins = champion.origin.copy()
 
         # Stats
         stats = {
@@ -362,7 +364,14 @@ class ObservationHelper:
         for idx, item in enumerate(champion.items):
             item_vector, stat_modifiers = self.create_item_vector(item)
 
-            item_vectors[idx] = item_vector
+            try:
+                item_vectors[idx] = item_vector
+            except:
+                print(item)
+                print(stat_modifiers)
+                print(item_vector)
+                raise
+
             item_modifiers.append(stat_modifiers)
 
             # Add trait if item is a spatula item
@@ -381,17 +390,18 @@ class ObservationHelper:
         # -- Stats -- #
 
         # Add stat modifiers from items to champion stats
-        for stat, modifier in item_modifiers.items():
-            stats[stat] += modifier
+        for item_mod in item_modifiers:
+            for stat, modifier in item_mod.items():
+                stats[stat] += modifier
 
         stats_vector = np.array(list(stats.values()))
 
-        champion_vector = np.concatenate(
+        champion_vector = np.concatenate([
             item_vectors.flatten(),
             origin_vector,
             np.array([championID]),
             stats_vector
-        )
+        ])
 
         return champion_vector
 
@@ -435,8 +445,14 @@ class ObservationHelper:
 
         for stat, value in item_stats.items():
             stat_modifiers[stat] = value
+            
+        # Edge cases for bloodthirster, guardian angel, and dragon's claw
+        stat_modifiers.pop("lifesteal", None)
+        stat_modifiers.pop("will_revive", None)
+        stat_modifiers.pop("spell_damage_reduction_percentage", None)
 
         stat_encoding = np.array(list(stat_modifiers.values()))
+
 
         # Special case for AS, as it is a percentage
         if stat_modifiers["AS"] > 0:
@@ -486,7 +502,7 @@ class ObservationHelper:
         # --- Items --- #
         # Batch of item vectors
         item_vectors = champion_vectors[:, :33].reshape(-1, 3, 11)
-        item_vectors_norm = self.apply_item_normalization(item_vectors)
+        item_vectors_norm = self.apply_item_normalization(item_vectors, True)
         champion_vectors[:, :33] = item_vectors_norm.reshape(-1, 33)
 
         # Champion Stats --- #
@@ -517,7 +533,7 @@ class ObservationHelper:
 
         return champion_vectors.reshape(original_shape)
 
-    def apply_item_normalization(self, item_vectors):
+    def apply_item_normalization(self, item_vectors, from_champ=False):
         """
             0: itemID: int
             1: AD: int
@@ -532,6 +548,11 @@ class ObservationHelper:
             10: SP: int
 
         """
+        original_shape = item_vectors.shape
+        
+        item_vectors = item_vectors.reshape(
+            -1, self.item_vector_length
+        )
 
         item_vectors[:, 1] = batch_apply_z_score_item(item_vectors[:, 1], 'AD')
         item_vectors[:, 2] = batch_apply_z_score_item(
@@ -551,7 +572,7 @@ class ObservationHelper:
         item_vectors[:, 10] = batch_apply_z_score_item(
             item_vectors[:, 10], 'SP')
 
-        return item_vectors
+        return item_vectors.reshape(original_shape)
 
     # --- Action Masking --- #
 
@@ -605,7 +626,10 @@ class ObservationHelper:
             return buy_action_mask
 
         for i, champion in enumerate(player.shop_champions):
-            if champion and player.gold >= champion.cost:
+            champion_cost = cost_star_values[champion.cost -
+                1][champion.stars - 1]
+
+            if champion and player.gold >= champion_cost:
                 buy_action_mask[i] = 1
 
         return buy_action_mask
@@ -631,17 +655,19 @@ class ObservationHelper:
         move_sell_bench_action_mask = np.zeros((9, 38))
 
         # --- Utility Masks --- #
+        max_items = max(player.item_bench.count(None), 3)
+
         invalid_champion_mask = np.ones(28)
         board_champion_mask = np.zeros(28)
         bench_to_bench_mask = np.zeros(9)
 
         default_board_mask = np.ones(38)
         invalid_board_mask = np.concatenate(
-            (np.ones(28), np.zeros(9), np.zeros(1)))
+            [np.ones(28), np.zeros(9), np.zeros(1)])
 
         # --- Board Mask --- #
-        for x in player.board:
-            for y in player.board[x]:
+        for x in range(len(player.board)):
+            for y in range(len(player.board[x])):
                 if champion := player.board[x][y]:
                     # Update utility masks to be used for bench mask
                     board_champion_mask[x * 4 + y] = 1
@@ -653,6 +679,12 @@ class ObservationHelper:
                     else:
                         move_sell_board_action_mask[x][y] = default_board_mask
 
+                        # Update sell mask if items won't overflow item bench
+                        if len(champion.items) > max_items:
+                            move_sell_board_action_mask[x][y][38] = 0
+                # Can't move to same location
+                move_sell_board_action_mask[x][y][x * 4 + y] = 0
+
         # --- Bench Mask --- #
         # When board is not full, all board indices are valid
         # Except invalid champions (Sandguard, Dummy)
@@ -661,11 +693,18 @@ class ObservationHelper:
         else:
             board_mask = board_champion_mask * invalid_champion_mask
 
-        bench_mask = np.append(board_mask, bench_to_bench_mask, np.ones(1))
+        bench_mask = np.concatenate([board_mask, bench_to_bench_mask, np.ones(1)])
 
         for idx, champion in enumerate(player.bench):
             if champion:
                 move_sell_bench_action_mask[idx] = bench_mask
+                
+                # Can't move to same location
+                move_sell_bench_action_mask[idx][28 + idx] = 0
+
+                # Update sell mask if items won't overflow item bench
+                if len(champion.items) > max_items:
+                    move_sell_bench_action_mask[idx][38] = 0
 
         return move_sell_board_action_mask, move_sell_bench_action_mask
 
@@ -696,6 +735,11 @@ class ObservationHelper:
 
         valid_reforge_mask = np.zeros(38)
         valid_duplicator_mask = np.zeros(38)
+        
+        # Oh my god what a pain...
+        trait_mask = {
+           trait: np.ones(38) for trait in self.item_traits.values() 
+        }
 
         def update_masks(champion, idx):
             if champion.target_dummy or champion.overlord:
@@ -727,9 +771,14 @@ class ObservationHelper:
 
             # Valid Duplicator
             valid_duplicator_mask[idx] = 1
+            
+            # Has trait
+            for trait in champion.origin:
+                if trait in trait_mask:
+                    trait_mask[trait][idx] = 0
 
-        for x in player.board:
-            for y in player.board[x]:
+        for x in range(len(player.board)):
+            for y in range(len(player.board[x])):
                 if champion := player.board[x][y]:
                     idx = x * 4 + y
                     update_masks(champion, idx)
@@ -765,6 +814,10 @@ class ObservationHelper:
                 # Is duplicator
                 elif item == 'champion_duplicator':
                     item_action_mask[idx] = valid_duplicator_mask
+                    
+                # Trait item
+                elif item in self.item_traits:
+                    item_action_mask[idx] = valid_full_item_mask * trait_mask[self.item_traits[item]]
 
                 # Regular cases
                 elif item in self.full_items:
