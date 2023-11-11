@@ -46,7 +46,7 @@ class champion:
             self.max_health = round(HEALTH[name] * config.STARMULTIPLIER ** (stars - 1), 1)
             self.AD = round(AD[name] * config.STARMULTIPLIER ** (stars - 1), 1)
 
-        self.SP = 1
+        self.SP = config.SP
 
         self.AS = AS[name]
         self.armor = ARMOR[name]
@@ -93,8 +93,8 @@ class champion:
         self.lifesteal = 0
         self.lifesteal_spells = 0
         self.healing_strength = 1
-        self.crit_chance = 0
-        self.crit_damage = 1.5
+        self.crit_chance = config.CRIT_CHANCE
+        self.crit_damage = config.CRIT_DAMAGE
 
         self.team = team
         self.x = x

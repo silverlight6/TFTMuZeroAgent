@@ -45,6 +45,11 @@ def create_default_mapping():
 
     return mappings
 
+def split_sample_decide(sample_mapping, target_policy):
+    if config.CHAMP_DECIDER:
+        return split_sample_set_champ_decider(sample_mapping, target_policy)
+    else:
+        return split_sample_set(sample_mapping, target_policy)
 
 # ["0", "1_0", "2_20_20", "3_4_20", "4_10", "5", "6"] ->
 # [["0", "1", "2", "3", "4", "5", "6"], ["_0"], ["_20_20"], ["_4_20"], ["_10"]]
@@ -82,17 +87,32 @@ def split_sample_set(sample_mapping, target_policy):
 
     return split_sample, split_policy
 
+# Size is [# of samples, len of champion list]
+def split_sample_set_champ_decider(sample_mapping, target_policy):
+    split_sample = [["0", "1"] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+    split_policy = [[0, 0] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+    for i, sample in enumerate(sample_mapping):
+        for k in range(0, len(sample), 2):
+            base = sample[k]
+            idx = int(base)
+            split_policy[int(k/2)][idx] += target_policy[i]
+    return split_sample, split_policy
+
 # [batch_size, unroll_steps, num_samples] to [unroll_steps, num dims, (batch_size, dim)]
 def split_batch(mapping_batch, policy_batch):
-    batch_size = len(mapping_batch)  # 256
-    unroll_steps = len(mapping_batch[0])  # 6
+    batch_size = len(mapping_batch)  # config.BATCH_SIZE
+    unroll_steps = len(mapping_batch[0])  # config.UNROLL_STEPS
 
     mapping = []
     policy = []
 
     for unroll_idx in range(unroll_steps):
-        unroll_mapping = [[], [], [], [], []]
-        unroll_policy = [[], [], [], [], []]
+        if config.CHAMP_DECIDER:
+            unroll_mapping = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+            unroll_policy = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+        else:
+            unroll_mapping = [[], [], [], [], []]
+            unroll_policy = [[], [], [], [], []]
 
         for batch_idx in range(batch_size):
             local_mapping = mapping_batch[batch_idx][unroll_idx]
@@ -120,7 +140,10 @@ def action_to_idx(action, dim):
         action = action.split('_')  # "_20_21" -> ["", "20", "21"]
         from_loc = int(action[1])  # ["", "20", "21"] -> "20"
         to_loc = int(action[2])  # ["", "20", "21"] -> "21"
-        mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+        if from_loc < 28:
+            mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
+        else:
+            mapped_idx = sum([35 - i for i in range(28)]) + (to_loc - 1)
 
     elif dim == 3:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
         action = action.split('_')  # "_10_9" -> ["", "10", "9"]
@@ -129,7 +152,7 @@ def action_to_idx(action, dim):
         mapped_idx = (10 * item_loc) + champ_loc
 
     elif dim == 4:  # sell dim; 37; "_0", "_1", "_36"
-        mapped_idx = int(action[1:])  # "_15" -> "15"
+        mapped_idx = int(action[1:])  # "_15" -> "15
 
     return mapped_idx
 
@@ -167,7 +190,6 @@ def create_target_and_mask(target, idx_set):
                 target_filled[dim][batch_idx][mapped_idx] = target[dim][batch_idx][target_idx]
 
     return target_filled
-
 
 
 # both are (num_dims, [(batch_size, dim) ...] )
@@ -214,3 +236,131 @@ def map_distribution_to_sample(mapping, policy_logits):
         sampled_policy = torch.index_select(policy_logits[i], -1, torch.tensor(mapping[i]).to(config.DEVICE))
         output_policy.append(sampled_policy)
     return output_policy
+
+class ValueEncoder:
+    """Encoder for reward and value targets from Appendix of MuZero Paper."""
+
+    def __init__(self,
+                 min_value,
+                 max_value,
+                 num_steps,
+                 use_contractive_mapping=True):
+
+        if not max_value > min_value:
+            raise ValueError('max_value must be > min_value')
+        if use_contractive_mapping:
+            max_value = contractive_mapping(max_value)
+            min_value = contractive_mapping(min_value)
+        if num_steps <= 0:
+            num_steps = torch.ceil(max_value) + 1 - torch.floor(min_value)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.value_range = max_value - min_value
+        self.num_steps = num_steps
+        self.step_size = self.value_range / (num_steps - 1)
+        self.step_range_int = torch.arange(
+            0, self.num_steps, dtype=torch.int64)
+        self.step_range_float = self.step_range_int.type(
+            torch.float32).to(config.DEVICE)
+        self.use_contractive_mapping = use_contractive_mapping
+
+    def encode(self, value):  # not worth optimizing
+        if len(value.shape) != 1:
+            raise ValueError(
+                'Expected value to be 1D Tensor [batch_size], but got {}.'.format(
+                    value.shape))
+        if self.use_contractive_mapping:
+            value = contractive_mapping(value)
+        value = torch.unsqueeze(value, -1)
+        clipped_value = torch.clip(value, self.min_value, self.max_value)
+        above_min = clipped_value - self.min_value
+        num_steps = above_min / self.step_size
+        lower_step = torch.floor(num_steps)
+        upper_mod = num_steps - lower_step
+        lower_step = lower_step.type(torch.int64)
+        upper_step = lower_step + 1
+        lower_mod = 1.0 - upper_mod
+        lower_encoding, upper_encoding = (
+            torch.eq(step, self.step_range_int).type(torch.float32) * mod
+            for step, mod in (
+                (lower_step, lower_mod),
+                (upper_step, upper_mod),)
+        )
+        return lower_encoding + upper_encoding
+
+    def decode(self, logits):  # not worth optimizing
+        if len(logits.shape) != 2:
+            raise ValueError(
+                'Expected logits to be 2D Tensor [batch_size, steps], but got {}.'
+                .format(logits.shape))
+        num_steps = torch.sum(logits * self.step_range_float, -1)
+        above_min = num_steps * self.step_size
+        value = above_min + self.min_value
+        if self.use_contractive_mapping:
+            value = inverse_contractive_mapping(value)
+        return value
+
+    def decode_softmax(self, logits):
+        return self.decode(torch.softmax(logits, dim=-1))
+
+# From the MuZero paper.
+
+
+def contractive_mapping(x, eps=0.001):
+    return torch.sign(x) * (torch.sqrt(torch.abs(x) + 1.) - 1.) + eps * x
+
+
+# From the MuZero paper.
+def inverse_contractive_mapping(x, eps=0.001):
+    return torch.sign(x) * (torch.square((torch.sqrt(4 * eps * (torch.abs(x) + 1. + eps) + 1.) - 1.) / (2. * eps)) - 1.)
+
+# Softmax function in np because we're converting it anyway
+
+
+def softmax_stable(x):
+    return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def dict_to_cpu(dictionary):
+    cpu_dict = {}
+    for key, value in dictionary.items():
+        if isinstance(value, torch.Tensor):
+            cpu_dict[key] = value.cpu()
+        elif isinstance(value, dict):
+            cpu_dict[key] = dict_to_cpu(value)
+        else:
+            cpu_dict[key] = value
+    return cpu_dict
+
+def dcord_to_2dcord(dcord):
+    x = dcord % 7
+    y = (dcord - x) // 7
+    return x, y
+
+
+def action_to_3d(action):
+    cube_action = np.zeros((action.shape[0], 7, 4, 7))
+    for i in range(action.shape[0]):
+        action_selector = np.argmax(action[i][0])
+        if action_selector == 0:
+            cube_action[0, :, :] = np.ones((1, 4, 7))
+        elif action_selector == 1:
+            champ_shop_target = np.argmax(action[i][2])
+            if champ_shop_target < 5:
+                cube_action[1, champ_shop_target, 9] = 1
+        elif action_selector == 2:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[2, champ1[0], champ1[1]] = 1
+            champ2 = dcord_to_2dcord(action[i][2])
+            cube_action[2, champ2[0], champ2[1]] = 1
+        elif action_selector == 3:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[3, champ1[0], champ1[1]] = 1
+            cube_action[3, 5, action[i][2]] = 1
+        elif action_selector == 4:
+            champ1 = dcord_to_2dcord(action[i][1])
+            cube_action[4, champ1[0], champ1[1]] = 1
+        elif action_selector == 5:
+            cube_action[5, :, :] = np.ones((1, 4, 7))
+        elif action_selector == 6:
+            cube_action[6, :, :] = np.ones((1, 4, 7))
+    return cube_action

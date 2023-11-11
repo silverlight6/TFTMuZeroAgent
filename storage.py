@@ -3,6 +3,7 @@ import config
 import glob
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from checkpoint import Checkpoint
 from sys import getsizeof
 
@@ -28,7 +29,10 @@ class Storage:
 
     # Implementing saving.
     def load_model(self):
-        return TFTNetwork()
+        if config.CHAMP_DECIDER:
+            return DefaultNetwork()
+        else:
+            return TFTNetwork()
 
     def get_target_model(self):
         return self.target_model.get_weights()
@@ -60,6 +64,7 @@ class Storage:
         self.checkpoint_list = np.append(self.checkpoint_list, [base_checkpoint])
 
     def store_checkpoint(self, episode):
+        print("STORING CHECKPOINT")
         checkpoint = Checkpoint(episode, self.max_q_value)
         self.checkpoint_list = np.append(self.checkpoint_list, [checkpoint])
 
@@ -67,6 +72,7 @@ class Storage:
         # Want something so it doesn't expand infinitely
         if len(self.checkpoint_list) > 1000:
             self.checkpoint_list = self.checkpoint_list[1:]
+        print("FINISHED STORING CHECKPOINT")
 
     def update_checkpoint_score(self, episode, prob):
         checkpoint = next((x for x in self.checkpoint_list if x.epoch == episode), None)

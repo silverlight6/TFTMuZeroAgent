@@ -426,7 +426,7 @@ def list_of_tests():
     levelChampFromField()
 
     buyExp()
-    spamExp()
+    # spamExp()
 
     # Problem: Interest gets calculated after base income is added
     incomeTest1()

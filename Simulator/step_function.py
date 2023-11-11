@@ -1,6 +1,7 @@
 import Simulator.config as config
 import numpy as np
 import Simulator.champion as champion
+from config import DEBUG
 
 """
 Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 
@@ -84,7 +85,7 @@ class Step_Function:
             # print("player {} action {}".format(player.player_num, action))
             action_selector = action[0]
             if action_selector == 0:
-                game_observations[key].generate_game_comps_vector()
+                game_observations[key].generate_game_comps_vector(player.player_num)
                 game_observations[key].generate_other_player_vectors(player, players)
                 player.print(f"pass action")
             elif action_selector == 1:
@@ -113,7 +114,7 @@ class Step_Function:
                             player.move_bench_to_board(bench_loc, x1, y1)
                         else:
                             player.move_board_to_bench(x1, y1)
-                        game_observations[key].generate_game_comps_vector()
+                        game_observations[key].generate_game_comps_vector(player.player_num)
             elif action_selector == 3:
                 # Place item on champ
                 item_selector = action[2]
@@ -420,7 +421,7 @@ class Step_Function:
         # Update all information in the observation relating to the other players.
         # Later in training, turn this number up to 7 due to how long it takes a normal player to execute
         elif action == 8:
-            game_observation.generate_game_comps_vector()
+            game_observation.generate_game_comps_vector(player.player_num)
             game_observation.generate_other_player_vectors(player, players)
             return self.shops, False, True, 1
 
@@ -557,7 +558,7 @@ class Step_Function:
             player.action_vector = np.array([0, 0, 0, 0, 1, 0, 0, 0])
 
         elif action == 8:
-            game_observation.generate_game_comps_vector()
+            game_observation.generate_game_comps_vector(player.player_num)
             game_observation.generate_other_player_vectors(player, players)
 
         elif action == 9:
@@ -570,6 +571,8 @@ class Step_Function:
     '''
     def batch_shop(self, shop_action, player, game_observation, player_id):
         if shop_action > 4:
+            if DEBUG:
+                print("shop action > 4: {}, Taking a random shop action".format(shop_action))
             shop_action = int(np.floor(np.random.rand(1, 1) * 5))
 
         if self.shops[player_id][shop_action] == " ":

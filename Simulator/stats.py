@@ -12,7 +12,7 @@ AD = {
     'evelynn': 70,
     'ezreal': 80,
     'fiora': 45,
-    'garen': 50, 
+    'garen': 50,
     'hecarim': 55,
     'irelia': 55,
     'janna': 40,
@@ -46,7 +46,7 @@ AD = {
     'teemo': 55,
     'thresh': 60,
     'twistedfate': 45,
-    'vayne': 40, 
+    'vayne': 40,
     'veigar': 40,
     'vi': 65,
     'warwick': 85,
@@ -70,7 +70,7 @@ AD = {
     'crimsonraptor': 200,
     'raptor': 150,
     'nexusminion': 400,
-    'riftherald': 600 
+    'riftherald': 600
 }
 
 AS = {
@@ -87,7 +87,7 @@ AS = {
     'evelynn': 0.7,
     'ezreal': 0.9,
     'fiora': 0.75,
-    'garen': 0.6, 
+    'garen': 0.6,
     'hecarim': 0.55,
     'irelia': 0.65,
     'janna': 0.6,
@@ -121,7 +121,7 @@ AS = {
     'teemo': 0.7,
     'thresh': 0.55,
     'twistedfate': 0.65,
-    'vayne': 0.9, 
+    'vayne': 0.9,
     'veigar': 0.6,
     'vi': 0.6,
     'warwick': 0.8,
@@ -146,7 +146,7 @@ AS = {
     'crimsonraptor': 0.8,
     'raptor': 0.8,
     'nexusminion': 1.00,
-    'riftherald': 1.00 
+    'riftherald': 1.00
 }
 
 HEALTH = {
@@ -163,7 +163,7 @@ HEALTH = {
     'evelynn': 600,
     'ezreal': 750,
     'fiora': 600,
-    'garen': 600, 
+    'garen': 600,
     'hecarim': 750,
     'irelia': 800,
     'janna': 550,
@@ -197,7 +197,7 @@ HEALTH = {
     'teemo': 500,
     'thresh': 700,
     'twistedfate': 550,
-    'vayne': 500, 
+    'vayne': 500,
     'veigar': 600,
     'vi': 700,
     'warwick': 950,
@@ -238,7 +238,7 @@ ARMOR = {
     'evelynn': 20,
     'ezreal': 20,
     'fiora': 35,
-    'garen':50, 
+    'garen':50,
     'hecarim': 45,
     'irelia': 40,
     'janna': 20,
@@ -272,7 +272,7 @@ ARMOR = {
     'teemo': 20,
     'thresh': 80,
     'twistedfate': 20,
-    'vayne': 20, 
+    'vayne': 20,
     'veigar': 20,
     'vi': 40,
     'warwick': 40,
@@ -314,7 +314,7 @@ MR = {
     'evelynn': 20,
     'ezreal': 20,
     'fiora': 30,
-    'garen':35, 
+    'garen':35,
     'hecarim': 30,
     'irelia': 40,
     'janna': 20,
@@ -348,7 +348,7 @@ MR = {
     'teemo': 20,
     'thresh': 20,
     'twistedfate': 20,
-    'vayne': 20, 
+    'vayne': 20,
     'veigar': 20,
     'vi': 30,
     'warwick': 40,
@@ -390,7 +390,7 @@ MANA = {
     'evelynn': 0,
     'ezreal': 90,
     'fiora': 0,
-    'garen': 0, 
+    'garen': 0,
     'hecarim': 0,
     'irelia': 50,
     'janna': 30,
@@ -424,7 +424,7 @@ MANA = {
     'teemo': 0,
     'thresh': 50,
     'twistedfate': 0,
-    'vayne': 0, 
+    'vayne': 0,
     'veigar': 0,
     'vi': 0,
     'warwick': 0,
@@ -466,7 +466,7 @@ MAXMANA = {
     'evelynn': 60,
     'ezreal': 150,
     'fiora': 85,
-    'garen': 100, 
+    'garen': 100,
     'hecarim': 120,
     'irelia': 100,
     'janna': 60,
@@ -500,7 +500,7 @@ MAXMANA = {
     'teemo': 60,
     'thresh': 100,
     'twistedfate': 70,
-    'vayne': 0, 
+    'vayne': 0,
     'veigar': 45,
     'vi': 60,
     'warwick': 70,
@@ -544,7 +544,7 @@ COST = {
     'evelynn': 3,
     'ezreal': 5,
     'fiora': 1,
-    'garen': 1, 
+    'garen': 1,
     'hecarim': 2,
     'irelia': 3,
     'janna': 2,
@@ -578,7 +578,7 @@ COST = {
     'teemo': 2,
     'thresh': 2,
     'twistedfate': 1,
-    'vayne': 1, 
+    'vayne': 1,
     'veigar': 3,
     'vi': 2,
     'warwick': 4,
@@ -624,7 +624,7 @@ ABILITY_REQUIRES_TARGET = {
     'evelynn': True,
     'ezreal': True,
     'fiora': True,
-    'garen': True, 
+    'garen': True,
     'hecarim': True,
     'irelia': True,
     'janna': False,
@@ -658,7 +658,7 @@ ABILITY_REQUIRES_TARGET = {
     'teemo': False,
     'thresh': False,
     'twistedfate': True,
-    'vayne': False, 
+    'vayne': False,
     'veigar': False,
     'vi': True,
     'warwick': False,
@@ -669,7 +669,7 @@ ABILITY_REQUIRES_TARGET = {
     'yuumi': False,
     'zed': False,
     'zilean': False,
-    
+
     'construct': False,
     'galio': False,
     'aphelios_turret': False,
@@ -700,7 +700,7 @@ ABILITY_WHILE_DISARMED = {
     'evelynn': True,
     'ezreal': True,
     'fiora': False,
-    'garen': True, 
+    'garen': True,
     'hecarim': True,
     'irelia': True,
     'janna': True,
@@ -776,7 +776,7 @@ RANGE = {
     'evelynn': 1,
     'ezreal': 4,
     'fiora': 1,
-    'garen': 1, 
+    'garen': 1,
     'hecarim': 1,
     'irelia': 1,
     'janna': 4,
@@ -810,7 +810,7 @@ RANGE = {
     'teemo': 3,
     'thresh': 2,
     'twistedfate': 3,
-    'vayne': 4, 
+    'vayne': 4,
     'veigar': 3,
     'vi': 1,
     'warwick': 1,
@@ -887,7 +887,7 @@ MANALOCK = {
     'evelynn': 1000,
     'ezreal': 1000 + ABILITY_LENGTH['ezreal'],
     'fiora': 1000 + ABILITY_LENGTH['fiora'],
-    'garen': 1000 + ABILITY_LENGTH['garen'], 
+    'garen': 1000 + ABILITY_LENGTH['garen'],
     'hecarim': 1000 + ABILITY_LENGTH['hecarim'],
     'irelia': 1000,
     'janna': 1000,
@@ -921,7 +921,7 @@ MANALOCK = {
     'teemo': 1000,
     'thresh': 1000,
     'twistedfate': 1000,
-    'vayne': 0, 
+    'vayne': 0,
     'veigar': 1000,
     'vi': 1000,
     'warwick': 0,
@@ -981,7 +981,7 @@ ABILITY_DMG = {
     'evelynn': [0,350,500,1400],
     'ezreal': [0,250,450,9999],
     'fiora': [0, 200, 300, 450],
-    'garen': [0,450,675,1125], 
+    'garen': [0,450,675,1125],
     'hecarim': [0, 250, 400, 600],
     'irelia': [0, 200, 300, 600],
     'jarvaniv': [0, 175, 250, 750],
@@ -1063,7 +1063,7 @@ ABILITY_MR_DECREASE = {
 } # shredding 40% of their magic resistance
 
 ABILITY_ARMOR_DECREASE = {
-    'vi': [0, 0.50, 0.25, 0.0001] 
+    'vi': [0, 0.50, 0.25, 0.0001]
 } # same as with morgana: values are (1 - reduction). 3 star would bring some troubles if the value was 0.00
 
 ABILITY_ARMOR_MR_DECREASE = {
@@ -1157,7 +1157,7 @@ ABILITY_HEALING_REDUCE = {
 ABILITY_HEALING_REDUCE_LENGTH = {
     'katarina': 5000,
     'kindred': 5000,
-    
+
 }
 
 ABILITY_HEALTH_GAIN_PERCENTAGES = {
@@ -1221,7 +1221,7 @@ ABILITY_SLOW_AMOUNT = {
     'azir': 2
 } #how many times slower the unit's movement will be
 
-ABILITY_TARGET_INCREASE_DAMAGE_RECEIVING = { 
+ABILITY_TARGET_INCREASE_DAMAGE_RECEIVING = {
     'cassiopeia': 1.20,
 }
 
@@ -1257,7 +1257,7 @@ SECONDARY_ABILITY_COUNTER = {
 
 LIFESTEAL = {
     'warwick': [0, 0.5, 0.5, 2.00],
-    
+
 }
 
 MOVEMENTDELAY = {
@@ -1289,3 +1289,11 @@ ACTIVE_DAMAGE_REDUCTION = {'tahmkench': [0, 15, 25, 75]}
 DODGE = 0.0
 
 DAMAGE_PER_UNIT = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+BASE_CHAMPION_LIST = ['diana', 'elise', 'fiora', 'garen', 'lissandra', 'tahmkench', 'maokai', 'nami', 'nidalee',
+                      'twistedfate', 'vayne', 'wukong', 'yasuo', 'annie', 'aphelios', 'hecarim', 'janna', 'jarvaniv',
+                      'jax', 'lulu', 'pyke', 'sylas', 'teemo', 'thresh', 'vi', 'zed', 'akali', 'evelynn', 'irelia',
+                      'jinx', 'kalista', 'katarina', 'kennen', 'kindred', 'lux', 'nunu', 'veigar', 'xinzhao', 'yuumi',
+                      'aatrox', 'ahri', 'ashe', 'cassiopeia', 'jhin', 'morgana', 'riven', 'sejuani', 'shen', 'talon',
+                      'warwick', 'azir', 'ezreal', 'kayn', 'leesin', 'lillia', 'sett', 'yone', 'zilean'
+                      ]

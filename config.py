@@ -2,23 +2,27 @@ import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
 NUM_CPUS = 28
-GPU_SIZE_PER_WORKER = 0.18
+GPU_SIZE_PER_WORKER = 0.3
 STORAGE_GPU_SIZE = 0.1
+# NUM_CPUS = 8
+# GPU_SIZE_PER_WORKER = 0.0
+# STORAGE_GPU_SIZE = 0.0
 
 DEVICE = "cuda"
-STOCHASTIC = True
-IMITATION = False
+IMITATION = True
+CHAMP_DECIDER = False
 
 # AI RELATED VALUES START HERE
 
 #### MODEL SET UP ####
-HIDDEN_STATE_SIZE = 512
-NUM_RNN_CELLS = 4
+HIDDEN_STATE_SIZE = 256
+NUM_RNN_CELLS = 2
 LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
 RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
 LAYER_HIDDEN_SIZE = 256
-ROOT_DIRICHLET_ALPHA = 0.5
+ROOT_DIRICHLET_ALPHA = 1.0
 ROOT_EXPLORATION_FRACTION = 0.25
+VISIT_TEMPERATURE = 1.0
 MINIMUM_REWARD = -300.0
 MAXIMUM_REWARD = 300.0
 PB_C_BASE = 19652
@@ -32,8 +36,21 @@ INPUT_TENSOR_SHAPE = np.array([OBSERVATION_SIZE])
 ACTION_ENCODING_SIZE = 1045
 ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
+# 57 is the number of champions in set 4. Don't want to add an import to the STATS in the simulator in a config file
+CHAMPION_ACTION_DIM = [2 for _ in range(58)]
+# Number of categories for each trait tier. Emperor for example has 2, no emperors or 1.
+TEAM_TIERS_VECTOR = [4, 5, 4, 4, 4, 3, 3, 3, 2, 4, 4, 4, 5, 3, 5, 2, 3, 5, 4, 4, 3, 4, 4, 4, 2, 5]
+TIERS_FLATTEN_LENGTH = 97
 
+# INPUT SIZES
+SHOP_INPUT_SIZE = 45
+BOARD_INPUT_SIZE = 728
+BENCH_INPUT_SIZE = 234
+STATE_INPUT_SIZE = 85
+COMP_INPUT_SIZE = 102
+OTHER_PLAYER_INPUT_SIZE = 5180
 
+OBSERVATION_LABELS = ["shop", "board", "bench", "states", "game_comp", "other_players"]
 POLICY_HEAD_SIZES = [7, 5, 630, 370, 9]  # [7 types, shop, movement, item, sell/item loc]
 NEEDS_2ND_DIM = [1, 2, 3, 4]
 
@@ -46,16 +63,16 @@ N_HEAD_HIDDEN_LAYERS = 4
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 1
+CONCURRENT_GAMES = 4
 NUM_PLAYERS = 8 
-NUM_SAMPLES = 20
-NUM_SIMULATIONS = 60
+NUM_SAMPLES = 30
+NUM_SIMULATIONS = 100
 
 # Set to -1 to turn off.
 TD_STEPS = -1 
 # This should be 1000 + because we want to be sampling everything when using priority.
 # To change, look into the code in replay_muzero_buffer
-SAMPLES_PER_PLAYER = 1000  
+SAMPLES_PER_PLAYER = 64
 UNROLL_STEPS = 15
 
 ### TRAINING ###
@@ -66,8 +83,9 @@ LR_DECAY_FUNCTION = 0.1
 WEIGHT_DECAY = 1e-5
 REWARD_LOSS_SCALING = 1
 POLICY_LOSS_SCALING = 1
+GAME_METRICS_SCALING = 1
 
-AUTO_BATTLER_PERCENTAGE = 1
+AUTO_BATTLER_PERCENTAGE = 0
 
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
@@ -82,5 +100,5 @@ RUN_MINION_TESTS = False
 RUN_DROP_TESTS = False
 RUN_MCTS_TESTS = False
 RUN_MAPPING_TESTS = False
-RUN_CHECKPOINT_TESTS = True  # NOTE: This test requires the first 20 checkpoints (0 - 2000) be available
+RUN_CHECKPOINT_TESTS = False  # NOTE: This test requires the first 20 checkpoints (0 - 2000) be available
 LOG_COMBAT = False

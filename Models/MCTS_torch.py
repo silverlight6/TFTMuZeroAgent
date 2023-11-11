@@ -29,7 +29,7 @@ class MCTS:
 
     def policy(self, observation):
         with torch.no_grad():
-            self.NUM_ALIVE = observation[0].shape[0]
+            self.NUM_ALIVE = observation[0]["shop"].shape[0]
 
             # 0.02 seconds
             network_output = self.network.initial_inference(observation[0])
@@ -112,14 +112,15 @@ class MCTS:
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
-            self.max_depth_search = max(self.max_depth_search,
-                                        sum(results.get_search_len()) / len(results.get_search_len()))
+            self.max_depth_search = sum(results.get_search_len()) / len(results.get_search_len())
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
+            tensors_states = {label: torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
+                              for label in config.OBSERVATION_LABELS}
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
-                tensors_states[idx] = hidden_state_pool[ix][iy]
+                for label in config.OBSERVATION_LABELS:
+                    tensors_states[label][idx] = hidden_state_pool[ix][label][iy]
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
@@ -458,7 +459,7 @@ class MCTS:
 
     @staticmethod
     def visit_softmax_temperature():
-        return 1.0
+        return config.VISIT_TEMPERATURE
 
 
 def masked_distribution(x, use_exp, mask=None):

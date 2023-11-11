@@ -1,4 +1,6 @@
+import config
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 
 class Checkpoint:
     def __init__(self, epoch, q_score):
@@ -6,7 +8,10 @@ class Checkpoint:
         self.q_score = q_score
 
     def get_model(self):
-        model = TFTNetwork()
+        if config.CHAMP_DECIDER:
+            model = DefaultNetwork()
+        else:
+            model = TFTNetwork()
         if self.epoch == 0:
             return model.get_weights()
         else:

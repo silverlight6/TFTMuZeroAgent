@@ -35,7 +35,8 @@ class FirstMinion(Minion):
         self.board[5][1] = champion.champion('meleeminion')
 
     def drop_loot(self, history):
-        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.COMMON), (LootOrb.COMMON, LootOrb.UNCOMMON)]
+        choices = [LootOrb.UNCOMMON, LootOrb.COMMON, (LootOrb.COMMON, LootOrb.COMMON),
+                   (LootOrb.COMMON, LootOrb.UNCOMMON)]
         probabilities = [.45, .25, .15, .15]
         count = 1
         return gen_loot(choices, probabilities, count, history)

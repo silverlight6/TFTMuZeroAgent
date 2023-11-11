@@ -60,16 +60,16 @@ team_traits = {
     'dazzler': 0,
     'duelist': 0,
     'emperor': 0,
+    'fortune': 0,
     'hunter': 0,
     'keeper': 0,
     'mage': 0,
+    'moonlight': 0,
     'mystic': 0,
     'shade': 0,
     'sharpshooter': 0,
+    'tormented': 0,
     'vanguard': 0,
-    'fortune': 0,
-    'moonlight': 0,
-    'tormented': 0
 }
 
 # Number of each class

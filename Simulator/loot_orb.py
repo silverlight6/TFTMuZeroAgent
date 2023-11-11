@@ -37,7 +37,8 @@ class LootOrb(Enum):
     }
 
 # Implementation of the loot that can be given to the player
-# The rewards are pretty self explanatory; 'three_one_costs' gives three random one cost champions, 'one_item' gives one random item, etc.
+# The rewards are pretty self explanatory;
+# 'three_one_costs' gives three random one cost champions, 'one_item' gives one random item, etc.
 def give_loot(player, reward):
     # I would use a match here but we're on python 3.8
     if reward == 'three_gold':

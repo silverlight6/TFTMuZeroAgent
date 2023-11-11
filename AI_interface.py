@@ -17,8 +17,10 @@ from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
 
 from Models.MCTS_torch import MCTS
+from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.MuZero_torch_trainer import Trainer
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -29,16 +31,23 @@ Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any dif
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER, num_cpus=0.8)
 class DataWorker(object):
     def __init__(self, rank):
-        self.temp_model = TFTNetwork()
-        self.agent_network = MCTS(self.temp_model)
-        self.past_network = MCTS(self.temp_model)
+        if config.CHAMP_DECIDER:
+            self.temp_model = DefaultNetwork()
+            self.agent_network = Default_MCTS(self.temp_model)
+            self.past_network = Default_MCTS(self.temp_model)
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        else:
+            self.temp_model = TFTNetwork()
+            self.agent_network = MCTS(self.temp_model)
+            self.past_network = MCTS(self.temp_model)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+            # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            # Ensure we have at least one model player and for testing
+            # self.default_agent[0] = False
+
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
 
         # Testing purposes only
-        self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
-        # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
-        # Ensure we have at least one model player and for testing
-        # self.default_agent[0] = False
         self.live_game = True
         self.rank = rank
         self.ckpt_time = time.time_ns()
@@ -75,6 +84,15 @@ class DataWorker(object):
             terminated = {player_id: False for player_id in env.possible_agents}
             position = 8
 
+            # Doing this to try to get around the edge case of the very last time step for each player where
+            # The player is null but we still need to collect a reward.
+            current_comp = {
+                key: info[key]["player"].get_team_tier_labels() for key in terminated.keys()
+            }
+            current_champs = {
+                key: info[key]["player"].get_team_champion_labels() for key in terminated.keys()
+            }
+
             # While the game is still going on.
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
@@ -83,15 +101,19 @@ class DataWorker(object):
                 step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
-                # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.step(step_actions)
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i] and not self.default_agent[i]:
+                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION):
+                            if info[key]["player"]:
+                                current_comp[key] = info[key]["player"].get_team_tier_labels()
+                                current_champs[key] = info[key]["player"].get_team_champion_labels()
                             # Store the information in a buffer to train on later.
-                            buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
-                                                               reward[key], policy[i], string_samples[i], root_values[i])
+                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
+                                                               storage_actions[i], reward[key], policy[i],
+                                                               string_samples[i], root_values[i], current_comp[key],
+                                                               current_champs[key])
 
                 offset = 0
                 for i, [key, terminate] in enumerate(terminated.items()):
@@ -121,6 +143,7 @@ class DataWorker(object):
             self.live_game = np.random.rand() <= 1.8
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
+                print('---------------- here ------------------')
                 past_weights, self.past_episode, self.prob = ray.get(storage.sample_past_model.remote())
                 self.past_network = MCTS(self.temp_model)
                 self.past_network.network.set_weights(past_weights)
@@ -128,10 +151,11 @@ class DataWorker(object):
                 self.past_update = False
 
             # Reset the default agents for the next set of games.
-            self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player
-            if all(self.default_agent):
-                self.default_agent[0] = False
+            # if all(self.default_agent):
+            #     self.default_agent[0] = False
 
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
@@ -139,6 +163,75 @@ class DataWorker(object):
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
             self.agent_network = MCTS(self.temp_model)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
+    def collect_default_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.reset(options={"default_agent": self.default_agent})
+            # This is here to make the input (1, observation_size) for initial_inference
+            player_observation = self.observation_to_input(player_observation)
+
+            # Used to know when players die and which agent is currently acting
+            terminated = {player_id: False for player_id in env.possible_agents}
+            reward = {player_id: 0 for player_id in env.possible_agents}
+            position = 8
+
+            # While the game is still going on.
+            while not all(terminated.values()):
+                info_values = list(info.values())
+                if info_values[0]['start_turn']:
+                    # Ask our model for an action and policy.
+                    # Use on normal case or if we only have current versions left
+                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+                    storage_actions = utils.decode_action(c_actions)
+                    step_actions = self.getStepActions(terminated, storage_actions)
+                    for player_id in step_actions.keys():
+                        info[player_id]['player'].default_champion_list(step_actions[player_id])
+
+                    # store the action for MuZero
+                    for i, key in enumerate(terminated.keys()):
+                        # Store the information in a buffer to train on later.
+                        buffers.store_replay_buffer.remote(key, player_observation[0][i], storage_actions[i],
+                                                           reward[key], policy[i], string_samples[i], root_values[i])
+
+                actions = ["0"] * len(self.default_agent)
+                for i, default_agent in enumerate(self.default_agent):
+                    actions[i] = info_values[i]["player"].default_policy(info_values[i]["game_round"],
+                                                                         info_values[i]["shop"])
+                storage_actions = utils.decode_action(actions)
+                step_actions = self.getStepActions(terminated, storage_actions)
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.step(step_actions)
+
+                offset = 0
+                for i, [key, terminate] in enumerate(terminated.items()):
+                    # Saying if that any of the 4 agents got first or second then we are saying we are not
+                    # Currently beating that checkpoint
+                    if terminate:
+                        # print("player {} got position {} of game {}".format(i, position, self.rank))
+                        buffers.set_ending_position.remote(key, position)
+                        position -= 1
+                        self.default_agent.pop(i - offset)
+                        offset += 1
+
+                # Set up the observation for the next action
+                player_observation = self.observation_to_input(next_observation)
+
+            self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+
+            # buffers.rewardNorm.remote()
+            print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
+            ray.get(buffers.store_global_buffer.remote())
+            print("FINISHED SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
+            buffers = BufferWrapper.remote(global_buffer)
+
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = Default_MCTS(self.temp_model)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -170,15 +263,43 @@ class DataWorker(object):
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
     def observation_to_input(self, observation):
-        tensors = []
         masks = []
         keys = []
+        shop = []
+        board = []
+        bench = []
+        states = []
+        game_comp = []
+        other_players = []
         for key, obs in observation.items():
-            tensors.append(obs["tensor"])
+            shop.append(obs["tensor"]["shop"])
+            board.append(obs["tensor"]["board"])
+            bench.append(obs["tensor"]["bench"])
+            states.append(obs["tensor"]["states"])
+            game_comp.append(obs["tensor"]["game_comp"])
+            other_players.append(obs["tensor"]["other_players"])
             masks.append(obs["mask"])
             keys.append(key)
-        return [np.asarray(tensors), masks, keys]
-
+        tensors = {
+            "shop": np.array(shop),
+            "board": np.array(board),
+            "bench": np.array(bench),
+            "states": np.array(states),
+            "game_comp": np.array(game_comp),
+            "other_players": np.array(other_players)
+        }
+        return [tensors, masks, keys]
+    
+    def get_obs_idx(self, observation, idx):
+        return {
+            "shop": observation["shop"][idx],
+            "board": observation["board"][idx],
+            "bench": observation["bench"][idx],
+            "states": observation["states"][idx],
+            "game_comp": observation["game_comp"][idx],
+            "other_players": observation["other_players"][idx]
+        }
+    
     '''
     Description -
         Turns a string action into a series of one_hot lists that can be used in the step_function.
@@ -213,12 +334,15 @@ class DataWorker(object):
     def model_call(self, player_observation, info):
         if config.IMITATION:
             actions, policy, string_samples, root_values = self.imitation_learning(player_observation[:2], info)
-        #  If all of our agents are current versions
+        # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
-        # if all of our agents are past versions. (Should exceedingly rarely come here)
+        # Ff all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
+        # If all of our versions are default agents
+        elif all(self.default_agent):
+            actions, policy, string_samples, root_values = self.default_model_call(info)
         # If there are no default agents but a mix of past and present
         elif not any(self.default_agent):
             actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation[:2])
@@ -249,7 +373,7 @@ class DataWorker(object):
 
         for i, past_version in enumerate(self.past_version):
             if not past_version:
-                live_agent_observations.append(player_observation[0][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
                 live_agent_masks.append(player_observation[1][i])
             else:
                 past_agent_observations.append(player_observation[0][i])
@@ -289,10 +413,10 @@ class DataWorker(object):
 
         for i, default_agent in enumerate(self.default_agent):
             if not default_agent:
-                live_agent_observations.append(player_observation[0][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
                 live_agent_masks.append(player_observation[1][i])
 
-        live_observation = [np.asarray(live_agent_observations), live_agent_masks]
+        live_observation = [live_agent_observations, live_agent_masks]
         if len(live_observation[0]) != 0:
             live_actions, live_policy, live_string_samples, live_root_values = \
                 self.agent_network.policy(live_observation)
@@ -314,6 +438,7 @@ class DataWorker(object):
             local_info = list(info.values())
             for i, default_agent in enumerate(self.default_agent):
                 if default_agent:
+                    print("{} and player_num {} also why".format(i, local_info[i]["player"].player_num))
                     actions[i] = local_info[i]["player"].default_policy(local_info[i]["game_round"],
                                                                         local_info[i]["shop"])
                     # Turn action into one hot policy
@@ -334,11 +459,11 @@ class DataWorker(object):
         root_values = [None] * len(self.default_agent)
         return actions, policy, string_samples, root_values
 
-    def defualt_model_call(self, info):
+    def default_model_call(self, info):
         actions = ["0"] * len(self.default_agent)
         policy = [None] * len(self.default_agent)
         string_samples = [None] * len(self.default_agent)
-        root_values = [0] * len(self.default_agent)
+        root_values = [1] * len(self.default_agent)
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
             if default_agent:
@@ -348,14 +473,14 @@ class DataWorker(object):
     def imitation_learning(self, player_observation, info):
         policy = [[1.0] for _ in range(len(self.default_agent))]
         string_samples = [[] for _ in range(len(self.default_agent))]
-
-        actions, _, _, root_values = \
-            self.agent_network.policy(player_observation)
+        root_values = [0 for _ in range(len(self.default_agent))]
+        actions = ["0" for _ in range(len(self.default_agent))]
 
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
             string_samples[i] = [local_info[i]["player"].default_policy(local_info[i]["game_round"],
                                                                         local_info[i]["shop"])]
+            actions[i] = string_samples[i][0]
         return actions, policy, string_samples, root_values
 
     '''
@@ -441,10 +566,16 @@ class AIInterface:
         storage = Storage.remote(train_step)
         global_buffer = GlobalBuffer.remote(storage)
 
-        global_agent = TFTNetwork()
+        if config.CHAMP_DECIDER:
+            global_agent = DefaultNetwork()
+        else:
+            global_agent = TFTNetwork()
+        
         global_agent_weights = ray.get(storage.get_target_model.remote())
         global_agent.set_weights(global_agent_weights)
         global_agent.to(config.DEVICE)
+        
+        # total_params = sum(p.numel() for p in global_agent.parameters())
 
         trainer = Trainer(global_agent, train_summary_writer)
 
@@ -457,8 +588,12 @@ class AIInterface:
         workers = []
         data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
         for i, worker in enumerate(data_workers):
-            workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
-                                                                     storage, weights))
+            if config.CHAMP_DECIDER:
+                workers.append(worker.collect_default_experience.remote(env, buffers[i], global_buffer,
+                                                                        storage, weights))
+            else:
+                workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], global_buffer,
+                                                                         storage, weights))
             time.sleep(0.5)
         # ray.get(workers)
 

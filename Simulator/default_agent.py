@@ -1,3 +1,4 @@
+import config
 import numpy as np
 import Simulator.champion as champion
 from Simulator.default_agent_stats import *
@@ -5,7 +6,8 @@ from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers
 from Simulator.origin_class import team_traits
 from Simulator.utils import x_y_to_1d_coord
-from Simulator.stats import COST
+from Simulator.stats import COST, BASE_CHAMPION_LIST
+from Simulator.item_stats import starting_items
 from copy import deepcopy
 
 
@@ -19,11 +21,14 @@ class Default_Agent:
         self.require_pair_update = False
         self.round_11_clean_up = True
         self.comp_number = -1
+        self.champion_buy_list = [False for _ in range(len(BASE_CHAMPION_LIST))]
 
     def policy(self, player, shop, game_round):
         self.current_round = game_round
         if game_round == 1 or game_round == 2:
             return self.round_1_2(player, shop)
+        elif config.CHAMP_DECIDER:
+            return self.ai_round_default(player, shop)
         elif 2 < game_round < 11:
             if game_round == 3 and self.current_round == self.next_round:
                 self.update_pairs_list(player)
@@ -38,11 +43,14 @@ class Default_Agent:
 
     def move_bench_to_empty_board(self, player, bench_location, unit):
         if unit in FRONT_LINE_UNITS:
+            is_full = self.is_row_full(player, 3)
+            start_idx = 24 if not is_full else 10
+            row_idx = 3 if not is_full else 1
             for displacement in range(4):
-                if not player.board[3 + displacement][3]:
-                    return "2_" + str(bench_location) + "_" + str(24 + displacement)
-                if not player.board[3 - displacement][3]:
-                    return "2_" + str(bench_location) + "_" + str(24 - displacement)
+                if not player.board[3 + displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx + displacement)
+                if not player.board[3 - displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx - displacement)
             print("Empty Front line with board {}".format(player.board))
         if unit in MIDDLE_LINE_UNITS:
             for displacement in range(4):
@@ -52,22 +60,28 @@ class Default_Agent:
                     return "2_" + str(bench_location) + "_" + str(17 - displacement)
             print("Empty Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
+            is_full = self.is_row_full(player, 0)
+            start_idx = 3 if not is_full else 10
+            row_idx = 0 if not is_full else 1
             for displacement in range(4):
-                if not player.board[3 + displacement][0]:
-                    return "2_" + str(bench_location) + "_" + str(3 + displacement)
-                if not player.board[3 - displacement][0]:
-                    return "2_" + str(bench_location) + "_" + str(3 - displacement)
+                if not player.board[3 + displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx + displacement)
+                if not player.board[3 - displacement][row_idx]:
+                    return "2_" + str(bench_location) + "_" + str(start_idx - displacement)
             print("Empty Back line with board {}".format(player.board))
         return "0"
 
     def check_unit_location(self, player, x, y, unit):
         if unit in FRONT_LINE_UNITS:
             if y != 3:
+                is_full = self.is_row_full(player, 3)
+                start_idx = 24 if not is_full else 10
+                row_idx = 3 if not is_full else 1
                 for displacement in range(4):
-                    if not player.board[3 + displacement][3]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 + displacement)
-                    if not player.board[3 - displacement][3]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(24 - displacement)
+                    if not player.board[3 + displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                    if not player.board[3 - displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
                 print("Check Front line with board {}".format(player.board))
 
         if unit in MIDDLE_LINE_UNITS:
@@ -80,11 +94,14 @@ class Default_Agent:
                 print("Check Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
             if y != 0:
+                is_full = self.is_row_full(player, 0)
+                start_idx = 3 if not is_full else 10
+                row_idx = 0 if not is_full else 1
                 for displacement in range(4):
-                    if not player.board[3 + displacement][0]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 + displacement)
-                    if not player.board[3 - displacement][0]:
-                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(3 - displacement)
+                    if not player.board[3 + displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                    if not player.board[3 - displacement][row_idx]:
+                        return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
                 print("Check Back line with board {}".format(player.board))
         return False
 
@@ -95,6 +112,12 @@ class Default_Agent:
                 if bench_slot:
                     return self.move_bench_to_empty_board(player, 28 + i, bench_slot.name)
         return " "
+    
+    def is_row_full(self, player, row):
+        for col in player.board:
+            if col[row] is None:
+                return False
+        return True
 
     def update_pairs_list(self, player):
         list_of_units = []
@@ -140,7 +163,7 @@ class Default_Agent:
 
         for x in range(7):
             for y in range(4):
-                if board[x][y]:
+                if board[x][y] and board[x][y].name in BASE_CHAMPION_LIST:
                     score += cost_star_values[board[x][y].cost - 1][board[x][y].stars - 1]
                     if board[x][y].chosen:
                         chosen = board[x][y].chosen
@@ -162,7 +185,7 @@ class Default_Agent:
         for x in range(0, 7):
             for y in range(0, 4):
                 if board[x][y]:
-                    if board[x][y].name not in unique_champions:
+                    if board[x][y].name not in unique_champions and board[x][y].name in BASE_CHAMPION_LIST:
                         unique_champions.append(board[x][y].name)
                         for trait in board[x][y].origin:
                             team_comp[trait] += 1
@@ -176,6 +199,9 @@ class Default_Agent:
                     break
             team_tiers[trait] = counter
         return team_comp, team_tiers
+
+    def set_champion_list(self, champion_list):
+        self.champion_buy_list = champion_list
 
     def round_1_2(self, player, shop):
         # buy every unit in the shop until no gold
@@ -195,8 +221,8 @@ class Default_Agent:
                     break
             # if no gold remains and we just bought a unit
             if shop_position != 5:
-                # print("buying {} with gold {} and cost {} for player {}".format(
-                #     shop[shop_position], player.gold, COST[shop[shop_position]], player.player_num))
+                # print("buying round 1_2 {} with position {} and player_num {}".format(shop[shop_position],
+                # shop_position, player.player_num))
                 return "1_" + str(shop_position)
         max_unit_check = self.max_unit_check(player)
         if max_unit_check != " ":
@@ -206,7 +232,7 @@ class Default_Agent:
     def round_3_10(self, player, shop):
         # Reset checks
         if self.current_round == self.next_round:
-            self.round_3_10_checks = [True for _ in range(5)]
+            self.round_3_10_checks = [True for _ in range(6)]
 
         if self.require_pair_update:
             self.update_pairs_list(player)
@@ -232,8 +258,9 @@ class Default_Agent:
         if self.round_3_10_checks[0]:
             for i, shop_unit in enumerate(shop):
                 if shop_unit != " ":
-                    if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold:
+                    if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold and not shop_unit.endswith("_c"):
                         self.require_pair_update = True
+                        # print("buying triple {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[0] = False
 
@@ -249,16 +276,19 @@ class Default_Agent:
                             if player.board[x][y]:
                                 # If what I am buying is a pair
                                 if player.board[x][y].name == shop_unit:
+                                    # print("buying pair {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                                 # If it improves my comp
                                 shop_score = self.compare_shop_unit(shop_unit, deepcopy(player.board), x, y)
                                 if shop_score > base_score:
+                                    # print("buying shop score {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1:
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1:
+                        # print("buying chosen {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[1] = False
 
@@ -269,7 +299,7 @@ class Default_Agent:
                 if bench_unit:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
-                            if player.board[x][y]:
+                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
                                 board_copy = deepcopy(player.board)
                                 board_copy[x][y] = bench_unit
                                 bench_score = self.rank_comp(board_copy)
@@ -278,6 +308,53 @@ class Default_Agent:
                                     self.round_3_10_checks[1] = True
                                     return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
             self.round_3_10_checks[2] = False
+            
+        if self.round_3_10_checks[5]:
+            # Add items to highest level units
+            item_idx = []
+            for i, item in enumerate(player.item_bench):
+                if item is not None and not (item == "champion_duplicator" or item == "spatula"):
+                    item_idx.append((item, i))
+            # check how many items we can make
+            champions = []
+            for x in range(len(player.board)):
+                for y in range(len(player.board[x])):
+                    if player.board[x][y]:
+                        champions.append((player.board[x][y], x_y_to_1d_coord(x, y)))
+            # sort champions by level
+            champions.sort(key=lambda x: x[0].cost * x[0].stars, reverse=True)
+            
+            # add items to champions
+            for champion, coord in champions:
+                if len(item_idx) == 0:
+                    break
+                while len(item_idx) > 0:
+                    num_items = len(champion.items)
+                    if num_items == 0:
+                        item, idx = item_idx.pop()
+                        # print("item {} start ".format(item))
+                        return "3_" + str(coord) + "_" + str(idx)
+                    
+                    last_item = champion.items[-1]
+                    is_last_complete_item = last_item in starting_items
+                    item, idx = item_idx.pop()
+                    is_complete_item = item in starting_items
+                    is_thieves_glove = (last_item == "thieves_gloves") or (item == "thieves_gloves")
+                    is_glove = (last_item == "sparring_gloves") and (item == "sparring_gloves")
+                    
+                    if num_items >= 3 and is_last_complete_item:
+                        break
+                    if num_items >= 3 and is_complete_item:
+                        item_idx.append((item, idx))
+                        break
+                    if is_thieves_glove or is_glove:
+                        # print("breaking due a thieves gloves error")
+                        break
+                    if num_items < 3:
+                        # print("item {} end ".format(item))
+                        return "3_" + str(coord) + "_" + str(idx)
+        
+            self.round_3_10_checks[5] = False
 
         # Double check that the units in the front should be in the front and vise versa
         if self.round_3_10_checks[3]:
@@ -365,6 +442,7 @@ class Default_Agent:
                     if (shop_unit + "_1" in self.pairs or shop_unit in TEAM_COMPS[self.comp_number]) \
                             and COST[shop_unit] <= player.gold:
                         self.require_pair_update = True
+                        # print("buying triple or comp unit {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_11_end_checks[0] = False
 
@@ -379,6 +457,7 @@ class Default_Agent:
                                 # If what I am buying is a pair
                                 if player.board[x][y].name == shop_unit:
                                     self.require_pair_update = True
+                                    # print("buying pair 11_end {}".format(shop_unit))
                                     return "1_" + str(i)
                                 # If it improves my comp and is not part of the desired comp.
                                 # I buy all units that are part of the desired comp above
@@ -386,17 +465,124 @@ class Default_Agent:
                                 if shop_score > base_score and \
                                         player.board[x][y].name not in TEAM_COMPS[self.comp_number]:
                                     self.require_pair_update = True
+                                    # print("buying shop_score 11_end {}".format(shop_unit))
                                     return "1_" + str(i)
                 # Buy chosen unit for the given comp
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
                     chosen_type = shop_unit.split('_')[1]
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 2 - 1 and \
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1 and \
                             chosen_type == TEAM_COMP_TRAITS[self.comp_number]:
+                        # print("buying chosen 11_end {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_11_end_checks[1] = False
 
         # Do the same for the bench
+        if self.round_11_end_checks[2]:
+            base_score = self.rank_comp(player.board)
+            for i, bench_unit in enumerate(player.bench):
+                if bench_unit:
+                    for x in range(len(player.board)):
+                        for y in range(len(player.board[x])):
+                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
+                                board_copy = deepcopy(player.board)
+                                board_copy[x][y] = bench_unit
+                                bench_score = self.rank_comp(board_copy)
+                                # First option, both not in comp
+                                if (bench_score > base_score and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
+                                        (player.board[x][y].name not in TEAM_COMPS[self.comp_number]
+                                         and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
+                                        (bench_score > base_score and bench_unit.name not in TEAM_COMPS[self.comp_number]
+                                         and player.board[x][y].name not in TEAM_COMPS[self.comp_number]):
+                                    # Reset shop checks in case new trait synergies happened due to the change.
+                                    self.round_11_end_checks[1] = True
+                                    return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
+            self.round_11_end_checks[2] = False
+
+        # Double check that the units in the front should be in the front and vise versa
+        if self.round_11_end_checks[3]:
+            for x in range(len(player.board)):
+                for y in range(len(player.board[x])):
+                    if player.board[x][y]:
+                        movement = self.check_unit_location(player, x, y, player.board[x][y].name)
+                        if movement:
+                            return movement
+            self.round_11_end_checks[3] = False
+
+        # Check the cost of the units on the bench that are not a pair with a unit on the board.
+        # If selling allows us to hit 10 gold, sell until 10 gold.
+        if self.round_11_end_checks[4]:
+            cost = 0
+            position = 0
+            for i, bench_unit in enumerate(player.bench):
+                if bench_unit:
+                    if (bench_unit.name + "_" + str(bench_unit.stars)) not in self.pairs \
+                            and bench_unit.name not in TEAM_COMPS[self.comp_number]:
+                        cost += bench_unit.cost
+                        position = i
+
+            if player.gold // 10 != (player.gold + cost) // 10 and player.gold < 50:
+                return "4_" + str(position)
+            self.round_11_end_checks[3] = False
+
+        # TODO: Implement usage for champion duplicator
+        # TODO: Implement spat usage
+
+        # If above 50 gold and not yet level or when low health, buy exp
+        if player.level < 8 and (player.gold >= 54 or (player.health < 30 and player.gold > 4)):
+            return "5"
+
+        # Refresh at level 8 or when you get a little desperate
+        if (player.level == 8 and player.gold >= 54) or (player.health < 30 and player.gold > 4):
+            self.round_11_end_checks[0] = True
+            self.round_11_end_checks[1] = True
+            self.round_11_end_checks[2] = True
+            return "6"
+
+        return "0"
+
+    def ai_round_default(self, player, shop):
+        if self.current_round == self.next_round:
+            self.round_11_end_checks = [True for _ in range(5)]
+
+        if self.require_pair_update:
+            self.update_pairs_list(player)
+            self.require_pair_update = False
+
+        self.next_round = self.current_round + 1
+
+        # Check if we are 4 exp from the next level. If so level.
+        if player.exp == player.level_costs[player.level] - 4:
+            return "5"
+
+        # Verify that we have a full board.
+        max_unit_check = self.max_unit_check(player)
+        if max_unit_check != " ":
+            return max_unit_check
+
+        # Check if bench is full. Default sell non 2 star non pair unit. If none, sell the lowest cost.
+        if player.bench_full():
+            return self.sell_bench_full(player)
+
+        # Look for pairs and comp units
+        if self.round_11_end_checks[0]:
+            for i, shop_unit in enumerate(shop):
+                if shop_unit.endswith("_c"):
+                    c_shop = shop_unit.split('_')[0]
+                    chosen_type = shop_unit.split('_')[1]
+                    # If it is more than a 1 cost champion, we have to buy, a type we are running, and want to buy.
+                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1 and \
+                            player.team_tiers[chosen_type] > 0 and \
+                            self.champion_buy_list[BASE_CHAMPION_LIST.index(c_shop)]:
+                        return "1_" + str(i)
+                elif shop_unit != " ":
+                    if self.champion_buy_list[BASE_CHAMPION_LIST.index(shop_unit)] and COST[shop_unit] <= player.gold:
+                        self.require_pair_update = True
+                        return "1_" + str(i)
+            self.round_11_end_checks[0] = False
+
+        # Do the same for the bench
+        # TODO: Do every unique champion combination available on bench and board.
         if self.round_11_end_checks[2]:
             base_score = self.rank_comp(player.board)
             for i, bench_unit in enumerate(player.bench):
@@ -411,7 +597,8 @@ class Default_Agent:
                                 if (bench_score > base_score and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
                                         (player.board[x][y].name not in TEAM_COMPS[self.comp_number]
                                          and bench_unit.name in TEAM_COMPS[self.comp_number]) or \
-                                        (bench_score > base_score and bench_unit.name not in TEAM_COMPS[self.comp_number]
+                                        (bench_score > base_score and bench_unit.name not in TEAM_COMPS[
+                                            self.comp_number]
                                          and player.board[x][y].name not in TEAM_COMPS[self.comp_number]):
                                     # Reset shop checks in case new trait synergies happened due to the change.
                                     self.round_11_end_checks[1] = True
