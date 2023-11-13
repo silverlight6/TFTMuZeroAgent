@@ -135,7 +135,7 @@ class Player:
         self.team_tiers = origin_class.game_comp_tiers[self.player_num]
 
         # An array to record match history
-        self.match_history = []
+        self.match_history = [0.5, 0.5, 0.5]
 
         self.start_time = time.time_ns()
 

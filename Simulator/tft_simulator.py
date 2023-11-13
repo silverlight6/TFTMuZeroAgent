@@ -70,7 +70,7 @@ class TFT_Simulator(AECEnv):
         self.infos = {agent: {"state_empty": False, "player": self.PLAYERS[agent],
                               "game_round": 1, "shop": self.step_function.shops[agent],
                               "start_turn": True} for agent in self.agents}
-        # Is this variable needed for petting zoo?
+
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
@@ -152,8 +152,6 @@ class TFT_Simulator(AECEnv):
         self.step_function.generate_shop_vectors(self.PLAYERS)
 
         self.agents = self.possible_agents.copy()
-        self._agent_selector = agent_selector(self.agents)
-        self.agent_selection = self._agent_selector.next()
 
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
@@ -171,7 +169,7 @@ class TFT_Simulator(AECEnv):
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
 
-        if options:
+        if options and "default_agent" in options:
             for i, agent in enumerate(self.default_agent):
                 self.default_agent[agent] = options["default_agent"][i]
                 self.PLAYERS[agent].default_player = options["default_agent"][i]
@@ -274,8 +272,8 @@ class TFT_Simulator(AECEnv):
                     self._cumulative_rewards[player_id] = self.rewards[player_id]
 
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
-        if len(self._agent_selector.agent_order):
-            self.agent_selection = self._agent_selector.next()
+        # if len(self._agent_selector.agent_order):
+        #     self.agent_selection = self._agent_selector.next()
 
         # Probably not needed but doesn't hurt?
         self._deads_step_first()
