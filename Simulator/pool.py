@@ -51,16 +51,22 @@ class pool:
 		return chosen_type
 
 	def reset(self):
-		for key in COST_1:
-			COST_1[key] = base_pool_values[0]
-		for key in COST_2:
-			COST_2[key] = base_pool_values[1]
-		for key in COST_3:
-			COST_3[key] = base_pool_values[2]
-		for key in COST_4:
-			COST_4[key] = base_pool_values[3]
-		for key in COST_5:
-			COST_5[key] = base_pool_values[4]
+		self.COST_1 = COST_1.copy()
+		self.COST_2 = COST_2.copy()
+		self.COST_3 = COST_3.copy()
+		self.COST_4 = COST_4.copy()
+		self.COST_5 = COST_5.copy()
+
+		# for key in COST_1:
+		# 	COST_1[key] = base_pool_values[0]
+		# for key in COST_2:
+		# 	COST_2[key] = base_pool_values[1]
+		# for key in COST_3:
+		# 	COST_3[key] = base_pool_values[2]
+		# for key in COST_4:
+		# 	COST_4[key] = base_pool_values[3]
+		# for key in COST_5:
+		# 	COST_5[key] = base_pool_values[4]
 
 	# Used when a player dies.
 	def return_hero(self, player):
@@ -110,7 +116,7 @@ class pool:
 			# cost 1
 			if index == 0:
 				# Get a list of all the champions in the pool
-				cost_1 = list(COST_1.values())
+				cost_1 = list(self.COST_1.values())
 				# Pick a random number to look for the position of that champion
 				ranPoolInt = random.randint(0, self.num_cost_1 - 1)
 				# Until the counter is greater than the number of champions checked
@@ -123,56 +129,56 @@ class pool:
 					if counterIndex == len(cost_1):
 						break
 				# Get a list of the champion names
-				keys_list = list(COST_1)
+				keys_list = list(self.COST_1)
 				# Set the option to be the champion name of choice
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 2
 			elif index == 1:
-				cost_2 = list(COST_2.values())
+				cost_2 = list(self.COST_2.values())
 				ranPoolInt = random.randint(0, self.num_cost_2 - 1)
 				while counter < ranPoolInt:
 					counter += cost_2[counterIndex]
 					counterIndex += 1
 					if counterIndex == len(cost_2):
 						break
-				keys_list = list(COST_2)
+				keys_list = list(self.COST_2)
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 3
 			elif index == 2:
-				cost_3 = list(COST_3.values())
+				cost_3 = list(self.COST_3.values())
 				ranPoolInt = random.randint(0, self.num_cost_3 - 1)
 				while counter < ranPoolInt:
 					counter += cost_3[counterIndex]
 					counterIndex += 1
 					if counterIndex == len(cost_3):
 						break
-				keys_list = list(COST_3)
+				keys_list = list(self.COST_3)
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 4
 			elif index == 3:
-				cost_4 = list(COST_4.values())
+				cost_4 = list(self.COST_4.values())
 				ranPoolInt = random.randint(0, self.num_cost_4 - 1)
 				while counter < ranPoolInt:
 					counter += cost_4[counterIndex]
 					counterIndex += 1
 					if counterIndex == len(cost_4):
 						break
-				keys_list = list(COST_4)
+				keys_list = list(self.COST_4)
 				championOptions[i] = keys_list[counterIndex - 1]
 
 			# cost 5
 			else:
-				cost_5 = list(COST_5.values())
+				cost_5 = list(self.COST_5.values())
 				ranPoolInt = random.randint(0, self.num_cost_5 - 1)
 				while counter < ranPoolInt:
 					if counterIndex == len(cost_5):
 						break
 					counter += cost_5[counterIndex]
 					counterIndex += 1
-				keys_list = list(COST_5)
+				keys_list = list(self.COST_5)
 				championOptions[i] = keys_list[counterIndex - 1]
 			# This adds the chosen aspect to the champion.
 			if chosen_index == i:
@@ -196,58 +202,58 @@ class pool:
 		if u_champion.stars != 1:
 			cost = stats.COST[u_champion.name]
 		if cost == 1:
-			COST_1[u_champion.name] += quantity
-			if COST_1[u_champion.name] < 0:
-				COST_1[u_champion.name] = 0
-			elif COST_1[u_champion.name] > base_pool_values[0]:
-				COST_1[u_champion.name] = base_pool_values[0]
+			self.COST_1[u_champion.name] += quantity
+			if self.COST_1[u_champion.name] < 0:
+				self.COST_1[u_champion.name] = 0
+			elif self.COST_1[u_champion.name] > base_pool_values[0]:
+				self.COST_1[u_champion.name] = base_pool_values[0]
 			self.update_stats(one=True)
 		elif cost == 2:
-			COST_2[u_champion.name] += quantity
-			if COST_2[u_champion.name] < 0:
-				COST_2[u_champion.name] = 0
-			elif COST_2[u_champion.name] > base_pool_values[1]:
-				COST_2[u_champion.name] = base_pool_values[1]
+			self.COST_2[u_champion.name] += quantity
+			if self.COST_2[u_champion.name] < 0:
+				self.COST_2[u_champion.name] = 0
+			elif self.COST_2[u_champion.name] > base_pool_values[1]:
+				self.COST_2[u_champion.name] = base_pool_values[1]
 			self.update_stats(two=True)
 		elif cost == 3:
-			COST_3[u_champion.name] += quantity
-			if COST_3[u_champion.name] < 0:
-				COST_3[u_champion.name] = 0
-			elif COST_3[u_champion.name] > base_pool_values[2]:
-				COST_3[u_champion.name] = base_pool_values[2]
+			self.COST_3[u_champion.name] += quantity
+			if self.COST_3[u_champion.name] < 0:
+				self.COST_3[u_champion.name] = 0
+			elif self.COST_3[u_champion.name] > base_pool_values[2]:
+				self.COST_3[u_champion.name] = base_pool_values[2]
 			self.update_stats(three=True)
 		elif cost == 4:
-			COST_4[u_champion.name] += quantity
-			if COST_4[u_champion.name] < 0:
-				COST_4[u_champion.name] = 0
-			elif COST_4[u_champion.name] > base_pool_values[3]:
-				COST_4[u_champion.name] = base_pool_values[3]
+			self.COST_4[u_champion.name] += quantity
+			if self.COST_4[u_champion.name] < 0:
+				self.COST_4[u_champion.name] = 0
+			elif self.COST_4[u_champion.name] > base_pool_values[3]:
+				self.COST_4[u_champion.name] = base_pool_values[3]
 			self.update_stats(four=True)
 		elif cost == 5:
-			COST_5[u_champion.name] += quantity
-			if COST_5[u_champion.name] < 0:
-				COST_5[u_champion.name] = 0
-			elif COST_5[u_champion.name] > base_pool_values[4]:
-				COST_5[u_champion.name] = base_pool_values[4]
+			self.COST_5[u_champion.name] += quantity
+			if self.COST_5[u_champion.name] < 0:
+				self.COST_5[u_champion.name] = 0
+			elif self.COST_5[u_champion.name] > base_pool_values[4]:
+				self.COST_5[u_champion.name] = base_pool_values[4]
 			self.update_stats(five=True)
 
 	def update_stats(self, allV=False, one=False, two=False, three=False, four=False, five=False):
 		if allV or one:
-			cost_1 = COST_1.values()
+			cost_1 = self.COST_1.values()
 			self.num_cost_1 = sum(cost_1)
 
 		if allV or two:
-			cost_2 = COST_2.values()
+			cost_2 = self.COST_2.values()
 			self.num_cost_2 = sum(cost_2)
 
 		if allV or three:
-			cost_3 = COST_3.values()
+			cost_3 = self.COST_3.values()
 			self.num_cost_3 = sum(cost_3)
 		
 		if allV or four:
-			cost_4 = COST_4.values()
+			cost_4 = self.COST_4.values()
 			self.num_cost_4 = sum(cost_4)
 
 		if allV or five:
-			cost_5 = COST_5.values()
+			cost_5 = self.COST_5.values()
 			self.num_cost_5 = sum(cost_5)
