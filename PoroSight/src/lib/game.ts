@@ -15,11 +15,15 @@ export class Game {
     }
 
     getPlayerLength(playerID: string): number {
-        return this.uiState.players[playerID].states.length;
+        return Math.min(this.uiState.players[playerID].states.length, this.uiState.players[playerID].diffs.length) - 1;
     }
 
     getPlayerState(playerID: string, index: number): [PlayerState, PlayerDiff] {
         return [this.uiState.players[playerID].states[index], this.uiState.players[playerID].diffs[index]];
+    }
+
+    getPlayerSummary(playerID: string): Summary {
+        return this.uiState.summaries.filter(summary => summary.player === playerID)[0];
     }
 
     createUIState(state: GameState): UIState {

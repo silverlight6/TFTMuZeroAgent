@@ -8,3 +8,4 @@ export const game = writable<Game>()
 
 export const currentState = writable<PlayerState>()
 export const currentDiff = writable<PlayerDiff>()
+export const currentSummary = writable<Summary>()
