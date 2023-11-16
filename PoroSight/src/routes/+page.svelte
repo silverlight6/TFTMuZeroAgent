@@ -1,7 +1,11 @@
 <script>
-	import Dropzone from '$lib/dropzone.svelte';
+	import Hero from '$lib/hero.svelte';
+	import Sight from '$lib/sight.svelte';
+	import { gameState } from '$lib/state';
 </script>
 
-<div class="h-screen flex items-center justify-center">
-	<Dropzone />
-</div>
+{#if $gameState}
+	<Sight />
+{:else}
+	<Hero />
+{/if}

@@ -1,4 +1,5 @@
 import functools
+from dataclasses import dataclass
 
 from gymnasium.spaces import MultiDiscrete
 
@@ -10,43 +11,54 @@ from Simulator import pool
 from Simulator.game_round import Game_Round
 
 from Simulator.porox.player_manager import PlayerManager
+from Simulator.porox.ui import GameState
+
+@dataclass
+class TFTConfig:
+    num_players: int = 8
+    max_actions_per_round: int = 15
+    reward_type: str = "winloss"
+    render_mode: str = None # "json" or None
+    render_path: str = "Games"
 
 
-def env():
+def env(config: TFTConfig = TFTConfig()):
     """
     The env function often wraps the environment in wrappers by default.
     You can find full documentation for these methods
     elsewhere in the developer pettingzoo documentation.
     """
-    local_env = TFT_Simulator()
+    local_env = TFT_Simulator(config)
 
     local_env = wrappers.OrderEnforcingWrapper(local_env)
     return local_env
 
-parallel_env = parallel_wrapper_fn(env)
+def parallel_env(config: TFTConfig = TFTConfig()):
+    def env():
+        local_env = TFT_Simulator(config)
+        local_env = wrappers.OrderEnforcingWrapper(local_env)
+        return local_env
+    
+    return parallel_wrapper_fn(env)()
 
 class TFT_Simulator(AECEnv):
     metadata = {"is_parallelizable": True, "name": "tft-set4-v0"}
 
-    def __init__(self,
-                 num_players: int = 8,
-                 max_actions_per_round: int = 15,
-                 reward_type: str = "winloss",
-                 render_mode: str = None,
-                 ):
+    def __init__(self, config: TFTConfig):
 
         # --- PettingZoo AECEnv Variables ---
         self.possible_agents = ["player_" +
-                                str(r) for r in range(num_players)]
+                                str(r) for r in range(config.num_players)]
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents))))
         )
-        self.render_mode = render_mode
+        self.render_mode = config.render_mode
+        self.render_path = config.render_path
 
         # --- Config Variables ---
-        self.num_players = num_players
-        self.max_actions_per_round = max_actions_per_round
-        self.reward_type = reward_type
+        self.num_players = config.num_players
+        self.max_actions_per_round = config.max_actions_per_round
+        self.reward_type = config.reward_type
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
@@ -118,7 +130,8 @@ class TFT_Simulator(AECEnv):
         return self.action_space_v2(agent)
 
     def render(self):
-        pass
+        if self.render_mode is not None:
+            ...
 
     def observe(self, agent):
         return self.player_manager.fetch_observation(agent)
@@ -154,10 +167,15 @@ class TFT_Simulator(AECEnv):
         # --- TFT Game Round Related Variables ---
         self.game_round = Game_Round(
             self.player_manager.player_states, self.pool_obj, self.player_manager)
+        
         # --- TFT Starting Game State ---
-        self.game_round.play_game_round()
+        self.game_round.play_game_round() # Does first carousel and first minion wave
         self.player_manager.generate_shops(self.agents)
         self.player_manager.update_game_round()
+        
+        # --- Game State for Render ---
+        if self.render_mode is not None:
+            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path)
         
         # --- Agent Selector API ---
         self._agent_selector = agent_selector(self.agents)
@@ -248,6 +266,9 @@ class TFT_Simulator(AECEnv):
         agent = self.agent_selection
         # Perform action and update observations
         self.player_manager.perform_action(agent, action)
+
+        if self.render_mode is not None:
+            self.game_state.store_action(agent, action)
         
         # Update actions taken and truncate if needed
         self.infos[agent]["actions_taken"] += 1
@@ -261,10 +282,17 @@ class TFT_Simulator(AECEnv):
             # If round is over
             if self.round_done():
                 self.game_round.play_game_round()
+
+                if self.render_mode is not None:
+                    self.game_state.store_battles()
+
                 killed_agents = self.update_dead()
                 
                 # Check if the game is over
                 if self.game_over():
+                    if self.render_mode is not None:
+                        self.game_state.write_json()
+
                     for player_id in self.agents:
                         if not self.terminations[player_id]:
                             self.rewards[player_id] = self.calculate_winloss(1)
@@ -277,6 +305,9 @@ class TFT_Simulator(AECEnv):
                     self.reset_max_actions()
                     self.game_round.start_round()
                     self.player_manager.update_game_round()
+                    
+                    if self.render_mode is not None:
+                        self.game_state.store_game_round()
                     
                 # Update agent_selector if agents died this round
                 if len(killed_agents) > 0:

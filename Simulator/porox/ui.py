@@ -373,6 +373,7 @@ class GameState:
         # Buy Action
         elif action_type == 3:
             change["gold"] = player.gold
+            change["board"] = self.update_board(player)
             change["bench"] = self.update_bench(player)
             change["shop"] = self.update_shop(player)
         # Sell Action
@@ -398,5 +399,9 @@ class GameState:
         # Item action
         elif action_type == 6:
             change["items"] = self.update_items(player)
+            if x2 < 28: # Item was given to champion on board
+                change["board"] = self.update_board(player)
+            else: # Item was given to champion on bench
+                change["bench"] = self.update_bench(player)
         
         self.player_actions[agent].append(change)

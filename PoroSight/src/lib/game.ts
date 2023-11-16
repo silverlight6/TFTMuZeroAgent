@@ -1,115 +1,3 @@
-interface PlayerState {
-    health: number;
-    exp: number;
-    level: number;
-    gold: number;
-    win_streak: number;
-    loss_streak: number;
-    board: Champion[];
-    bench: Champion[];
-    shop: Champion[];
-    items: Item[];
-    traits: Trait[];
-}
-
-interface Champion {
-    name: string;
-    cost: number;
-    stars: number;
-    chosen: boolean | string;
-    location: number;
-    items: Item[];
-}
-
-interface Item {
-    name: string;
-}
-
-interface Trait {
-    name: string;
-    count: number;
-    total: number;
-}
-
-interface Action {
-    action: number[];
-    health: number | undefined;
-    exp: number | undefined;
-    level: number | undefined;
-    gold: number | undefined;
-    win_streak: number | undefined;
-    loss_streak: number | undefined;
-    board: Champion[] | undefined;
-    bench: Champion[] | undefined;
-    shop: Champion[] | undefined;
-    items: Item[] | undefined;
-    traits: Trait[] | undefined;
-}
-
-interface Battle {
-    round: number;
-    opponent: string;
-    result: string;
-    health: number;
-    damage: number;
-    board: Champion[] | null;
-}
-
-interface Player {
-    state: PlayerState;
-    actions: Action[];
-    battles: Battle[];
-}
-
-interface Summary {
-    player: string;
-    placement: number;
-    health: number;
-    gold: number;
-    level: number;
-    board: Champion[];
-}
-
-interface PlayerDiff {
-    health: boolean;
-    exp: boolean;
-    level: boolean;
-    gold: boolean;
-    win_streak: boolean;
-    loss_streak: boolean;
-    board: ChampionDiff[];
-    bench: ChampionDiff[];
-    shop: ChampionDiff[];
-    items: ItemDiff[];
-    itemChampionDiff: ItemDiff[];
-}
-
-interface ChampionDiff {
-    location: number;
-}
-
-interface ItemDiff {
-    name: string;
-    index: number;
-    location: number | undefined;
-}
-
-interface GameState {
-    players: {
-        [playerID: string]: Player;
-    };
-    summaries: Summary[];
-}
-
-interface UIState {
-    players: {
-        [playerID: string]: {
-            states: PlayerState[],
-            diffs: PlayerDiff[]
-        }
-    }
-    summaries: Summary[];
-}
 
 export class Game {
     uiState: UIState;
@@ -118,16 +6,31 @@ export class Game {
      * Create a game state from a JSON object.
      * @param json JSON string representing a game state.
      */
-    constructor(json: string) {
-        const state: GameState = JSON.parse(json);
+    constructor(state: GameState) {
         this.uiState = this.createUIState(state);
+    }
+
+    getPlayers(): string[] {
+        return Object.keys(this.uiState.players);
+    }
+
+    getPlayerLength(playerID: string): number {
+        return this.uiState.players[playerID].states.length;
+    }
+
+    getPlayerState(playerID: string, index: number): [PlayerState, PlayerDiff] {
+        return [this.uiState.players[playerID].states[index], this.uiState.players[playerID].diffs[index]];
     }
 
     createUIState(state: GameState): UIState {
         const uiState: UIState = {
             players: {},
-            summaries: state.summaries
+            summaries: []
         };
+
+        if (!state) {
+            return uiState;
+        }
 
         for (const playerID in state.players) {
             const player = state.players[playerID];
@@ -138,6 +41,10 @@ export class Game {
             }
         }
 
+        if (state.summaries) {
+            uiState.summaries = state.summaries;
+        }
+
         return uiState;
     }
 
@@ -146,7 +53,7 @@ export class Game {
      */
     accumulate(player: Player): [PlayerState[], PlayerDiff[]] {
         const states: PlayerState[] = [player.state];
-        const diffs: PlayerDiff[] = [];
+        const diffs: PlayerDiff[] = [this.emptyDiff()];
 
         player.actions.forEach(action => {
             const state = states[states.length - 1];
@@ -178,6 +85,7 @@ export class Game {
      */
     diff(state: PlayerState, newState: PlayerState, action: Action): PlayerDiff {
         const newDiff: PlayerDiff = {
+            action: action.action,
             health: false,
             exp: false,
             level: false,
@@ -265,6 +173,23 @@ export class Game {
             newDiff.itemChampionDiff = this.itemChampionDiff(state.items, newState.items, to);
         }
 
+        // Special Action for Battles
+        // Update board, bench, shop, items
+        else if (action_type == -1) {
+            if (keyExists("board")) {
+                newDiff.board = this.championDiff(state.board, newState.board);
+            }
+            if (keyExists("health")) {
+                newDiff.health = state.health !== newState.health;
+            }
+            if (keyExists("items")) {
+                newDiff.items = this.itemBenchDiff(state.items, newState.items);
+            }
+            if (keyExists("shop")) {
+                newDiff.shop = this.championDiff(state.shop, newState.shop);
+            }
+        }
+
         return newDiff;
     }
 
@@ -286,10 +211,10 @@ export class Game {
             const oldChampion = locationMap[champion.location];
             if (oldChampion) {
                 if (oldChampion.name !== champion.name || oldChampion.stars !== champion.stars) {
-                    diff.push({ location: champion.location });
+                    diff.push({ ...champion });
                 }
             } else {
-                diff.push({ location: champion.location });
+                diff.push({ ...champion });
             }
         });
 
@@ -328,5 +253,24 @@ export class Game {
         })
 
         return diff;
+    }
+
+    /**
+     * Empty PlayerDiff
+     */
+    emptyDiff(): PlayerDiff {
+        return {
+            health: false,
+            exp: false,
+            level: false,
+            gold: false,
+            win_streak: false,
+            loss_streak: false,
+            board: [],
+            bench: [],
+            shop: [],
+            items: [],
+            itemChampionDiff: [],
+        };
     }
 }
