@@ -1,40 +1,29 @@
 <script lang="ts">
-	import ChampionShop from './championShop.svelte';
-	import { currentState, currentDiff } from '$lib/state';
+	import ChampionShop from './champion/championShop.svelte';
 
-	let shop: Shop = ([] = createEmptyShop());
-	let shopComponents = createShopComponents(shop);
+	export let shop: Champion[] = [];
 
-	function createEmptyShop() {
-		return Array(5).fill(null);
-	}
+	$: shopComponents = createShop(shop);
 
-	function createShop(s) {
-		let shop = createEmptyShop();
-		for (let i = 0; i < s.length; i++) {
-			shop[i] = s[i];
+	const emptyShop = () => {
+		return Array(5).fill({ component: ChampionShop, props: { champion: null } });
+	};
+
+	const createShop = (shop: Champion[]) => {
+		let components = emptyShop();
+
+		for (const champion of shop) {
+			if (champion) {
+				let index = champion.location;
+				components[index] = {
+					component: ChampionShop,
+					props: { champion }
+				};
+			}
 		}
-		return shop;
-	}
 
-	function createShopComponents(s) {
-		let components = [];
-		for (const champion of s) {
-			components.push({
-				component: ChampionShop,
-				props: { champion }
-			});
-		}
 		return components;
-	}
-
-	$: if (currentState) {
-		shop = createShop($currentState.shop);
-		shopComponents = createShopComponents(shop);
-	} else {
-		shop = createEmptyShop();
-		shopComponents = createShopComponents(shop);
-	}
+	};
 </script>
 
 <div class="flex gap-3 m-3">

@@ -1,29 +1,32 @@
 <script lang="ts">
-	import ChampionSquare from './championSquare.svelte';
-	import { createEmptyBench, createBench } from '$lib/util';
-	import { currentState, currentDiff } from '$lib/state';
+	import ChampionSquare from './champion/championSquare.svelte';
 
-	let bench: Bench = createEmptyBench();
-	let benchComponents = createBenchComponents(bench);
+	export let bench: Champion[] = [];
 
-	function createBenchComponents(b) {
-		let components = [];
-		for (const champion of b) {
-			components.push({
-				component: ChampionSquare,
-				props: { champion }
-			});
+	$: benchComponents = createBench(bench);
+
+	const emptyBench = () => {
+		return Array(9).fill({
+			component: ChampionSquare,
+			props: { champion: null }
+		});
+	};
+
+	const createBench = (bench: Champion[]) => {
+		let components = emptyBench();
+
+		for (const champion of bench) {
+			if (champion) {
+				let index = champion.location;
+				components[index] = {
+					component: ChampionSquare,
+					props: { champion }
+				};
+			}
 		}
-		return components;
-	}
 
-	$: if (currentState) {
-		bench = createBench($currentState.bench);
-		benchComponents = createBenchComponents(bench);
-	} else {
-		bench = createEmptyBench();
-		benchComponents = createBenchComponents(bench);
-	}
+		return components;
+	};
 </script>
 
 <div class="flex gap-3 m-3">
@@ -31,16 +34,3 @@
 		<svelte:component this={c.component} {...c.props} />
 	{/each}
 </div>
-
-<style>
-	.hex-row {
-		--m: 4px;
-		--w: 70px;
-		--h: calc(var(--w) * 0.866);
-		--s: calc(var(--w) / 2);
-		--tx: calc(calc(var(--h) / 2) + var(--m));
-		--ty: calc(calc(var(--w) - var(--s)) / -2);
-
-		position: sticky;
-	}
-</style>

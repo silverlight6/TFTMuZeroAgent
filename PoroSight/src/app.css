@@ -1,3 +1,88 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+    /* --- HEXAGON --- */
+    /* The point-to-point distance of the hexagon */
+    --hex-size: 80px;
+    --hex-margin: 4px;
+    --hex-inner-scale: 0.9;
+
+    --hex-polygon: polygon(0% 25%, 0% 75%, 50% 100%, 100% 75%, 100% 25%, 50% 0%);
+
+    --hex-width: calc(var(--hex-size) * 0.866);
+    --hex-height: var(--hex-size);
+    --hex-side: calc(var(--hex-size) / 2);
+
+    --row-translateX: calc((var(--hex-width) / 2) + var(--hex-margin));
+    --row-translateY: calc(-1 * (var(--hex-height) - var(--hex-side)) / 2);
+
+    /* --- IMAGE --- */
+    --image-size: 1.5rem;
+
+    /* --- STAR --- */
+    --star-size: 18px;
+
+    /* --- TRAIT --- */
+    --trait-width: 70px;
+    --trait-height: 82px;
+
+    --chosen-scale: calc(1 / 3);
+    --board-padding: calc((var(--trait-width) * var(--chosen-scale) * 0.5) + (var(--hex-width) / 2));
+
+    /* --- SHOP --- */
+    --shop-width: 216px;
+    --shop-height: 175px;
+    --shop-scale: 0.5;
+
+    /* --- BENCH --- */
+    --bench-size: 60px;
+
+    /* --- ITEM BENCH --- */
+    --item-bench-size: 3rem;
+    --item-bench-margin: -3rem;
+}
+
+@media (max-width: 660px) {
+    :root {
+        /* --- HEXAGON --- */
+        /* The point-to-point distance of the hexagon */
+        --hex-size: 50px;
+        --hex-margin: 4px;
+        --hex-inner-scale: 0.9;
+
+        --hex-polygon: polygon(0% 25%, 0% 75%, 50% 100%, 100% 75%, 100% 25%, 50% 0%);
+
+        --hex-width: calc(var(--hex-size) * 0.866);
+        --hex-height: var(--hex-size);
+        --hex-side: calc(var(--hex-size) / 2);
+
+        --row-translateX: calc((var(--hex-width) / 2) + var(--hex-margin));
+        --row-translateY: calc(-1 * (var(--hex-height) - var(--hex-side)) / 2);
+
+        /* --- IMAGE --- */
+        --image-size: 1.5rem;
+
+        /* --- STAR --- */
+        --star-size: 18px;
+
+        /* --- TRAIT --- */
+        --trait-width: 70px;
+        --trait-height: 82px;
+
+        --chosen-scale: calc(1 / 3);
+
+        /* --- SHOP --- */
+        --shop-width: 216px;
+        --shop-height: 175px;
+        --shop-scale: 0.3;
+
+        /* --- BENCH --- */
+        --bench-size: 8vw;
+
+        /* --- ITEM BENCH --- */
+        --item-bench-size: 2rem;
+        --item-bench-margin: -20px;
+    }
+}

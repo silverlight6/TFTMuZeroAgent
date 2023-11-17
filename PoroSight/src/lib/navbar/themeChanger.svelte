@@ -3,8 +3,8 @@
 	import { writable } from 'svelte/store';
 	import { onMount } from 'svelte';
 
-	const lightTheme = 'cmyk';
-	const darkTheme = 'night';
+	const lightTheme = 'nord';
+	const darkTheme = 'dracula';
 
 	let enabled: boolean;
 	const themeStore = writable(lightTheme);

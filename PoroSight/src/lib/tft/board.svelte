@@ -1,57 +1,78 @@
 <script lang="ts">
-	import ChampionHex from './championHex.svelte';
-	import { createEmptyBoard, createBoard } from '$lib/util';
-	import { currentState, currentDiff } from '$lib/state';
+	import ChampionHex from './champion/championHex.svelte';
 
-	let board: Board = createEmptyBoard();
-	let boardComponents = createBoardComponents(board);
+	export let board: Champion[] = [];
 
-	function createBoardComponents(b) {
+	$: boardComponents = createBoard(board);
+
+	const emptyBoard = () => {
 		let components = [];
-		for (const row of b) {
-			let rowComponents = [];
-			for (const champion of row) {
-				rowComponents.push({
+		for (let i = 0; i < 4; i++) {
+			let row = [];
+			for (let j = 0; j < 7; j++) {
+				row.push({
 					component: ChampionHex,
-					props: { champion }
+					props: { champion: null }
 				});
 			}
-			components.push(rowComponents);
+			components.push(row);
 		}
-		return components;
-	}
 
-	$: if (currentState) {
-		board = createBoard($currentState.board);
-		boardComponents = createBoardComponents(board);
-	} else {
-		board = createEmptyBoard();
-		boardComponents = createBoardComponents(board);
+		return components;
+	};
+
+	const createBoard = (b: Champion[]) => {
+		let components = emptyBoard();
+
+		for (const champion of b) {
+			if (champion) {
+				let [x, y] = locationTo2DIndex(champion.location);
+				components[x][y] = {
+					component: ChampionHex,
+					props: { champion: champion }
+				};
+			}
+		}
+
+		return components;
+	};
+
+	function locationTo2DIndex(location: number): [number, number] {
+		const xLoc: number = Math.floor(location / 4);
+		const yLoc: number = location - xLoc * 4;
+
+		// This is in the (7, 4) format that the sim uses.
+		// We need to rotate it to the (4, 7) format that the board uses.
+		// (0, 3) -> (0, 0), (0, 2) -> (1, 0) ...
+		const x: number = 3 - yLoc;
+		const y: number = xLoc;
+
+		return [x, y];
 	}
 </script>
 
 <!-- The board is a 4x7 grid of hexagons -->
 <!-- The hexagons are staggered -->
 
-<div class="m-3 align-middle">
+<div class="board align-middle">
 	<div class="hex-grid">
 		<div class="hex-row first">
-			{#each boardComponents[0] as c, index}
+			{#each boardComponents[0] as c, _}
 				<svelte:component this={c.component} {...c.props} />
 			{/each}
 		</div>
 		<div class="hex-row second">
-			{#each boardComponents[1] as c, index}
+			{#each boardComponents[1] as c, _}
 				<svelte:component this={c.component} {...c.props} />
 			{/each}
 		</div>
 		<div class="hex-row third">
-			{#each boardComponents[2] as c, index}
+			{#each boardComponents[2] as c, _}
 				<svelte:component this={c.component} {...c.props} />
 			{/each}
 		</div>
 		<div class="hex-row fourth">
-			{#each boardComponents[3] as c, index}
+			{#each boardComponents[3] as c, _}
 				<svelte:component this={c.component} {...c.props} />
 			{/each}
 		</div>
@@ -59,18 +80,14 @@
 </div>
 
 <style>
+	.board {
+		padding-right: var(--board-padding);
+	}
 	.hex-grid {
 		font-size: 0;
 	}
 
 	.hex-row {
-		--m: 4px;
-		--w: 70px;
-		--h: calc(var(--w) * 0.866);
-		--s: calc(var(--w) / 2);
-		--tx: calc(calc(var(--h) / 2) + var(--m));
-		--ty: calc(calc(var(--w) - var(--s)) / -2);
-
 		position: sticky;
 	}
 
@@ -79,14 +96,14 @@
 	}
 	.hex-row.second {
 		z-index: 3;
-		transform: translate(var(--tx), var(--ty));
+		transform: translate(var(--row-translateX), var(--row-translateY));
 	}
 	.hex-row.third {
 		z-index: 2;
-		transform: translate(0, calc(var(--ty) * 2));
+		transform: translate(0, calc(var(--row-translateY) * 2));
 	}
 	.hex-row.fourth {
 		z-index: 1;
-		transform: translate(var(--tx), calc(var(--ty) * 3));
+		transform: translate(var(--row-translateX), calc(var(--row-translateY) * 3));
 	}
 </style>

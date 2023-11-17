@@ -18,11 +18,4 @@ function getTraitImage(traitName: string) {
     return `${base}/images/traits/${traitName}.png`;
 }
 
-function getChosenImage(chosen) {
-    if (!chosen) {
-        return null;
-    }
-    return getTraitImage(chosen);
-}
-
-export { poro, getChampionShopImage, getChampionIconImage, getItemImage, getTraitImage, getChosenImage };
+export { poro, getChampionShopImage, getChampionIconImage, getItemImage, getTraitImage };

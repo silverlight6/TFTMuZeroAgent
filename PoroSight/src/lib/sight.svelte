@@ -1,64 +1,54 @@
-<script>
+<script lang="ts">
+	import { gameState } from '$lib/state';
 	import { Game } from '$lib/game';
-	import { gameState, game, currentState, currentDiff, currentSummary } from './state';
+
 	import Board from '$lib/tft/board.svelte';
 	import Navbar from '$lib/navbar/navbar.svelte';
-	import Bench from './tft/bench.svelte';
-	import ItemBench from './tft/itemBench.svelte';
-	import Logs from './tft/logs.svelte';
-	import Shop from './tft/shop.svelte';
-	import Scalars from './tft/scalars.svelte';
+	import Bench from '$lib/tft/bench.svelte';
+	import ItemBench from '$lib/tft/itemBench.svelte';
+	import Logs from '$lib/tft/logs/logs.svelte';
+	import Shop from '$lib/tft/shop.svelte';
+	import Scalars from '$lib/tft/scalars.svelte';
 
-	$game = new Game($gameState);
-
-	const players = $game.getPlayers();
-
+	let game = new Game($gameState);
 	let currentPlayerID = 0;
-	let currentPlayer = players[currentPlayerID];
+	let currentIndex = 0;
 
-	let maxIndex = $game.getPlayerLength(currentPlayer);
+	// Players
+	$: players = game.getPlayers();
+	$: currentPlayer = players[currentPlayerID];
 
-	let index = 0;
-
-	[$currentState, $currentDiff] = $game.getPlayerState(currentPlayer, index);
-	$currentSummary = $game.getPlayerSummary(currentPlayer);
-
+	// Index
+	$: maxIndex = game.getPlayerLength(currentPlayer);
 	$: {
-		[$currentState, $currentDiff] = $game.getPlayerState(currentPlayer, index);
-		$currentSummary = $game.getPlayerSummary(currentPlayer);
+		currentIndex = Math.min(currentIndex, maxIndex);
 	}
 
-	$: {
-		maxIndex = $game.getPlayerLength(currentPlayer);
-		index = Math.min(index, maxIndex);
-		console.log(maxIndex);
-		console.log(index);
-	}
-
-	$: {
-		currentPlayer = players[currentPlayerID];
-	}
+	// State
+	$: [currentState, currentDiff] = game.getPlayerState(currentPlayer, currentIndex);
+	$: currentSummary = game.getPlayerSummary(currentPlayer);
 </script>
 
 <Navbar />
 
-<Board />
-<ItemBench />
-<Bench />
+<div class="flex flex-col items-center flex-initial">
+	<Board board={currentState.board} />
+	<ItemBench items={currentState.items} />
+	<Bench bench={currentState.bench} />
+	<Scalars state={currentState} />
+	<Shop shop={currentState.shop} />
+	<div>
+		<label>
+			<input type="number" bind:value={currentPlayerID} min="0" max={players.length - 1} />
+			<input type="range" bind:value={currentPlayerID} min="0" max={players.length - 1} />
+		</label>
+		<label>
+			<input type="number" bind:value={currentIndex} min="0" max={maxIndex} />
+			<input type="range" bind:value={currentIndex} min="0" max={maxIndex} />
+		</label>
+	</div>
+</div>
 
-<Scalars />
-<Shop />
+<p>playerID: {currentPlayerID} index: {currentIndex} placement: {currentSummary.placement}</p>
 
-<label>
-	<input type="number" bind:value={currentPlayerID} min="0" max={players.length - 1} />
-	<input type="range" bind:value={currentPlayerID} min="0" max={players.length - 1} />
-</label>
-
-<label>
-	<input type="number" bind:value={index} min="0" max={maxIndex} />
-	<input type="range" bind:value={index} min="0" max={maxIndex} />
-</label>
-
-<p>playerID: {currentPlayerID} index: {index} placement: {$currentSummary.placement}</p>
-
-<Logs />
+<Logs state={currentState} diff={currentDiff} />
