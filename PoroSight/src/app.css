@@ -48,7 +48,7 @@
     :root {
         /* --- HEXAGON --- */
         /* The point-to-point distance of the hexagon */
-        --hex-size: 50px;
+        --hex-size: 10vw;
         --hex-margin: 4px;
         --hex-inner-scale: 0.9;
 

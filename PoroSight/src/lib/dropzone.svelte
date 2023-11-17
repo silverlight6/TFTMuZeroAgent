@@ -1,7 +1,8 @@
-<script>
-	import { gameState } from '$lib/state';
+<script lang="ts">
 	import { GameState } from '$lib/schema';
 	import { writable } from 'svelte/store';
+
+	export let gameState: GameState | null;
 
 	let files = null;
 	let file = null;
@@ -29,8 +30,7 @@
 	$: if (file) {
 		try {
 			const game = GameState.parse(JSON.parse(file));
-			gameState.set(game);
-			console.log($gameState);
+			gameState = game;
 			fileSuccess(file);
 		} catch (e) {
 			console.log('File Parse Error');

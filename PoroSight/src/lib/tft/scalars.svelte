@@ -36,3 +36,9 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.stat {
+		padding: 0.66rem 1rem 0.66rem 1rem;
+	}
+</style>

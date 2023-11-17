@@ -1,8 +1,10 @@
-<script>
+<script lang="ts">
 	import Dropzone from '$lib/dropzone.svelte';
 	import GithubLogo from '$lib/navbar/githubLogo.svelte';
 	import ThemeChanger from '$lib/navbar/themeChanger.svelte';
 	import { poro } from '$lib/image';
+
+	export let gameState: GameState | null = null;
 </script>
 
 <div class="hero min-h-screen bg-base-200">
@@ -14,7 +16,7 @@
 					<span class="text-base-content">Poro</span><span class="text-primary">Sight</span>
 				</h1>
 			</div>
-			<Dropzone />
+			<Dropzone bind:gameState />
 			<div class="flex flex-row gap-2">
 				<GithubLogo />
 				<ThemeChanger />

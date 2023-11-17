@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
 	import Hero from '$lib/hero.svelte';
 	import Sight from '$lib/sight.svelte';
-	import { gameState } from '$lib/state';
+
+	let gameState: GameState | null = null;
 </script>
 
-{#if $gameState}
-	<Sight />
+{#if gameState}
+	<Sight {gameState} />
 {:else}
-	<Hero />
+	<Hero bind:gameState />
 {/if}

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { gameState } from '$lib/state';
 	import { Game } from '$lib/game';
 
 	import Board from '$lib/tft/board.svelte';
@@ -9,8 +8,11 @@
 	import Logs from '$lib/tft/logs/logs.svelte';
 	import Shop from '$lib/tft/shop.svelte';
 	import Scalars from '$lib/tft/scalars.svelte';
+	import Sliders from './tft/sliders.svelte';
 
-	let game = new Game($gameState);
+	export let gameState: GameState;
+
+	let game = new Game(gameState);
 	let currentPlayerID = 0;
 	let currentIndex = 0;
 
@@ -37,15 +39,8 @@
 	<Bench bench={currentState.bench} />
 	<Scalars state={currentState} summary={currentSummary} />
 	<Shop shop={currentState.shop} />
-	<div>
-		<label>
-			<input type="number" bind:value={currentPlayerID} min="0" max={players.length - 1} />
-			<input type="range" bind:value={currentPlayerID} min="0" max={players.length - 1} />
-		</label>
-		<label>
-			<input type="number" bind:value={currentIndex} min="0" max={maxIndex} />
-			<input type="range" bind:value={currentIndex} min="0" max={maxIndex} />
-		</label>
+	<div class="justify-start">
+		<Sliders bind:currentPlayerID bind:currentIndex {players} {maxIndex} />
 	</div>
 </div>
 
