@@ -20,11 +20,15 @@
 				champion
 			)}); border-color: {utils.getCostColor(champion)};"
 		></div>
-		<div class="champion-name text-xs font-sans text-center">
-			<p>{champion.name}</p>
-		</div>
 		{#if champion.chosen}
 			<div class="chosen" style="background-image: url({utils.getChosenImage(champion)})" />
+			<div class="champion-name text-xs font-sans text-center" style="color: {colors.chosenColor}">
+				{champion.name}
+			</div>
+		{:else}
+			<div class="champion-name text-xs font-sans text-center">
+				{champion.name}
+			</div>
 		{/if}
 	{:else}
 		<div class="bench-champion border-4 bg-base-200 border-base-300"></div>

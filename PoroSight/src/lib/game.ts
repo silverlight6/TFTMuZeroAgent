@@ -8,10 +8,11 @@ export class Game {
      */
     constructor(state: GameState) {
         this.uiState = this.createUIState(state);
+        this.uiState.summaries.sort((a, b) => a.placement - b.placement);
     }
 
     getPlayers(): string[] {
-        return Object.keys(this.uiState.players);
+        return this.uiState.summaries.map(summary => summary.player);
     }
 
     getPlayerLength(playerID: string): number {

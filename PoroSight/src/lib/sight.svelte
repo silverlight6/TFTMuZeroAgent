@@ -35,7 +35,7 @@
 	<Board board={currentState.board} />
 	<ItemBench items={currentState.items} />
 	<Bench bench={currentState.bench} />
-	<Scalars state={currentState} />
+	<Scalars state={currentState} summary={currentSummary} />
 	<Shop shop={currentState.shop} />
 	<div>
 		<label>

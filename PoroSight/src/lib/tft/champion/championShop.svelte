@@ -14,8 +14,18 @@
 			src={utils.getShopImage(champion)}
 			alt={champion.name}
 		/>
+		<div class="champion-name text-xs font-sans text-center">
+			{champion.name}
+		</div>
 		{#if champion.chosen}
 			<div class="chosen" style="background-image: url({utils.getChosenImage(champion)})" />
+			<div class="champion-name text-xs font-sans text-center" style="color: {colors.chosenColor}">
+				{champion.name}
+			</div>
+		{:else}
+			<div class="champion-name text-xs font-sans text-center">
+				{champion.name}
+			</div>
 		{/if}
 	{:else}
 		<div class="shop-img" style="background-color: {colors.defaultBg}"></div>

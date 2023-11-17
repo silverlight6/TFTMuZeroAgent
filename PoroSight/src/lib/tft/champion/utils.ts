@@ -14,6 +14,8 @@ export let colors = {
 
     defaultBg: '#1e1e1e',
     defaultBorder: '#1e1e1e',
+
+    chosenColor: '#d186e1'
 }
 
 function getIconImage(champion: Champion) {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	export let state: PlayerState;
+	export let summary: Summary;
 
 	$: streak = state.win_streak > 0 || state.loss_streak > 0;
 </script>
@@ -13,6 +14,7 @@
 	<div class="stat place-items-center">
 		<div class="stat-title text-sm">Health</div>
 		<div class="stat-value text-sm text-secondary">{state.health}</div>
+		<div class="stat-desc">placement: {summary.placement}</div>
 	</div>
 
 	<div class="stat place-items-center">
