@@ -130,7 +130,7 @@ class Player:
         self.damage_reward = 1
 
         # An array to record match history
-        self.match_history = []
+        self.match_history = [0.5, 0.5, 0.5]
 
         self.start_time = time.time_ns()
 
@@ -1594,7 +1594,8 @@ class Player:
             bool: True if there are no possible actions, False otherwise
         """
         # Need both in case of an empty shop.
-        if self.gold == 0 or self.gold < min(self.shop_costs):
+        # Assume that if all that is left is a chosen unit, that is the same as no unit.
+        if self.gold == 0 or all((v is None or v.endswith("_c") or COST[v] > self.gold) for v in self.shop):
             for xbench in self.bench:
                 if xbench:
                     return False
