@@ -158,7 +158,6 @@ class ObservationHelper:
             - max units: int
             - available units: int
         """
-
         return np.array([
             player.health,
             player.level,
@@ -175,13 +174,28 @@ class ObservationHelper:
             - exp: int
             - exp to next level: int
             - gold: int
+            - win_streak: int
+            - match_history: list of ints
+            - opponent_options: list of ints
         """
 
-        return np.array([
+        opponent_options = np.zeros(8)
+        for x in range(0, 8):
+            if x < player.player_num:
+                if "player_" + str(x) in player.opponent_options:
+                    opponent_options[x] = player.opponent_options["player_" + str(x)] / 20
+                else:
+                    opponent_options[x] = 0
+
+        return np.concatenate([np.array([
             player.exp,
             player.level_costs[player.level] - player.exp,
             player.gold,
-        ])
+            max(player.win_streak, player.loss_streak),
+            player.match_history[-3],
+            player.match_history[-2],
+            player.match_history[-1]
+        ]), opponent_options], axis=-1)
 
     # -- Public Vectors -- #
     def create_board_vector(self, player):
