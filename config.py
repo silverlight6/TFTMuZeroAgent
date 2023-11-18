@@ -12,7 +12,7 @@ TRAINER_GPU_SIZE = 0.2
 
 DEVICE = "cuda"
 IMITATION = False
-CHAMP_DECIDER = True
+CHAMP_DECIDER = False
 
 # AI RELATED VALUES START HERE
 
@@ -39,12 +39,18 @@ ACTION_ENCODING_SIZE = 1045
 ACTION_CONCAT_SIZE = 81
 ACTION_DIM = [7, 37, 10]
 # 57 is the number of champions in set 4. Don't want to add an import to the STATS in the simulator in a config file
-CHAMPION_ACTION_DIM = [2 for _ in range(58)]
+CHAMPION_ACTION_DIM = [5 for _ in range(58)]
+CHAMPION_LIST_DIM = [2 for _ in range(58)]
+ITEM_CHOICE_DIM = [3 for _ in range(10)]
+CHAMP_DECIDER_ACTION_DIM = CHAMPION_ACTION_DIM + [2] + ITEM_CHOICE_DIM
+
 # Number of categories for each trait tier. Emperor for example has 2, no emperors or 1.
 TEAM_TIERS_VECTOR = [4, 5, 4, 4, 4, 3, 3, 3, 2, 4, 4, 4, 5, 3, 5, 2, 3, 5, 4, 4, 3, 4, 4, 4, 2, 5]
 TIERS_FLATTEN_LENGTH = 97
 CHANCE_BUFFER_SEND = 1
 GLOBAL_BUFFER_SIZE = 20000
+ITEM_POSITIONING_BUFFER_SIZE = 2000
+MINIMUM_POP_AMOUNT = 100
 
 # INPUT SIZES
 SHOP_INPUT_SIZE = 45
@@ -53,6 +59,7 @@ BENCH_INPUT_SIZE = 234
 STATE_INPUT_SIZE = 85
 COMP_INPUT_SIZE = 102
 OTHER_PLAYER_INPUT_SIZE = 5180
+OTHER_PLAYER_ITEM_POS_SIZE = 5920
 
 OBSERVATION_LABELS = ["shop", "board", "bench", "states", "game_comp", "other_players"]
 POLICY_HEAD_SIZES = [7, 5, 630, 370, 9]  # [7 types, shop, movement, item, sell/item loc]
@@ -67,7 +74,7 @@ N_HEAD_HIDDEN_LAYERS = 2
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 20
+CONCURRENT_GAMES = 16
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 30
 NUM_SIMULATIONS = 50

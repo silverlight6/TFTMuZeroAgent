@@ -11,13 +11,13 @@ action vector = [Decision, shop, champion_bench, item_bench, x_axis, y_axis, x_a
 '''
 class Observation:
     def __init__(self):
-        self.shop_vector = np.zeros(45)
+        self.shop_vector = np.zeros(45, dtype=np.float32)
         self.shop_mask = np.ones(5, dtype=np.int8)
-        self.game_comp_vector = np.zeros(208)
+        self.game_comp_vector = np.zeros(208, dtype=np.float32)
         self.dummy_observation = np.zeros(config.OBSERVATION_SIZE)
         self.cur_player_observations = collections.deque(maxlen=config.OBSERVATION_TIME_STEPS *
                                                          config.OBSERVATION_TIME_STEP_INTERVAL)
-        self.other_player_observations = {"player_" + str(player_id): np.zeros(740)
+        self.other_player_observations = {"player_" + str(player_id): np.zeros(740, dtype=np.float32)
                                           for player_id in range(config.NUM_PLAYERS)}
         self.turn_since_update = 0.01
         self.moves_left_in_turn = 1
@@ -38,10 +38,10 @@ class Observation:
         for k, v in self.other_player_observations.items():
             if k != player_id:
                 other_player_tensor_observation_list.append(v)
-        other_player_tensor_observation = np.array(other_player_tensor_observation_list).flatten()
+        other_player_tensor_observation = np.array(other_player_tensor_observation_list, dtype=np.float32).flatten()
         state = np.concatenate([player.item_vector, player.player_public_vector, player.player_private_vector,
-                               [self.turn_since_update], [self.moves_left_in_turn]])
-        game_comp = np.concatenate([player.tiers_vector, player.chosen_vector])
+                               [self.turn_since_update], [self.moves_left_in_turn]]).astype(np.float32)
+        game_comp = np.concatenate([player.tiers_vector, player.chosen_vector]).astype(np.float32)
 
         # Gather all vectors into one place
         total_tensor_observation = {
@@ -83,7 +83,7 @@ class Observation:
                                                       other_player.chosen_vector,
                                                       # other_player.item_vector,
                                                       other_player.player_public_vector], axis=-1)
-                self.other_player_observations[player_id] = other_player_vector
+                self.other_player_observations[player_id][:len(other_player_vector)] = other_player_vector
         self.turn_since_update = 0
 
     """

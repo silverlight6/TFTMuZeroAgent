@@ -123,7 +123,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             if config.CHAMP_DECIDER:
-                                action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                                action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                             else:
                                 # To weed this out later when sampling the global buffer
                                 action_set.append([0, 0, 0])
@@ -141,7 +141,7 @@ class ReplayBuffer:
                         champion_set.append(self.team_champions[current_index])
                     elif current_index == num_steps - 1:
                         if config.CHAMP_DECIDER:
-                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                            action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0, 0, 0])
@@ -162,7 +162,7 @@ class ReplayBuffer:
                     else:
                         # States past the end of games is treated as absorbing states.
                         if config.CHAMP_DECIDER:
-                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                            action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0, 0, 0])

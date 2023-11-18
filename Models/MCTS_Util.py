@@ -89,8 +89,10 @@ def split_sample_set(sample_mapping, target_policy):
 
 # Size is [# of samples, len of champion list]
 def split_sample_set_champ_decider(sample_mapping, target_policy):
-    split_sample = [["0", "1"] for _ in range(len(config.CHAMPION_ACTION_DIM))]
-    split_policy = [[0, 0] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+    split_sample = [["0", "1", "2", "3", "4"] for _ in range(len(config.CHAMPION_ACTION_DIM))] + [["0", "1"]] + \
+                   [["0", "1", "2"] for _ in range(len(config.ITEM_CHOICE_DIM))]
+    split_policy = [[0, 0, 0, 0, 0] for _ in range(len(config.CHAMPION_ACTION_DIM))] + [[0, 0]] + \
+                   [[0, 0, 0] for _ in range(len(config.ITEM_CHOICE_DIM))]
     for i, sample in enumerate(sample_mapping):
         for k in range(0, len(sample), 2):
             base = sample[k]
@@ -108,8 +110,8 @@ def split_batch(mapping_batch, policy_batch):
 
     for unroll_idx in range(unroll_steps):
         if config.CHAMP_DECIDER:
-            unroll_mapping = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
-            unroll_policy = [[] for _ in range(len(config.CHAMPION_ACTION_DIM))]
+            unroll_mapping = [[] for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))]
+            unroll_policy = [[] for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))]
         else:
             unroll_mapping = [[], [], [], [], []]
             unroll_policy = [[], [], [], [], []]

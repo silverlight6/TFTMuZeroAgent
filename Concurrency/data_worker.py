@@ -3,12 +3,14 @@ import config
 import ray
 import copy
 import numpy as np
-from Models.replay_buffer_wrapper import BufferWrapper
 from Simulator import utils
 from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Simulator.tft_item_simulator import TFT_Item_Simulator
+from Simulator.tft_position_simulator import TFT_Position_Simulator
+from pettingzoo.test import api_test, parallel_api_test as parallel_test
 
 '''
 Description - 
@@ -176,7 +178,8 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-    def collect_default_experience(self, env, buffers, global_buffer, storage, weights):
+    def collect_default_experience(self, env, buffers, global_buffer, storage, weights,
+                                   item_storage, positioning_storage):
         self.agent_network.network.set_weights(weights)
         while True:
             # Reset the environment
@@ -208,7 +211,7 @@ class DataWorker(object):
                     storage_actions = utils.decode_action(c_actions)
                     step_actions = self.getStepActions(terminated, storage_actions)
                     for player_id in step_actions.keys():
-                        info[player_id]['player'].default_champion_list(step_actions[player_id])
+                        info[player_id]['player'].default_guide(step_actions[player_id])
 
                     # store the action for MuZero
                     for i, key in enumerate(terminated.keys()):
@@ -235,14 +238,37 @@ class DataWorker(object):
                     # Saying if that any of the 4 agents got first or second then we are saying we are not
                     # Currently beating that checkpoint
                     if terminate:
+                        item_storage.push((info[key]["player"], info[key]["player"].opponent, None,
+                                           info[key]["player"].default_agent.item_guide))
                         # print("player {} got position {} of game {}".format(i, position, self.rank))
                         buffers.set_ending_position.remote(key, position)
                         position -= 1
                         self.default_agent.pop(i - offset)
                         offset += 1
 
-                # Set up the observation for the next action
-                player_observation = self.observation_to_input(next_observation)
+                # only need to do this if it is the start of the turn
+                if info_values[0]['start_turn']:
+                    # Set up the observation for the next action
+                    player_observation = self.observation_to_input(next_observation)
+                    for i, key in enumerate(terminated.keys()):
+                        if info[key]["save_battle"]:
+                            # all of the info needed for training the positioning model
+                            positioning_storage.push((info[key]["player"], info[key]["player"].opponent,
+                                                      {local_key: info[local_key]["player"]
+                                                       for local_key in terminated.keys()}))
+
+                            # TODO: Send position 1 with other players, and position 2 without other players.
+                            # Most of this information comes from the player class but I want to send it separately
+                            # As to be clear what the item decider is training with.
+                            item_storage.push((info[key]["player"], info[key]["player"].opponent,
+                                               {local_key: info[local_key]["player"]
+                                                for local_key in terminated.keys()},
+                                               np.where(info[key]["player"].default_agent.item_guide == [0, 1, 0],
+                                                        [0, 1, 0], [1, 0, 0])))
+
+                            item_storage.push((info[key]["player"], info[key]["player"].opponent, None,
+                                               np.where(info[key]["player"].default_agent.item_guide == [0, 0, 1],
+                                                        [0, 1, 0], [1, 0, 0])))
 
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
 
@@ -256,6 +282,7 @@ class DataWorker(object):
             self.agent_network = Default_MCTS(self.temp_model)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
+
 
     '''
     Description -
@@ -623,3 +650,16 @@ class DataWorker(object):
             storage.record_placements.remote(placements)
             print("recorded places {}".format(placements))
             self.rank += config.CONCURRENT_GAMES
+
+    def test_position_item_simulators(self, position_storage, item_storage):
+        position_env = TFT_Position_Simulator(position_storage)
+        item_env = TFT_Item_Simulator(item_storage)
+        while True:
+            position_player_observation = position_env.reset()
+            item_player_observation = item_env.reset()
+
+            # parallel_test(position_env, num_cycles=1)
+            # parallel_test(item_env, num_cycles=1)
+
+            _, reward, terminated, _, info = position_env.step({"player_0": np.random.randint(0, 29, 12)})
+            _, reward, terminated, _, info = item_env.step({"player_0": np.random.randint(0, 29, 12)})

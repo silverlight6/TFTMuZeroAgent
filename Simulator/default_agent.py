@@ -3,7 +3,7 @@ import numpy as np
 import Simulator.champion as champion
 from Simulator.default_agent_stats import *
 from Simulator.pool_stats import cost_star_values
-from Simulator.origin_class_stats import tiers
+from Simulator.origin_class_stats import tiers, origin_class
 from Simulator.origin_class import team_traits
 from Simulator.utils import x_y_to_1d_coord
 from Simulator.stats import COST, BASE_CHAMPION_LIST
@@ -21,7 +21,9 @@ class Default_Agent:
         self.require_pair_update = False
         self.round_11_clean_up = True
         self.comp_number = -1
-        self.champion_buy_list = [False for _ in range(len(BASE_CHAMPION_LIST))]
+        self.champion_buy_list = [np.array([1, 0, 0, 0, 0]) for _ in range(len(BASE_CHAMPION_LIST))]
+        self.sell_chosen = 0
+        self.item_guide = np.zeros(config.ITEM_CHOICE_DIM)
 
     def policy(self, player, shop, game_round):
         self.current_round = game_round
@@ -200,8 +202,10 @@ class Default_Agent:
             team_tiers[trait] = counter
         return team_comp, team_tiers
 
-    def set_champion_list(self, champion_list):
-        self.champion_buy_list = champion_list
+    def set_default_guide(self, default_guide):
+        self.champion_buy_list = np.eye(config.CHAMPION_ACTION_DIM[0])[default_guide[:58]]
+        self.sell_chosen = default_guide[58]
+        self.item_guide = np.eye(config.ITEM_CHOICE_DIM[0])[default_guide[59:]]
 
     def round_1_2(self, player, shop):
         # buy every unit in the shop until no gold
@@ -221,13 +225,20 @@ class Default_Agent:
                     break
             # if no gold remains and we just bought a unit
             if shop_position != 5:
-                # print("buying round 1_2 {} with position {} and player_num {}".format(shop[shop_position],
-                # shop_position, player.player_num))
                 return "1_" + str(shop_position)
         max_unit_check = self.max_unit_check(player)
         if max_unit_check != " ":
             return max_unit_check
         return "0"
+
+    def check_chosen_trait(self, string_name, trait):
+        if self.champion_buy_list[BASE_CHAMPION_LIST.index(string_name)][4]:
+            return True
+        elif self.champion_buy_list[BASE_CHAMPION_LIST.index(string_name)][2] and trait == origin_class[string_name][0]:
+            return True
+        elif self.champion_buy_list[BASE_CHAMPION_LIST.index(string_name)][3] and trait == origin_class[string_name][1]:
+            return True
+        return False
 
     def round_3_10(self, player, shop):
         # Reset checks
@@ -260,7 +271,6 @@ class Default_Agent:
                 if shop_unit != " ":
                     if shop_unit + "_1" in self.pairs and COST[shop_unit] <= player.gold and not shop_unit.endswith("_c"):
                         self.require_pair_update = True
-                        # print("buying triple {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[0] = False
 
@@ -276,19 +286,16 @@ class Default_Agent:
                             if player.board[x][y]:
                                 # If what I am buying is a pair
                                 if player.board[x][y].name == shop_unit:
-                                    # print("buying pair {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                                 # If it improves my comp
                                 shop_score = self.compare_shop_unit(shop_unit, deepcopy(player.board), x, y)
                                 if shop_score > base_score:
-                                    # print("buying shop score {}".format(shop_unit))
                                     self.require_pair_update = True
                                     return "1_" + str(i)
                 elif shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
                     if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1:
-                        # print("buying chosen {}".format(shop_unit))
                         return "1_" + str(i)
             self.round_3_10_checks[1] = False
 
@@ -570,13 +577,13 @@ class Default_Agent:
                 if shop_unit.endswith("_c"):
                     c_shop = shop_unit.split('_')[0]
                     chosen_type = shop_unit.split('_')[1]
+                    check_chosen_trait = self.check_chosen_trait(c_shop, chosen_type)
                     # If it is more than a 1 cost champion, we have to buy, a type we are running, and want to buy.
-                    if COST[c_shop] != 1 and player.gold >= COST[c_shop] * 3 - 1 and \
-                            player.team_tiers[chosen_type] > 0 and \
-                            self.champion_buy_list[BASE_CHAMPION_LIST.index(c_shop)]:
+                    if player.gold >= COST[c_shop] * 3 - 1 and check_chosen_trait:
                         return "1_" + str(i)
                 elif shop_unit != " ":
-                    if self.champion_buy_list[BASE_CHAMPION_LIST.index(shop_unit)] and COST[shop_unit] <= player.gold:
+                    if not self.champion_buy_list[BASE_CHAMPION_LIST.index(shop_unit)][0] and \
+                            COST[shop_unit] <= player.gold:
                         self.require_pair_update = True
                         return "1_" + str(i)
             self.round_11_end_checks[0] = False

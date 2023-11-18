@@ -62,3 +62,9 @@ def x_y_to_1d_coord(x1, y1):
         return x1 + 28
     else:
         return 7 * y1 + x1
+
+
+def position_coord_to_x_y(coord):
+    x = coord % 7
+    y = 3 - (coord // 7)
+    return x, y

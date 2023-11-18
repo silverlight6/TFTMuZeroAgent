@@ -1,6 +1,8 @@
 import functools
+import config
+import numpy as np
 
-from gymnasium.spaces import MultiDiscrete
+from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
 
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
@@ -64,7 +66,7 @@ class TFT_Simulator(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {"state_empty": False, "player": self.player_manager.player_states[agent], "game_round": 1,
                               "shop": self.player_manager.player_states[agent].shop, "start_turn": True,
-                              "actions_taken": 0}
+                              "actions_taken": 0, "save_battle": False}
                       for agent in self.agents}
 
         self.state = {agent: {} for agent in self.agents}
@@ -90,6 +92,36 @@ class TFT_Simulator(AECEnv):
 
         self.actions_taken = 0
 
+        self.observation_spaces = self.observation_spaces = dict(
+            zip(
+                self.agents,
+                [
+                    Dict({
+                        "tensor": Dict({
+                            "shop": Box(low=-5, high=5, shape=(config.SHOP_INPUT_SIZE,), dtype=np.float32),
+                            "board": Box(low=-5, high=5, shape=(config.BOARD_INPUT_SIZE,), dtype=np.float32),
+                            "bench": Box(low=-5, high=5, shape=(config.BENCH_INPUT_SIZE,), dtype=np.float32),
+                            "states": Box(low=-5, high=5, shape=(config.STATE_INPUT_SIZE,), dtype=np.float32),
+                            "game_comp": Box(low=-5, high=5, shape=(config.COMP_INPUT_SIZE,), dtype=np.float32),
+                            "other_players": Box(low=-5, high=5, shape=(config.OTHER_PLAYER_INPUT_SIZE,),
+                                                 dtype=np.float32)
+                        }),
+                        "mask": Tuple((
+                            Box(low=-2, high=2, shape=(6,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(5,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(28,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(9,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(10,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(3,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(37,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(37,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(10,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(28,), dtype=np.int8),
+                            Box(low=-2, high=2, shape=(28,), dtype=np.int8)))
+                    }) for _ in self.agents
+                ],
+            )
+        )
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
@@ -176,7 +208,7 @@ class TFT_Simulator(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {"state_empty": False, "player": self.player_manager.player_states[agent], "game_round": 1,
                               "shop": self.player_manager.player_states[agent].shop, "start_turn": True,
-                              "actions_taken": 0}
+                              "actions_taken": 0, "save_battle": False}
                       for agent in self.agents}
 
         # --- TFT Reward Related Variables ---
@@ -301,12 +333,16 @@ class TFT_Simulator(AECEnv):
         self.player_manager.perform_action(agent, action)
 
         # Update actions taken and truncate if needed
-        self.infos[agent] = {"state_empty": self.player_manager.player_states[self.agent_selection].state_empty(),
-                             "player": self.player_manager.player_states[self.agent_selection],
-                             "game_round": self.game_round.current_round,
-                             "shop": self.player_manager.player_states[agent].shop,
-                             "start_turn": False,
-                             "actions_taken": self.infos[agent]["actions_taken"] + 1}
+        self.infos[agent] = {
+            "state_empty": self.player_manager.player_states[self.agent_selection].state_empty(),
+            "player": self.player_manager.player_states[self.agent_selection],
+            "game_round": self.game_round.current_round,
+            "shop": self.player_manager.player_states[agent].shop,
+            "start_turn": False,
+            "actions_taken": self.infos[agent]["actions_taken"] + 1,
+            "save_battle": self.game_round.save_current_battle[self.agent_selection]
+        }
+
 
         self._clear_rewards()
 

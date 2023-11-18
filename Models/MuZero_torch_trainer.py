@@ -148,7 +148,7 @@ class Trainer(object):
             policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
             if config.CHAMP_DECIDER:
-                policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_ACTION_DIM)))
+                policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMP_DECIDER_ACTION_DIM)))
 
             # TODO: Figure out how to speed up the tier, final_tier, and champion losses
             tier_target = [tier_set[a][tstep] for a in range(config.BATCH_SIZE)]
@@ -167,7 +167,7 @@ class Trainer(object):
             champion_target = [list(b) for b in zip(*champion_target)]
             champ_loss = self.supervised_loss(prediction.champ, champion_target)
             self.scale_loss(tier_loss)
-            champ_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_ACTION_DIM)))
+            champ_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_LIST_DIM)))
 
             # print("Losses tier {} final tier {} champion {}".format(tier_loss, final_tier_loss, champ_loss))
 
@@ -256,7 +256,7 @@ class Trainer(object):
 
         # TODO: Figure out a way to get rid of this if statement
         if config.CHAMP_DECIDER:
-            for i in range(len(config.CHAMPION_ACTION_DIM)):
+            for i in range(len(config.CHAMP_DECIDER_ACTION_DIM)):
                 self.summary_writer.add_scalar(
                     'episode_info/value_diff_{}'.format(i),
                     torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -

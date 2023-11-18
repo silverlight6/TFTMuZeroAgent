@@ -66,22 +66,23 @@ class Player:
         self.max_level = 9
 
         # 2 spot for each item(2 component) 10 slots
-        self.item_vector = np.zeros(config.MAX_BENCH_SPACE * 6)
+        self.item_vector = np.zeros(config.MAX_BENCH_SPACE * 6, dtype=np.float32)
 
         # This time we only need 5 bits total
-        self.chosen_vector = np.zeros(5)
+        self.chosen_vector = np.zeros(5, dtype=np.float32)
 
         # player related info split between what other players can see and what they can't see
-        self.player_public_vector = np.zeros(7)
-        self.player_private_vector = np.zeros(16)
+        self.player_public_vector = np.zeros(7, dtype=np.float32)
+        self.player_private_vector = np.zeros(16, dtype=np.float32)
 
         # Encoding board as an image, so we can run convolutions on it.
-        self.board_vector = np.zeros(728)  # 26 size on each unit, 28 squares
-        self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
+        self.board_vector = np.zeros(728, dtype=np.float32)  # 26 size on each unit, 28 squares
+        self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE, dtype=np.float32)
 
-        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH)
-        self.team_tier_labels = [np.zeros(tier_size) for tier_size in TEAM_TIERS_VECTOR]
-        self.team_champion_labels = [np.zeros(champion_length) for champion_length in CHAMPION_ACTION_DIM]
+        # These could probably be int8, possible TODO
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
+        self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
+        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
 
         self.decision_mask = np.ones(6, dtype=np.int8)
         self.shop_mask = np.ones(5, dtype=np.int8)
@@ -332,8 +333,8 @@ class Player:
         else:
             self.generate_bench_vector()
 
-    def default_champion_list(self, champion_list):
-        self.default_agent.set_champion_list(champion_list)
+    def default_guide(self, champion_list):
+        self.default_agent.set_default_guide(champion_list)
 
     def default_policy(self, game_round, shop):
         return self.default_agent.policy(self, shop, game_round)
@@ -364,6 +365,7 @@ class Player:
                 if found_position:
                     break
         self.print(f"Spaces for units left to fight {self.max_units - self.num_units_in_play}")
+
         # update board to survive combat = False, will update after combat if they survived
         # update board to participated in combat
         for x in range(len(self.board)):
@@ -434,14 +436,13 @@ class Player:
                   If there is no unit on the square, 0s will fill that position. Stars and cost are not binary
     """
     def generate_board_vector(self):
-        for i in range(len(CHAMPION_ACTION_DIM)):
-            self.team_champion_labels[i][0] = 1
-            self.team_champion_labels[i][1] = 0
+        self.team_champion_labels[:][0] = 1
+        self.team_champion_labels[:][1] = 0
         for y in range(0, 4):
             # IMPORTANT TO HAVE THE X INSIDE -- Silver is not sure why but ok.
             for x in range(0, 7):
                 # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
-                champion_info_array = np.zeros(6 * 4 + 2)
+                champion_info_array = np.zeros(6 * 4 + 2, dtype=np.float32)
                 if self.board[x][y]:
                     curr_champ = self.board[x][y]
                     c_index = list(COST.keys()).index(curr_champ.name)
@@ -496,10 +497,10 @@ class Player:
     """
     def generate_bench_vector(self):
         space = 0
-        bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE)
+        bench = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE, dtype=np.float32)
         for x_bench in range(len(self.bench)):
             # when using binary encoding (6 champ  + stars + chosen + 3 * 6 item) = 26
-            champion_info_array = np.zeros(6 * 4 + 2)
+            champion_info_array = np.zeros(6 * 4 + 2, dtype=np.float32)
             if self.bench[x_bench]:
                 curr_champ = self.bench[x_bench]
                 c_index = list(COST.keys()).index(curr_champ.name)
@@ -534,7 +535,7 @@ class Player:
     Description - Generates the chosen vector, this uses binary encoding of the index in possible chosen traits. 
     """
     def generate_chosen_vector(self):
-        output_array = np.zeros(5)
+        output_array = np.zeros(5, dtype=np.float32)
         if self.chosen:
             i_index = list(self.team_composition.keys()).index(self.chosen)
             # This should update the item name section of the vector
@@ -550,9 +551,9 @@ class Player:
     # return output_array
     # TODO: Make champion_duplicator work when bench is full and can upgrade rank
     def generate_item_vector(self):
-        item_arr = np.zeros(config.MAX_BENCH_SPACE * 6)
+        item_arr = np.zeros(config.MAX_BENCH_SPACE * 6, dtype=np.float32)
         for ind, item in enumerate(self.item_bench):
-            item_info = np.zeros(6)
+            item_info = np.zeros(6, dtype=np.float32)
             if item == 'champion_duplicator' and self.bench_full():
                 item_info = utils.item_binary_encode(list(uncraftable_items).index(item) + 1)
                 self.item_mask[ind] = 0
@@ -577,9 +578,9 @@ class Player:
 
         exp_to_level = 0
         if self.level < self.max_level:
-            exp_to_level = self.level_costs[self.level] - self.exp
+            exp_to_level = (self.level_costs[self.level] - self.exp) / self.level_costs[self.level]
         self.player_private_vector[4] = exp_to_level
-        self.player_private_vector[5] = max(self.win_streak, self.loss_streak)
+        self.player_private_vector[5] = max(self.win_streak, self.loss_streak) / 30
         if len(self.match_history) > 2:
             self.player_private_vector[6] = self.match_history[-3]
             self.player_private_vector[7] = self.match_history[-2]
@@ -644,13 +645,13 @@ class Player:
     def generate_tier_vector(self):
         # Create a vector where there is a 1 for the tier of the specific trait.
         current_position = 0
-        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH)
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
         base_tier_values = list(tiers.values())
         player_tier_values = list(self.team_tiers.values())
         for i in range(len(base_tier_values)):
             try:
                 self.tiers_vector[current_position + player_tier_values[i]] = 1
-                self.team_tier_labels[i] = np.zeros(TEAM_TIERS_VECTOR[i])
+                self.team_tier_labels[i] = np.zeros(TEAM_TIERS_VECTOR[i], dtype=np.float32)
                 self.team_tier_labels[i][player_tier_values[i]] = 1
                 current_position += len(base_tier_values[i]) + 1
             except IndexError:
@@ -993,7 +994,7 @@ class Player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print("Outside board limits")
+            print(f"Move board to board outside board limits: {x1}, {y1} --> {x2}, {y2}")
         return False
 
     """
@@ -1294,6 +1295,40 @@ class Player:
         if DEBUG:
             print("Could not refresh")
         return False
+
+    def reinit_numpy_arrays(self):
+        """
+        This is needed in the item and positioning environments because when you add an object to a ray buffer
+        and then later on fetch it, it makes all numpy arrays non-writable unless you reinitialize te
+        """
+        self.item_vector = np.zeros(config.MAX_BENCH_SPACE * 6, dtype=np.float32)
+        self.chosen_vector = np.zeros(5, dtype=np.float32)
+        self.player_public_vector = np.zeros(7, dtype=np.float32)
+        self.player_private_vector = np.zeros(16, dtype=np.float32)
+        self.board_vector = np.zeros(728, dtype=np.float32)  # 26 size on each unit, 28 squares
+        self.bench_vector = np.zeros(config.BENCH_SIZE * config.CHAMP_ENCODING_SIZE, dtype=np.float32)
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
+        self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
+        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
+        self.decision_mask = np.ones(6, dtype=np.int8)
+        self.shop_mask = np.ones(5, dtype=np.int8)
+        self.board_mask = np.ones(28, dtype=np.int8)
+        self.board_full_items_mask = np.ones(28, dtype=np.int8)
+        self.dummy_mask = np.ones(28, dtype=np.int8)
+        self.bench_mask = np.ones(9, dtype=np.int8)
+        self.item_mask = np.ones(10, dtype=np.int8)
+        self.util_mask = np.ones(3, dtype=np.int8)
+        self.thieves_glove_mask = np.zeros(37, dtype=np.int8)
+        self.glove_item_mask = np.zeros(37, dtype=np.int8)
+        self.glove_mask = np.zeros(10, dtype=np.int8)
+        self.shop_costs = np.ones(5)
+
+        self.generate_player_vector()
+        self.generate_board_vector()
+        self.generate_bench_vector()
+        self.generate_item_vector()
+        self.generate_chosen_vector()
+        self.generate_tier_vector()
 
     """
     Description - Returns the items on a given champion to the item bench.

@@ -27,7 +27,10 @@ def main():
         return
 
     interface = AI_interface.AIInterface()
-    interface.train_torch_model(starting_train_step=args.starting_episode)
+    if config.CHAMP_DECIDER:
+        interface.train_guide_model(starting_train_step=args.starting_episode)
+    else:
+        interface.train_torch_model(starting_train_step=args.starting_episode)
 
 
 if __name__ == "__main__":

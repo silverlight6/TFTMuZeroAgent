@@ -1,7 +1,9 @@
 import Simulator.config as config
 import numpy as np
 import Simulator.champion as champion
+from Simulator.utils import position_coord_to_x_y
 from config import DEBUG
+import time
 
 """
 Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 
@@ -591,3 +593,95 @@ class Step_Function:
             # I get that this does nothing, but it tells whoever writes in this method next that there should be
             # Nothing that follows this line.
             return
+
+    def batch_position_controller(self, actions, player):
+        """
+        Takes an action which is 12 by 28. If 28, the action is considered a pass.
+        All final positions are calculated prior to moving. If multiple movements to the same square are requested,
+        only the first one will be recognized.
+        If two units are swapped by an early movement, then the movement for the first character will still be the one
+        to move by the future command.
+        All actions where the model requests the unit to move to the square where it already is will be treated
+        the same as 28 or pass. This means if there is a swap to the square early, the unit will be moved.
+                                               Top
+                | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
+          Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+                | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
+                | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
+                                        Bottom
+
+                                                                              Top
+                | (0)  (1)  (2)  (3)  (4)  (5)  (6)  |
+          Left  | (7)  (8)  (9)  (10) (11) (12) (13) |
+                | (14) (15) (16) (17) (18) (19) (20) |  Right
+                | (21) (22) (23) (24) (25) (26) (27) |
+                                        Bottom
+        """
+        for action in actions.values():
+            # Remove all duplicate actions, keep the early ones.
+            destination = []
+            for x in action:
+                if x not in destination:
+                    destination.append(x)
+                else:
+                    destination.append(28)
+
+            destination_coords = [position_coord_to_x_y(int(x)) for x in destination]
+
+            starting_square = []
+            for y in range(len(player.board[0])):
+                for x in range(len(player.board) - 1, -1, -1):
+                    if player.board[x][y]:
+                        starting_square.append([x, y])
+
+            for i in range(len(starting_square), 12):
+                destination_coords[i] = [0, -1]
+
+            for i, coord in enumerate(destination_coords):
+                # 28 pass rule.
+                if coord[1] != -1:
+                    temp_square = starting_square[i]
+                    player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
+                    # Make note that this square was already used
+                    starting_square[i] = [-1, -1]
+                    # Adjust starting points to keep track of where units are moving.
+                    for j, square in enumerate(starting_square):
+                        if coord == square:
+                            starting_square[j] = temp_square
+
+    def batch_item_controller(self, actions, player, item_guide):
+        """
+        Takes an action which is 10 by 28. If 28, the action is considered a pass.
+        All items will be placed according to the commands. If the item command is not possible, nothing will happen.
+                                               Top
+                | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
+          Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+                | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
+                | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
+                                        Bottom
+
+                                                                              Top
+                | (0)  (1)  (2)  (3)  (4)  (5)  (6)  |
+          Left  | (7)  (8)  (9)  (10) (11) (12) (13) |
+                | (14) (15) (16) (17) (18) (19) (20) |  Right
+                | (21) (22) (23) (24) (25) (26) (27) |
+                                        Bottom
+        """
+        for action in actions.values():
+            destination_coords = [position_coord_to_x_y(int(x)) for x in action]
+
+            for i, use_item in enumerate(item_guide):
+                if not use_item[0] or player.item_bench[i] is None:
+                    destination_coords[i] = [0, -1]
+
+            starting_square = []
+            for y in range(len(player.board[0])):
+                for x in range(len(player.board) - 1, -1, -1):
+                    if player.board[x][y]:
+                        starting_square.append([x, y])
+
+            for i, coord in enumerate(destination_coords):
+                # 28 pass rule.
+                if coord[1] != -1:
+                    if coord in starting_square:
+                        player.move_item(i, coord[0], coord[1])

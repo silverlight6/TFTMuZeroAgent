@@ -177,7 +177,7 @@ class PredNetwork(torch.nn.Module):
 
         self.champ_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
                                                 [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                                config.CHAMPION_ACTION_DIM, output_activation=torch.nn.ReLU)
+                                                config.CHAMPION_LIST_DIM, output_activation=torch.nn.ReLU)
 
     def forward(self, x, training=True):
         value_decision_input = torch.cat([

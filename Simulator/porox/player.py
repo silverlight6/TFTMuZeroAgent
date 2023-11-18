@@ -12,7 +12,7 @@ from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
-from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMPION_ACTION_DIM
+from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMP_DECIDER_ACTION_DIM
 from Simulator.porox.observation import Observation
 
 """
