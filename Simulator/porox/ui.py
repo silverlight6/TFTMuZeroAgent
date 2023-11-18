@@ -213,11 +213,13 @@ class GameState:
         for player in self.players:
             battle = {
                 "round": 0,
-                "opponent": "minion",
-                "result": "win",
                 "health": self.players[player].health,
+                "opponent": "minion",
                 "damage": 0,
-                "board": None,
+                "opponentDamage": 0,
+                "board": self.update_board(self.players[player]),
+                "opponentBoard": None,
+                "result": "win"
             }
             self.player_battles[player].append(battle)
     
@@ -240,17 +242,19 @@ class GameState:
 
                 battle = {
                     "round": round,
-                    "opponent": "minion",
-                    "result": result,
                     "health": health,
+                    "opponent": "minion",
                     "damage": prev_health - health,
-                    "board": None,
+                    "opponentDamage": 0,
+                    "board": self.update_board(self.players[player]),
+                    "opponentBoard": None,
+                    "result": result,
                 }
                 
                 self.player_battles[player].append(battle)
 
                 change = {
-                    "action": [-1, -1, -1],
+                    "action": [-2, -2, -2],
                     "health": health,
                     "gold": self.players[player].gold,
                     "bench": self.update_bench(self.players[player]),
@@ -292,49 +296,59 @@ class GameState:
             if is_ghost:
                 result_a = f"{result_a}_ghost"
                 result_b = f"{result_b}_ghost"
+                
+            damage_a = prev_health_a - health_a
+            damage_b = prev_health_b - health_b
+            
+            board_a = self.update_board(self.players[player_a])
+            board_b = self.update_board(self.players[player_b])
             
             battle_a = {
                 "round": round,
                 "opponent": player_b,
-                "result": result_a,
                 "health": health_a,
-                "damage": prev_health_a - health_a,
-                "board": self.update_board(self.players[player_b]),
+                "board": board_a,
+                "opponentBoard": board_b,
+                "damage": damage_a,
+                "opponentDamage": damage_b,
+                "result": result_a,
             }
             
             battle_b = {
                 "round": round,
                 "opponent": player_a,
-                "result": result_b,
                 "health": health_b,
-                "damage": prev_health_b - health_b,
-                "board": self.update_board(self.players[player_a]),
+                "board": board_b,
+                "opponentBoard": board_a,
+                "damage": damage_b,
+                "opponentDamage": damage_a,
+                "result": result_b,
             }
             
             self.player_battles[player_a].append(battle_a)
             self.player_battles[player_b].append(battle_b)
             
             change_a = {
-                "action": [-1, -1, -1],
+                "action": [-2, -2, -2],
                 "health": health_a,
                 "win_streak": self.players[player_a].win_streak,
                 "loss_streak": self.players[player_a].loss_streak,
-                "board": self.update_board(self.players[player_a]),
+                "board": board_a,
                 "bench": self.update_bench(self.players[player_a]),
             }
 
             change_b = {
-                "action": [-1, -1, -1],
+                "action": [-2, -2, -2],
                 "health": health_b,
                 "win_streak": self.players[player_b].win_streak,
                 "loss_streak": self.players[player_b].loss_streak,
-                "board": self.update_board(self.players[player_b]),
+                "board": board_b,
                 "bench": self.update_bench(self.players[player_b]),
             }
             
-            if is_carousel_round:
-                change_a["bench"] = self.update_bench(self.players[player_a])
-                change_b["bench"] = self.update_bench(self.players[player_b])
+            # if is_carousel_round:
+            #     change_a["bench"] = self.update_bench(self.players[player_a])
+            #     change_b["bench"] = self.update_bench(self.players[player_b])
             
             self.player_actions[player_a].append(change_a)
             self.player_actions[player_b].append(change_b)
