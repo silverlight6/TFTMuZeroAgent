@@ -8,7 +8,7 @@
 	import Logs from '$lib/tft/logs/logs.svelte';
 	import Shop from '$lib/tft/shop.svelte';
 	import Scalars from '$lib/tft/scalars.svelte';
-	import Sliders from './tft/sliders.svelte';
+	import ScrollableSteps from './scrollableSteps.svelte';
 
 	export let gameState: GameState;
 
@@ -20,28 +20,24 @@
 	$: players = game.getPlayers();
 	$: currentPlayer = players[currentPlayerID];
 
-	// Index
-	$: maxIndex = game.getPlayerLength(currentPlayer);
-	$: {
-		currentIndex = Math.min(currentIndex, maxIndex);
-	}
-
 	// State
 	$: [currentState, currentDiff] = game.getPlayerState(currentPlayer, currentIndex);
 	$: currentSummary = game.getPlayerSummary(currentPlayer);
+	$: currentTimeSteps = game.getPlayerSteps(currentPlayer);
 </script>
 
 <Navbar />
 
 <div class="flex flex-col items-center flex-initial">
+	<ScrollableSteps timeSteps={currentTimeSteps} bind:currentIndex bind:currentPlayerID />
 	<Board board={currentState.board} />
 	<ItemBench items={currentState.items} />
 	<Bench bench={currentState.bench} />
 	<Scalars state={currentState} summary={currentSummary} />
 	<Shop shop={currentState.shop} />
-	<div class="justify-start">
+	<!-- <div class="justify-start">
 		<Sliders bind:currentPlayerID bind:currentIndex {players} {maxIndex} />
-	</div>
+	</div> -->
 </div>
 
 <p>playerID: {currentPlayerID} index: {currentIndex} placement: {currentSummary.placement}</p>

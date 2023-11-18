@@ -51,12 +51,15 @@ export const Action: toZod<Action> = z.object({
 
 export const Battle: toZod<Battle> = z.object({
     round: z.number(),
-    opponent: z.string(),
-    result: z.string(),
     health: z.number(),
+    opponent: z.string(),
     damage: z.number(),
-    board: z.array(Champion).nullable(),
+    opponentDamage: z.number(),
+    board: z.array(Champion),
+    opponentBoard: z.array(Champion).nullable(),
+    result: z.string(),
 });
+
 
 export const Player: toZod<Player> = z.object({
     state: PlayerState,

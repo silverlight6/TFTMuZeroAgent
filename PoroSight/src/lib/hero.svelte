@@ -3,6 +3,7 @@
 	import GithubLogo from '$lib/navbar/githubLogo.svelte';
 	import ThemeChanger from '$lib/navbar/themeChanger.svelte';
 	import { poro } from '$lib/image';
+	import ScrollableSteps from './scrollableSteps.svelte';
 
 	export let gameState: GameState | null = null;
 </script>

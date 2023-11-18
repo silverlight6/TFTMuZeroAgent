@@ -48,11 +48,13 @@ type Action = {
 
 type Battle = {
     round: number;
+    health: z.number();
     opponent: string;
-    result: string;
-    health: number;
     damage: number;
-    board: Champion[] | null;
+    opponentDamage: number
+    board: Champion[];
+    opponentBoard: Champion[] | null;
+    result: string;
 }
 
 type Player = {
@@ -68,6 +70,13 @@ type Summary = {
     gold: number;
     level: number;
     board: Champion[];
+}
+
+type GameState = {
+    players: {
+        [playerID: string]: Player;
+    };
+    summaries: Summary[];
 }
 
 type PlayerDiff = {
@@ -99,18 +108,19 @@ type ItemDiff = {
     location: number | undefined;
 }
 
-type GameState = {
-    players: {
-        [playerID: string]: Player;
-    };
-    summaries: Summary[];
+type TimeStep = {
+    index: number,
+    round: number;
+    action: number[];
+    battle: Battle | null | undefined;
 }
 
 type UIState = {
     players: {
         [playerID: string]: {
             states: PlayerState[],
-            diffs: PlayerDiff[]
+            diffs: PlayerDiff[],
+            steps: TimeStep[]
         }
     }
     summaries: Summary[];

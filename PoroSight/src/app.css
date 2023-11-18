@@ -18,6 +18,17 @@
     --row-translateX: calc((var(--hex-width) / 2) + var(--hex-margin));
     --row-translateY: calc(-1 * (var(--hex-height) - var(--hex-side)) / 2);
 
+    /* -- BATTLE HEXAGONS -- */
+    --battle-hex-size: 60px;
+    --battle-hex-margin: 4px;
+
+    --battle-hex-width: calc(var(--battle-hex-size) * 0.866);
+    --battle-hex-height: var(--battle-hex-size);
+    --battle-hex-side: calc(var(--battle-hex-size) / 2);
+
+    --battle-row-translateX: calc((var(--battle-hex-width) / 2) + var(--battle-hex-margin));
+    --battle-row-translateY: calc(-1 * (var(--battle-hex-height) - var(--battle-hex-side)) / 2);
+
     /* --- IMAGE --- */
     --image-size: 1.5rem;
 
@@ -42,9 +53,12 @@
     /* --- ITEM BENCH --- */
     --item-bench-size: 3rem;
     --item-bench-margin: -3rem;
+
+    /* --- SCROLL --- */
+    --max-scrollable-width: 80vw;
 }
 
-@media (max-width: 660px) {
+@media (max-width: 640px) {
     :root {
         /* --- HEXAGON --- */
         /* The point-to-point distance of the hexagon */
@@ -60,6 +74,17 @@
 
         --row-translateX: calc((var(--hex-width) / 2) + var(--hex-margin));
         --row-translateY: calc(-1 * (var(--hex-height) - var(--hex-side)) / 2);
+
+        /* -- BATTLE HEXAGONS -- */
+        --battle-hex-size: 10vw;
+        --battle-hex-margin: 4px;
+
+        --battle-hex-width: calc(var(--battle-hex-size) * 0.866);
+        --battle-hex-height: var(--battle-hex-size);
+        --battle-hex-side: calc(var(--battle-hex-size) / 2);
+
+        --battle-row-translateX: calc((var(--battle-hex-width) / 2) + var(--battle-hex-margin));
+        --battle-row-translateY: calc(-1 * (var(--battle-hex-height) - var(--battle-hex-side)) / 2);
 
         /* --- IMAGE --- */
         --image-size: 1.5rem;
@@ -84,5 +109,11 @@
         /* --- ITEM BENCH --- */
         --item-bench-size: 2rem;
         --item-bench-margin: -20px;
+    }
+}
+
+@media (min-width: 1500px) {
+    :root {
+        --max-scrollable-width: 1200px;
     }
 }

@@ -27,6 +27,10 @@ export class Game {
         return this.uiState.summaries.filter(summary => summary.player === playerID)[0];
     }
 
+    getPlayerSteps(playerID: string): TimeStep[] {
+        return this.uiState.players[playerID].steps;
+    }
+
     createUIState(state: GameState): UIState {
         const uiState: UIState = {
             players: {},
@@ -39,10 +43,11 @@ export class Game {
 
         for (const playerID in state.players) {
             const player = state.players[playerID];
-            const [states, diffs] = this.accumulate(player);
+            const [states, diffs, steps] = this.accumulate(player);
             uiState.players[playerID] = {
                 states: states,
-                diffs: diffs
+                diffs: diffs,
+                steps: steps,
             }
         }
 
@@ -56,19 +61,34 @@ export class Game {
     /**
      * Accumulate the initial player state and all actions into a list of player states.
      */
-    accumulate(player: Player): [PlayerState[], PlayerDiff[]] {
+    accumulate(player: Player): [PlayerState[], PlayerDiff[], TimeStep[]] {
         const states: PlayerState[] = [player.state];
         const diffs: PlayerDiff[] = [this.emptyDiff()];
+        const steps: TimeStep[] = [{
+            index: 0,
+            round: 0,
+            action: [-2, -2, -2],
+            battle: player.battles[0]
+        }]
+        let round = 1;
 
-        player.actions.forEach(action => {
+        player.actions.forEach((action, index) => {
             const state = states[states.length - 1];
             // create new player state from previous state
             const newState = this.apply({ ...state }, action);
             const newDiff: PlayerDiff = this.diff(state, newState, action);
+            let timeStep: TimeStep;
+            if (this.isBattle(action)) {
+                timeStep = this.step(index, round, action, player.battles[round]);
+                round += 1;
+            } else {
+                timeStep = this.step(index, round, action);
+            }
             states.push(newState);
             diffs.push(newDiff);
+            steps.push(timeStep);
         })
-        return [states, diffs];
+        return [states, diffs, steps];
     }
 
     /**
@@ -265,6 +285,7 @@ export class Game {
      */
     emptyDiff(): PlayerDiff {
         return {
+            action: [0, 0, 0],
             health: false,
             exp: false,
             level: false,
@@ -277,5 +298,21 @@ export class Game {
             items: [],
             itemChampionDiff: [],
         };
+    }
+
+    /**
+     * Time Step
+     */
+    step(index: number, round: number, action: Action, battle?: Battle): TimeStep {
+        return {
+            index: index + 1,
+            round: round,
+            action: action.action,
+            battle: battle
+        }
+    }
+
+    isBattle(action: Action) {
+        return action.action[0] === -2;
     }
 }
