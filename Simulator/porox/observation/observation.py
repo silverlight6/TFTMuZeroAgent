@@ -95,6 +95,7 @@ class Observation(ObservationHelper):
             - Shop, Bench, Gold
         """
         self.private_scalars = self.create_private_scalars(self.player)
+        self.board_vector = self.create_board_vector(self.player)
         self.bench_vector = self.create_bench_vector(self.player)
         self.shop_vector = self.create_shop_vector(self.player)
         self.trait_vector = self.create_trait_vector(self.player)

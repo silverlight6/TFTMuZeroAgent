@@ -1,0 +1,52 @@
+.wrapper {
+    position: relative;
+    display: inline-flex;
+    width: max-content;
+}
+
+.item-wrapper {
+    z-index: 2;
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--image-size);
+}
+
+.star-wrapper {
+    z-index: 2;
+    position: absolute;
+    top: 1%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.chosen {
+    width: calc(var(--trait-width) * var(--chosen-scale));
+    height: calc(var(--trait-height) * var(--chosen-scale));
+    z-index: 2;
+    position: absolute;
+    background-position: center;
+    background-size: calc(var(--trait-width) * var(--chosen-scale));
+    left: 0px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.champion-name {
+    z-index: 2;
+    position: absolute;
+    bottom: calc(var(--hex-height) / 3);
+    width: 100%;
+    color: white;
+    text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+}
