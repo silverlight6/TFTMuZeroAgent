@@ -1,8 +1,6 @@
 import functools
 from dataclasses import dataclass
 
-from gymnasium.spaces import MultiDiscrete
-
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
 from pettingzoo.utils.conversions import parallel_wrapper_fn
@@ -13,6 +11,8 @@ from Simulator.game_round import Game_Round
 from Simulator.porox.player_manager import PlayerManager
 from Simulator.porox.ui import GameState
 
+from Simulator.porox.observation import ObservationBase, ActionBase, ObservationVector, ActionVector
+
 @dataclass
 class TFTConfig:
     num_players: int = 8
@@ -20,6 +20,8 @@ class TFTConfig:
     reward_type: str = "winloss"
     render_mode: str = None # "json" or None
     render_path: str = "Games"
+    observation_class: ObservationBase = ObservationVector
+    action_class: ActionBase = ActionVector
 
 
 def env(config: TFTConfig = TFTConfig()):
@@ -52,6 +54,12 @@ class TFT_Simulator(AECEnv):
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents))))
         )
+        
+        self.update_config(config)
+        
+    def update_config(self, config: TFTConfig):
+        self.config = config
+
         self.render_mode = config.render_mode
         self.render_path = config.render_path
 
@@ -59,75 +67,18 @@ class TFT_Simulator(AECEnv):
         self.num_players = config.num_players
         self.max_actions_per_round = config.max_actions_per_round
         self.reward_type = config.reward_type
+        
+        # --- Observation and Action Classes ---
+        self.observation_class = config.observation_class
+        self.action_class = config.action_class
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
         return None
 
     @functools.lru_cache(maxsize=None)
-    def action_space_v1(self, agent):
-        """
-        Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
-                     11
-           |P|L|R|B|B|B|B|B|B|B|S| 
-           |b|b|b|B|B|B|B|B|B|B|S|
-        5  |b|b|b|B|B|B|B|B|B|B|S| x 38
-           |b|b|b|B|B|B|B|B|B|B|S|
-           |I|I|I|I|I|I|I|I|I|I|S|
-
-        P = Pass Action
-        L = Level Action
-        R = Refresh Action
-        B = Board Slot
-        b = Bench Slot
-        I = Item Slot
-        S = Shop Slot
-
-        Pass, Level, Refresh, and Shop are single action spaces,
-        meaning we only use the first dimension of the MultiDiscrete Space
-
-        Board, Bench, and Item are multi action spaces,
-        meaning we use all 3 dimensions of the MultiDiscrete Space
-
-        0-26 -> Board Slots
-        27-36 -> Bench Slots
-        37 -> Sell Slot
-
-        Board and Bench use all 38 dimensions,
-        Item only uses 37 dimensions, as you cannot sell an item
-
-        """
-        return MultiDiscrete([5, 11, 38])
-    
-    @functools.lru_cache(maxsize=None)
-    def action_space_v2(self, agent):
-        """
-        v2 Action Space is an 55x38 Dimension MultiDiscrete Tensor to keep my sanity
-        
-        v2 action space: (55, 38)
-            55 
-        1 | | | | | ... | | x 38
-        
-        55 :
-        0-27 -> Board Slots (28)
-        28-36 -> Bench Slots (9)
-        37-46 -> Item Bench Slots (10)
-        47-51 -> Shop Slots (5)
-        52 -> Pass
-        53 -> Level
-        54 -> Refresh
-        
-        38 :
-        0-27 -> Board Slots
-        28-36 -> Bench Slots
-        37 -> Sell Slot
-        
-        """
-        return MultiDiscrete([55, 38])
-    
-    @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return self.action_space_v2(agent)
+        return self.action_class.action_space()
 
     def render(self):
         if self.render_mode is not None:
@@ -139,7 +90,7 @@ class TFT_Simulator(AECEnv):
     def close(self):
         pass
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed = None, options = None):
         # --- PettingZoo AECEnv Variables ---
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.agents}
@@ -162,7 +113,10 @@ class TFT_Simulator(AECEnv):
         self.pool_obj = pool.pool()
 
         # --- TFT Player Related Variables ---
-        self.player_manager = PlayerManager(self.num_players, self.pool_obj)
+        self.player_manager = PlayerManager(self.num_players,
+                                            self.pool_obj, 
+                                            self.observation_class,
+                                            self.action_class)
 
         # --- TFT Game Round Related Variables ---
         self.game_round = Game_Round(
@@ -175,7 +129,7 @@ class TFT_Simulator(AECEnv):
         
         # --- Game State for Render ---
         if self.render_mode is not None:
-            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path)
+            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path, action_class=self.action_class)
         
         # --- Agent Selector API ---
         self._agent_selector = agent_selector(self.agents)
