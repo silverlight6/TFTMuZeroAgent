@@ -2,8 +2,8 @@ from __future__ import annotations
 import pytest
 import random
 import warnings
-
 import numpy as np
+import time
 
 from pettingzoo.test.api_test import missing_attr_warning
 from pettingzoo.utils.conversions import (
@@ -17,23 +17,9 @@ from pettingzoo.test import parallel_api_test
 
 from Simulator.porox.tft_simulator import parallel_env, TFTConfig
 
-# --- Utils ---
-def sample_action(
-    env: ParallelEnv[AgentID, ObsType, ActionType],
-    obs: dict[AgentID, ObsType],
-    agent: AgentID,
-) -> ActionType:
-    agent_obs = obs[agent]
-    if isinstance(agent_obs, dict) and "action_mask" in agent_obs:
-        legal_actions = np.flatnonzero(agent_obs["action_mask"])
-        if len(legal_actions) == 0:
-            return 0
-        return random.choice(legal_actions)
-    return env.action_space(agent).sample()
+from PoroX.modules.observation import PoroXObservation
+from PoroX.test.fixtures import env, sample_action
 
-@pytest.fixture
-def env():
-    return parallel_env()
 
 def test_parallel_api(env):
     parallel_api_test(env)
@@ -59,3 +45,30 @@ def test_ui_render():
         }
         
         obs, rew, terminated, truncated, info = env.step(actions)
+        
+def test_env_speed(env):
+    start = time.time()
+
+    obs, infos = env.reset()
+    terminated = {agent: False for agent in env.agents}
+    truncated = {agent: False for agent in env.agents}
+    
+    total_action_time = 0
+    N = 0
+
+    while not all(terminated.values()):
+        action_start = time.time()
+        actions = {
+            agent: sample_action(env, obs, agent)
+            for agent in env.agents
+            if (
+                (agent in terminated and not terminated[agent])
+                or (agent in truncated and not truncated[agent])
+            )
+        }
+        obs, rew, terminated, truncated, info = env.step(actions)
+        total_action_time += time.time() - action_start
+        N += 1
+    
+    print(f"Total time: {time.time() - start}")
+    print(f"Avg action time: {total_action_time / N}")

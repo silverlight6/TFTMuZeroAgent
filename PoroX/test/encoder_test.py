@@ -1,10 +1,12 @@
 import pytest
 from jax.experimental import checkify
 import jax.numpy as jnp
+import numpy as np
 import jax
 import time
 
 from PoroX.architectures.components.scalar_encoder import ScalarEncoder
+from PoroX.test.fixtures import key
     
 @pytest.fixture
 def encoder():
@@ -13,10 +15,6 @@ def encoder():
         max_value=200,
         num_steps=60
     )
-    
-@pytest.fixture
-def key():
-    return jax.random.PRNGKey(10)
     
 def test_scalar_encoder_correctness(encoder, key):
     """

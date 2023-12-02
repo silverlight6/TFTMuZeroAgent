@@ -508,13 +508,13 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     def create_item_bench_vector(self, player):
         """Create an item bench vector for a player
         
-        Item Bench Vector: (9,)
+        Item Bench Vector: (10,)
 
         Array bench layout
-            | (0) (1) (2) (3) (4) (5) (6) (7) (8) |
+            | (0) (1) (2) (3) (4) (5) (6) (7) (8) (9) |
 
         """
-        item_bench_vector = np.zeros(9)
+        item_bench_vector = np.zeros(10)
         
         for i, item in enumerate(player.item_bench):
             if item:
