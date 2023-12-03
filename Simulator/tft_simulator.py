@@ -3,7 +3,7 @@ import functools
 import time
 import gymnasium as gym
 import numpy as np
-from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
+from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple, Discrete
 from Simulator import pool
 from Simulator.player import Player as player_class
 from Simulator.step_function import Step_Function
@@ -129,7 +129,7 @@ class TFT_Simulator(AECEnv):
         return self.observation_spaces[agent]
 
     @functools.lru_cache(maxsize=None)
-    def action_space(self, agent: str) -> gym.spaces.Space:
+    def action_space(self, agent: str) -> gym.spaces.Discrete:
         return self.action_spaces[agent]
 
     def check_dead(self):
