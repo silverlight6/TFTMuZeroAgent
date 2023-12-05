@@ -3,6 +3,12 @@ import jax.numpy as jnp
 from PoroX.modules.observation import BatchedObservation
 
 @jax.jit
+def merge_dimensions(x, dim1, dim2):
+    shape = x.shape
+    new_shape = shape[:dim1] + (shape[dim1] * shape[dim2],) + shape[dim2+1:]
+    return jnp.reshape(x, new_shape)
+
+@jax.jit
 def collect(collection):
     return jax.tree_map(lambda *xs: jnp.stack(xs), *collection)
 
