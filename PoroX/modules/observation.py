@@ -19,13 +19,6 @@ class BatchedObservation:
 
 
 class PoroXObservation(ObservationVector):
-    def __init__(self, player):
-        super().__init__(player)
-        
-        self.scalar_encoder = ScalarEncoder(min_value=0,
-                                            max_value=200,
-                                            num_steps=self.champion_vector_length)
-        
     def fetch_player_observation(self):
         """Fetch Public Observation."""
         champions = np.concatenate(

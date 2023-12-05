@@ -6,7 +6,7 @@ import jax
 import time
 
 from PoroX.architectures.components.scalar_encoder import ScalarEncoder
-from PoroX.test.fixtures import key
+from PoroX.test.utils import profile
     
 @pytest.fixture
 def encoder():
@@ -30,17 +30,12 @@ def test_scalar_encoder_performance(encoder, key):
     """
     Test that the scalar encoder is fast enough to be used in a real-time environment.
     """
-    N = 10000
     initial_values = jax.random.uniform(key, shape=(1000,), minval=encoder.min_value, maxval=encoder.max_value, dtype=jnp.float16)
     
-    total_time = 0.
-    for _ in range(N):
-        start = time.time()
-        logits = encoder.encode(initial_values)
-        values = encoder.decode(logits)
-        end = time.time() - start
-        total_time += end
-        
-    avg = total_time / N
-        
-    print(f'{N} loops, {avg} per loop')
+    @jax.jit
+    def encode_decode(values):
+        logits = encoder.encode(values)
+        return encoder.decode(logits)
+    
+    N = 1000
+    profile(N, encode_decode, initial_values)

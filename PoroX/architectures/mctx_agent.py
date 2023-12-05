@@ -1,8 +1,11 @@
 from flax import linen as nn
+from flax import struct
+from jax import numpy as jnp
 
 from PoroX.modules.observation import BatchedObservation
-from PoroX.architectures.components.embedding import PlayerEmbedding
-
+from PoroX.architectures.player_encoder import PlayerEncoder
+from PoroX.architectures.config import MuZeroConfig
+    
 class RepresentationNetwork(nn.Module):
     """
     Represnetation Network to encode observation into a latent space
@@ -11,39 +14,21 @@ class RepresentationNetwork(nn.Module):
     - Player: PlayerObservation
     - Opponents: [PlayerObservation...]
     """
-    champion_embedding_size: int = 30
-    item_embedding_size: int = 10
-    trait_embedding_size: int = 10
-    stats_size: int = 12
+    config: MuZeroConfig
     
-    def setup(self):
-        self.player_embedding = PlayerEmbedding(
-            champion_embedding_size=self.champion_embedding_size,
-            item_embedding_size=self.item_embedding_size,
-            trait_embedding_size=self.trait_embedding_size,
-            stats_size=self.stats_size
-        )
-
-        self.opponent_embedding = PlayerEmbedding(
-            champion_embedding_size=self.champion_embedding_size,
-            item_embedding_size=self.item_embedding_size,
-            trait_embedding_size=self.trait_embedding_size,
-            stats_size=self.stats_size
-        )
-    
+    @nn.compact
     def __call__(self, obs: BatchedObservation):
-        player_embedding = self.player_embedding(obs.player)
-        opponent_embedding = self.opponent_embedding(obs.opponents)
+        # MHSA on player embedding
+        player_state = PlayerEncoder(self.config.player_config)(obs.player)
+
+        # MHSA on opponent embeddings
+        opponent_state = PlayerEncoder(self.config.opponent_config)(obs.opponents)
         
-        # TODO: MHSA on player_embedding
-        # TODO: MHSA on opponent embeddings
         
         # TODO: Cross attention on player and opponent embeddings
         # TODO: Concatenate player_embedding + cross attention on opponent embeddings
         
-        return player_embedding, opponent_embedding
-
-
+        return player_state, opponent_state
 
 """
 Stochastic MuZero Network:

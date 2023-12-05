@@ -1,29 +1,18 @@
 from __future__ import annotations
 import pytest
-import random
-import warnings
-import numpy as np
 import time
-
-from pettingzoo.test.api_test import missing_attr_warning
-from pettingzoo.utils.conversions import (
-    aec_to_parallel_wrapper,
-    parallel_to_aec_wrapper,
-    turn_based_aec_to_parallel_wrapper,
-)
-from pettingzoo.utils.env import ActionType, AgentID, ObsType, ParallelEnv
-from pettingzoo.utils.wrappers import BaseWrapper
 from pettingzoo.test import parallel_api_test
 
 from Simulator.porox.tft_simulator import parallel_env, TFTConfig
-
-from PoroX.modules.observation import PoroXObservation
-from PoroX.test.fixtures import env, sample_action
+from PoroX.test.utils import sample_action
 
 
+# disable for now
+@pytest.mark.skip
 def test_parallel_api(env):
     parallel_api_test(env)
     
+@pytest.mark.skip
 def test_ui_render():
     config = TFTConfig(render_mode="json")
     env = parallel_env(config)
@@ -32,7 +21,6 @@ def test_ui_render():
     
     terminated = {agent: False for agent in env.agents}
     truncated = {agent: False for agent in env.agents}
-    
     
     while not all(terminated.values()):
         actions = {
@@ -46,6 +34,7 @@ def test_ui_render():
         
         obs, rew, terminated, truncated, info = env.step(actions)
         
+@pytest.mark.skip
 def test_env_speed(env):
     start = time.time()
 

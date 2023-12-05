@@ -6,9 +6,20 @@ from PoroX.modules.observation import BatchedObservation
 def collect(collection):
     return jax.tree_map(lambda *xs: jnp.stack(xs), *collection)
 
+@jax.jit
+def split(collection, schema):
+    """
+    Splits a batched collection back into a list of collections based on a schema.
+    """
+    # TODO: Figure out how to do this with jax.tree_map
+    ...
+
+@jax.jit
 def collect_obs(obs: dict):
     """
-    obs: dict of observations
+    Batches a dict of player observations to a BatchedObservation.
+
+    obs: dict of observations from TFTEnv.step
 
     {
         "player_{id}": {
@@ -37,3 +48,17 @@ def collect_obs(obs: dict):
     
     return collect(obs)
     
+def collect_env_obs(obs):
+    """
+    Batches a list of dicts of player observations to a BatchedObservation.
+    Essentially the output from multiple TFTEnv.step calls in a list.
+    
+    TODO: This won't work when some players are terminated in some envs.
+    """
+    
+    batched_obs = [
+        collect_obs(game_obs)
+        for game_obs in obs
+    ]
+    
+    return collect(batched_obs)
