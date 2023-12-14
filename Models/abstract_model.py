@@ -13,7 +13,7 @@ class AbstractNetwork(torch.nn.Module):
     def recurrent_inference(self, encoded_state, action, training=False):
         pass
 
-    def get_weights(self):
+    def get_weights(self) -> dict:
         return dict_to_cpu(self.state_dict())
 
     def set_weights(self, weights):
