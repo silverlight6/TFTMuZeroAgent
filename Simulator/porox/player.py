@@ -12,8 +12,10 @@ from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
-from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMP_DECIDER_ACTION_DIM
-from Simulator.porox.observation import Observation
+from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMPION_ACTION_DIM
+
+from Simulator.porox.observation import ActionVector # Here for debugging purposes, will be removed later
+
 
 """
 Description - This is the base player class
@@ -101,6 +103,7 @@ class Player:
 
         # --- Game Related Variables ---
         self.round = 0
+        self.actions_remaining = 0 # Will reset to max_actions from player_manager
 
         # --- Board Related Variables ---
         # Triple catalog tracks the star level of each champion in the player's possession
@@ -361,14 +364,14 @@ class Player:
         if champion_cost > self.gold or a_champion.cost == 0:
             if DEBUG:
                 print(f"No gold to buy champion, {champion_cost}, {self.gold}, {a_champion.name}")
-                observation = Observation(self)
+                action = ActionVector(self)
                 np.set_printoptions(threshold=np.inf)
                 print(self.shop)
                 print([(c.cost, c.stars) for c in self.shop_champions])
-                print(observation.buy_mask)
+                print(action.buy_mask)
                 print(self.gold)
                 print('----------------- OBS MASK ---------------')
-                print(np.reshape(observation.fetch_action_mask_v2(), (55, 38)))
+                print(np.reshape(action.fetch_action_mask(), (55, 38)))
             return False
 
         if a_champion.name == 'kayn':
@@ -870,14 +873,14 @@ class Player:
         self.reward += self.mistake_reward
         if DEBUG:
             print(f"Move board to bench outside board limits: {x}, {y}, {x_bench}, {self.bench[x_bench]}, {self.board[x][y]}")
-            observation = Observation(self)
+            action = ActionVector(self)
             np.set_printoptions(threshold=np.inf)
             print(self.board)
-            print(observation.move_sell_board_mask)
+            print(action.move_sell_board_mask)
             print(self.bench)
-            print(observation.move_sell_bench_mask)
+            print(action.move_sell_bench_mask)
             print('----------------- OBS MASK ---------------')
-            print(np.reshape(observation.fetch_action_mask_v2(), (55, 38)))
+            print(np.reshape(action.fetch_action_mask(), (55, 38)))
         return False
 
     """

@@ -6,15 +6,10 @@ from Simulator.config import STARMULTIPLIER, CRIT_CHANCE, CRIT_DAMAGE, SP
 
 """
 Utility functions for normalizing stats.
-
-Methods:
-    - Z score normalization
-    - Min-max normalization
+Also contains Normalizer class for applying normalization.
 """
 
 # --- Utility functions --- #
-
-
 def calculate_residuals(stats):
     """Calculate mu and sigma for each stat."""
     residuals = {}
@@ -37,8 +32,6 @@ def calculate_minmax(stats):
     return minmax
 
 # --- Item stats --- #
-
-
 def calculate_item_statistics():
     """Calculate mu, sigma, min, and max for each stat using the items dictionary."""
 
@@ -70,8 +63,6 @@ def calculate_item_statistics():
 
 
 # --- Champion stats --- #
-
-
 def calculate_champion_statistics():
     """Calculate mu, sigma, min, and max for each stat using their respective dictionaries."""
 
@@ -134,34 +125,104 @@ def calculate_champion_statistics():
     return champion_residuals, champion_minmax
 
 
-# --- Apply normalization --- #
 item_residuals, item_minmax = calculate_item_statistics()
 champion_residuals, champion_minmax = calculate_champion_statistics()
 
+# --- Apply normalization --- #
+class Normalizer:
+    def __init__(self):
+        self.item_residuals, self.item_minmax = item_residuals, item_minmax
+        self.champion_residuals, self.champion_minmax = champion_residuals, champion_minmax
 
-def batch_apply_z_score_item(stat_batch, stat_name):
-    """Calcualte z-score for a numpy array of item stats."""
-    mean, std = item_residuals[stat_name]
+    def batch_apply_z_score_item(self, stat_batch, stat_name):
+        """Calcualte z-score for a numpy array of item stats."""
+        mean, std = item_residuals[stat_name]
 
-    return (stat_batch - mean) / std
-
-
-def batch_apply_z_score_champion(stat_batch, stat_name):
-    """Calcualte z-score for a numpy array of champion stats."""
-    mean, std = champion_residuals[stat_name]
-
-    return (stat_batch - mean) / std
+        return (stat_batch - mean) / std
 
 
-def batch_apply_minmax_item(stat_batch, stat_name):
-    """Calcualte min-max for a numpy array of item stats."""
-    minimum, maximum = item_minmax[stat_name]
+    def batch_apply_z_score_champion(self, stat_batch, stat_name):
+        """Calcualte z-score for a numpy array of champion stats."""
+        mean, std = champion_residuals[stat_name]
 
-    return (stat_batch - minimum) / (maximum - minimum)
+        return (stat_batch - mean) / std
 
 
-def batch_apply_minmax_champion(stat_batch, stat_name):
-    """Calcualte min-max for a numpy array of champion stats."""
-    minimum, maximum = champion_minmax[stat_name]
+    def batch_apply_minmax_item(self, stat_batch, stat_name):
+        """Calcualte min-max for a numpy array of item stats."""
+        minimum, maximum = item_minmax[stat_name]
 
-    return (stat_batch - minimum) / (maximum - minimum)
+        return (stat_batch - minimum) / (maximum - minimum)
+
+
+    def batch_apply_minmax_champion(self, stat_batch, stat_name):
+        """Calcualte min-max for a numpy array of champion stats."""
+        minimum, maximum = champion_minmax[stat_name]
+
+        return (stat_batch - minimum) / (maximum - minimum)
+    
+    def apply_champion_normalization(self, champion_stats):
+        """
+            0: AD
+            1: crit_chance
+            2: crit_damage
+            3: armor
+            4: MR
+            5: dodge
+            6: health
+            7: mana
+            8: AS
+            9: SP
+            10: maxmana
+            11: range
+        """
+        
+        original_shape = champion_stats.shape
+        
+        champion_stats = champion_stats.reshape(-1, original_shape[-1])
+
+        champion_stats[:, 0] = self.batch_apply_z_score_champion(champion_stats[:, 0], "AD")
+        champion_stats[:, 1] = self.batch_apply_z_score_champion(champion_stats[:, 1], "crit_chance")
+        champion_stats[:, 2] = self.batch_apply_z_score_champion(champion_stats[:, 2], "crit_damage")
+        champion_stats[:, 3] = self.batch_apply_z_score_champion(champion_stats[:, 3], "armor")
+        champion_stats[:, 4] = self.batch_apply_z_score_champion(champion_stats[:, 4], "MR")
+        champion_stats[:, 5] = self.batch_apply_z_score_champion(champion_stats[:, 5], "dodge")
+        champion_stats[:, 6] = self.batch_apply_z_score_champion(champion_stats[:, 6], "health")
+        champion_stats[:, 7] = self.batch_apply_z_score_champion(champion_stats[:, 7], "mana")
+        champion_stats[:, 8] = self.batch_apply_z_score_champion(champion_stats[:, 8], "AS")
+        champion_stats[:, 9] = self.batch_apply_z_score_champion(champion_stats[:, 9], "SP")
+        champion_stats[:, 10] = self.batch_apply_z_score_champion(champion_stats[:, 10], "maxmana")
+        champion_stats[:, 11] = self.batch_apply_z_score_champion(champion_stats[:, 11], "range")
+        
+        return champion_stats.reshape(original_shape)
+    
+    def apply_item_normalization(self, item_stats):
+        """
+            0: AD
+            1: crit_chance
+            2: crit_damage
+            3: armor
+            4: MR
+            5: dodge
+            6: health
+            7: mana
+            8: AS
+            9: SP
+        """
+        
+        original_shape = item_stats.shape
+
+        item_stats = item_stats.reshape(-1, original_shape[-1])
+
+        item_stats[:, 0] = self.batch_apply_z_score_item(item_stats[:, 0], "AD")
+        item_stats[:, 1] = self.batch_apply_z_score_item(item_stats[:, 1], "crit_chance")
+        item_stats[:, 2] = self.batch_apply_z_score_item(item_stats[:, 2], "crit_damage")
+        item_stats[:, 3] = self.batch_apply_z_score_item(item_stats[:, 3], "armor")
+        item_stats[:, 4] = self.batch_apply_z_score_item(item_stats[:, 4], "MR")
+        item_stats[:, 5] = self.batch_apply_z_score_item(item_stats[:, 5], "dodge")
+        item_stats[:, 6] = self.batch_apply_z_score_item(item_stats[:, 6], "health")
+        item_stats[:, 7] = self.batch_apply_z_score_item(item_stats[:, 7], "mana")
+        item_stats[:, 8] = self.batch_apply_z_score_item(item_stats[:, 8], "AS")
+        item_stats[:, 9] = self.batch_apply_z_score_item(item_stats[:, 9], "SP")
+
+        return item_stats.reshape(original_shape)
