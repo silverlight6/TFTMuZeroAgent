@@ -1,20 +1,21 @@
-from Simulator import pool
 from Simulator.porox.player import Player as player_class
-from Simulator.porox.observation import ObservationBase, ActionBase
 
 class PlayerManager:
     def __init__(self, 
                  num_players,
                  pool_obj,
-                 observation_class: ObservationBase,
-                 action_class: ActionBase
+                 config
                  ):
         
         self.pool_obj = pool_obj
+        self.config = config
         
         self.players = {
             "player_" + str(player_id) for player_id in range(num_players)
         }
+        
+        # Ensure that the opponent obs are always in the same order
+        self.player_ids = sorted(list(self.players))
 
         self.terminations = {player: False for player in self.players}
         
@@ -24,7 +25,7 @@ class PlayerManager:
         }
         
         self.observation_states = {
-            player: observation_class(self.player_states[player])
+            player: config.observation_class(self.player_states[player])
             for player in self.players
         }
         
@@ -34,7 +35,7 @@ class PlayerManager:
         }
         
         self.action_handlers = {
-            player: action_class(self.player_states[player])
+            player: config.action_class(self.player_states[player])
             for player in self.players
         }
 
@@ -60,8 +61,10 @@ class PlayerManager:
             self.observation_states[player].fetch_public_observation()
             if not self.terminations[player]
             else self.observation_states[player].fetch_dead_observation()
-            for player in self.players
-            if player != player_id
+            for player in self.player_ids
+            
+            # TODO: make this an option
+            # if player != player_id
         ]
 
         return observations
@@ -90,8 +93,15 @@ class PlayerManager:
     def update_game_round(self):
         for player in self.players:
             if not self.terminations[player]:
+                self.player_states[player].actions_remaining = self.config.max_actions_per_round
                 self.observation_states[player].update_game_round()
                 self.action_handlers[player].update_game_round()
+                
+                # This is only here so that the Encoder doesn't have to do 64 operations, but instead 16
+                # This ensures that the masked player states are the same for all players
+                # 8 full players and 8 masked players
+                # If we had separate masked players for each player, then we would have to do 64 operations
+                self.opponent_observations[player] = self.fetch_opponent_observations(player)
 
     def refresh_all_shops(self):
         for player in self.players:
@@ -142,9 +152,11 @@ class PlayerManager:
         if action_type == 0:
             player.pass_action()
             # Update opponent observations on pass action
-            self.opponent_observations[player_id] = self.fetch_opponent_observations(
-                player_id
-            )
+            # self.opponent_observations[player_id] = self.fetch_opponent_observations(
+            #     player_id
+            # )
+            # Lets only update opponent obs at the beginning of the round
+            # This way I can use an optimized encoder that does 16 operations instead of 64
 
         # Level Action
         elif action_type == 1:
@@ -173,5 +185,6 @@ class PlayerManager:
         else:
             player.print(f"Action Type is invalid: {action}")
             
+        player.actions_remaining -= 1
         self.observation_states[player_id].update_observation(action)
         self.action_handlers[player_id].update_action_mask(action)

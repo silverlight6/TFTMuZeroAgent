@@ -34,7 +34,7 @@ def test_ui_render():
         
         obs, rew, terminated, truncated, info = env.step(actions)
         
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_env_speed(env):
     start = time.time()
 

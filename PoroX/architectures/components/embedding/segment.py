@@ -71,6 +71,40 @@ class SegmentEncoding(nn.Module):
 # -- FFN -- #
 # TODO: Generalize this to work with a segments config
 # UPDATE: It's not worth the time to fight the jit compiler...
+class GlobalPlayerSegmentFFN(nn.Module):
+    config: SegmentConfig
+    
+    @nn.compact
+    def __call__(self, x):
+        board   = x[..., :28, :]
+        bench   = x[..., 28:37, :]
+        shop    = x[..., 37:42, :]
+        items   = x[..., 42:52, :]
+        traits  = x[..., 52:53, :]
+        playerIDs = x[..., 53:57, :]
+        scalars = x[..., 57:, :]
+        
+        def ffn(hidden_dim=self.config.hidden_dim):
+            return FFNSwiGLU(hidden_dim)
+
+        board_fc    = ffn()(board)
+        bench_fc    = ffn()(bench)
+        shop_fc     = ffn()(shop)
+        items_fc    = ffn()(items)
+        traits_fc   = ffn()(traits)
+        ids_fc      = ffn()(playerIDs)
+        scalars_fc  = ffn()(scalars)
+
+        return jnp.concatenate([
+            board_fc,
+            bench_fc,
+            shop_fc,
+            items_fc,
+            traits_fc,
+            ids_fc,
+            scalars_fc
+        ], axis=-2)
+
 class PlayerSegmentFFN(nn.Module):
     config: SegmentConfig
 

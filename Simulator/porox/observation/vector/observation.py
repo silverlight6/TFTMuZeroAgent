@@ -28,10 +28,12 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         # -- Champions -- #
         # Create ids for champions
         self.stat_vector_length = 12
+        # 2 for chosen, 4 for stars, 1 for cost
+        self.other_stat_vector_length = 2 + 4 + 1
 
         # championID, items, origins, stats
         self.champion_vector_length = 1 + self.item_vector_length * 3 \
-            + self.trait_champion_vector_length + self.stat_vector_length
+            + self.trait_champion_vector_length + self.stat_vector_length + self.other_stat_vector_length
 
         # --- Game Values --- #
         self.game_scalars = self.create_game_scalars(player)
@@ -234,13 +236,23 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         Game Scalars:
             - Round: int
             - Actions remaining: int
+            - opponents: list of ints
             - Action History?: [[int, int, int], [int, int, int], ...]  # TODO
         """
 
+        opponentIDs = np.zeros(3)
+        count = 0
+        for playerID, will_fight in player.opponent_options.items():
+            if will_fight == 1 and count < 3:
+                playerID = int(playerID[-1])
+                opponentIDs[count] = playerID
+                count += 1
+
         return np.array([
             player.round,
-            # TODO: Add this
-            # player.max_actions - player.actions_remaining,
+            player.actions_remaining,
+            *opponentIDs,
+            # TODO: Action History
         ])
 
     def create_public_scalars(self, player):
@@ -253,14 +265,17 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             - loss streak: int
             - max units: int
             - available units: int
+            - economy: int 
         """
         return np.array([
+            player.player_num,
             player.health,
             player.level,
             player.win_streak,
             player.loss_streak,
             player.max_units,
             player.max_units - player.num_units_in_play,
+            min(player.gold // 10, 5)
         ])
 
     def create_private_scalars(self, player):
@@ -270,28 +285,12 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             - exp: int
             - exp to next level: int
             - gold: int
-            - win_streak: int
-            - match_history: list of ints
-            - opponent_options: list of ints
         """
-
-        opponent_options = np.zeros(8)
-        for x in range(0, 8):
-            if x < player.player_num:
-                if "player_" + str(x) in player.opponent_options:
-                    opponent_options[x] = player.opponent_options["player_" + str(x)] / 20
-                else:
-                    opponent_options[x] = 0
-
-        return np.concatenate([np.array([
+        return np.array([
             player.exp,
             player.level_costs[player.level] - player.exp,
             player.gold,
-            max(player.win_streak, player.loss_streak),
-            player.match_history[-3],
-            player.match_history[-2],
-            player.match_history[-1]
-        ]), opponent_options], axis=-1)
+        ])
 
     # -- Champion -- #
     def create_champion_vector(self, champion):
@@ -309,6 +308,10 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             traitID, traitID, traitID # 3 possible traits from champion
             traitID, traitID, traitID # 3 possible traits from items
             traitID # 1 possible trait from chosen
+        ]
+        
+        other stats: [
+            chosen, stars, cost
         ]
         
         stats: (shape: 12) [
@@ -353,11 +356,19 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             for stat, value in item_mod.items():
                 stats[stat] += value
                 
+        # -- Other Stats -- #
+        chosen = self.util.chosen_one_hot(champion.chosen)
+        stars = self.util.stars_one_hot(champion.stars)
+        cost = self.util.get_champion_cost(champion)
+        
         # Create vectors
         return np.concatenate([
             np.array([championID]),
             item_ids,
             origin_ids,
+            chosen,
+            stars,
+            np.array([cost]),
             np.array(list(stats.values()))
         ])
         
@@ -377,7 +388,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             "maxmana": champion.maxmana,
             "range": champion.range
         }
-    
+        
     def get_item_modifiers(self, item) -> dict:
         item_stats = self.util.get_item_stats(item)
 

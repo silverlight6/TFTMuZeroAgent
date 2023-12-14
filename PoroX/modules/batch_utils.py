@@ -1,16 +1,21 @@
 import jax
 import jax.numpy as jnp
-from PoroX.modules.observation import BatchedObservation
+from PoroX.modules.observation import BatchedObservation, PlayerObservation
 
+# Broadcast Player State to [...B, P, S1, L]
 @jax.jit
-def merge_dimensions(x, dim1, dim2):
-    shape = x.shape
-    new_shape = shape[:dim1] + (shape[dim1] * shape[dim2],) + shape[dim2+1:]
-    return jnp.reshape(x, new_shape)
+def expand_and_get_shape(player_state, opponent_state):
+    broadcasted_shape = player_state.shape[:-2] + opponent_state.shape[-3:-2] + player_state.shape[-2:]
+    expanded_player_state = jnp.expand_dims(player_state, axis=-3)
+    return broadcasted_shape, expanded_player_state
 
 @jax.jit
 def collect(collection):
     return jax.tree_map(lambda *xs: jnp.stack(xs), *collection)
+
+@jax.jit
+def concat(collection, axis=-3):
+    return jax.tree_map(lambda *xs: jnp.concatenate(xs, axis=axis), *collection)
 
 @jax.jit
 def split(collection, schema):
@@ -44,15 +49,49 @@ def collect_obs(obs: dict):
     """
     
     obs = [
+        # Default collect all obs for each player
         BatchedObservation(
-            player=player_obs["player"],
+            players=player_obs["player"],
             action_mask=player_obs["action_mask"],
             opponents=collect(player_obs["opponents"])
         )
+        
+        # Combine players and masked players
+        # BatchedObservation(
+        #     players=collect([player_obs["player"], *player_obs["opponents"]]),
+        #     action_mask=player_obs["action_mask"]
+        # )
         for player_obs in obs.values()
     ]
     
     return collect(obs)
+
+@jax.jit
+def collect_shared_obs(obs):
+    """
+    Instead of collecting 7 opponent obs for each player,
+    we collect all 8 opponent obs as a single BatchedObservation.
+    This will save a lot of computation for the encoder.
+    """
+    
+    first_obs = next(iter(obs.values()))
+    opponent_obs = first_obs["opponents"]
+    
+    player_obs = [
+        player["player"]
+        for player in obs.values()
+    ]
+    
+    action_mask = [
+        player["action_mask"]
+        for player in obs.values()
+    ]
+    
+    return BatchedObservation(
+        players=collect(player_obs),
+        action_mask=collect(action_mask),
+        opponents=collect(opponent_obs)
+    )
     
 def collect_env_obs(obs):
     """

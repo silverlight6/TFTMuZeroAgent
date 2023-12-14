@@ -23,7 +23,6 @@ class TFTConfig:
     observation_class: ObservationBase = ObservationVector
     action_class: ActionBase = ActionVector
 
-
 def env(config: TFTConfig = TFTConfig()):
     """
     The env function often wraps the environment in wrappers by default.
@@ -115,8 +114,7 @@ class TFT_Simulator(AECEnv):
         # --- TFT Player Related Variables ---
         self.player_manager = PlayerManager(self.num_players,
                                             self.pool_obj, 
-                                            self.observation_class,
-                                            self.action_class)
+                                            self.config)
 
         # --- TFT Game Round Related Variables ---
         self.game_round = Game_Round(

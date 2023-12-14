@@ -16,7 +16,7 @@ class EmbeddingConfig:
     champion_embedding_size: int = 30
     item_embedding_size: int = 10
     trait_embedding_size: int = 8
-    stats_size: int = 12
+    stats_size: int = 19
     
     # Scalar Config
     scalar_min_value: int = 0
@@ -118,6 +118,24 @@ class TraitEmbedding(nn.Module):
             self.config.num_traits,
             vector_size(self.config)
             ])(x)
+        
+class PlayerIDEmbedding(nn.Module):
+    """
+    Embeds player id to a latent space
+    0-7 are the player ids
+    """
+    config: EmbeddingConfig
+
+    @nn.compact
+    def __call__(self, x):
+        ids = jnp.int16(x)
+        
+        player_id_embedding = nn.Embed(
+            num_embeddings=8,
+            features=vector_size(self.config))(ids)
+        
+        return player_id_embedding
+
     
 # -- Player Embedding -- #
         
@@ -130,18 +148,33 @@ class PlayerEmbedding(nn.Module):
         item_bench_embeddings = ItemBenchEmbedding(self.config)(x.items)
         trait_embeddings = TraitEmbedding(self.config)(x.traits)
         trait_embeddings = jnp.expand_dims(trait_embeddings, axis=-2)
-
+        
+        # PlayerID is the first scalar
+        playerID = x.scalars[..., 0:1]
+        # Matchups are the last 3 scalars
+        matchups = x.scalars[..., -3:]
+        # Update scalars to exclude player_id and matchups
+        scalars = x.scalars[..., 1:-3]
+        
+        playerIDs = jnp.concatenate([
+            matchups,
+            playerID
+        ], axis=-1)
+        
+        playerID_embedding = PlayerIDEmbedding(self.config)(playerIDs)
+        
         scalar_embeddings = ScalarEncoder(
             min_value=self.config.scalar_min_value,
             max_value=self.config.scalar_max_value,
             num_steps=vector_size(self.config)
-        ).encode(x.scalars)
-
+        ).encode(scalars)
+        
         player_embedding = jnp.concatenate([
             champion_embeddings,
             item_bench_embeddings,
             trait_embeddings,
             scalar_embeddings,
+            playerID_embedding,
         ], axis=-2)
         
         return player_embedding

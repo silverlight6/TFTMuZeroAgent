@@ -2,7 +2,8 @@ from flax import linen as nn
 from flax import struct
 import jax.numpy as jnp
 
-from PoroX.modules.observation import PlayerObservation
+from PoroX.modules.observation import PlayerObservation, BatchedObservation
+import PoroX.modules.batch_utils as batch_utils
 
 from PoroX.architectures.components.embedding import (
     PlayerEmbedding, EmbeddingConfig,
@@ -44,6 +45,37 @@ class PlayerEncoder(nn.Module):
         hidden_state = Encoder(self.config.encoder)(segment_pe_x)
         
         return hidden_state
+
+class GlobalPlayerEncoder(nn.Module):
+    config: PlayerConfig
+    
+    def setup(self):
+        self.player_embedding = PlayerEmbedding(self.config.embedding)
+    
+    @nn.compact
+    def __call__(self, obs: BatchedObservation):
+        # 0 is the player, rest are opponents
+        # First we embed all the players
+        player_embeddings = self.player_embedding(obs.players)
+        opponent_embeddings = self.player_embedding(obs.opponents)
+        
+        all_embeddings = jnp.concatenate([
+            player_embeddings,
+            opponent_embeddings
+        ], axis=-3)
+        
+        # Then we segment the players
+        segment_x = self.config.segment_ffn(config=self.config.segment)(all_embeddings)
+        # Segment Encoding
+        segment_x = SegmentEncoding(
+            config=self.config.segment)(segment_x)
+        # Positional Encoding
+        segment_pe_x = LearnedPositionalEncoding()(segment_x)
+        # Transformer Encoder
+        global_states = Encoder(self.config.encoder)(segment_pe_x)
+        
+        return global_states
+        
     
 class CrossPlayerEncoder(nn.Module):
     config: EncoderConfig
@@ -80,11 +112,15 @@ class CrossPlayerEncoder(nn.Module):
             # 2. Sum the global state and then concatenate
             def sum_concat(player_state, global_state):
                 # Sum the global state across the P dimension
-                summed_global_state = jnp.sum(global_state, axis=-3, keepdims=True)
-                return jnp.concatenate([
-                    player_state,
-                    summed_global_state
-                ], axis=-3)
+                # summed_global_state = jnp.sum(global_state, axis=-3, keepdims=True)
+                # return jnp.concatenate([
+                #     player_state,
+                #     summed_global_state
+                # ], axis=-3)
+                return jnp.sum(
+                    global_state,
+                    axis=-3,
+                )
             
             # Concatenate the two
             # global_state = concat(expanded_player_state, global_state)

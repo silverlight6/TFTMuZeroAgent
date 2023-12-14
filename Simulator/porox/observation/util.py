@@ -1,6 +1,7 @@
 from Simulator.origin_class_stats import tiers
 from Simulator.item_stats import items, trait_items, basic_items, item_builds
 from Simulator.pool_stats import cost_star_values
+import numpy as np
 
 CHAMPIONS = [
     'aatrox', 'ahri', 'akali', 'annie', 'aphelios', 'ashe', 'azir',
@@ -102,6 +103,10 @@ class Util:
         }
         # Reverse trait_items dictionary to get the trait from the item
         self.item_traits = {v: k for k, v in trait_items.items()}
+        
+        # -- Other -- #
+        self.chosen_table = np.eye(2)
+        self.stars_table = np.eye(4)
 
     # -- Champions -- #
     def get_champion_id(self, champion) -> int:
@@ -135,3 +140,11 @@ class Util:
         if item in self.item_traits:
             return self.item_traits[item]
         return None
+
+    # -- Other -- #
+    def chosen_one_hot(self, chosen) -> np.ndarray:
+        chosenID = 1 if chosen else 0
+        return self.chosen_table[chosenID]
+    
+    def stars_one_hot(self, stars) -> np.ndarray:
+        return self.stars_table[stars - 1]

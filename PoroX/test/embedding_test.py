@@ -3,6 +3,10 @@ import time
 
 import jax
 import jax.numpy as jnp
+from clu import parameter_overview
+
+
+from PoroX.modules.observation import PlayerObservation, BatchedObservation
 
 from PoroX.architectures.components.embedding import (
     ChampionEmbedding, PlayerEmbedding, EmbeddingConfig,
@@ -16,7 +20,7 @@ from PoroX.test.utils import profile
 
 def test_champion_embedding(first_obs, key):
     obs = batch_utils.collect_obs(first_obs)
-    champion_vectors = obs.player.champions
+    champion_vectors = obs.players.champions
     
     config = EmbeddingConfig()
     champion_embedding = ChampionEmbedding(config=config)
@@ -34,7 +38,7 @@ def test_champion_embedding(first_obs, key):
     
 def test_player_embedding(first_obs, key):
     obs = batch_utils.collect_obs(first_obs)
-    players = obs.player
+    players = obs.players
     
     config = EmbeddingConfig()
     player_embedding = PlayerEmbedding(config=config)
@@ -69,7 +73,7 @@ def test_opponent_embedding(first_obs, key):
     profile(N, apply, variables, opponents)
     
 def test_representation_network(first_obs, key):
-    obs = batch_utils.collect_obs(first_obs)
+    obs = batch_utils.collect_shared_obs(first_obs)
     
     repr_network = RepresentationNetwork(config=test_config)
     variables = repr_network.init(key, obs)
@@ -79,10 +83,18 @@ def test_representation_network(first_obs, key):
         return repr_network.apply(variables, obs)
 
     x = apply(variables, obs)
-    print(x[0].shape, x[1].shape)
+    print(x.shape)
     
     N=10
     profile(N, apply, variables, obs)
+    
+def test_params_representation_network(first_obs, key):
+    obs = batch_utils.collect_obs(first_obs)
+
+    repr_network = RepresentationNetwork(config=test_config)
+    variables = repr_network.init(key, obs)
+    
+    print(parameter_overview.get_parameter_overview(variables))
     
 def test_representation_network_gpu(first_obs, key):
     print("Number of GPUs:", jax.device_count())
@@ -95,8 +107,8 @@ def test_segment_embedding(first_obs, key):
     s_config = SegmentConfig(segments=jnp.array([75]))
 
     player_embedding = PlayerEmbedding(config=e_config)
-    pv = player_embedding.init(key, obs.player)
-    x = player_embedding.apply(pv, obs.player)
+    pv = player_embedding.init(key, obs.players)
+    x = player_embedding.apply(pv, obs.players)
     
     player_ffn = PlayerSegmentFFN(config=s_config)
     mv = player_ffn.init(key, x)

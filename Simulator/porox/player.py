@@ -102,6 +102,7 @@ class Player:
 
         # --- Game Related Variables ---
         self.round = 0
+        self.actions_remaining = 0 # Will reset to max_actions from player_manager
 
         # --- Board Related Variables ---
         # Triple catalog tracks the star level of each champion in the player's possession

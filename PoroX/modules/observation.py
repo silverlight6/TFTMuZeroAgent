@@ -1,8 +1,6 @@
 import numpy as np
-from dataclasses import dataclass
 import chex
 from Simulator.porox.observation import ObservationVector
-from PoroX.architectures.components.scalar_encoder import ScalarEncoder
 
 @chex.dataclass(frozen=True)
 class PlayerObservation:
@@ -13,20 +11,39 @@ class PlayerObservation:
     
 @chex.dataclass(frozen=True)
 class BatchedObservation:
-    player: PlayerObservation
+    players: PlayerObservation
     action_mask: chex.ArrayDevice
     opponents: PlayerObservation
 
 
 class PoroXObservation(ObservationVector):
+    def __init__(self, player):
+        super().__init__(player)
+        
+        self.board_zeros = np.zeros_like(self.board_vector)
+        self.bench_zeros = np.zeros_like(self.bench_vector)
+        self.shop_zeros = np.zeros_like(self.shop_vector)
+        self.item_bench_zeros = np.zeros_like(self.item_bench_vector)
+        self.trait_zeros = np.zeros_like(self.trait_vector)
+        self.public_zeros = np.zeros_like(self.public_scalars)
+        self.private_zeros = np.zeros_like(self.private_scalars)
+        self.game_zeros = np.zeros_like(self.game_scalars)
+        
+        self.public_zeros[0] = player.player_num
+
+
     def fetch_player_observation(self):
         """Fetch Public Observation."""
-        champions = np.concatenate(
-            (self.board_vector, self.bench_vector, self.shop_vector)
-        )
-        scalars = np.concatenate(
-            (self.game_scalars, self.public_scalars, self.private_scalars)
-        )
+        champions = np.concatenate([
+            self.board_vector,
+            self.bench_vector,
+            self.shop_vector
+        ])
+        scalars = np.concatenate([
+            self.public_scalars,
+            self.private_scalars,
+            self.game_scalars
+        ])
         
         return PlayerObservation(
             champions=champions,
@@ -37,10 +54,16 @@ class PoroXObservation(ObservationVector):
         
     def fetch_public_observation(self):
         """Fetch Public Observation."""
-        champions = np.concatenate(
-            (self.board_vector, self.bench_vector)
-        )
-        scalars = self.public_scalars
+        champions = np.concatenate([
+            self.board_vector,
+            self.bench_vector,
+            self.shop_zeros # MASK
+        ])
+        scalars = np.concatenate([
+            self.public_scalars,
+            self.private_zeros, # MASK
+            self.game_zeros # MASK
+        ])
         
         return PlayerObservation(
             champions=champions,
@@ -51,14 +74,20 @@ class PoroXObservation(ObservationVector):
 
     def fetch_dead_observation(self):
         """Fetch Dead Observation."""
-        champion_shape = (
-            self.board_vector.shape[0] + self.bench_vector.shape[0],
-            self.champion_vector_length
-        )
+        champions = np.concatenate([
+            self.board_zeros,
+            self.bench_zeros,
+            self.shop_zeros
+        ])
+        scalars = np.concatenate([
+            self.public_zeros,
+            self.private_zeros,
+            self.game_zeros
+        ])
         
         return PlayerObservation(
-            champions=np.zeros(champion_shape),
-            scalars=np.zeros_like(self.public_scalars),
-            items=np.zeros_like(self.item_bench_vector),
-            traits=np.zeros_like(self.trait_vector)
+            champions=champions,
+            scalars=scalars,
+            items=self.item_bench_zeros,
+            traits=self.trait_zeros
         )

@@ -1,12 +1,12 @@
 from flax import linen as nn
-from flax import struct
 from jax import numpy as jnp
+import jax
 
 from PoroX.modules.observation import BatchedObservation
 import PoroX.modules.batch_utils as batch_utils
 
-from PoroX.architectures.player_encoder import PlayerEncoder, CrossPlayerEncoder
-from PoroX.architectures.components.transformer import EncoderConfig
+from PoroX.architectures.player_encoder import PlayerEncoder, CrossPlayerEncoder, GlobalPlayerEncoder
+from PoroX.architectures.components.transformer import EncoderConfig, CrossAttentionEncoder
 from PoroX.architectures.config import MuZeroConfig
     
 class RepresentationNetwork(nn.Module):
@@ -18,23 +18,35 @@ class RepresentationNetwork(nn.Module):
     - Opponents: [PlayerObservation...]
     """
     config: MuZeroConfig
-    cross_attention_config: EncoderConfig = EncoderConfig(
-        num_blocks=1,
-        num_heads=2,
-    )
     
+    # Don't ask what's going on here, I have no idea
     @nn.compact
     def __call__(self, obs: BatchedObservation):
-        # MHSA on player embedding
-        player_state = PlayerEncoder(self.config.player_config)(obs.player) # [...B, S1, L]
+        states = GlobalPlayerEncoder(self.config.player_encoder)(obs)
+        
+        # Split states into player and opponents
+        player_shape = obs.players.champions.shape[-3]
+        
+        player_states = states[..., :player_shape, :, :]
+        opponent_states = states[..., player_shape:, :, :]
+        
+        expanded_opponent_state = jnp.expand_dims(opponent_states, axis=-4)
+        broadcast_shape = opponent_states.shape[:-4] + player_states.shape[-3:-2] + opponent_states.shape[-3:]
+        broadcasted_opponent = jnp.broadcast_to(expanded_opponent_state, broadcast_shape)
+        
+        player_ids = obs.players.scalars[..., 0].astype(jnp.int32)
+        
+        # Create a mask that masks out the player's own state
+        mask = jnp.arange(player_states.shape[-3]) == player_ids[..., None]
+        masked_opponent_states = broadcasted_opponent * mask[..., None, None]
+        # I have no fucking clue what I'm doing but it jit compiles...
+        
+        cross_states = CrossPlayerEncoder(self.config.cross_encoder)(player_states, masked_opponent_states)
+        
+        merged_states = CrossAttentionEncoder(self.config.merge_encoder)(player_states, context=cross_states)
+        
+        return merged_states
 
-        # MHSA on opponent embeddings
-        opponent_state = PlayerEncoder(self.config.opponent_config)(obs.opponents) # [...B, P, S2, L]
-        
-        # Cross Attention on player and opponent embeddings
-        global_state = CrossPlayerEncoder(self.cross_attention_config)(player_state, opponent_state) # [...B, N, S1, L]
-        
-        return player_state, global_state
 
 """
 Stochastic MuZero Network:
