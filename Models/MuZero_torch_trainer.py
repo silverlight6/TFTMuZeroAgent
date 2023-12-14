@@ -1,8 +1,6 @@
 import time
-
 import config
 import collections
-import time
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -15,7 +13,7 @@ Prediction = collections.namedtuple(
 LossOutput = collections.namedtuple(
     'LossOutput',
     'value_loss reward_loss policy_loss tier_loss final_tier_loss champ_loss '
-    'value reward policy target_value target_reward l2_loss')
+    'value reward policy target_value target_reward l2_loss importance_weights')
 
 
 class Trainer(object):
@@ -48,16 +46,21 @@ class Trainer(object):
             param_group["lr"] = lr
 
     def train_network(self, batch, train_step):
+
         observation, action_history, value_mask, reward_mask, policy_mask, target_value, target_reward, target_policy, \
-            sample_set, tier_set, final_tier_set, champion_set = batch
+            sample_set, importance_weights, tier_set, final_tier_set, champion_set, position = batch
+
+        # disabling this for the moment while I get the rest working, will add back later.
+        self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
+
         self.adjust_lr(train_step)
 
         predictions = self.compute_forward(observation, action_history)
 
         sample_set, target_policy = split_batch(sample_set, target_policy)
 
-        self.compute_loss(predictions, target_value, target_reward, target_policy, sample_set,
-                          value_mask, reward_mask, policy_mask, tier_set, final_tier_set, champion_set)
+        self.compute_loss(predictions, target_value, target_reward, target_policy, sample_set,  value_mask,
+                          reward_mask, policy_mask, importance_weights, tier_set, final_tier_set, champion_set)
 
         self.backpropagate()
 
@@ -105,10 +108,11 @@ class Trainer(object):
         return predictions
 
     def compute_loss(self, predictions, target_value, target_reward, target_policy, sample_set,
-                     value_mask, reward_mask, policy_mask, tier_set, final_tier_set, champion_set):
+                     value_mask, reward_mask, policy_mask, importance_weights, tier_set, final_tier_set, champion_set):
         value_mask = torch.from_numpy(value_mask).to(config.DEVICE)
         reward_mask = torch.from_numpy(reward_mask).to(config.DEVICE)
         policy_mask = torch.from_numpy(policy_mask).to(config.DEVICE)
+        importance_weights = torch.from_numpy(importance_weights).to(config.DEVICE)
 
         target_value = self.encode_target(
             target_value, self.network.value_encoder).to(config.DEVICE)
@@ -127,7 +131,8 @@ class Trainer(object):
             policy=[],
             target_value=[],
             target_reward=[],
-            l2_loss=[]
+            l2_loss=[],
+            importance_weights=[]
         )
 
         for tstep, prediction in enumerate(predictions):
@@ -143,7 +148,7 @@ class Trainer(object):
             policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
             if config.CHAMP_DECIDER:
-                policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_ACTION_DIM)))
+                policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMP_DECIDER_ACTION_DIM)))
 
             # TODO: Figure out how to speed up the tier, final_tier, and champion losses
             tier_target = [tier_set[a][tstep] for a in range(config.BATCH_SIZE)]
@@ -162,7 +167,7 @@ class Trainer(object):
             champion_target = [list(b) for b in zip(*champion_target)]
             champ_loss = self.supervised_loss(prediction.champ, champion_target)
             self.scale_loss(tier_loss)
-            champ_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_ACTION_DIM)))
+            champ_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMPION_LIST_DIM)))
 
             # print("Losses tier {} final tier {} champion {}".format(tier_loss, final_tier_loss, champ_loss))
 
@@ -192,16 +197,20 @@ class Trainer(object):
         champ_loss = torch.stack(self.outputs.champ_loss, -1) * policy_mask
 
         self.loss = torch.sum(
-            value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING +
-            tier_loss * config.GAME_METRICS_SCALING + final_tier_loss * config.GAME_METRICS_SCALING +
+            value_loss * config.VALUE_LOSS_SCALING + reward_loss * config.REWARD_LOSS_SCALING +
+            policy_loss * config.POLICY_LOSS_SCALING + tier_loss * config.GAME_METRICS_SCALING +
+            final_tier_loss * config.GAME_METRICS_SCALING +
             champ_loss * config.GAME_METRICS_SCALING, -1).to(config.DEVICE)
-        self.loss = torch.sum(
-            value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
-            -1).to(config.DEVICE)
+        # self.loss = torch.sum(
+        #     value_loss + reward_loss * config.REWARD_LOSS_SCALING + policy_loss * config.POLICY_LOSS_SCALING,
+        #     -1).to(config.DEVICE)
 
-        self.loss += l2_loss
+        self.loss = self.loss * importance_weights
+
+        self.outputs.importance_weights.append(importance_weights[0].to('cpu'))
 
         self.loss = self.loss.mean()
+        self.loss += l2_loss
 
     def backpropagate(self):
         self.optimizer.zero_grad()
@@ -241,9 +250,13 @@ class Trainer(object):
         self.summary_writer.add_scalar(
             'episode_max/reward', torch.max(torch.stack(self.outputs.target_reward)), train_step)
 
+        self.summary_writer.add_scalar(
+            'episode_info/importance_weights', np.mean(self.outputs.importance_weights), train_step
+        )
+
         # TODO: Figure out a way to get rid of this if statement
         if config.CHAMP_DECIDER:
-            for i in range(len(config.CHAMPION_ACTION_DIM)):
+            for i in range(len(config.CHAMP_DECIDER_ACTION_DIM)):
                 self.summary_writer.add_scalar(
                     'episode_info/value_diff_{}'.format(i),
                     torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
@@ -312,7 +325,9 @@ class Trainer(object):
     def supervised_loss(self, prediction, target):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
-            loss += mean_squared_error_loss(pred_dim, torch.tensor(target_dim, dtype=torch.float32).to(config.DEVICE))
+            # print(pred_dim)
+            loss += cross_entropy_loss(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
+                                                              dtype=torch.float32).to(config.DEVICE))
         return loss
 
     def l2_regularization(self):
@@ -341,5 +356,5 @@ def cross_entropy_loss(prediction, target):
     return -(target * F.log_softmax(prediction, -1)).sum(-1)
 
 def mean_squared_error_loss(prediction, target):
-    return F.mse_loss(prediction, target).sum(-1)
+    return F.mse_loss(torch.softmax(prediction, -1), target).sum(-1)
 

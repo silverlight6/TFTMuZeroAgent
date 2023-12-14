@@ -46,6 +46,6 @@ def emptyList(listArr):
             return False
     return True
 
-def list_of_tests():
+def test_list():
     combatTest()
     rewardsTest()

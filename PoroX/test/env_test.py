@@ -16,12 +16,12 @@ def test_parallel_api(env):
 def test_ui_render():
     config = TFTConfig(render_mode="json")
     env = parallel_env(config)
-    
+
     obs, infos = env.reset()
-    
+
     terminated = {agent: False for agent in env.agents}
     truncated = {agent: False for agent in env.agents}
-    
+
     while not all(terminated.values()):
         actions = {
             agent: sample_action(env, obs, agent)

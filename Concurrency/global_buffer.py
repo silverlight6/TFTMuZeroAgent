@@ -1,24 +1,39 @@
 import config
+import time
 import numpy as np
+import asyncio
 from Concurrency.priority_queue import PriorityBuffer
 
-class GlobalBuffer:
-    def __init__(self):
-        self.gameplay_experiences = PriorityBuffer(10000)
-        self.average_position = PriorityBuffer(10000)
+
+class GlobalBuffer(object):
+    """
+    Global Buffer that all of the data workers send samples from completed games to.
+    Uses a priority buffer. Also does all batch assembly for the trainer.
+
+    Args:
+        storage_ptr (pointer): Pointer to the storage object to keep track of the current trainer status.
+    """
+
+    def __init__(self, storage_ptr):
+        self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.batch_size = config.BATCH_SIZE
+        self.storage_ptr = storage_ptr
+        self.average_position = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
+        self.current_batch = []
+        self.batch_full = False
+        self.ckpt_time = time.time_ns()
 
-    def sample_batch(self):
+    async def sample_batch(self):
         """
-                Prepares a batch for training. All preprocessing done here to avoid problems with data transfer between CPU
-                and GPU causing slowdowns.
+        Prepares a batch for training. All preprocessing done here to avoid problems with data transfer between CPU
+        and GPU causing slowdowns.
 
-                Conditions:
-                    - There is enough data in the buffer to train on.
+        Conditions:
+            - There is enough data in the buffer to train on.
 
-                Returns:
-                    A prepared batch ready for training.
-                """
+        Returns:
+            A prepared batch ready for training.
+        """
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
         target_reward_batch, target_policy_batch, value_mask_batch, reward_mask_batch = [], [], [], []
         sample_set_batch, tier_batch, final_tier_batch, champion_batch, position_batch = [], [], [], [], []
@@ -66,6 +81,11 @@ class GlobalBuffer:
         return np.array(data_list, dtype=object)
 
     def reshape_observation(self, obs_batch):
+        """
+        Description:
+            Switches the batch and dictionary axis.
+            The model requires the dictionary to be in the first axis and the batch to be the second axis.
+        """
         obs_reshaped = {}
 
         for obs in obs_batch:
@@ -79,29 +99,32 @@ class GlobalBuffer:
 
         return obs_reshaped
 
-    def store_replay_sequence(self, samples):
+    async def store_replay_sequence(self, samples):
+        """
+        Description:
+            Async method to store data into the global buffer. Some quick checking to ensure data validity.
+
+        Args:
+            samples (list): All samples from one game from one agent.
+        """
         for sample in samples[0]:
-            if self.gameplay_experiences.size / 25000 < 0.9 and sample[0] > 1:
+            if sample[0] > 1:
                 self.gameplay_experiences.insert(sample[0], sample[1])
                 self.average_position.insert(sample[0], samples[1])
 
-    def available_batch(self):
+    async def available_batch(self):
+        """
+        Description:
+            Async method to determine if there is enough data in the buffer to start up the trainer.
+
+        Outputs:
+            - True if there is enough data and the trainer is free, false otherwise.
+        """
         queue_length = self.gameplay_experiences.size
-        if queue_length >= self.batch_size:
+        if queue_length >= self.batch_size and not await self.storage_ptr.get_trainer_busy.remote():
+            print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
+            await self.storage_ptr.set_trainer_busy.remote(True)
             return True
+        await asyncio.sleep(2)
+        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False
-
-    # Leaving this transpose method here in case some model other than
-    # MuZero requires this in the future.
-    def transpose(self, matrix):
-        rows = len(matrix)
-        columns = len(matrix[0])
-
-        matrix_T = []
-        for j in range(columns):
-            row = []
-            for i in range(rows):
-                row.append(matrix[i][j])
-            matrix_T.append(row)
-
-        return matrix_T

@@ -1,12 +1,10 @@
 import numpy as np
 import config
-import ray
 import time
-from global_buffer import GlobalBuffer
 from Models.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
-    def __init__(self, g_buffer: GlobalBuffer):
+    def __init__(self):
         self.gameplay_experiences = []
         self.rewards = []
         self.policy_distributions = []
@@ -15,7 +13,6 @@ class ReplayBuffer:
         self.root_values = []
         self.team_tiers = []
         self.team_champions = []
-        self.g_buffer = g_buffer
         self.ending_position = -1
         self.ckpt_time = time.time_ns()
         self.local_ckpt_time = time.time_ns()
@@ -63,7 +60,8 @@ class ReplayBuffer:
     def set_ending_position(self, ending_position):
         self.ending_position = ending_position
 
-    def store_global_buffer(self):
+    def store_global_buffer(self, global_buffer):
+
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -80,14 +78,13 @@ class ReplayBuffer:
             num_steps = len(self.gameplay_experiences)
             reward_correction = []
             prev_reward = 0
+            output_sample_set = []
             for reward in self.rewards:
                 reward_correction.append(reward - prev_reward)  # Getting instant rewards not cumulative
                 prev_reward = reward
             for sample in samples:
                 # Hard coding because I would be required to do a transpose if I didn't
                 # and that takes a lot of time.
-                self.local_ckpt_time = time.time_ns()
-
                 action_set = []
                 value_mask_set = []
                 reward_mask_set = []
@@ -96,7 +93,7 @@ class ReplayBuffer:
                 reward_set = []
                 policy_set = []
                 sample_set = []
-                # priority_set = []
+                priority_set = []
                 tier_set = []
                 final_tier_set = []
                 champion_set = []
@@ -114,10 +111,10 @@ class ReplayBuffer:
                     for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
                         value += reward_corrected * config.DISCOUNT ** i
                     
-                    # priority = 0.001
-                    # if current_index < num_steps:
-                    #     priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
-                    # priority_set.append(priority)
+                    priority = 0.001
+                    if current_index < num_steps:
+                        priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
+                    priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
@@ -125,7 +122,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             if config.CHAMP_DECIDER:
-                                action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                                action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                             else:
                                 # To weed this out later when sampling the global buffer
                                 action_set.append([0, 0, 0])
@@ -143,7 +140,7 @@ class ReplayBuffer:
                         champion_set.append(self.team_champions[current_index])
                     elif current_index == num_steps - 1:
                         if config.CHAMP_DECIDER:
-                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                            action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0, 0, 0])
@@ -164,7 +161,7 @@ class ReplayBuffer:
                     else:
                         # States past the end of games is treated as absorbing states.
                         if config.CHAMP_DECIDER:
-                            action_set.append([0 for _ in range(len(config.CHAMPION_ACTION_DIM))])
+                            action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             # To weed this out later when sampling the global buffer
                             action_set.append([0, 0, 0])
@@ -184,27 +181,18 @@ class ReplayBuffer:
                     split_mapping, split_policy = split_sample_decide(sample_set[i], policy_set[i])
                     sample_set[i] = split_mapping
                     policy_set[i] = split_policy
-                
-                # formula for priority over unroll steps 
-                # priority = priority_set[0]
-                # div = -priority
-                # for i in priority_set:
-                #     div += i
-                # priority = priority / div
 
-                # if sample == 0 or sample > num_steps - config.UNROLL_STEPS - 1:
-                #     print("Sample {}".format(sample))
-                #     # print(self.gameplay_experiences[sample])
-                #     print(action_set)
-                #     print(sample_set)
-                #     print(reward_set)
-                #     print(tier_set)
-                #     print(final_tier_set)
-                #     print(champion_set)
-                # print("sample {} with num_step {}".format(sample, num_steps))
+                # formula for priority over unroll steps,
+                # adding small randomness to get around a priority queue error where it crashes if you add two items
+                # with identical priorities
+                priority = priority_set[0]
+                div = -priority
+                for i in priority_set:
+                    div += i
+                priority = 1 / (priority / div) + np.random.rand() * 0.00001
 
                 # priority = 1 / priority because priority queue stores in ascending order.
-                output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set,
-                                     reward_mask_set, policy_mask_set, value_set, reward_set,
-                                     policy_set, sample_set, tier_set, final_tier_set, champion_set]
-                ray.get(self.g_buffer.store_replay_sequence.remote(output_sample_set, self.ending_position))
+                output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
+                                                     reward_mask_set, policy_mask_set, value_set, reward_set,
+                                                     policy_set, sample_set, tier_set, final_tier_set, champion_set]])
+            global_buffer.store_replay_sequence([output_sample_set, self.ending_position])

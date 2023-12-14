@@ -406,7 +406,7 @@ def incomeTest4():
     assert p1.gold == 8, f"Interest calculation is messy, gold should be 8, it is {p1.gold}"
 
 
-def list_of_tests():
+def test_list():
     """tests all test cases"""
     azir_test()
     chosen_test()

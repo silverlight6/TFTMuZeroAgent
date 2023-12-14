@@ -1,5 +1,7 @@
 import functools
 from dataclasses import dataclass
+import config
+import numpy as np
 
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
@@ -9,9 +11,6 @@ from Simulator import pool
 from Simulator.game_round import Game_Round
 
 from Simulator.porox.player_manager import PlayerManager
-from Simulator.porox.ui import GameState
-
-from Simulator.porox.observation import ObservationBase, ActionBase, ObservationVector, ActionVector
 
 @dataclass
 class TFTConfig:
@@ -39,7 +38,7 @@ def parallel_env(config: TFTConfig = TFTConfig()):
         local_env = TFT_Simulator(config)
         local_env = wrappers.OrderEnforcingWrapper(local_env)
         return local_env
-    
+
     return parallel_wrapper_fn(env)()
 
 class TFT_Simulator(AECEnv):
@@ -94,11 +93,10 @@ class TFT_Simulator(AECEnv):
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
-        self.infos = {
-            "player_" + str(player_id): {
-                "actions_taken": 0,
-            } for player_id in range(self.num_players)
-        }
+        self.infos = {agent: {"state_empty": False, "player": self.player_manager.player_states[agent], "game_round": 1,
+                              "shop": self.player_manager.player_states[agent].shop, "start_turn": True,
+                              "actions_taken": 0, "save_battle": False}
+                      for agent in self.agents}
 
         # --- TFT Reward Related Variables ---
         self.rewards = {agent: 0 for agent in self.agents}
@@ -119,18 +117,18 @@ class TFT_Simulator(AECEnv):
         # --- TFT Game Round Related Variables ---
         self.game_round = Game_Round(
             self.player_manager.player_states, self.pool_obj, self.player_manager)
-        
+
         # --- TFT Starting Game State ---
         self.game_round.play_game_round() # Does first carousel and first minion wave
         self.player_manager.generate_shops(self.agents)
         self.player_manager.update_game_round()
-        
+
         # --- Game State for Render ---
         if self.render_mode is not None:
-            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path, action_class=self.action_class)
-        
+            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path, action_class=self.action_class)     
+
         # --- Agent Selector API ---
-        self._agent_selector = agent_selector(self.agents)
+        self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
 
     # -- Query Functions --
@@ -170,8 +168,9 @@ class TFT_Simulator(AECEnv):
                 self.num_dead += 1
                 self.num_alive -= 1
 
-                self.rewards[player_id] = self.calculate_winloss(
-                    self.num_alive + 1)
+                self.rewards[player_id] = self.calculate_winloss(self.num_alive + 1) \
+                                          + self.player_manager.player_states[player_id].reward
+                self._cumulative_rewards[player_id] = self.rewards[player_id]
 
                 self.player_manager.kill_player(player_id)
 
@@ -213,23 +212,33 @@ class TFT_Simulator(AECEnv):
         ):
             self._was_dead_step(action)
             return
-        
-        
+
+
         agent = self.agent_selection
         # Perform action and update observations
         self.player_manager.perform_action(agent, action)
 
         if self.render_mode is not None:
             self.game_state.store_action(agent, action)
-        
+
         # Update actions taken and truncate if needed
-        self.infos[agent]["actions_taken"] += 1
+        self.infos[agent] = {"state_empty": self.player_manager.player_states[self.agent_selection].state_empty(),
+                             "player": self.player_manager.player_states[self.agent_selection],
+                             "game_round": self.game_round.current_round,
+                             "shop": self.player_manager.player_states[agent].shop,
+                             "start_turn": False,
+                             "actions_taken": self.infos[agent]["actions_taken"] + 1}
+
+        self._clear_rewards()
+
         if self.taken_max_actions(agent):
             self.truncations[agent] = True
-            
+
         if self._agent_selector.is_last():
+
             # TODO: Update rewards
             ...
+            self.actions_taken += 1
             
             # If round is over
             if self.round_done():
@@ -251,27 +260,35 @@ class TFT_Simulator(AECEnv):
                             self.player_manager.kill_player(player_id)
                     
                     self.terminations = {a: True for a in self.agents}
-                    
+
                 # Update observations and start the next round
                 if not all(self.terminations.values()):
                     self.reset_max_actions()
                     self.game_round.start_round()
                     self.player_manager.update_game_round()
-                    
+
                     if self.render_mode is not None:
                         self.game_state.store_game_round()
-                    
+
                 # Update agent_selector if agents died this round
                 if len(killed_agents) > 0:
                     _live_agents = [a for a in self.agents if not self.terminations[a]]
                     self.agents = _live_agents
                     self._agent_selector.reinit(self.agents)
 
-                    
-        else:
-            self._clear_rewards()
-                    
+                # Update observations and start the next round
+                if not all(self.terminations.values()):
+                    self.reset_max_actions()
+                    self.game_round.start_round()
+                    self.player_manager.update_game_round()
+
+            for player_id in self.player_manager.player_states.keys():
+                if self.player_manager.player_states[player_id]:
+                    self.rewards[player_id] = self.player_manager.player_states[player_id].reward
+                    self._cumulative_rewards[player_id] = self.rewards[player_id]
+
         if len(self._agent_selector.agent_order):
             self.agent_selection = self._agent_selector.next()
-        self._accumulate_rewards()
+
+        self._deads_step_first()
         

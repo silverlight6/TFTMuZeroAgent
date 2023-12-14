@@ -16,6 +16,7 @@ from config import DEBUG, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, CHAMPION_ACTI
 
 from Simulator.porox.observation import ActionVector # Here for debugging purposes, will be removed later
 
+
 """
 Description - This is the base player class
               Stores all values relevant to an individual player in the game

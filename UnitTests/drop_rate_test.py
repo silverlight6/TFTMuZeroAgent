@@ -140,5 +140,5 @@ def verify(_pool, _player):
     return cost_1, cost_2, cost_3, cost_4, cost_5
 
 
-def list_of_tests():
+def test_list():
     verifyShopDropRate()

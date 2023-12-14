@@ -169,15 +169,15 @@ class PredNetwork(torch.nn.Module):
 
         self.comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
                                                [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                               config.TEAM_TIERS_VECTOR)
+                                               config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
 
         self.final_comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE * 4,
                                                      [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                                     config.TEAM_TIERS_VECTOR)
+                                                     config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
 
         self.champ_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
                                                 [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                                config.CHAMPION_ACTION_DIM)
+                                                config.CHAMPION_LIST_DIM, output_activation=torch.nn.ReLU)
 
     def forward(self, x, training=True):
         value_decision_input = torch.cat([
@@ -225,7 +225,8 @@ class PredNetwork(torch.nn.Module):
         if not training:
             return [decision, shop, movement, item, sell], value
         else:
-            comp = self.comp_predictor_network(x["game_comp"])
+            comp_input = torch.cat([x["game_comp"]], dim=-1)
+            comp = self.comp_predictor_network(comp_input)
 
             final_comp_input = torch.cat([
                 x["board"],
@@ -235,7 +236,8 @@ class PredNetwork(torch.nn.Module):
             ], dim=-1)
             final_comp = self.final_comp_predictor_network(final_comp_input)
 
-            champ = self.champ_predictor_network(x["board"])
+            champ_input = torch.cat([x["board"]], dim=-1)
+            champ = self.champ_predictor_network(champ_input)
             return [decision, shop, movement, item, sell], value, comp, final_comp, champ
 
 

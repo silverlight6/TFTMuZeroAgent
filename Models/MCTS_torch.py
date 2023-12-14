@@ -384,7 +384,6 @@ class MCTS:
                   policy_sizes - List
                       Number of samples per player, can change if legal actions < num_samples
     """
-
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = len(policy_logits[0])  # 8

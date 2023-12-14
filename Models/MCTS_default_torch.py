@@ -14,7 +14,6 @@ class Default_MCTS(MCTS):
     # TODO: Duplication value and shink size of array with duplicates.
     # I don't expect duplicates too often with an action space size of 2^57 but it's possible.
     def sample(self, policy_logits, string_mapping, num_samples):
-        # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = len(policy_logits[0])  # 8
 
         output_logits = []
@@ -32,7 +31,7 @@ class Default_MCTS(MCTS):
             for sample in samples:
                 sampled_action.append(str(sample))
 
-            for i in range(1, len(config.CHAMPION_ACTION_DIM)):
+            for i in range(1, len(config.CHAMP_DECIDER_ACTION_DIM)):
                 probs = self.softmax_stable(policy_logits[i][idx])
                 policy_range = np.arange(stop=len(policy_logits[i][idx]))
 

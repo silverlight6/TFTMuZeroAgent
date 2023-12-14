@@ -1,8 +1,8 @@
 import TestInterface.test_ai_interface as TestInterface
 import config
-from UnitTests.BaseUnitTest import runTest
+from UnitTests.base_unit_test import runTest
 import argparse
-import AI_interface
+from Concurrency import AI_interface
 
 
 def main():
@@ -27,13 +27,10 @@ def main():
         return
 
     interface = AI_interface.AIInterface()
-    interface.train_torch_model(starting_train_step=args.starting_episode)
-    # interface.collect_dummy_data()
-    # interface.testEnv()
-    # interface.PPO_algorithm()
-    #
-    # test_interface = TestInterface.AIInterface()
-    # test_interface.train_model(starting_train_step=args.starting_episode)
+    if config.CHAMP_DECIDER:
+        interface.train_guide_model(starting_train_step=args.starting_episode)
+    else:
+        interface.train_torch_model(starting_train_step=args.starting_episode)
 
 
 if __name__ == "__main__":

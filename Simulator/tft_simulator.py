@@ -69,7 +69,7 @@ class TFT_Simulator(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {"state_empty": False, "player": self.PLAYERS[agent],
                               "game_round": 1, "shop": self.step_function.shops[agent],
-                              "start_turn": True} for agent in self.agents}
+                              "start_turn": True, "save_battle": False} for agent in self.agents}
 
         self.state = {agent: {} for agent in self.agents}
         self.observations = {agent: {} for agent in self.agents}
@@ -90,12 +90,26 @@ class TFT_Simulator(AECEnv):
                 self.agents,
                 [
                     Dict({
-                        "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                        "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8),
-                                       MultiDiscrete(np.ones(5) * 2, dtype=np.int8),
-                                       MultiDiscrete(np.ones(28) * 2, dtype=np.int8),
-                                       MultiDiscrete(np.ones(9) * 2, dtype=np.int8),
-                                       MultiDiscrete(np.ones(10) * 2, dtype=np.int8)))
+                        "tensor": Dict({
+                            "shop": Box(low=-5, high=5, shape=(config.SHOP_INPUT_SIZE,)),
+                            "board": Box(low=-5, high=5, shape=(config.BOARD_INPUT_SIZE,)),
+                            "bench": Box(low=-5, high=5, shape=(config.BENCH_INPUT_SIZE,)),
+                            "states": Box(low=-5, high=5, shape=(config.STATE_INPUT_SIZE,)),
+                            "game_comp": Box(low=-5, high=5, shape=(config.COMP_INPUT_SIZE,)),
+                            "other_players": Box(low=-5, high=5, shape=(config.OTHER_PLAYER_INPUT_SIZE,))
+                        }),
+                        "mask": Tuple((
+                            Box(low=-2, high=2, shape=(6,)),
+                            Box(low=-2, high=2, shape=(5,)),
+                            Box(low=-2, high=2, shape=(28,)),
+                            Box(low=-2, high=2, shape=(9,)),
+                            Box(low=-2, high=2, shape=(10,)),
+                            Box(low=-2, high=2, shape=(3,)),
+                            Box(low=-2, high=2, shape=(37,)),
+                            Box(low=-2, high=2, shape=(37,)),
+                            Box(low=-2, high=2, shape=(10,)),
+                            Box(low=-2, high=2, shape=(28,)),
+                            Box(low=-2, high=2, shape=(28,))))
                     }) for _ in self.agents
                 ],
             )
@@ -157,7 +171,8 @@ class TFT_Simulator(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
 
         self.infos = {agent: {"state_empty": False, "player": self.PLAYERS[agent], "game_round": 1,
-                              "shop": self.step_function.shops[agent], "start_turn": True} for agent in self.agents}
+                              "shop": self.step_function.shops[agent], "start_turn": True,
+                              "save_battle": False} for agent in self.agents}
         self.actions = {agent: {} for agent in self.agents}
 
         self.rewards = {agent: 0 for agent in self.agents}
@@ -200,7 +215,8 @@ class TFT_Simulator(AECEnv):
                                             "player": self.PLAYERS[self.agent_selection],
                                             "game_round": self.game_round.current_round,
                                             "shop": self.step_function.shops[self.agent_selection],
-                                            "start_turn": False}
+                                            "start_turn": False,
+                                            "save_battle": self.game_round.save_current_battle[self.agent_selection]}
 
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
@@ -263,7 +279,8 @@ class TFT_Simulator(AECEnv):
                                 "player": self.PLAYERS[agent],
                                 "game_round": self.game_round.current_round,
                                 "shop": self.step_function.shops[agent],
-                                "start_turn": True
+                                "start_turn": True,
+                                "save_battle": self.game_round.save_current_battle[agent]
                             }
 
             for player_id in self.PLAYERS:
@@ -272,8 +289,8 @@ class TFT_Simulator(AECEnv):
                     self._cumulative_rewards[player_id] = self.rewards[player_id]
 
         # I think this if statement is needed in case all the agents die to the same minion round. a little sad.
-        # if len(self._agent_selector.agent_order):
-        #     self.agent_selection = self._agent_selector.next()
+        if len(self._agent_selector.agent_order):
+            self.agent_selection = self._agent_selector.next()
 
         # Probably not needed but doesn't hurt?
         self._deads_step_first()

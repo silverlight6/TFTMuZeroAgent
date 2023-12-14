@@ -22,6 +22,17 @@ class Minion:
         self.board = [[None for _ in range(4)] for _ in range(7)]
         self.opponent = None
 
+        self.win_streak = 0
+
+        # Including this to allow for certain types of training to be viable.
+        self.reward = 0
+
+    def won_round(self, damage):
+        self.reward += damage
+
+    def loss_round(self, damage):
+        self.reward -= damage
+
 
 # Round 1 Minions
 # Gain 18 gold worth of orbs

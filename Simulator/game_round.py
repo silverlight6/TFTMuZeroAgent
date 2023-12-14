@@ -28,6 +28,8 @@ class Game_Round:
         self.current_round = 0
         self.matchups = []
 
+        self.save_current_battle = {"player_" + str(player_id): False for player_id in range(config.NUM_PLAYERS)}
+
         log_to_file_start()
 
         self.game_rounds = [
@@ -96,7 +98,8 @@ class Game_Round:
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
                 config.WARLORD_WINS['red'] = players[match[1]].win_streak
 
-                if global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand():
+                standard_battle = global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand()
+                if standard_battle:
                     # Main simulation call
                     index_won, damage = champion.run(champion.champion, players[match[0]], players[match[1]],
                                                      self.ROUND_DAMAGE[round_index][1])
@@ -129,11 +132,21 @@ class Game_Round:
                     players[match[0]].loss_round(damage)
                     players[match[0]].health -= damage
                     players[match[1]].won_round(damage)
+
+                # If the battle was very close.
+                # TODO: Change to <= when running the software in non-test mode
+                if damage - self.ROUND_DAMAGE[round_index][1] != self.ROUND_DAMAGE[round_index][1] and standard_battle:
+                    self.save_current_battle["player_" + str(players[match[0]].player_num)] = True
+                    self.save_current_battle["player_" + str(players[match[1]].player_num)] = True
+                else:
+                    self.save_current_battle["player_" + str(players[match[0]].player_num)] = False
+                    self.save_current_battle["player_" + str(players[match[1]].player_num)] = False
                 players[match[0]].combat = True
                 players[match[1]].combat = True
 
             else:
                 players[match[0]].start_time = time.time_ns()
+                players[match[0]].opponent = players[match[2]]
                 config.WARLORD_WINS['blue'] = players[match[0]].win_streak
                 config.WARLORD_WINS['red'] = players[match[2]].win_streak
                 if global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand():
@@ -155,6 +168,45 @@ class Game_Round:
                                 alive.append(other)
                     for other in alive:
                         other.spill_reward(damage / len(alive))
+        log_to_file_combat()
+        return True
+
+    def single_combat_phase(self, players):
+        """
+        Plays a single round of combat between 2 players. Used by the positioning and item models for an environment.
+        Does not alter health of players, only tracks reward
+
+        args:
+            players: List[player 0, player 1]
+        """
+        # Fixing the time signature to see how long battles take.
+        players[0].start_time = time.time_ns()
+        players[1].start_time = time.time_ns()
+        config.WARLORD_WINS['blue'] = players[0].win_streak
+        config.WARLORD_WINS['red'] = players[1].win_streak
+
+        standard_battle = global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand()
+        if standard_battle:
+            # Main simulation call
+            index_won, damage = champion.run(champion.champion, players[0], players[1])
+        else:
+            index_won, damage = alt_auto_battle(players[0], players[1])
+
+        # Draw
+        if index_won == 0:
+            players[0].loss_round(damage)
+            players[0].loss_round(damage)
+
+        # Blue side won
+        if index_won == 1:
+            players[0].won_round(damage)
+            players[1].loss_round(damage)
+
+        # Red side won
+        if index_won == 2:
+            players[0].loss_round(damage)
+            players[1].won_round(damage)
+
         log_to_file_combat()
         return True
 
