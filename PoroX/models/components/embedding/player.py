@@ -6,8 +6,8 @@ import jax.numpy as jnp
 
 from PoroX.modules.observation import PlayerObservation
 
-from PoroX.architectures.components.scalar_encoder import ScalarEncoder
-from PoroX.architectures.components.fc import MLP
+from PoroX.models.components.scalar_encoder import ScalarEncoder
+from PoroX.models.components.fc import MLP
 
 # -- Config -- #
 @struct.dataclass

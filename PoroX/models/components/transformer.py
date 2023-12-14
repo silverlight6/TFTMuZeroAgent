@@ -2,7 +2,7 @@ from typing import Optional
 from flax import linen as nn
 from flax import struct
 
-from PoroX.architectures.components.fc import FFNSwiGLU
+from PoroX.models.components.fc import FFNSwiGLU
 
 @struct.dataclass
 class EncoderConfig:

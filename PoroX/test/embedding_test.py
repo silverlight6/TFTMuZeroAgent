@@ -8,12 +8,12 @@ from clu import parameter_overview
 
 from PoroX.modules.observation import PlayerObservation, BatchedObservation
 
-from PoroX.architectures.components.embedding import (
+from PoroX.models.components.embedding import (
     ChampionEmbedding, PlayerEmbedding, EmbeddingConfig,
     SegmentEncoding, PlayerSegmentFFN, SegmentConfig
 )
-from PoroX.architectures.mctx_agent import RepresentationNetwork
-from PoroX.architectures.config import test_config
+from PoroX.models.mctx_agent import RepresentationNetwork
+from PoroX.models.config import test_config
 
 import PoroX.modules.batch_utils as batch_utils
 from PoroX.test.utils import profile

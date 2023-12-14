@@ -1,11 +1,11 @@
 from flax import struct
 
-from PoroX.architectures.components.embedding import (
+from PoroX.models.components.embedding import (
     EmbeddingConfig,
     GlobalPlayerSegmentFFN, SegmentConfig, expand_segments,
 )
-from PoroX.architectures.components.transformer import EncoderConfig
-from PoroX.architectures.player_encoder import PlayerConfig
+from PoroX.models.components.transformer import EncoderConfig
+from PoroX.models.player_encoder import PlayerConfig
 
 @struct.dataclass
 class MuZeroConfig:

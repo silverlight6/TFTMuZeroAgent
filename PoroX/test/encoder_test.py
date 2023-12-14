@@ -5,7 +5,7 @@ import numpy as np
 import jax
 import time
 
-from PoroX.architectures.components.scalar_encoder import ScalarEncoder
+from PoroX.models.components.scalar_encoder import ScalarEncoder
 from PoroX.test.utils import profile
     
 @pytest.fixture

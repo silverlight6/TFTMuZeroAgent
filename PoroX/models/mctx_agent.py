@@ -5,9 +5,9 @@ import jax
 from PoroX.modules.observation import BatchedObservation
 import PoroX.modules.batch_utils as batch_utils
 
-from PoroX.architectures.player_encoder import PlayerEncoder, CrossPlayerEncoder, GlobalPlayerEncoder
-from PoroX.architectures.components.transformer import EncoderConfig, CrossAttentionEncoder
-from PoroX.architectures.config import MuZeroConfig
+from PoroX.models.player_encoder import PlayerEncoder, CrossPlayerEncoder, GlobalPlayerEncoder
+from PoroX.models.components.transformer import EncoderConfig, CrossAttentionEncoder
+from PoroX.models.config import MuZeroConfig
     
 class RepresentationNetwork(nn.Module):
     """

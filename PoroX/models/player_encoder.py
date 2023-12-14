@@ -5,12 +5,12 @@ import jax.numpy as jnp
 from PoroX.modules.observation import PlayerObservation, BatchedObservation
 import PoroX.modules.batch_utils as batch_utils
 
-from PoroX.architectures.components.embedding import (
+from PoroX.models.components.embedding import (
     PlayerEmbedding, EmbeddingConfig,
     SegmentEncoding, SegmentConfig, 
     LearnedPositionalEncoding
 )
-from PoroX.architectures.components.transformer import (
+from PoroX.models.components.transformer import (
     EncoderConfig,
     Encoder, CrossAttentionEncoder
 )

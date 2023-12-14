@@ -6,7 +6,7 @@ import jax.numpy as jnp
 
 from functools import partial
 
-from PoroX.architectures.components.fc import MLP, FFNSwiGLU
+from PoroX.models.components.fc import MLP, FFNSwiGLU
 
 # -- Config -- #
     
