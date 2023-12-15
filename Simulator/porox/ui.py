@@ -7,7 +7,6 @@ import os
 import numpy as np
 
 from Simulator.porox.player import Player
-from Simulator.porox.player_manager import action_space_to_action_v2
 from pprint import pprint
 
 @dataclass
@@ -72,8 +71,9 @@ class GameState:
     Action can be either a player action or an environment action.
 
     """
-    def __init__(self, players, game_round, render_path):
+    def __init__(self, players, game_round, render_path, action_class):
         self.players = players
+        self.action_class = action_class
         self.player_states = {player_id: self.create_player_state(player) for player_id, player in players.items()}
         self.player_actions = {player_id: [] for player_id in players}
         self.player_battles = {player_id: [] for player_id in players}
@@ -364,7 +364,7 @@ class GameState:
         """Called after the action is taken."""
         
         player = self.players[agent]
-        action = action_space_to_action_v2(action)
+        action = self.action_class.action_space_to_action(action)
         
         action_type, x1, x2 = action
         

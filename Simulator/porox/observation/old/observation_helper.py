@@ -5,8 +5,13 @@ from Simulator.origin_class_stats import tiers
 from Simulator.item_stats import items, trait_items, basic_items, item_builds
 from Simulator.pool_stats import cost_star_values
 
+from Simulator.porox.observation.util import Util
 from Simulator.porox.observation.normalization import batch_apply_z_score_champion, batch_apply_z_score_item
 
+"""
+DEPRECATED FILE: This file is no longer used in the simulator.
+It is kept here for reference.
+"""
 
 class ObservationHelper:
     """Observation object used to generate the observation for each player.
@@ -14,7 +19,7 @@ class ObservationHelper:
     Format:
     {
         "player": PlayerObservation
-        "mask": (5, 11, 38)  # Same as action space
+        "mask": (55, 38)  # Same as action space
         "opponents": [PlayerPublicObservation, PlayerPublicObservation, ...]
     }
 
@@ -105,26 +110,18 @@ class ObservationHelper:
     """
 
     def __init__(self):
+        self.util = Util()
+
         # -- Items -- #
-        # Create ids for items
-        self.item_ids = {k: idx for idx, k in enumerate(items.keys())}
-        # Reverse trait_items dictionary to get the trait from the item
-        self.item_traits = {v: k for k, v in trait_items.items()}
         self.item_vector_length = 11
 
-        self.item_components = set(basic_items)
-        self.full_items = set(item_builds.keys())
-
-        # -- Tiers -- #
-        # Create ids for tiers
-        self.tier_ids = {k: idx for idx, k in enumerate(tiers.keys())}
-        # 3 possible tiers from champion, 3 possible tiers from items, 1 possible tier from chosen
-        self.tier_champion_vector_length = 7
-        self.tier_player_vector_length = len(self.tier_ids) + 1
+        # -- Traits -- #
+        # 3 possible traits from champion, 3 possible traits from items, 1 possible trait from chosen
+        self.trait_champion_vector_length = 7
+        self.trait_player_vector_length = len(self.util.trait_ids)
 
         # -- Champions -- #
         # Create ids for champions
-        self.champion_ids = {k: idx for idx, k in enumerate(COST.keys())}
         self.stat_vector_length = 12
         # championID, items, origins, stats
         self.champion_vector_length = 1 + self.item_vector_length * \

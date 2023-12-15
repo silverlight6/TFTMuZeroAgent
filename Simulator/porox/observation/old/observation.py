@@ -1,7 +1,11 @@
 import numpy as np
 
-from Simulator.porox.observation.observation_helper import ObservationHelper
+from Simulator.porox.observation.old.observation_helper import ObservationHelper
 
+"""
+DEPRECATED FILE: This file is no longer used in the simulator.
+It is kept here for reference.
+"""
 
 class Observation(ObservationHelper):
     """Observation object that stores the observation for a player."""
@@ -191,138 +195,140 @@ class Observation(ObservationHelper):
             "traits": np.zeros(self.trait_vector.shape),
         }
 
-    def fetch_action_mask_v1(self):
-        """Fetch the action mask for a player.
+def action_space_to_action_v1(action):
+    """
+    Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
+                 11
+       |P|L|R|B|B|B|B|B|B|B|S| 
+       |b|b|b|B|B|B|B|B|B|B|S|
+    5  |b|b|b|B|B|B|B|B|B|B|S| x 38
+       |b|b|b|B|B|B|B|B|B|B|S|
+       |I|I|I|I|I|I|I|I|I|I|S|
 
-        Mask: (5, 11, 38)  # Same as action space
+    P = Pass Action
+    L = Level Action
+    R = Refresh Action
+    B = Board Slot
+    b = Bench Slot
+    I = Item Slot
+    S = Shop Slot
 
-        This one is a bit tricky, as we need to format each mask to match the action space.
+    Pass, Level, Refresh, and Shop are single action spaces,
+    meaning we only use the first dimension of the MultiDiscrete Space
 
-        Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
-                     11
-           |P|L|R|B|B|B|B|B|B|B|S|
-           |b|b|b|B|B|B|B|B|B|B|S|
-        5  |b|b|b|B|B|B|B|B|B|B|S| x 38
-           |b|b|b|B|B|B|B|B|B|B|S|
-           |I|I|I|I|I|I|I|I|I|I|S|
+    Board, Bench, and Item are multi action spaces,
+    meaning we use all 3 dimensions of the MultiDiscrete Space
 
-        P = Pass Action
-        |P| : 0
+    0-26 -> Board Slots
+    27-36 -> Bench Slots
+    37 -> Sell Slot
 
-        L = Level Action
-        |L| : 1
+    Board and Bench use all 38 dimensions,
+    Item only uses 37 dimensions, as you cannot sell an item
 
-        R = Refresh Action
-        |R| : 2
-
-        B = Board Slot
-          3           9 10
-       0 |B|B|B|B|B|B|B|
-         |B|B|B|B|B|B|B|
-         |B|B|B|B|B|B|B|
-       3 |B|B|B|B|B|B|B|
-       4
-
-        b = Bench Slot
-          0   2 3
-       1 |b|b|b|
-         |b|b|b|
-       3 |b|b|b|
-       4
-
-        I = Item Slot
-          0                 9 10
-       4 |I|I|I|I|I|I|I|I|I|I|
-       5
-
-        S = Shop Slot
-          10
-       0 |S|
-         |S|
-         |S|
-         |S|
-       4 |S|
-       5
-        """
-
-        action_mask = np.zeros((5, 11, 38))
-
-        # --- Pass is always available --- #
-        action_mask[0][0][0] = 1
-
-        # --- Level mask --- #
-        action_mask[0][1][0] = self.exp_mask
-
-        # --- Refresh mask --- #
-        action_mask[0][2][0] = self.refresh_mask
-
-        # --- Board mask --- #
-        # [0:4, 3:10, :] is the board mask
-        action_mask[0:4, 3:10, :] = np.rot90(self.move_sell_board_mask, k=1)
-
-        # --- Bench mask --- #
-        # Reshape from [9, 38] to [3, 3, 38]
-        bench_mask = self.move_sell_bench_mask.reshape(3, 3, 38)
-
-        # [0:3, 1:4, :] is the bench mask
-        action_mask[1:4, 0:3, :] = bench_mask
-
-        # --- Item mask --- #
-        # [4, 0:10, :] is the item mask
-        action_mask[4, 0:10, :] = self.item_mask
-
-        # --- Buy mask --- #
-        # [0:5, 10, :] is the buy mask
-        action_mask[0:5, 10, 0] = self.buy_mask
-
-        return action_mask
-
-    def fetch_action_mask_v2(self):
-        """Fetch action mask for v2 action space.
+    """
+    row, col, index = action // 38 // 11, action // 38 % 11, action % 38
+    
+    action = []
+    
+    # Pass Action
+    if row == 0 and col == 0:
+        action = [0, 0, 0]
+    # Level Action
+    elif row == 0 and col == 1:
+        action = [1, 0, 0]
+    # Refresh Action
+    elif row == 0 and col == 2:
+        action = [2, 0, 0]
+    
+    # Board Slot
+    elif row < 4 and (col >= 3 and col <= 9):
+        pos = (col-3, 3-row)
+        from_loc = pos[0] * 4 + pos[1]
         
-        v2 action space: (55, 38)
-            55 
-        1 | | | | | ... | | x 38
+        if index == 37:
+            action = [4, from_loc, 0]
+        else:
+            to_loc = index
+            action = [5, from_loc, to_loc]
+            
+    # Bench Slot
+    elif (row >= 1 and row <= 3) and (col >= 0 and col <= 2):
+        pos = (col, row-1)
+        from_loc = pos[0] * 3 + pos[1] + 28
         
-        55 :
-        0-27 -> Board Slots (28)
-        28-36 -> Bench Slots (9)
-        37-46 -> Item Bench Slots (10)
-        47-51 -> Shop Slots (5)
-        52 -> Pass
-        53 -> Level
-        54 -> Refresh
-        
-        38 :
-        0-27 -> Board Slots
-        28-36 -> Bench Slots
-        37 -> Sell Slot
-        
-        Saves me the headache of trying to figure out how to format the mask
-        """
-        
-        action_mask = np.zeros((55, 38))
-        
-        # --- Board mask --- #
-        # Board mask is currently (7, 4, 38), so we need to reshape it to (28, 38)
-        action_mask[0:28, :] = np.reshape(self.move_sell_board_mask, (-1, 38))
-        
-        # --- Bench mask --- #
-        action_mask[28:37, :] = self.move_sell_bench_mask
+        if index == 37:
+            action = [4, from_loc, 0]
+        else:
+            to_loc = index
+            action = [5, from_loc, to_loc]
+            
+    # Buy Slot
+    elif col == 10:
+        action = [3, row, 0]
+    
+    # Item Slot
+    elif row == 4 and col < 10:
+        from_loc = col
+        to_loc = index
+        action = [6, from_loc, to_loc]
 
-        # --- Item bench mask --- #
-        action_mask[37:47, :] = self.item_mask
+    return action
+    
+def action_space_to_action_v2(action):
+    """Converts an action sampled from the action space to an action that can be performed.
+    
+    Action Space: (55, 38)
+    55:
+    |0|1|2|3|4|5|6|7|8|9|10|11|12|13|...|27| (Board Slots)
+    |28|29|30|31|32|33|34|35|36| (Bench Slots)
+    |37|38|39|40|41|42|43|44|45|46| (Item Bench Slots)
+    |47|48|49|50|51| (Shop Slots)
+    |52| (Pass)
+    |53| (Level)
+    |54| (Refresh)
+    
+    38:
+    0-27 -> Board Slots
+    28-36 -> Bench Slots
+    37 -> Sell Slot
+    
+    """
+    
+    col, index = action // 38, action % 38
+    
+    action = []
+
+    # Board and Bench slots
+    if col < 37:
+        from_loc = col
+
+        if index == 37:
+            action = [4, from_loc, 0]
+        else:
+            to_loc = index
+            action = [5, from_loc, to_loc]
+            
+    # Item Bench Slots
+    elif col < 47:
+        from_loc = col - 37
+        to_loc = index
+        action = [6, from_loc, to_loc]
         
-        # --- Shop mask --- #
-        action_mask[47:52, 0] = self.buy_mask
-
-        # --- Pass is always available --- #
-        action_mask[52, 0] = 1
-
-        # --- Level mask --- #
-        action_mask[53, 0] = self.exp_mask
-
-        # --- Refresh mask --- #
-        action_mask[54, 0] = self.refresh_mask
+    # Shop Slots
+    elif col < 52:
+        action = [3, col - 47, 0]
         
-        return action_mask
+    # Pass Action
+    elif col == 52:
+        action = [0, 0, 0]
+    
+    # Level Action
+    elif col == 53:
+        action = [1, 0, 0]
+    
+    # Refresh Action
+    elif col == 54:
+        action = [2, 0, 0]
+        
+    return action
