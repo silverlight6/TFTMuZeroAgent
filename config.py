@@ -1,7 +1,7 @@
 import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
-NUM_CPUS = 28
+NUM_CPUS = 12
 GPU_SIZE_PER_WORKER = 0.16
 STORAGE_GPU_SIZE = 0.1
 BUFFER_GPU_SIZE = 0.01
@@ -74,7 +74,7 @@ N_HEAD_HIDDEN_LAYERS = 2
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = 15
-CONCURRENT_GAMES = 16
+CONCURRENT_GAMES = 1
 NUM_PLAYERS = 8 
 NUM_SAMPLES = 30
 NUM_SIMULATIONS = 50
