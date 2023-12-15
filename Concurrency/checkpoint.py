@@ -18,7 +18,7 @@ class Checkpoint:
     Description - 
     Outputs     - 
     """
-    def get_model(self):
+    def get_model(self) -> dict:
         if config.CHAMP_DECIDER:
             model = DefaultNetwork()
         else:
@@ -34,7 +34,7 @@ class Checkpoint:
     Description - 
     Inputs      - 
     """
-    def update_q_score(self, episode, prob):
+    def update_q_score(self, episode, prob) -> None:
         if episode != 0:
             self.q_score = self.q_score - (0.01 / (episode * prob))
         else:

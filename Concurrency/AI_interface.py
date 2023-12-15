@@ -28,7 +28,7 @@ class AIInterface:
     Inputs - starting_train_step: int
                 Checkpoint number to load. If 0, a fresh model will be created.
     '''
-    def train_torch_model(self, starting_train_step=0):
+    def train_torch_model(self, starting_train_step=0) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
             train_step = starting_train_step
@@ -68,7 +68,7 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
-    def train_guide_model(self, starting_train_step=0):
+    def train_guide_model(self, starting_train_step=0) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
             train_step = starting_train_step
@@ -119,7 +119,7 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
-    def collect_dummy_data(self):
+    def collect_dummy_data(self) -> None:
         """
         Method used for testing the simulator. It does not call any AI and generates random actions from numpy.
         Tests how fast the simulator is and if there are any bugs that can be caught via multiple runs.
@@ -139,7 +139,7 @@ class AIInterface:
                 observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
-    def evaluate(self):
+    def evaluate(self) -> None:
         """
         The global side to the evaluator. Creates a set of workers to test a series of agents.
         """

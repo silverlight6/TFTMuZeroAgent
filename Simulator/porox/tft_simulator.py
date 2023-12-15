@@ -4,7 +4,6 @@ import config
 import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import MultiDiscrete, Box, Dict, Tuple
-
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
 from pettingzoo.utils.conversions import parallel_wrapper_fn
@@ -13,8 +12,19 @@ from Simulator import pool
 from Simulator.game_round import Game_Round
 
 from Simulator.porox.player_manager import PlayerManager
+from Simulator.porox.ui import GameState
 
+from Simulator.porox.observation import ObservationBase, ActionBase, ObservationVector, ActionVector
 
+@dataclass
+class TFTConfig:
+    num_players: int = 8
+    max_actions_per_round: int = 15
+    reward_type: str = "winloss"
+    render_mode: str = None # "json" or None
+    render_path: str = "Games"
+    observation_class: ObservationBase = ObservationVector
+    action_class: ActionBase = ActionVector
 
 def env(config: TFTConfig = TFTConfig()):
     """
@@ -32,7 +42,7 @@ def parallel_env(config: TFTConfig = TFTConfig()):
         local_env = TFT_Simulator(config)
         local_env = wrappers.OrderEnforcingWrapper(local_env)
         return local_env
-
+    
     return parallel_wrapper_fn(env)()
 
 class TFT_Simulator(AECEnv):
@@ -46,150 +56,31 @@ class TFT_Simulator(AECEnv):
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents))))
         )
+        
+        self.update_config(config)
+        
+    def update_config(self, config: TFTConfig):
+        self.config = config
+
         self.render_mode = config.render_mode
         self.render_path = config.render_path
 
         # --- Config Variables ---
-        self.num_players = num_players
-        self.max_actions_per_round = max_actions_per_round
-        self.reward_type = reward_type
-
-        # --- TFT Game Related Variables ---
-        self.pool_obj = pool.pool()
-
-        # --- TFT Player Related Variables ---
-        self.player_manager = PlayerManager(self.num_players, self.pool_obj)
-
-        self.agents = self.possible_agents[:]
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
-        self.infos = {agent: {"state_empty": False, "player": self.player_manager.player_states[agent], "game_round": 1,
-                              "shop": self.player_manager.player_states[agent].shop, "start_turn": True,
-                              "actions_taken": 0, "save_battle": False}
-                      for agent in self.agents}
-
-        self.state = {agent: {} for agent in self.agents}
-        # self.observations = {agent: {} for agent in self.agents}
-        self.actions = {agent: {} for agent in self.agents}
-
-        self.default_agent = {agent: False for agent in self.agents}
-
-        # --- TFT Reward Related Variables ---
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
-
-        # --- TFT Game State Related Variables ---
-        self.num_dead = 0
-        self.num_alive = self.num_players
-
-        # --- TFT Game Round Related Variables ---
-        self.game_round = Game_Round(self.player_manager.player_states, self.pool_obj, self.player_manager)
-        # --- TFT Starting Game State ---
-        self.game_round.play_game_round()
-        self.player_manager.generate_shops(self.agents)
-        self.player_manager.update_game_round()
-
-        self.actions_taken = 0
-
-        self.observation_spaces = self.observation_spaces = dict(
-            zip(
-                self.agents,
-                [
-                    Dict({
-                        "tensor": Dict({
-                            "shop": Box(low=-5, high=5, shape=(config.SHOP_INPUT_SIZE,), dtype=np.float32),
-                            "board": Box(low=-5, high=5, shape=(config.BOARD_INPUT_SIZE,), dtype=np.float32),
-                            "bench": Box(low=-5, high=5, shape=(config.BENCH_INPUT_SIZE,), dtype=np.float32),
-                            "states": Box(low=-5, high=5, shape=(config.STATE_INPUT_SIZE,), dtype=np.float32),
-                            "game_comp": Box(low=-5, high=5, shape=(config.COMP_INPUT_SIZE,), dtype=np.float32),
-                            "other_players": Box(low=-5, high=5, shape=(config.OTHER_PLAYER_INPUT_SIZE,),
-                                                 dtype=np.float32)
-                        }),
-                        "mask": Tuple((
-                            Box(low=-2, high=2, shape=(6,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(5,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(28,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(9,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(10,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(3,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(37,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(37,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(10,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(28,), dtype=np.int8),
-                            Box(low=-2, high=2, shape=(28,), dtype=np.int8)))
-                    }) for _ in self.agents
-                ],
-            )
-        )
+        self.num_players = config.num_players
+        self.max_actions_per_round = config.max_actions_per_round
+        self.reward_type = config.reward_type
+        
+        # --- Observation and Action Classes ---
+        self.observation_class = config.observation_class
+        self.action_class = config.action_class
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
         return None
 
     @functools.lru_cache(maxsize=None)
-    def action_space_v1(self, agent):
-        """
-        Action Space is an 5x11x38 Dimension MultiDiscrete Tensor
-                     11
-           |P|L|R|B|B|B|B|B|B|B|S| 
-           |b|b|b|B|B|B|B|B|B|B|S|
-        5  |b|b|b|B|B|B|B|B|B|B|S| x 38
-           |b|b|b|B|B|B|B|B|B|B|S|
-           |I|I|I|I|I|I|I|I|I|I|S|
-
-        P = Pass Action
-        L = Level Action
-        R = Refresh Action
-        B = Board Slot
-        b = Bench Slot
-        I = Item Slot
-        S = Shop Slot
-
-        Pass, Level, Refresh, and Shop are single action spaces,
-        meaning we only use the first dimension of the MultiDiscrete Space
-
-        Board, Bench, and Item are multi action spaces,
-        meaning we use all 3 dimensions of the MultiDiscrete Space
-
-        0-26 -> Board Slots
-        27-36 -> Bench Slots
-        37 -> Sell Slot
-
-        Board and Bench use all 38 dimensions,
-        Item only uses 37 dimensions, as you cannot sell an item
-
-        """
-        return MultiDiscrete([5, 11, 38])
-    
-    @functools.lru_cache(maxsize=None)
-    def action_space_v2(self, agent):
-        """
-        v2 Action Space is an 55x38 Dimension MultiDiscrete Tensor to keep my sanity
-        
-        v2 action space: (55, 38)
-            55 
-        1 | | | | | ... | | x 38
-        
-        55 :
-        0-27 -> Board Slots (28)
-        28-36 -> Bench Slots (9)
-        37-46 -> Item Bench Slots (10)
-        47-51 -> Shop Slots (5)
-        52 -> Pass
-        53 -> Level
-        54 -> Refresh
-        
-        38 :
-        0-27 -> Board Slots
-        28-36 -> Bench Slots
-        37 -> Sell Slot
-        
-        """
-        return MultiDiscrete([55, 38])
-    
-    @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return self.action_space_v2(agent)
+        return self.action_class.action_space()
 
     def render(self):
         if self.render_mode is not None:
@@ -201,15 +92,16 @@ class TFT_Simulator(AECEnv):
     def close(self):
         pass
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed = None, options = None):
         # --- PettingZoo AECEnv Variables ---
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
-        self.infos = {agent: {"state_empty": False, "player": self.player_manager.player_states[agent], "game_round": 1,
-                              "shop": self.player_manager.player_states[agent].shop, "start_turn": True,
-                              "actions_taken": 0, "save_battle": False}
-                      for agent in self.agents}
+        self.infos = {
+            "player_" + str(player_id): {
+                "actions_taken": 0,
+            } for player_id in range(self.num_players)
+        }
 
         # --- TFT Reward Related Variables ---
         self.rewards = {agent: 0 for agent in self.agents}
@@ -223,23 +115,25 @@ class TFT_Simulator(AECEnv):
         self.pool_obj = pool.pool()
 
         # --- TFT Player Related Variables ---
-        self.player_manager = PlayerManager(self.num_players, self.pool_obj)
+        self.player_manager = PlayerManager(self.num_players,
+                                            self.pool_obj, 
+                                            self.config)
 
         # --- TFT Game Round Related Variables ---
         self.game_round = Game_Round(
             self.player_manager.player_states, self.pool_obj, self.player_manager)
-
+        
         # --- TFT Starting Game State ---
         self.game_round.play_game_round() # Does first carousel and first minion wave
         self.player_manager.generate_shops(self.agents)
         self.player_manager.update_game_round()
-
+        
         # --- Game State for Render ---
         if self.render_mode is not None:
-            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path)
-
+            self.game_state = GameState(self.player_manager.player_states, self.game_round, self.render_path, action_class=self.action_class)
+        
         # --- Agent Selector API ---
-        self._agent_selector.reinit(self.agents)
+        self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
 
     # -- Query Functions --
@@ -279,9 +173,8 @@ class TFT_Simulator(AECEnv):
                 self.num_dead += 1
                 self.num_alive -= 1
 
-                self.rewards[player_id] = self.calculate_winloss(self.num_alive + 1) \
-                                          + self.player_manager.player_states[player_id].reward
-                self._cumulative_rewards[player_id] = self.rewards[player_id]
+                self.rewards[player_id] = self.calculate_winloss(
+                    self.num_alive + 1)
 
                 self.player_manager.kill_player(player_id)
 
@@ -323,33 +216,23 @@ class TFT_Simulator(AECEnv):
         ):
             self._was_dead_step(action)
             return
-
-
+        
+        
         agent = self.agent_selection
         # Perform action and update observations
         self.player_manager.perform_action(agent, action)
 
         if self.render_mode is not None:
             self.game_state.store_action(agent, action)
-
+        
         # Update actions taken and truncate if needed
-        self.infos[agent] = {"state_empty": self.player_manager.player_states[self.agent_selection].state_empty(),
-                             "player": self.player_manager.player_states[self.agent_selection],
-                             "game_round": self.game_round.current_round,
-                             "shop": self.player_manager.player_states[agent].shop,
-                             "start_turn": False,
-                             "actions_taken": self.infos[agent]["actions_taken"] + 1}
-
-        self._clear_rewards()
-
+        self.infos[agent]["actions_taken"] += 1
         if self.taken_max_actions(agent):
             self.truncations[agent] = True
-
+            
         if self._agent_selector.is_last():
-
             # TODO: Update rewards
             ...
-            self.actions_taken += 1
             
             # If round is over
             if self.round_done():
@@ -371,35 +254,27 @@ class TFT_Simulator(AECEnv):
                             self.player_manager.kill_player(player_id)
                     
                     self.terminations = {a: True for a in self.agents}
-
+                    
                 # Update observations and start the next round
                 if not all(self.terminations.values()):
                     self.reset_max_actions()
                     self.game_round.start_round()
                     self.player_manager.update_game_round()
-
+                    
                     if self.render_mode is not None:
                         self.game_state.store_game_round()
-
+                    
                 # Update agent_selector if agents died this round
                 if len(killed_agents) > 0:
                     _live_agents = [a for a in self.agents if not self.terminations[a]]
                     self.agents = _live_agents
                     self._agent_selector.reinit(self.agents)
 
-                # Update observations and start the next round
-                if not all(self.terminations.values()):
-                    self.reset_max_actions()
-                    self.game_round.start_round()
-                    self.player_manager.update_game_round()
-
-            for player_id in self.player_manager.player_states.keys():
-                if self.player_manager.player_states[player_id]:
-                    self.rewards[player_id] = self.player_manager.player_states[player_id].reward
-                    self._cumulative_rewards[player_id] = self.rewards[player_id]
-
+                    
+        else:
+            self._clear_rewards()
+                    
         if len(self._agent_selector.agent_order):
             self.agent_selection = self._agent_selector.next()
-
-        self._deads_step_first()
+        self._accumulate_rewards()
         
