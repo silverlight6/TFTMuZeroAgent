@@ -4,7 +4,7 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 
-@ray.remote(num_gpus=0.7)
+@ray.remote(num_gpus=0.4)
 class PPO_Models:
     def __init__(self):
         ...
@@ -15,7 +15,7 @@ class PPO_Models:
         """
         position_gym = self.position_env(position_buffer)
         # register our environment, we have no config parameters
-        ray.tune.registry.register_env('TFT_Position_Simulator_s4_v0', lambda local_config: PettingZooEnv(position_gym))
+        ray.tune.registry.register_env('TFT_Position_Simulator_s4_v0', lambda local_config: position_gym)
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -40,13 +40,13 @@ class PPO_Models:
 
         algo.evaluate()
 
-    def PPO_item_algorithm(self, item_buffer):
+    # def PPO_item_algorithm(self, item_buffer):
         """
         The PPO implementation for the TFT project. This is an alternative to our MuZero model.
         """
         item_gymnasium = self.item_env(item_buffer)
         # register our environment, we have no config parameters
-        ray.tune.registry.register_env('TFT_Item_Simulator_s4_v0', lambda local_config: PettingZooEnv(item_gymnasium))
+        ray.tune.registry.register_env('TFT_Item_Simulator_s4_v0', lambda local_config: item_gymnasium)
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (

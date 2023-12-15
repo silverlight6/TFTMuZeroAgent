@@ -113,7 +113,7 @@ class AIInterface:
             # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
 
             workers.append(ppo_models.PPO_position_algorithm.remote(positioning_storage))
-            workers.append(ppo_models.PPO_item_algorithm.remote(item_storage))
+            #workers.append(ppo_models.PPO_item_algorithm.remote(item_storage))
 
             # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
             # ray.get(storage)

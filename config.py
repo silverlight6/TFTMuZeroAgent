@@ -1,7 +1,7 @@
 import numpy as np
 
 # IMPORTANT: Change this value to the number of cpu cores you want to use (recommended 80% of cpu)
-NUM_CPUS = 12
+NUM_CPUS = 14
 GPU_SIZE_PER_WORKER = 0.16
 STORAGE_GPU_SIZE = 0.1
 BUFFER_GPU_SIZE = 0.01
@@ -12,7 +12,7 @@ TRAINER_GPU_SIZE = 0.2
 
 DEVICE = "cuda"
 IMITATION = False
-CHAMP_DECIDER = False
+CHAMP_DECIDER = True
 
 # AI RELATED VALUES START HERE
 
