@@ -1,11 +1,11 @@
-import config
 import numpy as np
 from Models.MCTS_torch import MCTS
 
 class Default_MCTS(MCTS):
-    def __init__(self, network):
-        super().__init__(network)
+    def __init__(self, network, config):
+        super().__init__(network, config)
         self.default_string_mapping = []
+        self.champ_decider_action_dim = config.CHAMP_DECIDER_ACTION_DIM
 
     @staticmethod
     def encode_action_to_str(policy_logits, mask):
@@ -31,7 +31,7 @@ class Default_MCTS(MCTS):
             for sample in samples:
                 sampled_action.append(str(sample))
 
-            for i in range(1, len(config.CHAMP_DECIDER_ACTION_DIM)):
+            for i in range(1, len(self.champ_decider_action_dim)):
                 probs = self.softmax_stable(policy_logits[i][idx])
                 policy_range = np.arange(stop=len(policy_logits[i][idx]))
 

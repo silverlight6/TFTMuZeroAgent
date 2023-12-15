@@ -1,5 +1,4 @@
 import time
-import config
 import datetime
 from torch.utils.tensorboard import SummaryWriter
 from Models.MuZero_torch_trainer import Trainer
@@ -15,7 +14,7 @@ Inputs      -
             A buffer that all the individual game buffers send their information to.
 """
 class TrainingLoop:
-    def __init__(self, global_agent, global_buffer):
+    def __init__(self, global_agent, global_buffer, config):
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         self.summary_writer = SummaryWriter(train_log_dir)
@@ -23,6 +22,8 @@ class TrainingLoop:
         self.batch_size = config.BATCH_SIZE
         self.global_buffer = global_buffer
         self.ckpt_time = time.time_ns()
+        self.checkpoint_steps = config.CHECKPOINT_STEPS
+        self.champ_decider = config.CHAMP_DECIDER
 
     """
     Description - 
@@ -49,7 +50,7 @@ class TrainingLoop:
 
                 # Because the champ decider produces 125 samples per game whereas the standard trainer produces
                 # closer to 3000, setting the checkpoints to be produced more rapidly.
-                if (train_step % config.CHECKPOINT_STEPS == 0) or \
-                        (config.CHAMP_DECIDER and train_step % config.CHECKPOINT_STEPS % 10 == 0):
+                if (train_step % self.checkpoint_steps == 0) or \
+                        (self.champ_decider and train_step % self.checkpoint_steps % 10 == 0):
                     storage.store_checkpoint.remote(train_step)
                     global_agent.tft_save_model(train_step)

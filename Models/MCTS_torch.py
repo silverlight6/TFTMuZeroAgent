@@ -1,9 +1,9 @@
 import time
-import config
 import numpy as np
 import core.ctree.cytree as tree
 import torch
 import Models.MCTS_Util as util
+import config
 from typing import Dict
 
 """
@@ -18,7 +18,7 @@ EXPLANATION OF MCTS:
 
 
 class MCTS:
-    def __init__(self, network):
+    def __init__(self, network, model_config):
         self.network = network
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
@@ -26,6 +26,7 @@ class MCTS:
         self.ckpt_time = time.time_ns()
         self.default_string_mapping = util.create_default_mapping()
         self.max_depth_search = 0
+        self.model_config = model_config
 
     def policy(self, observation):
         with torch.no_grad():
@@ -43,7 +44,7 @@ class MCTS:
 
             noises = [
                 [
-                    np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
+                    np.random.dirichlet([self.model_config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
                                         ).astype(np.float32).tolist()
                     for j in range(self.NUM_ALIVE)
                 ]
@@ -56,12 +57,12 @@ class MCTS:
 
             # 0.003 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits_pool, string_mapping, self.model_config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+            roots_cpp = tree.Roots(self.NUM_ALIVE, self.model_config.NUM_SIMULATIONS, self.model_config.NUM_SAMPLES)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
@@ -85,7 +86,7 @@ class MCTS:
                 distributions = roots_distributions[i]
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
-                target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
+                target_policy.append([x / self.model_config.NUM_SIMULATIONS for x in distributions])
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
@@ -96,15 +97,15 @@ class MCTS:
         num = roots_cpp.num
         # config variables
         discount = config.DISCOUNT
-        pb_c_init = config.PB_C_INIT
-        pb_c_base = config.PB_C_BASE
+        pb_c_init = self.model_config.PB_C_INIT
+        pb_c_base = self.model_config.PB_C_BASE
         hidden_state_index_x = 0
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
-        for _ in range(config.NUM_SIMULATIONS):
+        for _ in range(self.model_config.NUM_SIMULATIONS):
             # prepare a result wrapper to transport results between python and c++ parts
             results = tree.ResultsWrapper(num)
             # 0.001 seconds
@@ -114,7 +115,7 @@ class MCTS:
 
             self.max_depth_search = sum(results.get_search_len()) / len(results.get_search_len())
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = {label: torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
+            tensors_states = {label: torch.empty((num_states, self.model_config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
                               for label in config.OBSERVATION_LABELS}
 
             # obtain the states for leaf nodes
@@ -139,7 +140,7 @@ class MCTS:
 
             # 0.014 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits, self.default_string_mapping, self.model_config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -154,7 +155,7 @@ class MCTS:
                                       min_max_stats_lst, results, mappings, policy_sizes)
 
     def add_exploration_noise(self, policy_logits, noises):
-        exploration_fraction = config.ROOT_EXPLORATION_FRACTION
+        exploration_fraction = self.model_config.ROOT_EXPLORATION_FRACTION
         for i in range(len(noises)):  # Batch
             for j in range(len(noises[i])):  # Policy Dims
                 for k in range(len(noises[i][j])):
@@ -456,9 +457,8 @@ class MCTS:
     def fill_metadata(self) -> Dict[str, str]:
         return {'network_id': str(self.network.training_steps())}
 
-    @staticmethod
-    def visit_softmax_temperature():
-        return config.VISIT_TEMPERATURE
+    def visit_softmax_temperature(self):
+        return self.model_config.VISIT_TEMPERATURE
 
 
 def masked_distribution(x, use_exp, mask=None):

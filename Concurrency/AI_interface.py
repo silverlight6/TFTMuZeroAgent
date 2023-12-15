@@ -1,8 +1,9 @@
 import time
-import config
 import ray
 import os
 import torch
+
+import config
 from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env
 from Models.replay_buffer_wrapper import BufferWrapper
@@ -28,31 +29,31 @@ class AIInterface:
     Inputs - starting_train_step: int
                 Checkpoint number to load. If 0, a fresh model will be created.
     '''
-    def train_torch_model(self, starting_train_step=0) -> None:
+    def train_torch_model(self, config) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
-            train_step = starting_train_step
+            train_step = config.STARTING_EPISODE
 
             workers = []
-            data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+            data_workers = [DataWorker.remote(rank, config) for rank in range(config.CONCURRENT_GAMES)]
             storage = Storage.remote(train_step)
             if config.CHAMP_DECIDER:
-                global_agent = DefaultNetwork()
+                global_agent = DefaultNetwork(config)
             else:
-                global_agent = TFTNetwork()
+                global_agent = TFTNetwork(config)
 
             global_agent_weights = ray.get(storage.get_target_model.remote())
             global_agent.set_weights(global_agent_weights)
             global_agent.to(config.DEVICE)
 
-            training_manager = TrainingManager(global_agent, storage)
+            training_manager = TrainingManager(global_agent, storage, config)
 
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            env = parallel_env()
+            env = parallel_env(config)
 
-            buffers = [BufferWrapper.remote()
+            buffers = [BufferWrapper.remote(config)
                        for _ in range(config.CONCURRENT_GAMES)]
 
             weights = ray.get(storage.get_target_model.remote())
@@ -68,24 +69,26 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
-    def train_guide_model(self, starting_train_step=0) -> None:
+    def train_guide_model(self) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
-            train_step = starting_train_step
+            train_step = config.STARTING_EPISODE
 
             workers = []
-            data_workers = [DataWorker.remote(rank) for rank in range(config.CONCURRENT_GAMES)]
+            modelConfig = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, modelConfig) for rank in range(config.CONCURRENT_GAMES)]
             storage = Storage.remote(train_step)
+
             if config.CHAMP_DECIDER:
-                global_agent = DefaultNetwork()
+                global_agent = DefaultNetwork(modelConfig)
             else:
-                global_agent = TFTNetwork()
+                global_agent = TFTNetwork(modelConfig)
 
             global_agent_weights = ray.get(storage.get_target_model.remote())
             global_agent.set_weights(global_agent_weights)
             global_agent.to(config.DEVICE)
 
-            training_manager = TrainingManager(global_agent, storage)
+            training_manager = TrainingManager(global_agent, storage, modelConfig)
 
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
@@ -139,7 +142,7 @@ class AIInterface:
                 observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
 
-    def evaluate(self) -> None:
+    def evaluate(self, config) -> None:
         """
         The global side to the evaluator. Creates a set of workers to test a series of agents.
         """

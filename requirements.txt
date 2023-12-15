@@ -4,14 +4,16 @@ dm-tree
 tabulate
 scikit-image
 scikit-learn~=1.2.0
-ray~=2.7.1
+ray~=2.2.0
 gym~=0.23.1
-PettingZoo~=1.23.1
-gymnasium~=0.28.0
-cython==0.29.23
+PettingZoo~=1.24.2
+gymnasium~=0.29.1
+cython~=0.29.33
 pytest==7.4.3
 
 setuptools~=66.1.1
 scipy~=1.10.1
-torch~=2.0.1
+torch~=1.13.1
 tensorboard
+
+python-dotenv~=1.0.0

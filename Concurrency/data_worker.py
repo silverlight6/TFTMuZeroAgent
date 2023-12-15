@@ -1,8 +1,9 @@
 import time
-import config
 import ray
 import copy
 import numpy as np
+from typing import List
+
 from Simulator import utils
 from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
@@ -10,6 +11,7 @@ from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
+from config import GPU_SIZE_PER_WORKER
 from pettingzoo.test import api_test, parallel_api_test as parallel_test
 
 '''
@@ -17,18 +19,18 @@ Description -
     Data workers are the "workers" or threads that collect game play experience. Can add scheduling_strategy="SPREAD" 
     to ray.remote. Not sure if it makes any difference
 '''
-@ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)
+@ray.remote(num_gpus=GPU_SIZE_PER_WORKER)
 class DataWorker(object):
-    def __init__(self, rank):
+    def __init__(self, rank, config):
         if config.CHAMP_DECIDER:
-            self.temp_model = DefaultNetwork()
-            self.agent_network = Default_MCTS(self.temp_model)
-            self.past_network = Default_MCTS(self.temp_model)
+            self.temp_model = DefaultNetwork(config)
+            self.agent_network = Default_MCTS(self.temp_model, config)
+            self.past_network = Default_MCTS(self.temp_model, config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
-            self.temp_model = TFTNetwork()
-            self.agent_network = MCTS(self.temp_model)
-            self.past_network = MCTS(self.temp_model)
+            self.temp_model = TFTNetwork(config)
+            self.agent_network = MCTS(self.temp_model, config)
+            self.past_network = MCTS(self.temp_model, config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player and for testing
@@ -43,6 +45,7 @@ class DataWorker(object):
         self.prob = 1
         self.past_episode = 0
         self.past_update = True
+        self.config = config
 
     '''
     Description -
@@ -94,8 +97,8 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION) \
-                                and np.random.rand() <= config.CHANCE_BUFFER_SEND:
+                        if not self.past_version[i] and (not self.default_agent[i] or self.config.IMITATION) \
+                                and np.random.rand() <= self.config.CHANCE_BUFFER_SEND:
                             if info[key]["player"]:
                                 current_comp[key] = info[key]["player"].get_team_tier_labels()
                                 current_champs[key] = info[key]["player"].get_team_champion_labels()
@@ -132,24 +135,24 @@ class DataWorker(object):
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
             # Disabling to test out the default agent
             self.live_game = np.random.rand() <= 0.5
-            self.past_version = [False for _ in range(config.NUM_PLAYERS)]
+            self.past_version = [False for _ in range(self.config.NUM_PLAYERS)]
             if not self.live_game:
                 [past_weights, self.past_episode, self.prob] = ray.get(storage.sample_past_model.remote())
-                self.past_network = MCTS(self.temp_model)
+                self.past_network = MCTS(self.temp_model, self.config)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
 
             # Reset the default agents for the next set of games.
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
-            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(self.config.NUM_PLAYERS)]
             # Ensure we have at least one model player
             # if all(self.default_agent):
             #     self.default_agent[0] = False
 
             # This is just to try to give the buffer some time to train on the data we have and not slow down our
             # buffers by sending thousands of store commands when the buffer is already full.
-            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
+            while global_buffer.buffer_size() > self.config.GLOBAL_BUFFER_SIZE * 0.8:
                 time.sleep(5)
 
             # So if I do not have a live game, I need to sample a past model
@@ -157,9 +160,9 @@ class DataWorker(object):
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = MCTS(self.temp_model)
+            self.agent_network = MCTS(self.temp_model, self.config)
             self.agent_network.network.set_weights(weights)
-            self.rank += config.CONCURRENT_GAMES
+            self.rank += self.config.CONCURRENT_GAMES
 
     '''
     Description -
@@ -270,7 +273,7 @@ class DataWorker(object):
                                                np.where(info[key]["player"].default_agent.item_guide == [0, 0, 1],
                                                         [0, 1, 0], [1, 0, 0])))
 
-            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(self.config.NUM_PLAYERS)]
 
             # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote(global_buffer)
@@ -279,9 +282,9 @@ class DataWorker(object):
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = Default_MCTS(self.temp_model)
+            self.agent_network = Default_MCTS(self.temp_model, self.config)
             self.agent_network.network.set_weights(weights)
-            self.rank += config.CONCURRENT_GAMES
+            self.rank += self.config.CONCURRENT_GAMES
 
 
     '''
@@ -297,7 +300,7 @@ class DataWorker(object):
         step_actions
             A dictionary of player_ids and actions usable by the environment.
     '''
-    def getStepActions(self, terminated, actions) -> dict[str: list[int]]:
+    def getStepActions(self, terminated, actions) -> dict[str: List[int]]:
         step_actions = {}
         i = 0
         for player_id, terminate in terminated.items():
@@ -361,7 +364,7 @@ class DataWorker(object):
         for i in range(num_items + 1):
             element_list[i] = int(split_action[i])
 
-        decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
+        decoded_action = np.zeros(self.config.ACTION_DIM[0] + self.config.ACTION_DIM[1] + self.config.ACTION_DIM[2])
         decoded_action[0:7] = utils.one_hot_encode_number(element_list[0], 7)
 
         if element_list[0] == 1:
@@ -389,7 +392,7 @@ class DataWorker(object):
             The dictionary of info that is returned from the simulator. Used for default agents.
     """
     def model_call(self, player_observation, info):
-        if config.IMITATION:
+        if self.config.IMITATION:
             actions, policy, string_samples, root_values = self.imitation_learning(info)
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):

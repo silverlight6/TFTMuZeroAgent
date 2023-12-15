@@ -1,24 +1,26 @@
-import config
 import torch
+import config
 import Models.MCTS_Util as utils
 from Models.abstract_model import AbstractNetwork
 from Models.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer
 
 
 class MuZeroDefaultNetwork(AbstractNetwork):
-    def __init__(self):
+    def __init__(self, model_config):
         super().__init__()
-        self.full_support_size = config.ENCODER_NUM_STEPS
+        self.full_support_size = model_config.ENCODER_NUM_STEPS
 
         self.representation_network = RepNetwork(
-            [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-            config.HIDDEN_STATE_SIZE
+            [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+            model_config.HIDDEN_STATE_SIZE
         )
 
-        self.dynamics_network = DynNetwork(input_size=config.HIDDEN_STATE_SIZE, num_layers=config.NUM_RNN_CELLS,
-                                           hidden_size=config.LSTM_SIZE)
+        self.dynamics_network = DynNetwork(input_size=model_config.HIDDEN_STATE_SIZE,
+                                           num_layers=model_config.NUM_RNN_CELLS,
+                                           hidden_size=model_config.LSTM_SIZE,
+                                           model_config=model_config)
 
-        self.prediction_network = PredNetwork()
+        self.prediction_network = PredNetwork(model_config)
 
         map_min = torch.tensor(-300., dtype=torch.float32)
         map_max = torch.tensor(300., dtype=torch.float32)
@@ -26,6 +28,8 @@ class MuZeroDefaultNetwork(AbstractNetwork):
             *tuple(map(utils.inverse_contractive_mapping, (map_min, map_max))), 0)
         self.reward_encoder = utils.ValueEncoder(
             *tuple(map(utils.inverse_contractive_mapping, (map_min, map_max))), 0)
+
+        self.model_config = model_config
 
     def prediction(self, encoded_state, training=False):
         if training:
@@ -91,12 +95,11 @@ class MuZeroDefaultNetwork(AbstractNetwork):
             states.extend(cell_state)
         return torch.cat(states, dim=-1)
 
-    @staticmethod
-    def flat_to_lstm_input(state):
+    def flat_to_lstm_input(self, state):
         """Maps flat vector to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in config.RNN_SIZES:
+        for size in self.model_config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
                       state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
 
@@ -138,32 +141,32 @@ class MuZeroDefaultNetwork(AbstractNetwork):
 
 
 class PredNetwork(torch.nn.Module):
-    def __init__(self) -> torch.nn.Module:
+    def __init__(self, model_config) -> torch.nn.Module:
         super().__init__()
 
         def feature_encoder(input_size, layer_sizes, output_size):
             return torch.nn.Sequential(mlp(input_size, layer_sizes, output_size)).to(config.DEVICE)
 
         # 6 is the number of separate dynamic networks
-        self.prediction_value_network = feature_encoder(config.HIDDEN_STATE_SIZE * 6,
-                                                        [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
-                                                        config.ENCODER_NUM_STEPS)
+        self.prediction_value_network = feature_encoder(model_config.HIDDEN_STATE_SIZE * 6,
+                                                        [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+                                                        model_config.ENCODER_NUM_STEPS)
 
         # This includes champion_list, sell_chosen, item_choice
-        self.default_guide_network = MultiMlp(config.HIDDEN_STATE_SIZE * 6,
-                                              [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.default_guide_network = MultiMlp(model_config.HIDDEN_STATE_SIZE * 6,
+                                              [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
                                               config.CHAMP_DECIDER_ACTION_DIM)
 
-        self.comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
-                                               [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                               [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
                                                config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
 
-        self.final_comp_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE * 4,
-                                                     [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.final_comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE * 4,
+                                                     [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
                                                      config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
 
-        self.champ_predictor_network = MultiMlp(config.HIDDEN_STATE_SIZE,
-                                                [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS,
+        self.champ_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                                [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
                                                 config.CHAMPION_LIST_DIM, output_activation=torch.nn.ReLU)
 
     def forward(self, x, training=True):
@@ -243,7 +246,7 @@ class RepNetwork(torch.nn.Module):
 
 
 class DynNetwork(torch.nn.Module):
-    def __init__(self, input_size, num_layers, hidden_size) -> torch.nn.Module:
+    def __init__(self, input_size, num_layers, hidden_size, model_config) -> torch.nn.Module:
         super().__init__()
 
         def memory():
@@ -253,7 +256,7 @@ class DynNetwork(torch.nn.Module):
             ).to(config.DEVICE)
 
         self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
-            config.LAYER_HIDDEN_SIZE] * 0, config.HIDDEN_STATE_SIZE)
+            model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE)
 
         self.dynamics_memory = torch.nn.ModuleDict({
             "shop": memory(),
@@ -264,7 +267,7 @@ class DynNetwork(torch.nn.Module):
             "other_players": memory()
         })
 
-        self.dynamics_reward_network = mlp(input_size * 6, [1] * 1, config.ENCODER_NUM_STEPS)
+        self.dynamics_reward_network = mlp(input_size * 6, [1] * 1, model_config.ENCODER_NUM_STEPS)
 
     def forward(self, x, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)

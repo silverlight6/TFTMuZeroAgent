@@ -1,13 +1,13 @@
 import ray
-import config
 import glob
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.checkpoint import Checkpoint
+from config import STORAGE_GPU_SIZE
 
 
-@ray.remote(num_gpus=config.STORAGE_GPU_SIZE, num_cpus=0.1)
+@ray.remote(num_gpus=STORAGE_GPU_SIZE, num_cpus=0.1)
 class Storage:
     """
     Class that stores the global agent and other meta data that all of the data workers can access.
@@ -16,7 +16,7 @@ class Storage:
     Args:
         episode (int): Checkpoint number to load in for the global agent.
     """
-    def __init__(self, episode):
+    def __init__(self, episode, config):
         self.target_model = self.load_model()
         if episode > 0:
             self.target_model.tft_load_model(episode)
@@ -29,6 +29,7 @@ class Storage:
         self.max_q_value = 1
         self.store_base_checkpoint()
         self.populate_checkpoints()
+        self.config = config
 
     def get_model(self):
         """
@@ -48,10 +49,10 @@ class Storage:
             Pytorch Model Weights:
                 Weights for a fresh model
         """
-        if config.CHAMP_DECIDER:
-            return DefaultNetwork()
+        if self.config.CHAMP_DECIDER:
+            return DefaultNetwork(self.config)
         else:
-            return TFTNetwork()
+            return TFTNetwork(self.config)
 
     def get_target_model(self):
         """

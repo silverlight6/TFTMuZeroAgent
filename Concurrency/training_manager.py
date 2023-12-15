@@ -1,9 +1,8 @@
 import ray
 import asyncio
-
-import config
 from Concurrency.training_loop import TrainingLoop
 from Concurrency.global_buffer import GlobalBuffer
+from config import TRAINER_GPU_SIZE
 
 
 class Empty(Exception):
@@ -24,8 +23,8 @@ Inputs      -
         An object that stores global information like the weights of the global model and current training progress
 """
 class TrainingManager:
-    def __init__(self, global_agent, storage):
-        self.training_ray_manager = _TrainActor.remote(global_agent, storage)
+    def __init__(self, global_agent, storage, config):
+        self.training_ray_manager = _TrainActor.remote(global_agent, storage, config)
         self.global_agent = global_agent
 
     """
@@ -70,11 +69,11 @@ Inputs      -
     storage
         An object that stores global information like the weights of the global model and current training progress
 """
-@ray.remote(num_gpus=config.TRAINER_GPU_SIZE)
+@ray.remote(num_gpus=TRAINER_GPU_SIZE)
 class _TrainActor:
-    def __init__(self, global_agent, storage):
-        self.global_buffer = GlobalBuffer(storage)
-        self.training_loop = TrainingLoop(global_agent, self.global_buffer)
+    def __init__(self, global_agent, storage, config):
+        self.global_buffer = GlobalBuffer(storage, config)
+        self.training_loop = TrainingLoop(global_agent, self.global_buffer, config)
 
     """
     Description - 

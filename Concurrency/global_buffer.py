@@ -1,4 +1,3 @@
-import config
 import time
 import numpy as np
 import asyncio
@@ -14,7 +13,7 @@ class GlobalBuffer(object):
         storage_ptr (pointer): Pointer to the storage object to keep track of the current trainer status.
     """
 
-    def __init__(self, storage_ptr):
+    def __init__(self, storage_ptr, config):
         self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
