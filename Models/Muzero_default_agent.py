@@ -89,14 +89,14 @@ class MuZeroDefaultNetwork(AbstractNetwork):
 
     @staticmethod
     def rnn_to_flat(state):
-        """Maps LSTM state to flat vector."""
+        """Maps LSTM state to flat token."""
         states = []
         for cell_state in state:
             states.extend(cell_state)
         return torch.cat(states, dim=-1)
 
     def flat_to_lstm_input(self, state):
-        """Maps flat vector to LSTM state."""
+        """Maps flat token to LSTM state."""
         tensors = []
         cur_idx = 0
         for size in self.model_config.RNN_SIZES:
@@ -251,7 +251,7 @@ class DynNetwork(torch.nn.Module):
 
         def memory():
             return torch.nn.Sequential(
-                MemoryLayer(input_size, num_layers, hidden_size),
+                MemoryLayer(input_size, num_layers, hidden_size, model_config),
                 Normalize()
             ).to(config.DEVICE)
 

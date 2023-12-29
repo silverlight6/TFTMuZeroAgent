@@ -2,6 +2,7 @@
 .env
 /.idea/
 /.pytest_cache
+UnitTests/.pytest_cache
 suggestions.py
 /__pycache__
 /Simulator/__pycache__

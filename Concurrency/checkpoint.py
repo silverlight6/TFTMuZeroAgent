@@ -9,9 +9,10 @@ Description -
 Inputs      -
 """
 class Checkpoint:
-    def __init__(self, epoch, q_score):
+    def __init__(self, epoch, q_score, model_config):
         self.epoch = epoch
         self.q_score = q_score
+        self.model_config = model_config
 
     # TODO: Add description / outputs when doing unit testing on this method
     """
@@ -20,9 +21,9 @@ class Checkpoint:
     """
     def get_model(self) -> dict:
         if config.CHAMP_DECIDER:
-            model = DefaultNetwork()
+            model = DefaultNetwork(self.model_config)
         else:
-            model = TFTNetwork()
+            model = TFTNetwork(self.model_config)
         if self.epoch == 0:
             return model.get_weights()
         else:

@@ -1,6 +1,7 @@
 import torch
 import config
 import torch.nn as nn
+import time
 
 def mlp(
         input_size,
@@ -97,7 +98,8 @@ def normalize(x):
     min_encoded_state = x.min(1, keepdim=True)[0]
     max_encoded_state = x.max(1, keepdim=True)[0]
     scale_encoded_state = max_encoded_state - min_encoded_state
-    scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
+    scale_encoded_state = torch.where(scale_encoded_state < 1e-5, scale_encoded_state + 1e-5, scale_encoded_state)
+    # scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
     encoded_state_normalized = (
         x - min_encoded_state
     ) / scale_encoded_state
@@ -112,9 +114,11 @@ class Normalize(nn.Module):
         return normalize(x)
 
 class MemoryLayer(nn.Module):
-    def __init__(self, input_size, num_layers, hidden_size):
+    def __init__(self, input_size, num_layers, hidden_size, model_config):
         super().__init__()
-        self.lstm = torch.nn.LSTM(input_size=input_size, num_layers=num_layers, hidden_size=hidden_size, batch_first=True).to(config.DEVICE)
+        self.lstm = torch.nn.LSTM(input_size=input_size, num_layers=num_layers,
+                                  hidden_size=hidden_size, batch_first=True).to(config.DEVICE)
+        self.model_config = model_config
     
     def forward(self, x):
         inputs, hidden_state = x
@@ -124,12 +128,11 @@ class MemoryLayer(nn.Module):
             
         return self.rnn_to_flat(new_nested_states)
         
-    @staticmethod
-    def flat_to_lstm_input(state):
-        """Maps flat vector to LSTM state."""
+    def flat_to_lstm_input(self, state):
+        """Maps flat token to LSTM state."""
         tensors = []
         cur_idx = 0
-        for size in config.RNN_SIZES:
+        for size in self.model_config.RNN_SIZES:
             states = (state[Ellipsis, cur_idx:cur_idx + size],
                       state[Ellipsis, cur_idx + size:cur_idx + 2 * size])
 
@@ -140,7 +143,7 @@ class MemoryLayer(nn.Module):
 
     @staticmethod
     def rnn_to_flat(state):
-        """Maps LSTM state to flat vector."""
+        """Maps LSTM state to flat token."""
         states = []
         for cell_state in state:
             states.extend(cell_state)

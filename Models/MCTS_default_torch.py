@@ -1,9 +1,10 @@
+import config
 import numpy as np
 from Models.MCTS_torch import MCTS
 
 class Default_MCTS(MCTS):
-    def __init__(self, network, config):
-        super().__init__(network, config)
+    def __init__(self, network, model_config):
+        super().__init__(network, model_config)
         self.default_string_mapping = []
         self.champ_decider_action_dim = config.CHAMP_DECIDER_ACTION_DIM
 
@@ -24,8 +25,8 @@ class Default_MCTS(MCTS):
         for idx in range(batch_size):
             local_byte = []
             sampled_action = []
-            probs = self.softmax_stable(policy_logits[0][idx])
-            policy_range = np.arange(stop=len(policy_logits[0][idx]))
+            probs = self.softmax_stable(policy_logits[idx])
+            policy_range = np.arange(stop=len(policy_logits[idx]))
 
             samples = np.random.choice(a=policy_range, p=probs, size=num_samples)
             for sample in samples:

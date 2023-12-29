@@ -17,3 +17,6 @@ torch~=1.13.1
 tensorboard
 
 python-dotenv~=1.0.0
+jax~=0.4.13
+flax~=0.7.2
+chex~=0.1.7

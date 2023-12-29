@@ -30,7 +30,7 @@ def expand_segments(segments):
     
     # Ignore the following. It's not worth the time to fight the jit compiler...
 
-    # Just fill in the rest of the segment vector with the padding segment
+    # Just fill in the rest of the segment token with the padding segment
     # padding_segment = jnp.ones(num_elements - len(expanded_segment_vector)) * (num_segments)
 
     # segment_vector = jnp.concatenate([
@@ -46,7 +46,7 @@ class SegmentEncoding(nn.Module):
     Create segment encodings based on an array of segment lengths and add them to the input
     Ex: [3, 3, 3] -> [0, 0, 0, 1, 1, 1, 2, 2, 2]
     
-    If the length of the value vector is longer than the sum of the segments, then we add a new segment
+    If the length of the value token is longer than the sum of the segments, then we add a new segment
     Ex: [3, 3, 3] -> [0, 0, 0, 1, 1, 1, 2, 2, 2]  (length of 9)
         input: jnp.ones(10) (need one more segment)
         segment_vector: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]

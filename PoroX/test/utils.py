@@ -6,17 +6,17 @@ import numpy as np
 
 from pettingzoo.utils.env import ActionType, AgentID, ObsType, ParallelEnv
 
-from Simulator.porox.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_simulator import parallel_env, TFTConfig
 
 from PoroX.modules.observation import PoroXObservation
 
-from Simulator.porox.player import Player
+from Simulator.player import Player
 from Simulator import pool
 
 # --- Utils ---
 def sample_action(
     env: ParallelEnv[AgentID, ObsType, ActionType],
-    obs: dict[AgentID, ObsType],
+    obs: dict,
     agent: AgentID,
 ) -> ActionType:
     agent_obs = obs[agent]
@@ -55,7 +55,7 @@ def batched_env_obs(N):
                 or (agent in truncated and not truncated[agent])
             )
         }
-        obs,rew,terminated,truncated,info = env.step(actions)
+        obs, rew, terminated, truncated, info = env.step(actions)
         
         obs_list.append(obs)
 

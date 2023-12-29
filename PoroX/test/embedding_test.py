@@ -33,7 +33,7 @@ def test_champion_embedding(first_obs, key):
     x = apply(variables, champion_vectors)
     print(x.shape)
     
-    N=1000
+    N = 1000
     profile(N, apply, variables, champion_vectors)
     
 def test_player_embedding(first_obs, key):
@@ -51,7 +51,7 @@ def test_player_embedding(first_obs, key):
     x = apply(variables, players)
     print(x.shape)
     
-    N=1000
+    N = 1000
     profile(N, apply, variables, players)
     
 def test_opponent_embedding(first_obs, key):

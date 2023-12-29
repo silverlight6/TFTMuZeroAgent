@@ -3,7 +3,7 @@ import time
 import functools
 import numpy as np
 from Simulator import pool
-from Simulator.observation import Observation
+from Simulator.observation.vector.observation import ObservationVector
 from Simulator.step_function import Step_Function
 from Simulator.game_round import Game_Round
 from Simulator.player import Player as player_class
@@ -29,7 +29,7 @@ class TFT_Position_Simulator(ParallelEnv):
         self.possible_agents = ["player_0"]
         self.agents = self.possible_agents[:]
 
-        self.game_observations = Observation()
+        self.game_observations = ObservationVector()
         self.render_mode = None
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
@@ -66,7 +66,7 @@ class TFT_Position_Simulator(ParallelEnv):
         self.PLAYER = player
         self.PLAYER.reinit_numpy_arrays()
         self.PLAYER.opponent = opponent
-        self.game_observations = Observation()
+        self.game_observations = ObservationVector(self.PLAYER)
         self.game_observations.generate_other_player_vectors(self.PLAYER, other_players)
 
         self.agents = ["player_0"]

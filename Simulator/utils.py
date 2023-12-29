@@ -61,10 +61,18 @@ def x_y_to_1d_coord(x1, y1):
     if y1 == -1:
         return x1 + 28
     else:
-        return 7 * y1 + x1
+        return x1 * 4 + y1
 
+def coord_to_x_y(dcord):
+    """ Calculates the 2 dimentional position from an index.
 
-def position_coord_to_x_y(coord):
-    x = coord % 7
-    y = 3 - (coord // 7)
+    Args:
+        dcord (int): Index of the position.
+
+    Returns:
+        int: x coordinate of the position.
+        int: y coordinate of the position.
+    """
+    x = dcord // 4
+    y = dcord - (x * 4)
     return x, y

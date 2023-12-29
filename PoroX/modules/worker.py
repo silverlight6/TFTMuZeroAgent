@@ -13,4 +13,4 @@ def collect_gameplay_experience(env, agent):
         batched_obs = batch_utils.collect_obs(obs)
         actions = agent.act(batched_obs)
 
-        obs, rewards ,terminated, truncated, infos = env.step(actions)
+        obs, rewards, terminated, truncated, infos = env.step(actions)

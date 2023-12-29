@@ -9,16 +9,16 @@ import numpy as np
 
 
 class DataWorker(object):
-    def __init__(self, rank):
+    def __init__(self, rank, model_config):
         if config.CHAMP_DECIDER:
-            self.temp_model = DefaultNetwork()
-            self.agent_network = Default_MCTS(self.temp_model)
-            self.past_network = Default_MCTS(self.temp_model)
+            self.temp_model = DefaultNetwork(model_config)
+            self.agent_network = Default_MCTS(self.temp_model, model_config)
+            self.past_network = Default_MCTS(self.temp_model, model_config)
             self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
         else:
-            self.temp_model = TFTNetwork()
-            self.agent_network = MCTS(self.temp_model)
-            self.past_network = MCTS(self.temp_model)
+            self.temp_model = TFTNetwork(model_config)
+            self.agent_network = MCTS(self.temp_model, model_config)
+            self.past_network = MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player and for testing
@@ -33,7 +33,6 @@ class DataWorker(object):
         self.prob = 1
         self.past_episode = 0
         self.past_update = True
-
 
     '''
     Description -
@@ -51,7 +50,6 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-
     def collect_gameplay_experience(self, env, buffers, weights):
         self.agent_network.network.set_weights(weights)
         self.past_network.network.set_weights(weights)
@@ -115,7 +113,6 @@ class DataWorker(object):
         buffers.store_global_buffer()
         self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         self.past_version = [False for _ in range(config.NUM_PLAYERS)]
-
 
     def collect_default_experience(self, env, buffers, weights):
         self.agent_network.network.set_weights(weights)
@@ -203,42 +200,53 @@ class DataWorker(object):
         Turns a dictionary of player observations into a list of list format that the model can use.
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
-
     def observation_to_input(self, observation):
         masks = []
         keys = []
+        scalars = []
         shop = []
         board = []
         bench = []
-        states = []
-        game_comp = []
+        items = []
+        traits = []
         other_players = []
         for key, obs in observation.items():
-            shop.append(obs["tensor"]["shop"])
-            board.append(obs["tensor"]["board"])
-            bench.append(obs["tensor"]["bench"])
-            states.append(obs["tensor"]["states"])
-            game_comp.append(obs["tensor"]["game_comp"])
-            other_players.append(obs["tensor"]["other_players"])
-            masks.append(obs["mask"])
+            scalars.append(obs["player"]["scalars"])
+            shop.append(obs["player"]["shop"])
+            board.append(obs["player"]["board"])
+            bench.append(obs["player"]["bench"])
+            items.append(obs["player"]["items"])
+            traits.append(obs["player"]["traits"])
+            local_other_players = np.concatenate([obs["opponents"][0]["board"], obs["opponents"][0]["scalars"],
+                                                  obs["opponents"][0]["traits"]], axis=-1)
+            for x in range(1, config.NUM_PLAYERS):
+                local_other_players = np.concatenate(
+                    [local_other_players, (np.concatenate([obs["opponents"][x]["board"],
+                                                           obs["opponents"][x]["scalars"],
+                                                           obs["opponents"][x]["traits"]], axis=-1))], )
+            other_players.append(local_other_players)
+            masks.append(obs["action_mask"])
             keys.append(key)
         tensors = {
+            "scalars": np.array(scalars),
             "shop": np.array(shop),
             "board": np.array(board),
             "bench": np.array(bench),
-            "states": np.array(states),
-            "game_comp": np.array(game_comp),
+            "items": np.array(items),
+            "traits": np.array(traits),
             "other_players": np.array(other_players)
         }
+        masks = np.array(masks)
         return [tensors, masks, keys]
 
     def get_obs_idx(self, observation, idx):
         return {
+            "scalars": observation["scalars"][idx],
             "shop": observation["shop"][idx],
             "board": observation["board"][idx],
             "bench": observation["bench"][idx],
-            "states": observation["states"][idx],
-            "game_comp": observation["game_comp"][idx],
+            "items": observation["items"][idx],
+            "traits": observation["traits"][idx],
             "other_players": observation["other_players"][idx]
         }
 
@@ -297,8 +305,8 @@ class DataWorker(object):
         return actions, policy, string_samples, root_values
 
     def mixed_ai_model_call(self, player_observation):
-        # I need to send the observations that are part of the past players to one vector
-        # and send the ones that are part of the live players to another vector
+        # I need to send the observations that are part of the past players to one token
+        # and send the ones that are part of the live players to another token
         # Problem comes if I want to do multiple different versions in a game.
         # I could limit it to one past verison. That is probably going to be fine for our purposes
         # Note for later that the current implementation is only going to be good for one past version

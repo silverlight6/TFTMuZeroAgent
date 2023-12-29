@@ -1,11 +1,10 @@
 import numpy as np
 from gymnasium.spaces import MultiDiscrete
 
-from Simulator.porox.observation.interface import ActionBase
-from Simulator.porox.observation.vector.interface import ActionVectorBase
-from Simulator.porox.observation.util import Util
+from Simulator.observation.interface import ActionBase, ActionVectorBase
+from Simulator.observation.util import Util
 
-class ActionVector(ActionBase, ActionVectorBase):
+class ActionToken(ActionBase, ActionVectorBase):
     def __init__(self, player):
         super().__init__()
         self.player = player
@@ -339,8 +338,7 @@ class ActionVector(ActionBase, ActionVectorBase):
         bench_to_bench_mask = np.zeros(9)
 
         default_board_mask = np.ones(38)
-        invalid_board_mask = np.concatenate(
-            [np.ones(28), np.zeros(9), np.zeros(1)])
+        invalid_board_mask = np.concatenate([np.ones(28), np.zeros(9), np.zeros(1)])
 
         # --- Board Mask --- #
         for x in range(len(player.board)):

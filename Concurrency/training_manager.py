@@ -23,8 +23,8 @@ Inputs      -
         An object that stores global information like the weights of the global model and current training progress
 """
 class TrainingManager:
-    def __init__(self, global_agent, storage, config):
-        self.training_ray_manager = _TrainActor.remote(global_agent, storage, config)
+    def __init__(self, global_agent, storage):
+        self.training_ray_manager = _TrainActor.remote(global_agent, storage)
         self.global_agent = global_agent
 
     """
@@ -71,9 +71,9 @@ Inputs      -
 """
 @ray.remote(num_gpus=TRAINER_GPU_SIZE)
 class _TrainActor:
-    def __init__(self, global_agent, storage, config):
-        self.global_buffer = GlobalBuffer(storage, config)
-        self.training_loop = TrainingLoop(global_agent, self.global_buffer, config)
+    def __init__(self, global_agent, storage):
+        self.global_buffer = GlobalBuffer(storage)
+        self.training_loop = TrainingLoop(global_agent, self.global_buffer)
 
     """
     Description - 

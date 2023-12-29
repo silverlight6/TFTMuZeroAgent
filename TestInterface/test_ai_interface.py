@@ -1,7 +1,10 @@
 import datetime
+
+import config
 from TestInterface.test_global_buffer import GlobalBuffer
 from TestInterface.test_data_worker import DataWorker
-from Simulator.tft_simulator import parallel_env
+from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.observation.vector.observation import ObservationVector
 from TestInterface.test_replay_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.MuZero_torch_trainer import Trainer
@@ -16,12 +19,14 @@ class AIInterface:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         train_step = starting_train_step
+        model_config = config.ModelConfig()
 
         global_buffer = GlobalBuffer()
 
-        env = parallel_env()
-        data_workers = DataWorker(0)
-        global_agent = TFTNetwork()
+        tftConfig = TFTConfig(observation_class=ObservationVector)
+        env = parallel_env(tftConfig)
+        data_workers = DataWorker(0, model_config)
+        global_agent = TFTNetwork(model_config)
         global_agent.tft_load_model(train_step)
 
         train_summary_writer = SummaryWriter(train_log_dir)

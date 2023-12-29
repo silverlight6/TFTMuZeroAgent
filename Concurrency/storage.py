@@ -1,5 +1,6 @@
 import ray
 import glob
+import config
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
@@ -16,7 +17,7 @@ class Storage:
     Args:
         episode (int): Checkpoint number to load in for the global agent.
     """
-    def __init__(self, episode, config):
+    def __init__(self, episode):
         self.target_model = self.load_model()
         if episode > 0:
             self.target_model.tft_load_model(episode)
@@ -29,7 +30,6 @@ class Storage:
         self.max_q_value = 1
         self.store_base_checkpoint()
         self.populate_checkpoints()
-        self.config = config
 
     def get_model(self):
         """
@@ -49,10 +49,10 @@ class Storage:
             Pytorch Model Weights:
                 Weights for a fresh model
         """
-        if self.config.CHAMP_DECIDER:
-            return DefaultNetwork(self.config)
+        if config.CHAMP_DECIDER:
+            return DefaultNetwork(config.ModelConfig())
         else:
-            return TFTNetwork(self.config)
+            return TFTNetwork(config.ModelConfig())
 
     def get_target_model(self):
         """
@@ -126,7 +126,7 @@ class Storage:
         Inputs the checkpoint related to a fresh model into the checkpoint list.
     """
     def store_base_checkpoint(self):
-        base_checkpoint = Checkpoint(0, 1)
+        base_checkpoint = Checkpoint(0, 1, config.ModelConfig())
         # TODO: Verify if this is super inefficient or if there is a better way.
         self.checkpoint_list = np.append(self.checkpoint_list, [base_checkpoint])
 
@@ -139,7 +139,7 @@ class Storage:
         for checkpoint in self.checkpoint_list:
             if checkpoint.epoch == episode:
                 return
-        checkpoint = Checkpoint(episode, self.max_q_value)
+        checkpoint = Checkpoint(episode, self.max_q_value, config.ModelConfig())
         self.checkpoint_list = np.append(self.checkpoint_list, [checkpoint])
 
         # Update this later to delete the model with the lowest value.

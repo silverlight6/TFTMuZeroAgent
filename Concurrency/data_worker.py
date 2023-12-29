@@ -2,7 +2,7 @@ import time
 import ray
 import copy
 import numpy as np
-from typing import List
+import config
 
 from Simulator import utils
 from Models.MCTS_torch import MCTS
@@ -12,7 +12,7 @@ from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from config import GPU_SIZE_PER_WORKER
-from pettingzoo.test import api_test, parallel_api_test as parallel_test
+# from pettingzoo.test import api_test, parallel_api_test as parallel_test
 
 '''
 Description - 
@@ -21,16 +21,16 @@ Description -
 '''
 @ray.remote(num_gpus=GPU_SIZE_PER_WORKER)
 class DataWorker(object):
-    def __init__(self, rank, config):
+    def __init__(self, rank, model_config):
         if config.CHAMP_DECIDER:
-            self.temp_model = DefaultNetwork(config)
-            self.agent_network = Default_MCTS(self.temp_model, config)
-            self.past_network = Default_MCTS(self.temp_model, config)
+            self.temp_model = DefaultNetwork(model_config)
+            self.agent_network = Default_MCTS(self.temp_model, model_config)
+            self.past_network = Default_MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
-            self.temp_model = TFTNetwork(config)
-            self.agent_network = MCTS(self.temp_model, config)
-            self.past_network = MCTS(self.temp_model, config)
+            self.temp_model = TFTNetwork(model_config)
+            self.agent_network = MCTS(self.temp_model, model_config)
+            self.past_network = MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player and for testing
@@ -45,7 +45,7 @@ class DataWorker(object):
         self.prob = 1
         self.past_episode = 0
         self.past_update = True
-        self.config = config
+        self.model_config = model_config
 
     '''
     Description -
@@ -97,8 +97,8 @@ class DataWorker(object):
                 # store the action for MuZero
                 for i, key in enumerate(terminated.keys()):
                     if not info[key]["state_empty"]:
-                        if not self.past_version[i] and (not self.default_agent[i] or self.config.IMITATION) \
-                                and np.random.rand() <= self.config.CHANCE_BUFFER_SEND:
+                        if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION) \
+                                and np.random.rand() <= config.CHANCE_BUFFER_SEND:
                             if info[key]["player"]:
                                 current_comp[key] = info[key]["player"].get_team_tier_labels()
                                 current_champs[key] = info[key]["player"].get_team_champion_labels()
@@ -135,24 +135,24 @@ class DataWorker(object):
             # Might want to get rid of the hard constant 0.8 for something that can be adjusted in the future
             # Disabling to test out the default agent
             self.live_game = np.random.rand() <= 0.5
-            self.past_version = [False for _ in range(self.config.NUM_PLAYERS)]
+            self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
                 [past_weights, self.past_episode, self.prob] = ray.get(storage.sample_past_model.remote())
-                self.past_network = MCTS(self.temp_model, self.config)
+                self.past_network = MCTS(self.temp_model, self.model_config)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
 
             # Reset the default agents for the next set of games.
             # self.default_agent = [np.random.rand() < 0.5 for _ in range(config.NUM_PLAYERS)]
-            self.default_agent = [False for _ in range(self.config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
             # Ensure we have at least one model player
             # if all(self.default_agent):
             #     self.default_agent[0] = False
 
             # This is just to try to give the buffer some time to train on the data we have and not slow down our
             # buffers by sending thousands of store commands when the buffer is already full.
-            while global_buffer.buffer_size() > self.config.GLOBAL_BUFFER_SIZE * 0.8:
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
                 time.sleep(5)
 
             # So if I do not have a live game, I need to sample a past model
@@ -160,9 +160,9 @@ class DataWorker(object):
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = MCTS(self.temp_model, self.config)
+            self.agent_network = MCTS(self.temp_model, self.model_config)
             self.agent_network.network.set_weights(weights)
-            self.rank += self.config.CONCURRENT_GAMES
+            self.rank += config.CONCURRENT_GAMES
 
     '''
     Description -
@@ -273,7 +273,7 @@ class DataWorker(object):
                                                np.where(info[key]["player"].default_agent.item_guide == [0, 0, 1],
                                                         [0, 1, 0], [1, 0, 0])))
 
-            self.default_agent = [False for _ in range(self.config.NUM_PLAYERS)]
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
 
             # buffers.rewardNorm.remote()
             buffers.store_global_buffer.remote(global_buffer)
@@ -282,9 +282,9 @@ class DataWorker(object):
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = Default_MCTS(self.temp_model, self.config)
+            self.agent_network = Default_MCTS(self.temp_model, self.model_config)
             self.agent_network.network.set_weights(weights)
-            self.rank += self.config.CONCURRENT_GAMES
+            self.rank += config.CONCURRENT_GAMES
 
 
     '''
@@ -300,13 +300,16 @@ class DataWorker(object):
         step_actions
             A dictionary of player_ids and actions usable by the environment.
     '''
-    def getStepActions(self, terminated, actions) -> dict[str: List[int]]:
+    def getStepActions(self, terminated, actions):
         step_actions = {}
         i = 0
         for player_id, terminate in terminated.items():
-            if not terminate:
+            if not terminate and i < len(actions):
                 step_actions[player_id] = actions[i]
-                i += 1
+            elif not terminate and i >= len(actions):
+                # Some bug here but I'm not sure the source so sending a passing action. Happens once every 100 games
+                step_actions[player_id] = np.asarray([0, 0, 0])
+            i += 1
         return step_actions
 
     '''
@@ -317,38 +320,49 @@ class DataWorker(object):
     def observation_to_input(self, observation):
         masks = []
         keys = []
+        scalars = []
         shop = []
         board = []
         bench = []
-        states = []
-        game_comp = []
+        items = []
+        traits = []
         other_players = []
         for key, obs in observation.items():
-            shop.append(obs["tensor"]["shop"])
-            board.append(obs["tensor"]["board"])
-            bench.append(obs["tensor"]["bench"])
-            states.append(obs["tensor"]["states"])
-            game_comp.append(obs["tensor"]["game_comp"])
-            other_players.append(obs["tensor"]["other_players"])
-            masks.append(obs["mask"])
+            scalars.append(obs["player"]["scalars"])
+            shop.append(obs["player"]["shop"])
+            board.append(obs["player"]["board"])
+            bench.append(obs["player"]["bench"])
+            items.append(obs["player"]["items"])
+            traits.append(obs["player"]["traits"])
+            local_other_players = np.concatenate([obs["opponents"][0]["board"], obs["opponents"][0]["scalars"],
+                                                  obs["opponents"][0]["traits"]], axis=-1)
+            for x in range(1, config.NUM_PLAYERS):
+                local_other_players = np.concatenate([local_other_players, (np.concatenate([obs["opponents"][x]["board"],
+                                                      obs["opponents"][x]["scalars"],
+                                                      obs["opponents"][x]["traits"]], axis=-1))],)
+            other_players.append(local_other_players)
+            masks.append(obs["action_mask"])
             keys.append(key)
         tensors = {
+            "scalars": np.array(scalars),
             "shop": np.array(shop),
             "board": np.array(board),
             "bench": np.array(bench),
-            "states": np.array(states),
-            "game_comp": np.array(game_comp),
+            "items": np.array(items),
+            "traits": np.array(traits),
             "other_players": np.array(other_players)
         }
+        masks = np.array(masks)
         return [tensors, masks, keys]
 
     def get_obs_idx(self, observation, idx):
         return {
+            "scalars": observation["scalars"][idx],
             "shop": observation["shop"][idx],
             "board": observation["board"][idx],
             "bench": observation["bench"][idx],
-            "states": observation["states"][idx],
-            "game_comp": observation["game_comp"][idx],
+            "items": observation["items"][idx],
+            "traits": observation["traits"][idx],
             "other_players": observation["other_players"][idx]
         }
 
@@ -364,7 +378,7 @@ class DataWorker(object):
         for i in range(num_items + 1):
             element_list[i] = int(split_action[i])
 
-        decoded_action = np.zeros(self.config.ACTION_DIM[0] + self.config.ACTION_DIM[1] + self.config.ACTION_DIM[2])
+        decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
         decoded_action[0:7] = utils.one_hot_encode_number(element_list[0], 7)
 
         if element_list[0] == 1:
@@ -392,8 +406,8 @@ class DataWorker(object):
             The dictionary of info that is returned from the simulator. Used for default agents.
     """
     def model_call(self, player_observation, info):
-        if self.config.IMITATION:
-            actions, policy, string_samples, root_values = self.imitation_learning(info)
+        if config.IMITATION:
+            actions, policy, string_samples, root_values = self.imitation_learning(info, player_observation[1])
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
@@ -444,19 +458,21 @@ class DataWorker(object):
 
     def split_live_past_observations(self, player_observation):
         live_agent_observations = {
+            "scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
-            "states": [],
-            "game_comp": [],
+            "items": [],
+            "traits": [],
             "other_players": []
         }
         past_agent_observations = {
+            "scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
-            "states": [],
-            "game_comp": [],
+            "items": [],
+            "traits": [],
             "other_players": []
         }
         live_agent_masks = []
@@ -573,7 +589,7 @@ class DataWorker(object):
     Description - 
         Model call if doing imitation learning. Only calls the default policy
     """
-    def imitation_learning(self, info):
+    def imitation_learning(self, info, mask):
         policy = [[1.0] for _ in range(len(self.default_agent))]
         string_samples = [[] for _ in range(len(self.default_agent))]
         root_values = [0 for _ in range(len(self.default_agent))]
@@ -582,7 +598,7 @@ class DataWorker(object):
         local_info = list(info.values())
         for i, default_agent in enumerate(self.default_agent):
             string_samples[i] = \
-                [local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"])]
+                [local_info[i]["player"].default_policy(local_info[i]["game_round"], local_info[i]["shop"], mask[i])]
             actions[i] = string_samples[i][0]
         return actions, policy, string_samples, root_values
 

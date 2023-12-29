@@ -1,5 +1,6 @@
 import time
 import datetime
+import config
 from torch.utils.tensorboard import SummaryWriter
 from Models.MuZero_torch_trainer import Trainer
 
@@ -14,7 +15,7 @@ Inputs      -
             A buffer that all the individual game buffers send their information to.
 """
 class TrainingLoop:
-    def __init__(self, global_agent, global_buffer, config):
+    def __init__(self, global_agent, global_buffer):
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         self.summary_writer = SummaryWriter(train_log_dir)

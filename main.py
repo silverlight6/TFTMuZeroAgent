@@ -21,9 +21,6 @@ def main():
     if args.starting_episode:
         config.STARTING_EPISODE = args.starting_episode
 
-    if args.starting_episode:
-        config.STARTING_EPISODE = args.starting_episode
-
     if args.test:
         test_interface = TestInterface.AIInterface()
         test_interface.train_model(starting_train_step=args.starting_episode)

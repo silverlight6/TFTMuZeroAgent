@@ -3,12 +3,12 @@ import pytest
 import time
 from pettingzoo.test import parallel_api_test
 
-from Simulator.porox.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_simulator import parallel_env, TFTConfig
 from PoroX.test.utils import sample_action
 
 
 # disable for now
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_parallel_api(env):
     parallel_api_test(env)
     
@@ -34,7 +34,7 @@ def test_ui_render():
         
         obs, rew, terminated, truncated, info = env.step(actions)
         
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_env_speed(env):
     start = time.time()
 

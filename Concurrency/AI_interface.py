@@ -2,10 +2,11 @@ import time
 import ray
 import os
 import torch
-
 import config
+
 from Concurrency.storage import Storage
-from Simulator.tft_simulator import parallel_env
+from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.observation.vector.observation import ObservationVector
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
@@ -29,31 +30,33 @@ class AIInterface:
     Inputs - starting_train_step: int
                 Checkpoint number to load. If 0, a fresh model will be created.
     '''
-    def train_torch_model(self, config) -> None:
+    def train_torch_model(self) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
             train_step = config.STARTING_EPISODE
 
             workers = []
-            data_workers = [DataWorker.remote(rank, config) for rank in range(config.CONCURRENT_GAMES)]
+            model_config = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, model_config) for rank in range(config.CONCURRENT_GAMES)]
             storage = Storage.remote(train_step)
             if config.CHAMP_DECIDER:
-                global_agent = DefaultNetwork(config)
+                global_agent = DefaultNetwork(model_config)
             else:
-                global_agent = TFTNetwork(config)
+                global_agent = TFTNetwork(model_config)
 
             global_agent_weights = ray.get(storage.get_target_model.remote())
             global_agent.set_weights(global_agent_weights)
             global_agent.to(config.DEVICE)
 
-            training_manager = TrainingManager(global_agent, storage, config)
+            training_manager = TrainingManager(global_agent, storage)
 
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            env = parallel_env(config)
+            tftConfig = TFTConfig(observation_class=ObservationVector)
+            env = parallel_env(tftConfig)
 
-            buffers = [BufferWrapper.remote(config)
+            buffers = [BufferWrapper.remote()
                        for _ in range(config.CONCURRENT_GAMES)]
 
             weights = ray.get(storage.get_target_model.remote())
@@ -88,7 +91,7 @@ class AIInterface:
             global_agent.set_weights(global_agent_weights)
             global_agent.to(config.DEVICE)
 
-            training_manager = TrainingManager(global_agent, storage, modelConfig)
+            training_manager = TrainingManager(global_agent, storage)
 
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())

@@ -1,14 +1,8 @@
-from typing import List, Dict, Tuple
-from enum import Enum
+from typing import List
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import json
 import os
-import numpy as np
-
-from Simulator.porox.player import Player
-from pprint import pprint
-
 @dataclass
 class Champion:
     name: str
@@ -18,7 +12,7 @@ class Champion:
     
     items: List["Item"]
     
-    location: int # 0-27: board, 0-8: bench, 0-4: shop
+    location: int  # 0-27: board, 0-8: bench, 0-4: shop
     
     def __init__(self, champion, location):
         self.name = champion.name
@@ -128,7 +122,7 @@ class GameState:
             "bench": self.update_bench(player),
             "shop": self.update_shop(player),
             "items": self.update_items(player),
-            "traits": [], # TODO
+            "traits": [],  # TODO
         }
         
     def update_board(self, player):
@@ -196,7 +190,6 @@ class GameState:
             "level": player.level,
             "board": self.update_board(player),
         }
-        
 
         print(f"-----START {player_id}------")
         print(self.game_round.matchups)

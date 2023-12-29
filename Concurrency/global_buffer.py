@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import asyncio
+import config
 from Concurrency.priority_queue import PriorityBuffer
 
 
@@ -13,7 +14,7 @@ class GlobalBuffer(object):
         storage_ptr (pointer): Pointer to the storage object to keep track of the current trainer status.
     """
 
-    def __init__(self, storage_ptr, config):
+    def __init__(self, storage_ptr):
         self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
@@ -125,5 +126,5 @@ class GlobalBuffer(object):
             await self.storage_ptr.set_trainer_busy.remote(True)
             return True
         await asyncio.sleep(2)
-        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
+        # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False

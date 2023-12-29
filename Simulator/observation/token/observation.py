@@ -1,13 +1,12 @@
 import abc
 import numpy as np
 
-from Simulator.porox.observation.util import Util
-from Simulator.porox.observation.normalization import Normalizer
+from Simulator.observation.util import Util
+from Simulator.observation.normalization import Normalizer
 
-from Simulator.porox.observation.interface import ObservationBase
-from Simulator.porox.observation.vector.interface import ObservationVectorBase
+from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
 
-class ObservationVector(ObservationBase, ObservationVectorBase):
+class ObservationToken(ObservationBase, ObservationUpdateBase):
     """Observation object that stores the observation for a player."""
 
     def __init__(self, player):
@@ -61,11 +60,11 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         PlayerObservation:
             scalars: [Game Values, Public Scalars, Private Scalars]
-            board: board vector
-            bench: bench vector
-            shop: shop vector
-            items: item vector
-            traits: trait vector
+            board: board token
+            bench: bench token
+            shop: shop token
+            items: item token
+            traits: trait token
         """
 
         return {
@@ -86,10 +85,10 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         PlayerPublicObservation:
             scalars: [Public Scalars]
-            board: board vector
-            bench: bench vector
-            items: item vector
-            traits: trait vector
+            board: board token
+            bench: bench token
+            items: item token
+            traits: trait token
         """
         return {
             "scalars": self.public_scalars,
@@ -294,7 +293,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
     # -- Champion -- #
     def create_champion_vector(self, champion):
-        """Create a champion vector for a champion
+        """Create a champion token for a champion
         
         Champion Vector:
 
@@ -320,7 +319,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         """
         championID = self.util.get_champion_id(champion)
         
-        # Item vector
+        # Item token
         item_ids = np.zeros(self.item_vector_length * 3)
         item_modifiers = []
 
@@ -420,7 +419,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         return stat_modifiers
         
     def apply_champion_normalization(self, champion_vectors):
-        """Apply normalization to a champion vector
+        """Apply normalization to a champion token
         
         0: ID
         1-3: itemIDs
@@ -432,14 +431,13 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             
         return champion_vectors
 
-        
     # -- Board Vector -- #
     def get_board_vector_location(self, x, y):
-        """Get the location of a champion on the board vector"""
+        """Get the location of a champion on the board token"""
         return x * 4 + y
 
     def create_board_vector(self, player):
-        """Create a board vector for a player
+        """Create a board token for a player
 
         Board Vector: (28, champion_vector_length)
 
@@ -478,7 +476,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Bench Vector -- #
     def create_bench_vector(self, player):
-        """Create a bench vector for a player
+        """Create a bench token for a player
 
         Bench Vector: (9, champion_vector_length)
 
@@ -497,7 +495,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Shop Vector -- #
     def create_shop_vector(self, player):
-        """Create shop vector for a player
+        """Create shop token for a player
         
         Shop Vector: (5, champion_vector_length)
         
@@ -517,7 +515,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Item Bench Vector -- #
     def create_item_bench_vector(self, player):
-        """Create an item bench vector for a player
+        """Create an item bench token for a player
         
         Item Bench Vector: (10,)
 
@@ -535,7 +533,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Trait Vector -- #
     def compute_traits_from_board(self, champion_vectors):
-        """Compute the total trait vector from either board or bench
+        """Compute the total trait token from either board or bench
         
         Champion Vector:
         0: ID

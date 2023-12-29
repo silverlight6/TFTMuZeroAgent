@@ -3,7 +3,7 @@ import time
 import functools
 import numpy as np
 from Simulator import pool
-from Simulator.observation import Observation
+from Simulator.observation.vector.observation import ObservationVector
 from Simulator.step_function import Step_Function
 from Simulator.game_round import Game_Round
 from Simulator.player import Player as player_class
@@ -14,7 +14,7 @@ from pettingzoo.utils import agent_selector
 
 class TFT_Item_Simulator(ParallelEnv):
     """
-    Environment for training a model that takes in two players a vector of item movements and which items should be
+    Environment for training a model that takes in two players a token of item movements and which items should be
     moved.
     Moves the items for the provided player then plays a single battle. Returns reward and ends episode.
     All episodes are 1 step.
@@ -30,7 +30,7 @@ class TFT_Item_Simulator(ParallelEnv):
         self.possible_agents = ["player_0"]
         self.agents = self.possible_agents[:]
 
-        self.game_observations = Observation()
+        self.game_observations = ObservationVector()
         self.render_mode = None
 
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
@@ -69,7 +69,7 @@ class TFT_Item_Simulator(ParallelEnv):
         self.PLAYER = player
         self.PLAYER.reinit_numpy_arrays()
         self.PLAYER.opponent = opponent
-        self.game_observations = Observation()
+        self.game_observations = ObservationVector()
 
         self.agents = ["player_0"]
 

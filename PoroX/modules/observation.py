@@ -1,6 +1,6 @@
 import numpy as np
 import chex
-from Simulator.porox.observation import ObservationVector
+from Simulator.observation import ObservationToken
 
 @chex.dataclass(frozen=True)
 class PlayerObservation:
@@ -16,7 +16,7 @@ class BatchedObservation:
     opponents: PlayerObservation
 
 
-class PoroXObservation(ObservationVector):
+class PoroXObservation(ObservationToken):
     def __init__(self, player):
         super().__init__(player)
         
@@ -30,7 +30,6 @@ class PoroXObservation(ObservationVector):
         self.game_zeros = np.zeros_like(self.game_scalars)
         
         self.public_zeros[0] = player.player_num
-
 
     def fetch_player_observation(self):
         """Fetch Public Observation."""
