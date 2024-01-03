@@ -10,7 +10,7 @@ from Simulator.observation.vector.observation import ObservationVector
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.rllib_ppo import PPO_Models
+from Models.rllib_ppo import PPO_Position_Model, PPO_Item_Model
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
@@ -96,20 +96,23 @@ class AIInterface:
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            env = parallel_env()
+            tftConfig = TFTConfig(observation_class=ObservationVector)
+            env = parallel_env(tftConfig)
 
             buffers = [BufferWrapper.remote()
                        for _ in range(config.CONCURRENT_GAMES)]
-            positioning_storage = QueueStorage()
-            item_storage = QueueStorage()
+            positioning_storage = QueueStorage(name="position")
+            item_storage = QueueStorage(name="item")
 
-            ppo_models = PPO_Models.remote()
+            ppo_position_model = PPO_Position_Model.remote(positioning_storage)
+            ppo_item_model = PPO_Item_Model.remote(item_storage)
 
             weights = ray.get(storage.get_target_model.remote())
 
             for i, worker in enumerate(data_workers):
                 workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager, storage,
-                                                                        weights, item_storage, positioning_storage))
+                                                                        weights, item_storage, positioning_storage,
+                                                                        ppo_position_model, ppo_item_model))
                 time.sleep(0.5)
 
             training_manager.loop(storage, train_step)
@@ -118,12 +121,30 @@ class AIInterface:
             # test_envs = DataWorker.remote(0)
             # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
 
-            workers.append(ppo_models.PPO_position_algorithm.remote(positioning_storage))
-            workers.append(ppo_models.PPO_item_algorithm.remote(item_storage))
+            ppo_item_model.train_item_model.remote()
+            ppo_position_model.train_position_model.remote()
 
             # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
             # ray.get(storage)
             ray.get(workers)
+
+    def position_ppo_testing(self):
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+
+            positioning_storage = QueueStorage(name="position")
+            # item_storage = QueueStorage(name="item")
+            workers = []
+
+            ppo_position_model = PPO_Position_Model.remote(positioning_storage)
+            # ppo_item_model = PPO_Item_Model.remote(item_storage)
+
+            # ppo_item_model.train_item_model.remote()
+            workers.append(ppo_position_model.train_position_model.remote())
+
+            ray.get(workers)
+
+
 
     def collect_dummy_data(self) -> None:
         """

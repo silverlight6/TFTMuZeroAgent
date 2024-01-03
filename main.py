@@ -28,6 +28,7 @@ def main():
 
     interface = AI_interface.AIInterface()
     if config.CHAMP_DECIDER:
+        # interface.position_ppo_testing()
         interface.train_guide_model()
     else:
         interface.train_torch_model()

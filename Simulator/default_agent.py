@@ -540,8 +540,8 @@ class Default_Agent:
         self.next_round = self.current_round + 1
 
         # Check if we are 4 exp from the next level. If so level.
-        if player.exp == player.level_costs[player.level] - 4:
-            return "5"
+        if (player.exp == player.level_costs[player.level] - 4) and mask[53][0]:
+            return "1"
 
         # Verify that we have a full board.
         max_unit_check = self.max_unit_check(player)
@@ -562,12 +562,12 @@ class Default_Agent:
                         check_chosen_trait = self.check_chosen_trait(c_shop, chosen_type)
                         # If it is more than a 1 cost champion, we have to buy, a type we are running, and want to buy.
                         if player.gold >= COST[c_shop] * 3 - 1 and check_chosen_trait:
-                            return "1_" + str(i)
+                            return "3_" + str(i)
                     else:
                         if not self.champion_buy_list[BASE_CHAMPION_LIST.index(shop_unit)][0] and \
                                 COST[shop_unit] <= player.gold:
                             self.require_pair_update = True
-                            return "1_" + str(i)
+                            return "3_" + str(i)
             self.round_11_end_checks[0] = False
 
         # Do the same for the bench
@@ -591,7 +591,7 @@ class Default_Agent:
                                          and player.board[x][y].name not in TEAM_COMPS[self.comp_number]):
                                     # Reset shop checks in case new trait synergies happened due to the change.
                                     self.round_11_end_checks[1] = True
-                                    return "2_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
+                                    return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
             self.round_11_end_checks[2] = False
 
         # Double check that the units in the front should be in the front and vise versa
@@ -624,14 +624,14 @@ class Default_Agent:
         # TODO: Implement spat usage
 
         # If above 50 gold and not yet level or when low health, buy exp
-        if player.level < 8 and (player.gold >= 54 or (player.health < 30 and player.gold > 4)):
-            return "5"
+        if player.level < 8 and (player.gold >= 54 or (player.health < 30 and mask[53][0])):
+            return "1"
 
         # Refresh at level 8 or when you get a little desperate
-        if (player.level == 8 and player.gold >= 54) or (player.health < 30 and player.gold > 4):
+        if (player.level == 8 and player.gold >= 54) or (player.health < 30 and mask[54][0]):
             self.round_11_end_checks[0] = True
             self.round_11_end_checks[1] = True
             self.round_11_end_checks[2] = True
-            return "6"
+            return "2"
 
         return "0"

@@ -146,7 +146,10 @@ class Trainer(object):
             self.scale_loss(reward_loss)
 
             step_target_policy = self.fill_policy(target_policy[tstep], sample_set[tstep])
-            policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
+            if config.CHAMP_DECIDER:
+                policy_loss = self.decider_policy_loss(prediction.policy_logits, step_target_policy)
+            else:
+                policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
             if config.CHAMP_DECIDER:
                 policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMP_DECIDER_ACTION_DIM)))
@@ -323,6 +326,12 @@ class Trainer(object):
 
     def policy_loss(self, prediction, target):
         return cross_entropy_loss(prediction, target)
+
+    def decider_policy_loss(self, prediction, target):
+        loss = 0.0
+        for pred_dim, target_dim in zip(prediction, target):
+            loss += cross_entropy_loss(pred_dim, target_dim)
+        return loss
 
     def supervised_loss(self, prediction, target):
         loss = 0.0

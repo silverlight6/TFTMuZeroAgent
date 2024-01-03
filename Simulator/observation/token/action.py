@@ -349,7 +349,7 @@ class ActionToken(ActionBase, ActionVectorBase):
                     if champion.target_dummy or champion.overlord:
                         invalid_champion_mask[x * 4 + y] = 0
 
-                    # Update board mask if champion is on the board
+                        # Update board mask if champion is on the board
                         move_sell_board_action_mask[x][y] = invalid_board_mask
                     else:
                         move_sell_board_action_mask[x][y] = default_board_mask

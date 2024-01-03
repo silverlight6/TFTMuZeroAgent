@@ -1,3 +1,4 @@
+import config
 from Simulator.player import Player as player_class
 
 class PlayerManager:
@@ -117,5 +118,39 @@ class PlayerManager:
 
     def generate_shop_vectors(self, players):
         pass
+
+    def reinit_player_set(self, new_player_set):
+        self.players = {
+            "player_" + str(player_id) for player_id in range(config.NUM_PLAYERS)
+        }
+
+        # Ensure that the opponent obs are always in the same order
+        self.player_ids = sorted(list(self.players))
+
+        self.terminations = {player: False for player in self.players}
+
+        self.player_states = {
+            "player_" + str(player.player_num): player
+            for player in new_player_set
+        }
+
+        for x in range(config.NUM_PLAYERS):
+            if f"player_{x}" not in self.player_states.keys():
+                self.player_states[f"player_{x}"] = player_class(self.pool_obj, x)
+
+        self.observation_states = {
+            player: self.config.observation_class(self.player_states[player])
+            for player in self.players
+        }
+
+        self.opponent_observations = {
+            player: self.fetch_opponent_observations(player)
+            for player in self.players
+        }
+
+        self.action_handlers = {
+            player: self.config.action_class(self.player_states[player])
+            for player in self.players
+        }
     # -----
         

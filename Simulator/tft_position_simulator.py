@@ -1,18 +1,21 @@
 import config
 import time
-import functools
 import numpy as np
+import gymnasium as gym
 from Simulator import pool
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.step_function import Step_Function
-from Simulator.game_round import Game_Round
+from Simulator.game_round import Game_Round, log_to_file
 from Simulator.player import Player as player_class
-from gymnasium.spaces import MultiDiscrete, Dict, Box
-from pettingzoo.utils.env import ParallelEnv
-from pettingzoo.utils import agent_selector
+from Simulator.player_manager import PlayerManager
+from Simulator.tft_simulator import TFTConfig
+from Simulator.battle_generator import BattleGenerator
+from Simulator.utils import coord_to_x_y
+from gymnasium.spaces import MultiDiscrete, Dict, Box, Tuple
+from gymnasium.envs.registration import EnvSpec
 
 
-class TFT_Position_Simulator(ParallelEnv):
+class TFT_Position_Simulator(gym.Env):
     """
     Environment for training the positioning model.
     Takes in a set of movement commands to reorganize the board, executes those commands and then does a battle.
@@ -25,65 +28,76 @@ class TFT_Position_Simulator(ParallelEnv):
         self.pool_obj = pool.pool()
         self.data_generator = data_generator
         self.PLAYER = player_class(self.pool_obj, 0)
-        self._agent_ids = ["player_0"]
-        self.possible_agents = ["player_0"]
-        self.agents = self.possible_agents[:]
 
-        self.game_observations = ObservationVector()
         self.render_mode = None
 
-        self.step_function = Step_Function(self.pool_obj, self.game_observations)
-        self.game_round = Game_Round(self.PLAYER, self.pool_obj, self.step_function)
+        self.reward = 0
 
-        self._agent_selector = agent_selector(self.possible_agents)
-        self.agent_selection = self.possible_agents[0]
+        self.action_space = MultiDiscrete(np.ones(12) * 29)
 
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
+        self.observation_space = Dict({
+            "observation": Dict({
+                "player": Dict({
+                    "scalars": Box(-2, 2, (config.SCALAR_INPUT_SIZE,), np.float32),
+                    "shop": Box(-2, 2, (config.SHOP_INPUT_SIZE,), np.float32),
+                    "board": Box(-2, 2, (config.BOARD_INPUT_SIZE,), np.float32),
+                    "bench": Box(-2, 2, (config.BENCH_INPUT_SIZE,), np.float32),
+                    "items": Box(-2, 2, (config.ITEMS_INPUT_SIZE,), np.float32),
+                    "traits": Box(-2, 2, (config.TRAIT_INPUT_SIZE,), np.float32),
+                }),
+                "opponents": Tuple(
+                    Dict({
+                        "scalars": Box(-2, 2, (config.OTHER_PLAYER_SCALAR_SIZE,), np.float32),
+                        "board": Box(-2, 2, (config.BOARD_INPUT_SIZE,), np.float32),
+                        "traits": Box(-2, 2, (config.TRAIT_INPUT_SIZE,), np.float32),
+                        }) for _ in range(config.NUM_PLAYERS))
+            }),
+            "action_mask": MultiDiscrete(np.ones((12, 29)) * 2)
+        })
 
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
-
-        self.infos = {agent: {} for agent in self.agents}
-
-        self.action_spaces = dict(
-            zip(
-                self.agents,
-                [
-                    MultiDiscrete(np.ones(12) * 29) for _ in self.agents
-                ],
-            )
+        self.spec = EnvSpec(
+            id="TFT_Position_Simulator_s4_v0",
+            max_episode_steps=1
         )
+
+        self.battle_generator = BattleGenerator()
 
         super().__init__()
 
     def reset(self, seed=None, return_info=False, options=None):
-        while self.data_generator.q_size() < config.MINIMUM_POP_AMOUNT:
-            print("SLEEPING")
-            time.sleep(2)
+        if self.data_generator.q_size() >= config.MINIMUM_POP_AMOUNT:
+            [player, opponent, other_players] = self.data_generator.pop()
+        else:
+            [player, opponent, other_players] = self.battle_generator.generate_battle()
 
-        [player, opponent, other_players] = self.data_generator.pop()
         self.PLAYER = player
         self.PLAYER.reinit_numpy_arrays()
         self.PLAYER.opponent = opponent
-        self.game_observations = ObservationVector(self.PLAYER)
-        self.game_observations.generate_other_player_vectors(self.PLAYER, other_players)
+        opponent.opponent = self.PLAYER
 
-        self.agents = ["player_0"]
+        for player in other_players.values():
+            player.reinit_numpy_arrays()
 
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
+        self.player_manager = PlayerManager(config.NUM_PLAYERS, self.pool_obj,
+                                            TFTConfig(observation_class=ObservationVector))
+        self.player_manager.reinit_player_set([self.PLAYER] + list(other_players.values()))
 
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self.step_function = Step_Function(self.player_manager)
 
-        self.infos = {agent: {} for agent in self.agents}
+        self.game_round = Game_Round(self.PLAYER, self.pool_obj, self.player_manager)
 
-        self._agent_selector.reinit(self.agents)
-        self.agent_selection = self._agent_selector.next()
-        observation = self.game_observations.observation(self.PLAYER.player_num, self.PLAYER)["tensor"]
+        self.reward = 0
+        print("Checkpoint -3")
 
-        return {agent: {"observation": observation} for agent in self.agents}, self.infos
+        initial_observation = self.player_manager.fetch_observation(f"player_{self.PLAYER.player_num}")
+        observation = {
+            "observation": {key: initial_observation[key]
+                            for key in ["player", "opponents"]},
+            "action_mask": self.full_mask_to_action_mask(initial_observation["action_mask"])
+        }
+        print("Checkpoint -4")
+
+        return observation, {}
 
     def render(self):
         ...
@@ -91,34 +105,39 @@ class TFT_Position_Simulator(ParallelEnv):
     def close(self):
         self.reset()
 
-    @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent):
-        """
-        Method comply with pettingzoo and rllib requirements as well as Gymnasiums
-        """
-        return Dict({
-                        "shop": Box(-2, 2, (config.SHOP_INPUT_SIZE,), np.float32),
-                        "board": Box(-2, 2, (config.BOARD_INPUT_SIZE,), np.float32),
-                        "bench": Box(-2, 2, (config.BENCH_INPUT_SIZE,), np.float32),
-                        "states": Box(-2, 2, (config.STATE_INPUT_SIZE,), np.float32),
-                        "game_comp": Box(-2, 2, (config.COMP_INPUT_SIZE,), np.float32),
-                        "other_players": Box(-2, 2, (config.OTHER_PLAYER_ITEM_POS_SIZE,), np.float32),
-                    })
-
-    @functools.lru_cache(maxsize=None)
-    def action_space(self, agent):
-        """
-        Another method to keep in line with petting zoo and rllib requirements
-        """
-        return self.action_spaces[agent]
-
     def step(self, action):
+        self.PLAYER.printComp()
+        log_to_file(self.PLAYER)
+        self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
+        initial_reward = self.PLAYER.reward
+        self.PLAYER.reward = 0
         if action is not None:
             self.step_function.batch_position_controller(action, self.PLAYER)
         self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
-        self.rewards[self.agent_selection] = self.PLAYER.reward
-        self.terminations[self.agent_selection] = True
-        self._cumulative_rewards[self.agent_selection] = self.rewards[self.agent_selection]
-        self.agents.remove(self.agent_selection)
+        self.reward = self.PLAYER.reward - initial_reward
 
-        return {}, self.rewards, self.terminations, self.truncations, self.infos
+        initial_observation = self.player_manager.fetch_observation(f"player_{self.PLAYER.player_num}")
+        observation = {
+            "observation": {key: initial_observation[key]
+                            for key in ["player", "opponents"]},
+            "action_mask": self.full_mask_to_action_mask(initial_observation["action_mask"])
+        }
+        self.PLAYER.printComp()
+        log_to_file(self.PLAYER)
+
+        return observation, self.reward, True, False, {}
+
+    def full_mask_to_action_mask(self, mask):
+        action_mask = np.ones((12, 29))
+        idx = 0
+        for coord in range(len(self.PLAYER.board) * len(self.PLAYER.board[0])):
+            x1, y1 = coord_to_x_y(coord)
+            if self.PLAYER.board[x1][y1]:
+                action_mask[idx][0:28] = mask[coord][0:28]
+                idx += 1
+
+        while idx < 12:
+            action_mask[idx][0:28] = np.zeros(28)
+            idx += 1
+
+        return action_mask

@@ -126,5 +126,5 @@ class GlobalBuffer(object):
             await self.storage_ptr.set_trainer_busy.remote(True)
             return True
         await asyncio.sleep(2)
-        # print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
+        print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False

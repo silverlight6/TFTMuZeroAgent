@@ -135,7 +135,7 @@ class Game_Round:
 
                 # If the battle was very close.
                 # TODO: Change to <= when running the software in non-test mode
-                if damage - self.ROUND_DAMAGE[round_index][1] != self.ROUND_DAMAGE[round_index][1] and standard_battle:
+                if damage - self.ROUND_DAMAGE[round_index][1] < self.ROUND_DAMAGE[round_index][1] and standard_battle:
                     self.save_current_battle["player_" + str(players[match[0]].player_num)] = True
                     self.save_current_battle["player_" + str(players[match[1]].player_num)] = True
                 else:

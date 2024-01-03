@@ -338,8 +338,7 @@ class Player:
         Returns:
             bool: True if action was performed successfully, False otherwise.
         """
-        champion_cost = cost_star_values[a_champion.cost -
-                                         1][a_champion.stars - 1]
+        champion_cost = cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
 
         # I don't know what the second condition is for but I don't intend to find out...
         if champion_cost > self.gold or a_champion.cost == 0:
@@ -911,16 +910,12 @@ class Player:
                             if self.board[x][y] and self.board[x][y].name == 'azir':
                                 if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates and \
                                         [x2, y2] not in self.board[x][y].sandguard_overlord_coordinates:
-                                    self.board[x][y].sandguard_overlord_coordinates.remove([
-                                                                                           x1, y1])
-                                    self.board[x][y].sandguard_overlord_coordinates.append([
-                                                                                           x2, y2])
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
                                 elif [x2, y2] in self.board[x][y].sandguard_overlord_coordinates and \
                                         [x1, y1] not in self.board[x][y].sandguard_overlord_coordinates:
-                                    self.board[x][y].sandguard_overlord_coordinates.remove([
-                                                                                           x2, y2])
-                                    self.board[x][y].sandguard_overlord_coordinates.append([
-                                                                                           x1, y1])
+                                    self.board[x][y].sandguard_overlord_coordinates.remove([x2, y2])
+                                    self.board[x][y].sandguard_overlord_coordinates.append([x1, y1])
                 self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
                            .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
                 return True
@@ -1448,7 +1443,15 @@ class Player:
         if config.PRINTMESSAGES:
             self.log.append(msg)
 
-    # --- Item Pool Mechanics --- #
+    def random_item_from_pool(self):
+        """Picks and returns item to player
+
+        Returns:
+            str: item to be returned.
+        """
+        item = random.choice(self.item_pool)
+        self.remove_from_pool(item)
+        return item
 
     def refill_item_pool(self):
         """Refills the item pool"""
@@ -1462,15 +1465,9 @@ class Player:
         """
         self.item_pool.remove(item)
 
-    def random_item_from_pool(self):
-        """Picks and returns item to player
+    def reinit_numpy_arrays(self):
+        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
 
-        Returns:
-            str: item to be returned.
-        """
-        item = random.choice(self.item_pool)
-        self.remove_from_pool(item)
-        return item
 
     # TODO: Handle case where item_bench if full
     # TODO: Thieves_gloves bug appeared again on self.thieves_gloves_loc.remove([x, -1])

@@ -250,7 +250,8 @@ class TFT_Simulator(AECEnv):
             "shop": self.player_manager.player_states[agent].shop,
             "game_round": self.game_round.current_round,
             "start_turn": False,
-            "actions_taken": self.actions_taken[agent]
+            "actions_taken": self.actions_taken[agent],
+            "save_battle": self.game_round.save_current_battle[agent]
         }
 
         self._clear_rewards()

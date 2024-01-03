@@ -198,6 +198,9 @@ class champion:
         if self == target:
             enemy_team = self.team  # when ionic sparking themselves
 
+        if target is None:
+            return
+
         if not ('trap_claw' in target.items and not item_damage and not burn_damage):  # trap_claw
 
             if self.pumped_up:  # the_boss -trait

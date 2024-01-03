@@ -82,9 +82,9 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
         return {
             "scalars": np.zeros(self.public_scalars.shape),
             "board": np.zeros(self.board_vector.shape),
-            "bench": np.zeros(self.bench_vector.shape),
-            "shop": np.zeros(self.shop_vector.shape),
-            "items": np.zeros(self.item_bench_vector.shape),
+            # "bench": np.zeros(self.bench_vector.shape),
+            # "shop": np.zeros(self.shop_vector.shape),
+            # "items": np.zeros(self.item_bench_vector.shape),
             "traits": np.zeros(self.trait_vector.shape),
         }
         
@@ -227,12 +227,12 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
         return np.array([
             player.health / 100,
             player.level / 10,
-            player.max_units,
-            player.max_units - player.num_units_in_play,
-            player.win_streak,
-            player.loss_streak,
+            player.max_units / 10,
+            (player.max_units - player.num_units_in_play) / 10,
+            player.win_streak / 20,
+            player.loss_streak / 20,
             streak_lvl,
-            min(player.gold // 10, 5)
+            min(player.gold // 10, 5) / 5
         ])
 
     def create_private_scalars(self, player):
@@ -259,12 +259,12 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                 opponent_options[x] = -1
 
         return_array = np.array([
-            player.gold / 100,
+            min(player.gold, 100) / 100,
             player.exp / 100,
             player.round / 30,
             exp_to_level,
             max(player.win_streak, player.loss_streak) / 30,
-            player.actions_remaining
+            player.actions_remaining / config.ACTIONS_PER_TURN
         ])
 
         return np.concatenate([return_array, match_history, opponent_options], axis=-1)
