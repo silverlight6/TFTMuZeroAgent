@@ -2,6 +2,8 @@ import Simulator.config as config
 import numpy as np
 import Simulator.champion as champion
 from Simulator.stats import COST
+import torch
+import math
 
 """
 Description - Object used for the simulation to interact with the environment. The agent passes in actions and those 
@@ -85,36 +87,35 @@ class Step_Function:
             # action format = 0:7 (action_selector),
             # 7:44 (champ_loc_target), 44:54 (item_loc_target)
             action_selector = action[0]
-            # game_observations[key].generate_other_player_vectors(player, players)
+            game_observations[key].generate_other_player_vectors(player, players)
             if action_selector == 0:
+                # Pass
                 player.print(f"pass action")
             elif action_selector == 1:
-                # Swap champ place
-                target_1 = action[1]
-                # action[target_1 + 7] = 0
-                target_2 = action[2]
-                swap_loc_from = min(target_1, target_2)
-                swap_loc_to = max(target_1, target_2)
-                # Swap from swap_loc_from to swap_loc_to
-                if swap_loc_from < 28:
-                    if swap_loc_to < 28:
-                        x1, y1 = self.dcord_to_2dcord(swap_loc_from)
-                        x2, y2 = self.dcord_to_2dcord(swap_loc_to)
-                        if player.board[x1][y1]:
-                            player.move_board_to_board(x1, y1, x2, y2)
-                        elif player.board[x2][y2]:
-                            player.move_board_to_board(x2, y2, x1, y1)
-                    else:
-                        x1, y1 = self.dcord_to_2dcord(swap_loc_from)
-                        bench_loc = swap_loc_to - 28
-                        if player.bench[bench_loc]:
-                            player.move_bench_to_board(bench_loc, x1, y1)
-                        else:
-                            player.move_board_to_bench(x1, y1)
-            elif action_selector == 2:
-                # Buy from shop
-                champ_shop_target = action[1]
-                self.batch_shop(champ_shop_target, player, game_observations[key], key)
+                # Roll to closest 10 multiple
+                units = np.where(player.unit_directive > 0.5)[0]
+                # cost_f = lambda t: COST[list(COST.items())[t][0]]
+                # costs = ([cost_f(n) for n in units])
+                mask = np.in1d(player.shop_elems, units)
+                if not mask.any():
+                    return
+                min_arg = np.where(player.shop_costs > 0, np.where(mask, player.shop_costs, np.inf), np.inf).argmin()
+                min_cost = player.shop_costs[min_arg]
+                closest_ten = round_down(player.gold)
+                while ((player.gold - min_cost > closest_ten and mask.any()) or player.gold - min_cost - 2 > closest_ten) and not player.bench_full():
+                    if mask.any():
+                        self.batch_shop(min_arg, player, game_observations[key], key)
+                    elif player.gold - min_cost - 2 > closest_ten:
+                        if player.refresh():
+                            self.generate_shop(key, player)
+                    mask = np.in1d(player.shop_elems, units)
+                    if not mask.any():
+                        continue
+                    min_arg = np.where(player.shop_costs > 0, np.where(mask, player.shop_costs, np.inf), np.inf).argmin()
+                    min_cost = player.shop_costs[min_arg]
+
+                # champ_shop_target = action[1]
+                # self.batch_shop(champ_shop_target, player, game_observations[key], key)
             # elif action_selector == 6:
             #     # Place item on champ
             #     item_selector = np.argmax(action[44:54])
@@ -125,52 +126,62 @@ class Step_Function:
             #     else:
             #         x, y = self.dcord_to_2dcord(move_loc)
             #         player.move_item_to_board(item_selector, x, y)
-            elif action_selector == 3:
-                # Sell Champ
-                target_1 = action[1]
-                if target_1 < 28:
-                    x, y = self.dcord_to_2dcord(target_1)
-                    if player.board[x][y]:
-                        player.sell_champion(player.board[x][y], field=True)
-                else:
-                    player.sell_from_bench(target_1 - 28)
-            elif action_selector == 4:
-                # Refresh shop
-                if player.refresh():
-                    self.generate_shop(key, player)
-            elif action_selector == 5:
-                # Buy EXP
+            elif action_selector == 2:
+                # Level up
                 current_level = player.level
-                while player.level == current_level and player.level < 9:
+                while player.level == current_level and player.level < 9 and player.decision_mask[4]:
                     player.buy_exp()
+            elif action_selector == 3:
+                # Sell Champions not in directive
+                # TODO not take into account sanguard or dummy
+                units = np.where(player.unit_directive > 0.5)[0]
+                for x in player.board:
+                    for champ in x:
+                        if champ:
+                            if list(COST.keys()).index(champ.name)-1 not in units and champ.name != "sandguard":
+                                player.sell_champion(champ, field = True)
+                for i in range(len(player.bench)):
+                    if player.bench[i]:
+                        if list(COST.keys()).index(player.bench[i].name)-1 not in units:
+                            player.sell_from_bench(i)
+                # target_1 = action[1]
+                # if target_1 < 28:
+                #     x, y = self.dcord_to_2dcord(target_1)
+                #     if player.board[x][y]:
+                #         player.sell_champion(player.board[x][y], field=True)
+                # else:
+                #     player.sell_from_bench(target_1 - 28)
 
     '''
     Description - Method used for buying a shop. Turns the string in the shop into a champion object to send to the 
                   player class. Also updates the observation.
     '''
     def batch_shop(self, shop_action, player, game_observation, player_id):
-        if shop_action > 58:
-            shop_action = int(np.floor(np.random.rand(1, 1) * 59))
+        if shop_action > 5:
+            shop_action = int(np.floor(np.random.rand(1, 1) * 6))
 
         # name = list(COST.items())[shop_action+1][0]
-        champ_index = np.where(player.shop_elems == shop_action)
-        # print(player_id, player.player_num, " Champ Index ", champ_index, shop_action," in shop ", self.shops[player_id], " elems ", player.shop_elems)
+        # champ_index = np.where(player.shop_elems == shop_action)
+        # print(player_id, player.player_num, " Champ Index ", player.shop_elems[shop_action], shop_action," in shop ", self.shops[player_id], " elems ", player.shop_elems)
 
-        if len(champ_index[0]) == 0:
-            player.reward += player.mistake_reward
-            print("Champ not found, bug in mask")
-            return
-        champ_index = champ_index[0][0]
-        if self.shops[player_id][champ_index].endswith("_c"):
-            c_shop = self.shops[player_id][champ_index].split('_')
+        # if len(champ_index[0]) == 0:
+        #     player.reward += player.mistake_reward
+        #     print("Champ not found, bug in mask")
+        #     return
+        # champ_index = champ_index[0][0]
+        if self.shops[player_id][shop_action].endswith("_c"):
+            c_shop = self.shops[player_id][shop_action].split('_')
             a_champion = champion.champion(c_shop[0], chosen=c_shop[1], itemlist=[])
         else:
-            a_champion = champion.champion(self.shops[player_id][champ_index])
+            a_champion = champion.champion(self.shops[player_id][shop_action])
         success = player.buy_champion(a_champion)
         if success:
-            self.shops[player_id][champ_index] = " "
+            self.shops[player_id][shop_action] = " "
             game_observation.generate_shop_vector(self.shops[player_id], player)
         else:
             # I get that this does nothing, but it tells whoever writes in this method next that there should be
             # Nothing that follows this line.
             return
+
+def round_down(x):
+    return math.floor(x / 10.0) * 10

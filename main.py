@@ -1,4 +1,3 @@
-import TestInterface.test_ai_interface as TestInterface
 import config
 from UnitTests.BaseUnitTest import runTest
 import argparse

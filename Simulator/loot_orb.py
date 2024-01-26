@@ -16,24 +16,24 @@ item_list = thieves_gloves_items
 
 class LootOrb(Enum):
     COMMON = {
-        'three_gold': .2,
+        'three_gold': .25,
         'three_cost': .25,
         'two_cost_one_gold': .25,
         'three_one_costs': .25,
-        'champion_duplicator_one_gold': .05
+        'champion_duplicator_one_gold': .0
     }
     UNCOMMON = {
-        'six_gold': .05,
-        'two_three_costs': .15,
-        'three_two_costs': .15,
-        'one_item': .6,
-        'champion_duplicator_one_gold_two_cost': .05
+        'six_gold': .3,
+        'two_three_costs': .35,
+        'three_two_costs': .35,
+        'one_item': .0,
+        'champion_duplicator_one_gold_two_cost': .0
     }
     RARE = {
-        'ten_gold': .15,
+        'ten_gold': 1.0,
         # 'two_five_costs': .1,
-        'champion_duplicator_five_gold': .1,
-        'spatula': .75,
+        'champion_duplicator_five_gold': .0,
+        'spatula': .0,
     }
 
 # Implementation of the loot that can be given to the player

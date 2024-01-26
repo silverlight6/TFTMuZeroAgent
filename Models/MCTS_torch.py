@@ -33,7 +33,8 @@ class MCTS:
             self.NUM_ALIVE = observation[0].shape[0]
 
             # 0.02 seconds
-            network_output = self.network.initial_inference(observation[0])
+            network_output, directive, board_distribution = self.network.initial_inference(observation[0])
+            #Generate Directives and Board Distribution
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
@@ -50,6 +51,26 @@ class MCTS:
                     for j in range(self.NUM_ALIVE)
                 ]
             
+            directive_noises =  np.array([
+                    np.random.normal(
+                        0, 10, directive.shape[1]
+                    ).astype(np.float32).tolist()
+                    for _ in range(board_distribution.shape[0])
+                ])
+            
+            board_noises =  np.array([
+                    np.random.normal(
+                        0, 10, board_distribution.shape[1] * board_distribution.shape[2] * board_distribution.shape[3]
+                    ).astype(np.float32).tolist()
+                    for _ in range(board_distribution.shape[0])
+                ]).reshape(board_distribution.shape)
+
+            board_distribution = board_distribution.cpu().numpy()
+            directive = directive.cpu().numpy()
+            
+            directive = directive * (1-config.DIRECTIVE_EXPLORATION_FRACTION) + directive_noises * config.DIRECTIVE_EXPLORATION_FRACTION
+            board_distribution = board_distribution * (1-config.BOARD_EXPLORATION_FRACTION) + board_noises * config.BOARD_EXPLORATION_FRACTION
+
             # Policy Logits -> [ [], [], [], [], [], [], [], [],]
 
             policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
@@ -87,7 +108,7 @@ class MCTS:
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
-            return actions, target_policy, string_mapping
+            return actions, target_policy, string_mapping, board_distribution, directive
 
     def run_batch_mcts(self, roots_cpp, hidden_state_pool):
         # preparation
@@ -113,7 +134,7 @@ class MCTS:
             self.max_depth_search += sum(results.get_search_len()) / len(results.get_search_len())
             self.runs += 1
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = torch.empty((num_states, 256, 4, 7)).to('cuda')
+            tensors_states = torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to('cuda')
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
@@ -127,9 +148,9 @@ class MCTS:
             network_output = self.network.recurrent_inference(tensors_states, last_action)
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
-            value_pool = np.array(network_output["value"]).reshape(-1).tolist()
+            value_pool = np.array(network_output["value"].detach().cpu().numpy()).reshape(-1).tolist()
 
-            policy_logits = network_output["policy_logits"][0].cpu().numpy()
+            policy_logits = network_output["policy_logits"].cpu().numpy()
 
             # 0.014 seconds
             policy_logits, _, mappings, policy_sizes = \
@@ -145,7 +166,7 @@ class MCTS:
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
-                                      min_max_stats_lst, results, mappings, policy_sizes)
+                                      min_max_stats_lst, results, mappings, policy_sizes)    
 
     def add_exploration_noise(self, policy_logits, noises):
         exploration_fraction = config.ROOT_EXPLORATION_FRACTION
@@ -225,7 +246,7 @@ class MCTS:
         # 6. if champion has FULL items on bench
 
         # policy_logits [(8, 1443)]
-        batch_size = policy_logits[0].shape[0]  # 8
+        batch_size = len(policy_logits)  # 8
         masked_policy_logits = []  # Start with empty type_dim
         masked_policy_mappings = []
         prob_sum = 0
@@ -236,37 +257,37 @@ class MCTS:
             masked_dim_mapping = []
 
             # Shop actions
-            for i in range(58):
-                if i in mask[idx][11] and mask[idx][5][1] and mask[idx][1][np.where(mask[idx][11] == i)[0][0]]:
-                    # print(mask[idx][11], i+1)
-                    prob = policy_logits[0][idx][378+252+1+1+37+i]
-                    prob_sum += prob
-                    masked_dim.append(prob)
-                    masked_dim_mapping.append(f"2_{i}_0_{378+252+1+1+37+i}")
+            # for i in range(58):
+            #     if i in mask[idx][11] and mask[idx][5][1] and mask[idx][1][np.where(mask[idx][11] == i)[0][0]]:
+            #         # print(mask[idx][11], i+1)
+            #         prob = policy_logits[0][idx][378+252+1+1+37+i]
+            #         prob_sum += prob
+            #         masked_dim.append(prob)
+            #         masked_dim_mapping.append(f"2_{i}_0_{378+252+1+1+37+i}")
 
             # Move actions
-            move_index = -1
-            for pos_1 in range(27):
-                for pos_2 in range(pos_1 + 1, 28):
-                    move_index += 1
-                    if not mask[idx][2][pos_1] and not mask[idx][2][pos_2]:
-                        continue
-                    prob = policy_logits[0][idx][move_index]
-                    prob_sum += prob
-                    masked_dim.append(prob)
-                    masked_dim_mapping.append(f"1_{pos_1}_{pos_2}_{move_index}")
+            # move_index = -1
+            # for pos_1 in range(27):
+            #     for pos_2 in range(pos_1 + 1, 28):
+            #         move_index += 1
+            #         if not mask[idx][2][pos_1] and not mask[idx][2][pos_2]:
+            #             continue
+            #         prob = policy_logits[0][idx][move_index]
+            #         prob_sum += prob
+            #         masked_dim.append(prob)
+            #         masked_dim_mapping.append(f"1_{pos_1}_{pos_2}_{move_index}")
 
             # Bench to Board
-            move_index = -1
-            for bench in range(9):
-                for pos in range(28):
-                    move_index += 1
-                    if not mask[idx][5][0] and not mask[idx][2][pos]:
-                        continue
-                    prob = policy_logits[0][idx][378 + move_index]
-                    prob_sum += prob
-                    masked_dim.append(prob)
-                    masked_dim_mapping.append(f"1_{bench}_{pos}_{378 + move_index}")
+            # move_index = -1
+            # for bench in range(9):
+            #     for pos in range(28):
+            #         move_index += 1
+            #         if not mask[idx][5][0] and not mask[idx][2][pos]:
+            #             continue
+            #         prob = policy_logits[0][idx][378 + move_index]
+            #         prob_sum += prob
+            #         masked_dim.append(prob)
+            #         masked_dim_mapping.append(f"1_{bench}_{pos}_{378 + move_index}")
 
             # Item actions
             # TODO
@@ -284,32 +305,45 @@ class MCTS:
             #         masked_dim_mapping.append(f"3_{a}_{b}")
 
             # Selling action
-            for pos in range(37):
-                # If unit exists
-                if not ((pos < 28 and mask[idx][2][pos] and not mask[idx][9][pos]) or (pos > 27 and mask[idx][3][pos - 28])):
-                    continue
-                prob = policy_logits[0][idx][378+252+1+1+pos]
-                prob_sum += prob
-                masked_dim.append(prob)
-                masked_dim_mapping.append(f"3_{pos}_0_{378+252+1+1+pos}")
-
-            # Always append pass action
-            prob = policy_logits[0][idx][378+252+1+1+37+58]
+            # for pos in range(37):
+            #     # If unit exists
+            #     if not ((pos < 28 and mask[idx][2][pos] and not mask[idx][9][pos]) or (pos > 27 and mask[idx][3][pos - 28])):
+            #         continue
+            #     prob = policy_logits[0][idx][378+252+1+1+pos]
+            #     prob_sum += prob
+            #     masked_dim.append(prob)
+            #     masked_dim_mapping.append(f"3_{pos}_0_{378+252+1+1+pos}")
+            prob = policy_logits[idx][3]
             prob_sum += prob
             masked_dim.append(prob)
-            masked_dim_mapping.append(f"0_0_0_{378+252+1+1+37+58}")
+            # masked_dim_mapping.append(f"0_0_0_{378+252+1+1+37+58}")
+            masked_dim_mapping.append(f"3_3_3_3")
 
+            # Always append pass action
+            # prob = policy_logits[0][idx][378+252+1+1+37+58]
+            prob = policy_logits[idx][0]
+            prob_sum += prob
+            masked_dim.append(prob)
+            # masked_dim_mapping.append(f"0_0_0_{378+252+1+1+37+58}")
+            masked_dim_mapping.append(f"0_0_0_0")
+
+            # Level up action
             if mask[idx][0][4]:
-                prob = policy_logits[0][idx][378+252]
+                # prob = policy_logits[0][idx][378+252]
+                prob = policy_logits[idx][2]
                 prob_sum += prob
                 masked_dim.append(prob)
-                masked_dim_mapping.append(f"5_0_0_{378+252}")
+                # masked_dim_mapping.append(f"5_0_0_{378+252}")
+                masked_dim_mapping.append(f"2_2_2_2")
 
-            if mask[idx][0][5]:
-                prob = policy_logits[0][idx][378+252+1]
+            # Roll Action
+            if mask[idx][0][5] and mask[idx][5][1]:
+                # prob = policy_logits[0][idx][378+252+1]
+                prob = policy_logits[idx][1]
                 prob_sum += prob
                 masked_dim.append(prob)
-                masked_dim_mapping.append(f"4_0_0_{378+252+1}")
+                # masked_dim_mapping.append(f"4_0_0_{378+252+1}")
+                masked_dim_mapping.append(f"1_1_1_1")
             
             masked_dim = [n / prob_sum for n in masked_dim]
             # print(masked_dim_mapping)

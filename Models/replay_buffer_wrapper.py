@@ -2,7 +2,6 @@ import numpy as np
 import config
 import ray
 from Models.replay_muzero_buffer import ReplayBuffer
-from sklearn import preprocessing
 
 
 class BufferWrapper:
@@ -24,30 +23,6 @@ class BufferWrapper:
     
     def set_reward_sequence(self, key, *args):
         self.buffers[key].set_reward_sequence(args[0])
-
-    def rewardNorm(self):
-        reward_dat = []
-        rewardLens = []
-
-        for b in self.buffers.values():
-            # clip rewards to prevent outliers from skewing results
-            rewards = b.get_reward_sequence()
-            rewards = np.clip(rewards, -3, 3)
-            # store length of array to allocate elements later after normalization
-            rewardLens.append(len(rewards))
-            reward_dat.append(rewards)
-
-        # reshape array of arrays of rewards to a single array
-        # this reshaping should leave data from each reward array in order
-        reward_dat = np.array(reward_dat, dtype=object)
-        reward_dat = np.hstack(reward_dat)
-        # normalize the values from this array w/ sklearn
-        reward_dat = preprocessing.scale(reward_dat)
-        # reassign normalized values back into original arrays
-        index = 0
-        for i, b in enumerate(self.buffers.values()):
-            b.set_reward_sequence(reward_dat[index: index + rewardLens[i]])
-            index += rewardLens[i]
     
     def store_global_buffer(self):
         max_lenght = 0

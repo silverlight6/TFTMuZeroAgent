@@ -48,7 +48,7 @@ class TFT_Simulator(AECEnv):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
-        self.actions_taken_this_turn = 0
+        self.turn = 0
         self.game_round.play_game_round()
         for key, p in self.PLAYERS.items():
             self.step_function.generate_shop(key, p)
@@ -139,6 +139,7 @@ class TFT_Simulator(AECEnv):
         self.step_function = Step_Function(self.pool_obj, self.game_observations)
         self.game_round = Game_Round(self.PLAYERS, self.pool_obj, self.step_function)
         self.actions_taken = 0
+        self.turn = 0
         self.game_round.play_game_round()
         for key, p in self.PLAYERS.items():
             self.step_function.generate_shop(key, p)
@@ -180,7 +181,11 @@ class TFT_Simulator(AECEnv):
         if self.terminations[self.agent_selection]:
             self._was_dead_step(action)
             return
+        action, board_map, directive = action
         action = np.asarray(action)
+        # self.PLAYERS[self.agent_selection].unit_directive = directive
+        self.PLAYERS[self.agent_selection].print(f'Directive: {np.where(self.PLAYERS[self.agent_selection].unit_directive > 0.5)[0]}')
+        self.PLAYERS[self.agent_selection].board_distribution = board_map
         self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
                                                    self.agent_selection, self.game_observations)
 
@@ -191,10 +196,11 @@ class TFT_Simulator(AECEnv):
 
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
-        for agent in self.agents:
-            self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
-            self.observations[agent] = self.game_observations[agent].observation(
-                agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+        # No scouting for now
+        # for agent in self.agents:
+        #     self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
+        #     self.observations[agent] = self.game_observations[agent].observation(
+        #         agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 
         # Also called in many environments but the line above this does the same thing but better
         # self._accumulate_rewards()
@@ -205,6 +211,11 @@ class TFT_Simulator(AECEnv):
             if self.actions_taken >= config.ACTIONS_PER_TURN:
                 # Take a game action and reset actions taken
                 self.actions_taken = 0
+                self.turn += 1
+                for key in self.PLAYERS.keys():
+                    if self.PLAYERS[key]:
+                        self.PLAYERS[key].arrange_board()
+
                 self.game_round.play_game_round()
 
                 # Check if the game is over
@@ -213,7 +224,7 @@ class TFT_Simulator(AECEnv):
                     for player_id in self.agents:
                         if self.PLAYERS[player_id] and self.PLAYERS[player_id].health > 0:
                             self.PLAYERS[player_id].won_game()
-                            self.rewards[player_id] = 250
+                            self.rewards[player_id] = 10000
                             self._cumulative_rewards[player_id] = self.rewards[player_id]
                             self.PLAYERS[player_id] = None  # Without this the reward is reset
 
@@ -224,7 +235,7 @@ class TFT_Simulator(AECEnv):
                 _live_agents = self.agents[:]
                 for k in self.kill_list:
                     self.terminations[k] = True
-                    self.rewards[k] = (8 - len(_live_agents)) * 25
+                    self.rewards[k] = ((8 - len(_live_agents)) * 1000)
                     _live_agents.remove(k)
                     self._cumulative_rewards[k] = self.rewards[k]
                     self.PLAYERS[k] = None
@@ -239,6 +250,7 @@ class TFT_Simulator(AECEnv):
 
                     for agent in _live_agents:
                         self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
+                        self.PLAYERS[agent].turn = self.turn
                         self.observations[agent] = self.game_observations[agent].observation(
                             agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
 

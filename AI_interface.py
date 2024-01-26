@@ -9,10 +9,8 @@ import numpy as np
 from storage import Storage
 from global_buffer import GlobalBuffer
 from Simulator.tft_simulator import TFT_Simulator, parallel_env, env as tft_env
-from ray.rllib.algorithms.ppo import PPOConfig
 from Models.replay_buffer_wrapper import BufferWrapper
 from ray.tune.registry import register_env
-from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
 
@@ -63,9 +61,8 @@ class DataWorker(object):
         # While the game is still going on.
         while not all(terminated.values()):
             # Ask our model for an action and policy
-            actions, policy, string_samples = agent.policy(player_observation)
-
-            step_actions = self.getStepActions(terminated, actions)
+            actions, policy, string_samples, board_map, directive  = agent.policy(player_observation)
+            step_actions = self.getStepActions(terminated, actions, board_map, directive)
             storage_actions = utils.decode_action(actions)
 
             # Take that action within the environment and return all of our information for the next player
@@ -103,12 +100,12 @@ class DataWorker(object):
         step_actions
             A dictionary of player_ids and actions usable by the environment.
     '''
-    def getStepActions(self, terminated, actions):
+    def getStepActions(self, terminated, actions, board_map, directive):
         step_actions = {}
         i = 0
         for player_id, terminate in terminated.items():
             if not terminate:
-                step_actions[player_id] = self.decode_action_to_one_hot(actions[i])
+                step_actions[player_id] = [self.decode_action_to_one_hot(actions[i]), board_map[i], directive[i]]
                 i += 1
         return step_actions
 
@@ -298,36 +295,6 @@ class AIInterface:
                 }
                 observation_list, rewards, terminated, truncated, info = env.step(action)
             print("A game just finished in time {}".format(time.time_ns() - t))
-
-    '''
-    The PPO implementation for the TFT project. This is an alternative to our MuZero model.
-    '''
-    def PPO_algorithm(self):
-        # register our environment, we have no config parameters
-        register_env('tft-set4-v0', lambda local_config: PettingZooEnv(self.env_creator(local_config)))
-
-        # Create an RLlib Algorithm instance from a PPOConfig object.
-        cfg = (
-            PPOConfig().environment(
-                # Env class to use (here: our gym.Env sub-class from above).
-                env='tft-set4-v0',
-                env_config={},
-                observation_space=gym.spaces.Box(low=-5.0, high=5.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
-                action_space=gym.spaces.Discrete(config.ACTION_DIM)
-            )
-            .rollouts(num_rollout_workers=1)
-            .framework("tf2")
-            .training(model={"fcnet_hiddens": [256, 256]})
-            .evaluation(evaluation_num_workers=1, evaluation_interval=50)
-        )
-        # Construct the actual (PPO) algorithm object from the config.
-        algo = cfg.build()
-
-        for i in range(100):
-            results = algo.train()
-            print(f"Iter: {i}; avg. reward={results['episode_reward_mean']}")
-
-        algo.evaluate()  # 4. and evaluate it.
 
     '''
     The global side to the evaluator. Creates a set of workers to test a series of agents.

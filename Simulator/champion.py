@@ -39,6 +39,7 @@ class champion:
 
         self.name = name
         self.stars = stars
+        self.index = list(COST.keys()).index(name) - 1
 
         # in case we're spawning a construct, galio or a turret, the rest are handled at the bottom of the object
         if name != 'construct' and name != 'galio' and name != 'aphelios_turret':
