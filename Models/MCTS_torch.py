@@ -394,16 +394,18 @@ class MCTS:
             local_string = []
             local_byte = []
 
-            probs = self.softmax_stable(policy_logits[idx])
+            # probs = self.softmax_stable(policy_logits[idx])
             policy_range = np.arange(stop=len(policy_logits[idx]))
 
-            samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
+            # samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
+            samples = policy_range
             counts = np.bincount(samples, minlength=len(policy_logits[idx]))
 
             for i, count in enumerate(counts):
                 if count > 0:
                     dim_base_string = string_mapping[idx][i]
-                    local_logits.append(((1 / num_samples) * count))
+                    # local_logits.append(((1 / num_samples) * count))
+                    local_logits.append(policy_logits[idx][i])
                     local_string.append(dim_base_string)
                     local_byte.append(bytes(dim_base_string, "utf-8"))
            

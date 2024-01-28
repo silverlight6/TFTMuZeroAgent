@@ -84,8 +84,8 @@ class Trainer(object):
             # 1.0 and 0.5 because we scale prior to the recurrent inference. 0.5 if scaled afterwards.
             hidden_state_gradient_scale = 1.0 if rstep == 0 else 0.5
             hidden_state = output["hidden_state"]
-            print(torch.mean(torch.var(hidden_state, dim=0)))
-            # hidden_state.register_hook(lambda grad: grad * hidden_state_gradient_scale)
+            print("Hidden space variance: ", torch.mean(torch.var(hidden_state, dim=0)))
+            hidden_state.register_hook(lambda grad: grad * hidden_state_gradient_scale)
             output = agent.recurrent_inference(
                 hidden_state,
                 history[:, rstep],
@@ -126,6 +126,10 @@ class Trainer(object):
 
         accs = collections.defaultdict(list)
         target_policy = torch.reshape(torch.tensor(np.array(target_policy)), (-1, num_target_steps, config.ACTION_ENCODING_SIZE)).to('cuda')
+        value_loss = 0
+        policy_loss = 0
+        directive_loss = 0
+        board_loss = 0
         real_value_prev = None
         directive_value_prev = None
         for tstep, prediction in enumerate(predictions):
@@ -143,16 +147,12 @@ class Trainer(object):
             # reward_logits = reward_logits.requires_grad_(True)
             policy_logits = prediction.policy_logits
 
-            MSE_loss = torch.nn.L1Loss(reduction = 'mean')
-            cross_loss = torch.nn.CrossEntropyLoss(reduction = 'mean')
+            MSE_loss = torch.nn.L1Loss(reduction = 'none')
+            cross_loss = torch.nn.CrossEntropyLoss(reduction = 'none')
 
             # value_loss = cross_loss(value_logits, target_value_encoded[:, tstep])
-            value_loss = MSE_loss(value, target_value[:, tstep].unsqueeze(1))
-            value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
-
-            accs['value_loss'].append(
-                value_loss
-            )
+            value_loss += MSE_loss(value, target_value[:, tstep].unsqueeze(1))
+            # value_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
 
             # reward_loss = cross_loss(reward_logits, target_reward_encoded[:, tstep])
             # reward_loss = MSE_loss(reward, target_reward[:, tstep].unsqueeze(1))
@@ -172,38 +172,38 @@ class Trainer(object):
 
             # target_policy -> [ [(256, 7), (256, n), ...] * tstep ]
             # output_policy ->   [(256, 7), (256, n), ...]
-            policy_loss = cross_loss(policy_logits, target_policy[:, tstep])
+            # print("Logits: ", policy_logits)
+            # print("Target: ", target_policy[:, tstep])
+            policy_loss += cross_loss(policy_logits, target_policy[:, tstep])
 
-            policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)
-            
+            # policy_loss.register_hook(lambda grad: grad / config.UNROLL_STEPS)            
             if tstep > 0:
                 directive_advantage = directive_value.detach() - directive_value_prev.detach()
                 real_adventage = value.detach() - real_value_prev.detach()
                 # print("Advantage ", advantage)
-                board_loss = -board_distribution * torch.reshape(directive_advantage - real_adventage,  (board_distribution.shape[0],1,1,1))
-                directive_loss = -directive * torch.reshape(real_adventage, (directive.shape[0],1))
-
-                accs['board_loss'].append(board_loss)
-                accs['directive_loss'].append(directive_loss)
+                board_loss += torch.sum(-board_distribution * torch.reshape(directive_advantage - real_adventage,  (board_distribution.shape[0],1,1,1)), dim=[1,2,3])
+                directive_loss += torch.sum(-directive * torch.reshape(real_adventage, (directive.shape[0],1)), dim=1)
             
             real_value_prev = value
             directive_value_prev = directive_value
-
-            accs['policy_loss'].append(policy_loss)
 
             accs['value_diff'].append(torch.abs(torch.squeeze(value) - target_value[:, tstep]))
             # accs['reward_diff'].append(torch.abs(torch.squeeze(reward) - target_reward[:, tstep]))
 
             accs['value'].append(torch.squeeze(value))
+            accs['policy'].append(torch.squeeze(policy_logits))
             # accs['reward'].append(torch.squeeze(reward))
 
             accs['target_value'].append(target_value[:, tstep])
+            accs['target_policy'].append(target_policy[:, tstep])
             # accs['target_reward'].append(target_reward[:, tstep])
 
         accs = {k: torch.stack(v, -1) for k, v in accs.items()}
 
-        loss = torch.sum(accs['value_loss']) + torch.sum(accs['policy_loss']) + torch.sum(accs['board_loss']) + torch.sum(accs['directive_loss'])
-        mean_loss = loss.to('cuda')  # aggregating over time
+        loss = value_loss + policy_loss + board_loss + directive_loss
+        mean_loss = torch.mean(loss)
+        loss.register_hook(lambda grad: grad * (1 / config.UNROLL_STEPS))
+        # mean_loss = loss.to('cuda')  # aggregating over time
 
         # Leaving this here in case I want to use it later.
         # This was used in Atari but not in board games. Also, very unclear how to
@@ -221,7 +221,7 @@ class Trainer(object):
 
         # mean_loss += l2_loss
 
-        sum_accs = {k: torch.sum(a) / config.UNROLL_STEPS for k, a in accs.items()}
+        sum_accs = {k: torch.sum(a.detach()) for k, a in accs.items()}
         # sum_masks = {
         #     k: torch.maximum(torch.sum(m, -1), torch.tensor(1.)) for k, m in masks.items()
         # }
@@ -232,25 +232,27 @@ class Trainer(object):
         summary_writer.add_scalar('prediction/value', get_mean('value'), train_step)
         # summary_writer.add_scalar('prediction/reward', get_mean('reward'), train_step)
         summary_writer.add_scalar('prediction/value_variance', torch.mean(torch.var(accs['value'], dim=0)), train_step)
+        summary_writer.add_scalar('prediction/policy_variance', torch.mean(torch.var(accs['policy'], dim=1)), train_step)
 
         summary_writer.add_scalar('target/value', get_mean('target_value'), train_step)
         # summary_writer.add_scalar('target/reward', get_mean('target_reward'), train_step)
         summary_writer.add_scalar('target/value_variance', torch.mean(torch.var(accs['target_value'], dim=0)), train_step)
+        summary_writer.add_scalar('target/policy_variance', torch.mean(torch.var(accs['target_policy'], dim=1)), train_step)
 
 
-        summary_writer.add_scalar('losses/value', get_mean('value_loss'), train_step)
+        summary_writer.add_scalar('losses/value', torch.mean(torch.sum(value_loss, dim=0)), train_step)
         # summary_writer.add_scalar('losses/reward', get_mean('reward_loss'), train_step)
-        summary_writer.add_scalar('losses/policy', get_mean('policy_loss'), train_step)
-        summary_writer.add_scalar('losses/directive', get_mean('directive_loss'), train_step)
-        summary_writer.add_scalar('losses/board', get_mean('board_loss'), train_step)
-        summary_writer.add_scalar('losses/total', mean_loss, train_step)
+        summary_writer.add_scalar('losses/policy', torch.mean(torch.sum(policy_loss, dim=0)), train_step)
+        summary_writer.add_scalar('losses/directive', torch.mean(torch.sum(directive_loss, dim=0)), train_step)
+        summary_writer.add_scalar('losses/board', torch.mean(torch.sum(board_loss, dim=0)), train_step)
+        summary_writer.add_scalar('losses/total', torch.mean(torch.sum(mean_loss, dim=0)), train_step)
         # summary_writer.add_scalar('losses/l2', l2_loss, train_step)
 
         summary_writer.add_scalar('accuracy/value', get_mean('value_diff'), train_step)
         # summary_writer.add_scalar('accuracy/reward', get_mean('reward_diff'), train_step)
 
         # summary_writer.add_scalar('episode_max/reward', torch.max(target_reward), train_step)
-        summary_writer.add_scalar('episode_max/value', torch.max(target_value), train_step)
+        # summary_writer.add_scalar('episode_max/value', torch.max(target_value), train_step)
         summary_writer.flush()
 
         return mean_loss

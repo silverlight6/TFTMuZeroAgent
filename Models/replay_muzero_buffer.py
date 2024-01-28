@@ -87,7 +87,7 @@ class ReplayBuffer:
                             action_set.append(np.asarray(self.action_history[current_index]))
                         else:
                             # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0])
+                            action_set.append([0, 0, 0, 0])
                         value_mask_set.append(1.0)
                         reward_mask_set.append(reward_mask)
                         policy_mask_set.append(1.0)
@@ -108,7 +108,7 @@ class ReplayBuffer:
                         sample_set.append(self.string_samples[current_index])
                     else:
                         # States past the end of games is treated as absorbing states.
-                        action_set.append([0, 0, 0])
+                        action_set.append([0, 0, 0, 0])
                         value_mask_set.append(0.0)
                         reward_mask_set.append(0.0)
                         policy_mask_set.append(0.0)
