@@ -13,6 +13,7 @@ class ReplayBuffer:
         self.string_samples = []
         self.action_history = []
         self.g_buffer = g_buffer
+        self.combats = []
 
     def reset(self):
         self.gameplay_experiences = []
@@ -20,6 +21,7 @@ class ReplayBuffer:
         self.policy_distributions = []
         self.string_samples = []
         self.action_history = []
+        self.combats = []
 
     def store_replay_buffer(self, observation, action, reward, policy, string_samples):
         # Records a single step of gameplay experience
@@ -30,6 +32,9 @@ class ReplayBuffer:
         self.rewards.append(reward)
         self.policy_distributions.append(policy)
         self.string_samples.append(string_samples)
+
+    def store_combats_buffer(self, combat):
+        self.combats.append(combat)
 
     def get_prev_action(self):
         if self.action_history:
@@ -126,3 +131,4 @@ class ReplayBuffer:
                 output_sample_set = [self.gameplay_experiences[sample], action_set, value_mask_set, reward_mask_set,
                                      policy_mask_set, value_set, reward_set, policy_set, sample_set]
                 self.g_buffer.store_replay_sequence.remote(output_sample_set)
+        self.g_buffer.store_combat_sequence.remote(self.combats)

@@ -83,11 +83,15 @@ class Observation:
         mask = (player.decision_mask, player.shop_mask, player.board_mask, player.bench_mask, player.item_mask,
                 player.util_mask, player.thieves_glove_mask, player.glove_item_mask, player.glove_mask, player.dummy_mask,
                 player.board_full_items_mask, player.shop_elems, player.champ_elements)
+        last_combat = None
+        if player.last_combat:
+            last_combat = player.last_combat
+            player.last_combat = None
 
         # Used to help the model know how outdated it's information on other players is.
         # Also helps with ensuring that two observations with the same board and bench are not equal.
         self.turn_since_update += 0.01
-        return {"tensor": total_tensor_observation, "mask": mask}
+        return {"tensor": total_tensor_observation, "mask": mask, "combat": last_combat}
 
     """
     Description - Generates the other players observation from the perspective of the current player.

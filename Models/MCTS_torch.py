@@ -66,7 +66,7 @@ class MCTS:
                 ]).reshape(board_distribution.shape)
 
             board_distribution = board_distribution.cpu().numpy()
-            directive = directive.cpu().numpy()
+            directive =  torch.nn.functional.sigmoid(directive).cpu().numpy()
             
             directive = directive * (1-config.DIRECTIVE_EXPLORATION_FRACTION) + directive_noises * config.DIRECTIVE_EXPLORATION_FRACTION
             board_distribution = board_distribution * (1-config.BOARD_EXPLORATION_FRACTION) + board_noises * config.BOARD_EXPLORATION_FRACTION

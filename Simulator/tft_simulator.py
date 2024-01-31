@@ -12,6 +12,7 @@ from Simulator.observation import Observation
 from pettingzoo.utils.env import AECEnv
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.conversions import parallel_wrapper_fn
+import torch
 
 
 def env():
@@ -183,7 +184,7 @@ class TFT_Simulator(AECEnv):
             return
         action, board_map, directive = action
         action = np.asarray(action)
-        # self.PLAYERS[self.agent_selection].unit_directive = directive
+        self.PLAYERS[self.agent_selection].unit_directive = directive
         self.PLAYERS[self.agent_selection].print(f'Directive: {np.where(self.PLAYERS[self.agent_selection].unit_directive > 0.5)[0]}')
         self.PLAYERS[self.agent_selection].board_distribution = board_map
         self.step_function.batch_2d_controller(action, self.PLAYERS[self.agent_selection], self.PLAYERS,
@@ -249,13 +250,15 @@ class TFT_Simulator(AECEnv):
                     self.game_round.start_round()
 
                     for agent in _live_agents:
-                        self.PLAYERS[agent].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
                         self.PLAYERS[agent].turn = self.turn
-                        self.observations[agent] = self.game_observations[agent].observation(
-                            agent, self.PLAYERS[agent], self.PLAYERS[agent].action_vector)
+                        if self.PLAYERS[agent].last_combat:
+                            self.PLAYERS[agent].last_combat = (self.observations[agent]["tensor"], 
+                                                            self.PLAYERS[agent].last_combat[1], self.PLAYERS[agent].last_combat[2])
 
             for player_id in self.PLAYERS:
                 if self.PLAYERS[player_id]:
+                    self.PLAYERS[player_id].turns_for_combat = config.ACTIONS_PER_TURN - self.actions_taken
+                    self.observations[player_id] = self.game_observations[player_id].observation(player_id, self.PLAYERS[player_id])
                     self.rewards[player_id] = self.PLAYERS[player_id].reward
                     self._cumulative_rewards[player_id] = self.rewards[player_id]
 

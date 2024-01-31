@@ -12,6 +12,7 @@ class GlobalBuffer:
         self.gameplay_experiences = deque(maxlen=25000)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
+        self.combats = deque(maxlen=25000)
 
     # Might be a bug with the action_batch not always having correct dims
     def sample_batch(self):
@@ -50,6 +51,16 @@ class GlobalBuffer:
         # done is boolean if game is done after taking said action
         self.gameplay_experiences.append(sample)
 
+    def store_combat_sequence(self, combat):
+        self.combats += combat
+
+    def get_combat_experience(self):
+        combats = []
+        for _ in range(self.batch_size):
+            combat = self.combats.popleft()
+            combats.append(combat)
+        return combats
+
     def available_batch(self):
         queue_length = len(self.gameplay_experiences)
         if queue_length >= self.batch_size:
@@ -57,7 +68,11 @@ class GlobalBuffer:
             return True
         # time.sleep(5)
         return False
-
+    
+    def available_combats(self):
+        if len(self.combats) >= self.batch_size:
+            return True
+        return False
     # Leaving this transpose method here in case some model other than
     # MuZero requires this in the future.
     def transpose(self, matrix):

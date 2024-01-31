@@ -274,7 +274,7 @@ class BoardGenerator(torch.nn.Module):
             # NoiseLayer(),
             # state size. ``(ngf) x 32 x 32``
             torch.nn.ConvTranspose2d( ngf * 2, 58*1, (1,2), (1,1), (0,0), bias=False),
-            torch.nn.LeakyReLU()
+            # torch.nn.LeakyReLU()
             # state size. ``58 x 4 x 7``
         )
     
@@ -312,7 +312,6 @@ class DirectiveGenerator(torch.nn.Module):
 
             # torch.nn.Flatten(),
             torch.nn.Linear(ndf * 8, n_units),
-            torch.nn.Sigmoid()
         )
 
     def forward(self, input):
@@ -390,7 +389,8 @@ class PredNetwork(torch.nn.Module):
         policy = self.relu(self.policy_dense1(x)) + x
         policy = self.relu(self.policy_dense2(x)) + policy
         policy = self.relu(self.policy_dense3(x)) + policy
-        policy = self.softmax(self.sigmoid(self.policy_dense4(x)))
+        # policy = self.softmax(self.sigmoid(self.policy_dense4(x)))
+        policy = self.policy_dense4(x)
         # print(policy)
 
         value = self.relu(self.value_dense1(x)) + x

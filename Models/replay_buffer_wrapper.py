@@ -15,6 +15,9 @@ class BufferWrapper:
     def store_replay_buffer(self, key, *args):
         self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4])
 
+    def store_combat_buffer(self, key, combat):
+        self.buffers["player_0"].store_combats_buffer(combat)
+
     def get_prev_action(self, key):
         self.buffers[key].get_prev_action()
     

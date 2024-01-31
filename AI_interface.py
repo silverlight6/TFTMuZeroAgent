@@ -28,8 +28,8 @@ class DataWorker(object):
         self.agent_network = TFTNetwork()
         self.rank = rank
         self.ckpt_time = time.time()
-        self.env = parallel_env()
         self.buffer = BufferWrapper(global_buffer)
+        self.env = parallel_env()
 
     '''
     Description -
@@ -74,6 +74,8 @@ class DataWorker(object):
                     # Store the information in a buffer to train on later.
                     self.buffer.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
                                                         reward[key], policy[i], string_samples[i])
+                    if player_observation[2][i]:
+                        self.buffer.store_combat_buffer(key, player_observation[2][i])
 
             # Set up the observation for the next action
             player_observation = self.observation_to_input(next_observation)
@@ -116,10 +118,12 @@ class DataWorker(object):
     def observation_to_input(self, observation):
         tensors = []
         masks = []
+        combats = []
         for obs in observation.values():
             tensors.append(obs["tensor"])
             masks.append(obs["mask"])
-        return [np.asarray(tensors), masks]
+            combats.append(obs["combat"])
+        return [np.asarray(tensors), masks, combats]
 
     '''
     Description -
@@ -263,11 +267,15 @@ class AIInterface:
                 trainer.train_network(gameplay_experience_batch, global_agent, train_step, train_summary_writer)
                 # storage.set_trainer_busy.remote(False)
                 storage.set_target_model(global_agent.get_weights())
+                if ray.get(global_buffer.available_combats.remote()):
+                    trainer.train_board_generator(ray.get(global_buffer.get_combat_experience.remote()), 
+                                                  global_agent, train_step, train_summary_writer)
                 train_step += 1
                 if train_step % config.CHECKPOINT_STEPS == 0:
                     storage.set_model()
                     global_agent.tft_save_model(train_step)
                 print("Finished training")
+            
             print(f'Spawning agent {rank}')
             weights = storage.get_target_model()
             workers.extend([data_workers[rank].collect_gameplay_experience.remote(weights)])

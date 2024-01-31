@@ -131,6 +131,7 @@ class Player:
         self.num_units_in_play = 0
         self.max_units = 1
         self.exp_cost = 4
+        self.last_combat = None
 
         # This could be in a config file, but we could implement something that alters the
         # Amount of gold required to level that differs player to player
@@ -966,6 +967,7 @@ class Player:
             self.reward -= self.damage_reward * damage
             self.print(str(-self.damage_reward * damage) + " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
+            self.last_combat = (None, self.board_distribution, -1.)
 
             if self.team_tiers['fortune'] > 0:
                 self.fortune_loss_streak += 1
@@ -1922,6 +1924,7 @@ class Player:
             self.reward += self.damage_reward * damage
             self.print(str(self.damage_reward * damage) + " reward for winning round against player " + str(self.opponent.player_num))
             self.match_history.append(1)
+            self.last_combat = (None, self.board_distribution, 1.)
 
             if self.team_tiers['fortune'] > 0:
                 if self.fortune_loss_streak >= len(fortune_returns):
