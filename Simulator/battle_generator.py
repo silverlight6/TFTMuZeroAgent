@@ -1,7 +1,6 @@
 import numpy as np
 import config
 import random
-import time
 from Simulator.stats import BASE_CHAMPION_LIST
 from Simulator.pool import pool
 from Simulator.player import Player
@@ -11,6 +10,10 @@ from Simulator.champion import champion
 from Simulator.observation.token.action import ActionToken
 
 
+"""
+Description - This is the Battle Generator class
+              Generates random battles with random items and random number of players with random positioning
+"""
 class BattleGenerator:
     def __init__(self):
         ...
@@ -26,7 +29,9 @@ class BattleGenerator:
             self.add_champions(player, action_mask)
             self.add_items_to_champions(player, action_mask)
             self.add_items_to_item_bench(player)
-        return [player_list[0], player_list[1], {f"player_{player.player_num}": player for player in player_list}]
+        player_returns = random.sample(range(0, 8), 2)
+        return [player_list[player_returns[0]], player_list[player_returns[1]],
+                {f"player_{player.player_num}": player for player in player_list}]
 
     def add_champions(self, player, action_mask):
         move_failure = 0
@@ -56,6 +61,6 @@ class BattleGenerator:
 
     def add_items_to_item_bench(self, player):
         for _ in range(8):
-            if not player.item_bench_full():
+            if not player.item_bench_full(1):
                 random_item = random.sample(list(item_builds.keys()), 1)
                 player.add_to_item_bench(random_item[0])

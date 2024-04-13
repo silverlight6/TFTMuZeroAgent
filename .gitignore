@@ -22,7 +22,7 @@ libdevice.10.bc
 core/ctree/cytree.cpython-39-x86_64-linux-gnu.so
 core/ctree/cytree.cp39-win_amd64.pyd
 
-# UI
+# UI 
 Games/
 PoroSight.DS_Store
 PoroSight/node_modules

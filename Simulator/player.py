@@ -26,8 +26,6 @@ Inputs      - pool_pointer: Pool object pointer
               player_num: Int
                 An identifier for the player, used in match_making for combats
 """
-
-
 class Player:
     def __init__(self, pool_pointer, player_num):
 
@@ -940,7 +938,7 @@ class Player:
                 return True
         self.reward += self.mistake_reward
         if DEBUG:
-            print("Outside board limits")
+            print(f"Outside board limits -> ({x1}, {y1}) to ({x2}, {y2})")
         return False
 
     # --- Item Action --- #
@@ -1853,3 +1851,32 @@ class Player:
                 self.fortune_loss_streak += 1
                 if self.team_tiers['fortune'] > 1:
                     self.fortune_loss_streak += 1
+
+    def __eq__(self, other):
+        for x in range(len(self.board)):
+            for y in range(len(self.board[0])):
+                if self.board[x][y] and other.board[x][y]:
+                    if not self.board[x][y].is_equal(other.board[x][y]):
+                        print("Failed at board")
+                        return False
+                elif self.board[x][y] or other.board[x][y]:
+                    print("Failed at board 2")
+                    return False
+        for x in range(len(self.bench)):
+            if self.bench[x] and other.bench[x]:
+                if not self.bench[x].is_equal(other.bench[x]):
+                    print("Failed at bench")
+                    return False
+            elif self.bench[x] or other.bench[x]:
+                print("Failed at bench 2")
+                return False
+        for x in range(len(self.item_bench)):
+            if self.item_bench[x] != other.item_bench[x]:
+                print("Failed at item_bench")
+                return False
+        if self.gold != other.gold or self.level != other.level \
+                or self.exp != other.exp or self.health != other.health or self.reward != other.reward:
+            print("Failed at scalars")
+            return False
+        return True
+

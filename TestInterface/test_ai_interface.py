@@ -1,13 +1,13 @@
+import config
 import datetime
 
-import config
-from TestInterface.test_global_buffer import GlobalBuffer
-from TestInterface.test_data_worker import DataWorker
+from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.MuZero_torch_trainer import Trainer
 from Simulator.tft_simulator import parallel_env, TFTConfig
 from Simulator.observation.vector.observation import ObservationVector
 from TestInterface.test_replay_wrapper import BufferWrapper
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.MuZero_torch_trainer import Trainer
+from TestInterface.test_data_worker import DataWorker
+from TestInterface.test_global_buffer import GlobalBuffer
 from torch.utils.tensorboard import SummaryWriter
 
 class AIInterface:

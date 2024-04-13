@@ -101,12 +101,12 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
     def fetch_dead_observation(self):
         """Zero out public observations for all dead players"""
         return {
-            "scalars": np.zeros(self.public_scalars.shape),
-            "board": np.zeros(self.board_vector.shape),
-            "bench": np.zeros(self.bench_vector.shape),
-            "shop": np.zeros(self.shop_vector.shape),
-            "items": np.zeros(self.item_bench_vector.shape),
-            "traits": np.zeros(self.trait_vector.shape),
+            "scalars": np.zeros(self.public_scalars.shape, dtype=np.float32),
+            "board": np.zeros(self.board_vector.shape, dtype=np.float32),
+            "bench": np.zeros(self.bench_vector.shape, dtype=np.float32),
+            "shop": np.zeros(self.shop_vector.shape, dtype=np.float32),
+            "items": np.zeros(self.item_bench_vector.shape, dtype=np.float32),
+            "traits": np.zeros(self.trait_vector.shape, dtype=np.float32),
         }
         
     def update_observation(self, action):
@@ -289,7 +289,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             player.exp,
             player.level_costs[player.level] - player.exp,
             player.gold,
-        ])
+        ], dtype=np.float32)
 
     # -- Champion -- #
     def create_champion_vector(self, champion):
@@ -320,11 +320,11 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         championID = self.util.get_champion_id(champion)
         
         # Item token
-        item_ids = np.zeros(self.item_vector_length * 3)
+        item_ids = np.zeros(self.item_vector_length * 3, dtype=np.float32)
         item_modifiers = []
 
         # Origin Vector
-        origin_ids = np.zeros(self.trait_champion_vector_length)
+        origin_ids = np.zeros(self.trait_champion_vector_length, dtype=np.float32)
         origins = champion.origin.copy()
         
         # Stats Vector
@@ -369,7 +369,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             stars,
             np.array([cost]),
             np.array(list(stats.values()))
-        ])
+        ], dtype=np.float32)
         
     # -- Champion Util -- #
     def get_champion_stats(self, champion) -> dict:
@@ -426,8 +426,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         4-10: originIDs
         11-22: stats
         """
-        champion_vectors[:, 11:23] = \
-            self.normalizer.apply_champion_normalization(champion_vectors[:, 11:23])
+        champion_vectors[:, 11:23] = self.normalizer.apply_champion_normalization(champion_vectors[:, 11:23])
             
         return champion_vectors
 
@@ -462,7 +461,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
         """
 
-        board_vector = np.zeros((28, self.champion_vector_length))
+        board_vector = np.zeros((28, self.champion_vector_length), dtype=np.float32)
         
         for x in range(len(player.board)):
             for y in range(len(player.board[x])):
@@ -484,7 +483,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) |
 
         """
-        bench_vector = np.zeros((9, self.champion_vector_length))
+        bench_vector = np.zeros((9, self.champion_vector_length), dtype=np.float32)
         
         for idx, champion in enumerate(player.bench):
             if champion:
@@ -504,7 +503,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
         """
         
-        shop_vector = np.zeros((5, self.champion_vector_length))
+        shop_vector = np.zeros((5, self.champion_vector_length), dtype=np.float32)
 
         for idx, champion in enumerate(player.shop_champions):
             if champion:
@@ -523,7 +522,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) (9) |
 
         """
-        item_bench_vector = np.zeros(10)
+        item_bench_vector = np.zeros(10, dtype=np.float32)
         
         for i, item in enumerate(player.item_bench):
             if item:

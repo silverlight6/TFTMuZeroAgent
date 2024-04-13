@@ -80,9 +80,9 @@ class Step_Function:
         action = self.player_manager.action_handlers[player_id].action_space_to_action(action)
         self.perform_action(player_id, action)
 
-    def batch_position_controller(self, action, player):
+    def position_controller(self, action, player):
         """
-        Takes an action which is 12 by 28. If 28, the action is considered a pass.
+        Takes an action which is 12 by 29. If 28, the action is considered a pass.
         All final positions are calculated prior to moving. If multiple movements to the same square are requested,
         only the first one will be recognized.
         If two units are swapped by an early movement, then the movement for the first character will still be the one
@@ -103,14 +103,12 @@ class Step_Function:
                 | (21) (22) (23) (24) (25) (26) (27) |
                                         Bottom
         """
+        # print(f"action {action} for player {player.player_num}")
         # Remove all duplicate actions, keep the early ones.
         destination = []
-        print(action)
-        time.sleep(2)
         for x in action:
-            x_idx = x.index(max(x))
-            if x_idx not in destination:
-                destination.append(x_idx)
+            if x not in destination:
+                destination.append(x)
             else:
                 destination.append(28)
 
@@ -120,17 +118,18 @@ class Step_Function:
             destination_coords.append([x1, y1])
 
         starting_square = []
-        for y in range(len(player.board[0])):
-            for x in range(len(player.board) - 1, -1, -1):
-                if player.board[x][y]:
-                    starting_square.append([x, y])
-
-        for i in range(len(starting_square), 12):
-            destination_coords[i] = [0, -1]
-
+        starting_square_names = []
+        for coord in range(len(player.board) * len(player.board[0])):
+            x, y = coord_to_x_y(coord)
+            if player.board[x][y]:
+                starting_square.append([x, y])
+                starting_square_names.append(player.board[x][y].name)
+        # print(f"destination_coords {destination_coords} for player {player.player_num}")
+        # print(f"starting_square {starting_square}")
+        # print(f"starting_square_names {starting_square_names}")
         for i, coord in enumerate(destination_coords):
             # 28 pass rule.
-            if coord[1] != -1:
+            if coord[0] != 7:
                 temp_square = starting_square[i]
                 player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
                 # Make note that this square was already used
@@ -140,7 +139,7 @@ class Step_Function:
                     if coord == square:
                         starting_square[j] = temp_square
 
-    def batch_item_controller(self, action, player, item_guide):
+    def item_controller(self, action, player, item_guide):
         """
         Takes an action which is 10 by 28. If 28, the action is considered a pass.
         All items will be placed according to the commands. If the item command is not possible, nothing will happen.
@@ -165,7 +164,7 @@ class Step_Function:
 
         for i, use_item in enumerate(item_guide):
             if not use_item[0] or player.item_bench[i] is None:
-                destination_coords[i] = [0, -1]
+                destination_coords[i] = [7, 0]
 
         starting_square = []
         for y in range(len(player.board[0])):
@@ -175,6 +174,6 @@ class Step_Function:
 
         for i, coord in enumerate(destination_coords):
             # 28 pass rule.
-            if coord[1] != -1:
+            if coord[0] != 7:
                 if coord in starting_square:
                     player.move_item(i, coord[0], coord[1])

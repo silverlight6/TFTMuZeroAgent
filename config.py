@@ -14,8 +14,12 @@ TRAINER_GPU_SIZE = float(environ.get("TRAINER_GPU_SIZE", 0.2))
 NUM_CPUS = int(environ.get("NUM_CPUS", 14))
 
 DEVICE = str(environ.get("DEVICE", "cuda"))
-IMITATION = eval(environ.get("IMITATION", False))
-CHAMP_DECIDER = eval(environ.get("CHAMP_DECIDER", False))
+IMITATION = environ.get("IMITATION", False)
+if isinstance(IMITATION, str):
+    IMITATION = eval(IMITATION)
+CHAMP_DECIDER = environ.get("CHAMP_DECIDER", False)
+if isinstance(CHAMP_DECIDER, str):
+    CHAMP_DECIDER = eval(CHAMP_DECIDER)
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = int(environ.get("ACTIONS_PER_TURN", 15))
@@ -27,7 +31,9 @@ AUTO_BATTLER_PERCENTAGE = int(environ.get("AUTO_BATTLER_PERCENTAGE", 0))
 # Putting this here so that we don't scale the policy by a multiple of 5
 # Because we calculate the loss for each of the 5 dimensions.
 # I'll add a mathematical way of generating these numbers later.
-DEBUG = eval(environ.get("DEBUG", True))
+DEBUG = environ.get("DEBUG", True)
+if isinstance(DEBUG, str):
+    DEBUG = eval(DEBUG)
 CHECKPOINT_STEPS = int(environ.get("CHECKPOINT_STEPS", 100))
 
 STARTING_EPISODE = int(environ.get("STARTING_EPISODE", 0))
@@ -114,7 +120,9 @@ class ModelConfig:
 
     # ACTION_DIM = 10
     ENCODER_NUM_STEPS = int(environ.get("ENCODER_NUM_STEPS", 601))
-    SELECTED_SAMPLES = eval(environ.get("SELECTED_SAMPLES", True))
+    SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
+    if isinstance(SELECTED_SAMPLES, str):
+        SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
     MAX_GRAD_NORM = int(environ.get("MAX_GRAD_NORM", 5))
 
     N_HEAD_HIDDEN_LAYERS = 2
