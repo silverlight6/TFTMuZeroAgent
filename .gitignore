@@ -1,8 +1,8 @@
 *.pyc
-.env
 /.idea/
 /.pytest_cache
 UnitTests/.pytest_cache
+/.env
 suggestions.py
 /__pycache__
 /Simulator/__pycache__
@@ -10,19 +10,21 @@ suggestions.py
 /interface/__pycache__
 /UnitTests/__pycache__
 /logs
+/LogStorage
 log.txt
 /SavedModels
 libdevice.10.bc
 /Checkpoints
 /core/build
 /core/ctree/cytree.cpython-38-x86_64-linux-gnu.so
+/core/ctree/cytree.cpython-310-x86_64-linux-gnu.so
 /core/ctree/cytree.cpp
 /core/ctree/build
 .vscode/
 core/ctree/cytree.cpython-39-x86_64-linux-gnu.so
 core/ctree/cytree.cp39-win_amd64.pyd
 
-# UI 
+# UI
 Games/
 PoroSight.DS_Store
 PoroSight/node_modules
