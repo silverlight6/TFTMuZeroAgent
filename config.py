@@ -1,7 +1,6 @@
 import numpy as np
 from os import environ, path, cpu_count
 from dotenv import load_dotenv
-import torch
 
 # Load environment variables from .env file
 BASE_DIR = path.abspath(path.join(path.dirname(__file__), "."))
@@ -41,15 +40,21 @@ def get_num_cpus(percentage=0.8):
     return min(num_cpus, max_cpus)
 
 # IMPORTANT: Change this value to the percentage of CPU cores you want to use (default 80%)
-NUM_CPUS = NUM_CPUS = get_num_cpus()
+NUM_CPUS = get_num_cpus()
 
-# Dynamically set the device based on available hardware acceleration
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-elif torch.backends.mps.is_available():  # Check for Apple Silicon GPU support
-    DEVICE = "mps"
-else:
-    DEVICE = "cpu"
+# try:
+#     import torch
+#     # Dynamically set the device based on available hardware acceleration
+#     if torch.cuda.is_available():
+#         DEVICE = "cuda"
+#     elif torch.backends.mps.is_available(): # Apple Silicon
+#         DEVICE = "mps"
+#     else:
+#         DEVICE = "cpu"
+# except ImportError:
+#     print("WARNING: Torch import failed, may not be installed, AI capabilities not available.")
+DEVICE = "cuda"
+
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 
@@ -161,7 +166,6 @@ class ModelConfig:
     N_HEAD_HIDDEN_LAYERS = 2
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
-
-# Dynamically calculate LSTM_SIZE and RNN_SIZES based on current settings
-ModelConfig.LSTM_SIZE = int(ModelConfig.HIDDEN_STATE_SIZE / (ModelConfig.NUM_RNN_CELLS * 2))
-ModelConfig.RNN_SIZES = [ModelConfig.LSTM_SIZE] * ModelConfig.NUM_RNN_CELLS
+    
+    LSTM_SIZE = int(ModelConfig.HIDDEN_STATE_SIZE / (ModelConfig.NUM_RNN_CELLS * 2))
+    RNN_SIZES = [ModelConfig.LSTM_SIZE] * ModelConfig.NUM_RNN_CELLS
