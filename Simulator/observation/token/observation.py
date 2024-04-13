@@ -1,13 +1,12 @@
 import abc
 import numpy as np
 
-from Simulator.porox.observation.util import Util
-from Simulator.porox.observation.normalization import Normalizer
+from Simulator.observation.util import Util
+from Simulator.observation.normalization import Normalizer
 
-from Simulator.porox.observation.interface import ObservationBase
-from Simulator.porox.observation.vector.interface import ObservationVectorBase
+from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
 
-class ObservationVector(ObservationBase, ObservationVectorBase):
+class ObservationToken(ObservationBase, ObservationUpdateBase):
     """Observation object that stores the observation for a player."""
 
     def __init__(self, player):
@@ -61,11 +60,11 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         PlayerObservation:
             scalars: [Game Values, Public Scalars, Private Scalars]
-            board: board vector
-            bench: bench vector
-            shop: shop vector
-            items: item vector
-            traits: trait vector
+            board: board token
+            bench: bench token
+            shop: shop token
+            items: item token
+            traits: trait token
         """
 
         return {
@@ -86,10 +85,10 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         PlayerPublicObservation:
             scalars: [Public Scalars]
-            board: board vector
-            bench: bench vector
-            items: item vector
-            traits: trait vector
+            board: board token
+            bench: bench token
+            items: item token
+            traits: trait token
         """
         return {
             "scalars": self.public_scalars,
@@ -102,12 +101,12 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     def fetch_dead_observation(self):
         """Zero out public observations for all dead players"""
         return {
-            "scalars": np.zeros(self.public_scalars.shape),
-            "board": np.zeros(self.board_vector.shape),
-            "bench": np.zeros(self.bench_vector.shape),
-            "shop": np.zeros(self.shop_vector.shape),
-            "items": np.zeros(self.item_bench_vector.shape),
-            "traits": np.zeros(self.trait_vector.shape),
+            "scalars": np.zeros(self.public_scalars.shape, dtype=np.float32),
+            "board": np.zeros(self.board_vector.shape, dtype=np.float32),
+            "bench": np.zeros(self.bench_vector.shape, dtype=np.float32),
+            "shop": np.zeros(self.shop_vector.shape, dtype=np.float32),
+            "items": np.zeros(self.item_bench_vector.shape, dtype=np.float32),
+            "traits": np.zeros(self.trait_vector.shape, dtype=np.float32),
         }
         
     def update_observation(self, action):
@@ -290,11 +289,11 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             player.exp,
             player.level_costs[player.level] - player.exp,
             player.gold,
-        ])
+        ], dtype=np.float32)
 
     # -- Champion -- #
     def create_champion_vector(self, champion):
-        """Create a champion vector for a champion
+        """Create a champion token for a champion
         
         Champion Vector:
 
@@ -320,12 +319,12 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         """
         championID = self.util.get_champion_id(champion)
         
-        # Item vector
-        item_ids = np.zeros(self.item_vector_length * 3)
+        # Item token
+        item_ids = np.zeros(self.item_vector_length * 3, dtype=np.float32)
         item_modifiers = []
 
         # Origin Vector
-        origin_ids = np.zeros(self.trait_champion_vector_length)
+        origin_ids = np.zeros(self.trait_champion_vector_length, dtype=np.float32)
         origins = champion.origin.copy()
         
         # Stats Vector
@@ -370,7 +369,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             stars,
             np.array([cost]),
             np.array(list(stats.values()))
-        ])
+        ], dtype=np.float32)
         
     # -- Champion Util -- #
     def get_champion_stats(self, champion) -> dict:
@@ -420,26 +419,24 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
         return stat_modifiers
         
     def apply_champion_normalization(self, champion_vectors):
-        """Apply normalization to a champion vector
+        """Apply normalization to a champion token
         
         0: ID
         1-3: itemIDs
         4-10: originIDs
         11-22: stats
         """
-        champion_vectors[:, 11:23] = \
-            self.normalizer.apply_champion_normalization(champion_vectors[:, 11:23])
+        champion_vectors[:, 11:23] = self.normalizer.apply_champion_normalization(champion_vectors[:, 11:23])
             
         return champion_vectors
 
-        
     # -- Board Vector -- #
     def get_board_vector_location(self, x, y):
-        """Get the location of a champion on the board vector"""
+        """Get the location of a champion on the board token"""
         return x * 4 + y
 
     def create_board_vector(self, player):
-        """Create a board vector for a player
+        """Create a board token for a player
 
         Board Vector: (28, champion_vector_length)
 
@@ -464,7 +461,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         """
 
-        board_vector = np.zeros((28, self.champion_vector_length))
+        board_vector = np.zeros((28, self.champion_vector_length), dtype=np.float32)
         
         for x in range(len(player.board)):
             for y in range(len(player.board[x])):
@@ -478,7 +475,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Bench Vector -- #
     def create_bench_vector(self, player):
-        """Create a bench vector for a player
+        """Create a bench token for a player
 
         Bench Vector: (9, champion_vector_length)
 
@@ -486,7 +483,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) |
 
         """
-        bench_vector = np.zeros((9, self.champion_vector_length))
+        bench_vector = np.zeros((9, self.champion_vector_length), dtype=np.float32)
         
         for idx, champion in enumerate(player.bench):
             if champion:
@@ -497,7 +494,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Shop Vector -- #
     def create_shop_vector(self, player):
-        """Create shop vector for a player
+        """Create shop token for a player
         
         Shop Vector: (5, champion_vector_length)
         
@@ -506,7 +503,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
 
         """
         
-        shop_vector = np.zeros((5, self.champion_vector_length))
+        shop_vector = np.zeros((5, self.champion_vector_length), dtype=np.float32)
 
         for idx, champion in enumerate(player.shop_champions):
             if champion:
@@ -517,7 +514,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Item Bench Vector -- #
     def create_item_bench_vector(self, player):
-        """Create an item bench vector for a player
+        """Create an item bench token for a player
         
         Item Bench Vector: (10,)
 
@@ -525,7 +522,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) (9) |
 
         """
-        item_bench_vector = np.zeros(10)
+        item_bench_vector = np.zeros(10, dtype=np.float32)
         
         for i, item in enumerate(player.item_bench):
             if item:
@@ -535,7 +532,7 @@ class ObservationVector(ObservationBase, ObservationVectorBase):
     
     # -- Trait Vector -- #
     def compute_traits_from_board(self, champion_vectors):
-        """Compute the total trait vector from either board or bench
+        """Compute the total trait token from either board or bench
         
         Champion Vector:
         0: ID

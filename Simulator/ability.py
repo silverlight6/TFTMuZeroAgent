@@ -1060,8 +1060,11 @@ def kindred(champion):
 
     if not champion.target:
         field.find_target(champion)
-        champion.print(
-            ' has a new target: ' + '{:<8}'.format(champion.target.team) + '{:<8}'.format(champion.target.name))
+        if champion.target:
+            champion.print(
+                ' has a new target: ' + '{:<8}'.format(champion.target.team) + '{:<8}'.format(champion.target.name))
+        else:
+            return
 
     target = champion.target
     target_y = target.y
@@ -1103,6 +1106,8 @@ def leesin(champion):
     # draw a line from lee to target and continue it until it hits an edge
     if not champion.target:
         field.find_target(champion)
+        if champion.target is None:
+            return
     if len(champion.enemy_team()) > 0:
         line_to_wall_behind_target = field.rectangle_from_champion_to_wall_behind_target(champion, 1, champion.target.y,
                                                                                          champion.target.x)
@@ -1837,9 +1842,10 @@ def riven(champion):
                     two_from_n0 = field.hexes_distance_away(corner_neighbors[0][0], corner_neighbors[0][1], 2, True)
                     two_from_n1 = field.hexes_distance_away(corner_neighbors[1][0], corner_neighbors[1][1], 2, True)
                     two_away = list(set(map(tuple, two_from_champion)).intersection(set(map(tuple, two_from_n0))))
+                    two_away_list = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))
                     slash_hexes = []
-                    if len(two_away) > 0:
-                        two_away = list(set(map(tuple, two_away)).intersection(set(map(tuple, two_from_n1))))[0]
+                    if len(two_away_list) > 0:
+                        two_away = two_away_list[0]
                         slash_hexes = field.hexes_in_distance(two_away[0], two_away[1], 1)
 
                     slash_hexes.append(corner_neighbors[0])
@@ -2600,8 +2606,9 @@ def yone(champion):
     coords = field.coordinates
 
     # Seal Fate
-    if (champion.maxmana == stats.MAXMANA[champion.name]):
-        if (not champion.target): field.find_target(champion)
+    if champion.maxmana == stats.MAXMANA[champion.name] and champion.target:
+        if not champion.target:
+            field.find_target(champion)
         path = field.rectangle_from_champion_to_wall_behind_target(champion, stats.ABILITY_RADIUS[champion.name],
                                                                    champion.target.y, champion.target.x)
         for i, p in enumerate(path):
@@ -2683,12 +2690,12 @@ def yone(champion):
         apply_attack_cooldown(champion)
 
     # Unforgotten
-    elif (champion.maxmana == stats.SECONDARY_MAXMANA[champion.name]):
+    elif champion.maxmana == stats.SECONDARY_MAXMANA[champion.name] and champion.target:
         # sort the marked enemies by hp and check their neighboring hexes
         # whichever has the first free hex, is going to be the dash target
         marked_enemies = []
         for y in yone_list:
-            if (y[0] == champion):
+            if y[0] == champion:
                 marked_enemies.append([y[1], y[1].health])
         marked_enemies = sorted(marked_enemies, key=lambda x: x[1])
 
@@ -2702,18 +2709,19 @@ def yone(champion):
             random.shuffle(neighbors)
             for n in neighbors:
                 c = coords[n[0]][n[1]]
-                if (not c):
+                if not c:
                     target = m[0]
                     dash_coordinate = n
                     break
-            if (target): break
+            if target:
+                break
 
-        if (target):
+        if target:
             damage = (target.max_health - target.health) * stats.ABILITY_MISSING_HEALTH_DAMAGE_PERCENTAGE[champion.name]
             damage += stats.ABILITY_SECONDARY_DMG[champion.name][champion.stars]
 
             distance = field.distance(champion, target, True)
-            if (distance > 1):
+            if distance > 1:
                 champion.print(' dashes')
                 champion.move(dash_coordinate[0], dash_coordinate[1], True)
             champion.spell(target, damage)

@@ -198,6 +198,9 @@ class champion:
         if self == target:
             enemy_team = self.team  # when ionic sparking themselves
 
+        if target is None:
+            return
+
         if not ('trap_claw' in target.items and not item_damage and not burn_damage):  # trap_claw
 
             if self.pumped_up:  # the_boss -trait
@@ -511,6 +514,31 @@ class champion:
     def new_chosen(self):
         self.health += 200
         self.max_health += 200
+
+    def is_equal(self, other):
+        print(f"comparing {self.name} to {other.name} and {self.name == other.name}")
+        print(f"with {self.stars} to {other.stars} and {self.stars == other.stars}")
+        print(f"with {self.AS} to {other.AS} and {self.AS == other.AS}")
+        print(f"with {self.armor} to {other.armor} and {self.armor == other.armor}")
+        print(f"with {self.MR} to {other.MR} and {self.MR == other.MR}")
+        print(f"with {self.range} to {other.range} and {self.range == other.range}")
+        print(f"with {self.mana} to {other.mana} and {self.mana == other.mana}")
+        print(f"with {self.maxmana} to {other.maxmana} and {self.maxmana == other.maxmana}")
+        print(f"with {self.cost} to {other.cost} and {self.cost == other.cost}")
+        print(f"with {self.items} to {other.items} and {self.items == other.items}")
+        if self.name == other.name and \
+                self.stars == other.stars and \
+                self.AS == other.AS and \
+                self.armor == other.armor and \
+                self.MR == other.MR and \
+                self.range == other.range and \
+                self.mana == other.mana and \
+                self.maxmana == other.maxmana and \
+                self.cost == other.cost and \
+                self.items == other.items:
+            print('returned True')
+            return True
+        return False
 
 
 global blue

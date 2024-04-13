@@ -7,6 +7,7 @@ from Simulator import champion, minion
 from Simulator.champion_functions import MILLIS
 from Simulator.carousel import carousel
 from Simulator.alt_autobattler import alt_auto_battle
+from copy import deepcopy
 
 
 class Game_Round:
@@ -135,7 +136,7 @@ class Game_Round:
 
                 # If the battle was very close.
                 # TODO: Change to <= when running the software in non-test mode
-                if damage - self.ROUND_DAMAGE[round_index][1] != self.ROUND_DAMAGE[round_index][1] and standard_battle:
+                if damage - self.ROUND_DAMAGE[round_index][1] < self.ROUND_DAMAGE[round_index][1] and standard_battle:
                     self.save_current_battle["player_" + str(players[match[0]].player_num)] = True
                     self.save_current_battle["player_" + str(players[match[1]].player_num)] = True
                 else:
@@ -186,16 +187,19 @@ class Game_Round:
         config.WARLORD_WINS['red'] = players[1].win_streak
 
         standard_battle = global_config.AUTO_BATTLER_PERCENTAGE < np.random.rand()
+
+        player_0 = deepcopy(players[0])
+        player_1 = deepcopy(players[1])
         if standard_battle:
             # Main simulation call
-            index_won, damage = champion.run(champion.champion, players[0], players[1])
+            index_won, damage = champion.run(champion.champion, player_0, player_1)
         else:
-            index_won, damage = alt_auto_battle(players[0], players[1])
+            index_won, damage = alt_auto_battle(player_0, player_1)
 
         # Draw
         if index_won == 0:
             players[0].loss_round(damage)
-            players[0].loss_round(damage)
+            players[1].loss_round(damage)
 
         # Blue side won
         if index_won == 1:
@@ -208,7 +212,7 @@ class Game_Round:
             players[1].won_round(damage)
 
         log_to_file_combat()
-        return True
+        return index_won, damage
 
     def decide_player_combat(self):
         player_list = []

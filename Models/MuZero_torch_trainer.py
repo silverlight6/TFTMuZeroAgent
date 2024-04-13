@@ -13,7 +13,7 @@ Prediction = collections.namedtuple(
 LossOutput = collections.namedtuple(
     'LossOutput',
     'value_loss reward_loss policy_loss tier_loss final_tier_loss champ_loss '
-    'value reward policy target_value target_reward l2_loss importance_weights')
+    'value reward policy target_value target_reward target_policy l2_loss importance_weights')
 
 
 class Trainer(object):
@@ -131,6 +131,7 @@ class Trainer(object):
             policy=[],
             target_value=[],
             target_reward=[],
+            target_policy=[],
             l2_loss=[],
             importance_weights=[]
         )
@@ -145,7 +146,10 @@ class Trainer(object):
             self.scale_loss(reward_loss)
 
             step_target_policy = self.fill_policy(target_policy[tstep], sample_set[tstep])
-            policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
+            if config.CHAMP_DECIDER:
+                policy_loss = self.decider_policy_loss(prediction.policy_logits, step_target_policy)
+            else:
+                policy_loss = self.policy_loss(prediction.policy_logits, step_target_policy)
             self.scale_loss(policy_loss)
             if config.CHAMP_DECIDER:
                 policy_loss.register_hook(lambda grad: grad * (1 / len(config.CHAMP_DECIDER_ACTION_DIM)))
@@ -185,6 +189,9 @@ class Trainer(object):
 
             self.outputs.target_value.append(self.decode_target(step_target_value, self.network.value_encoder))
             self.outputs.target_reward.append(self.decode_target(step_target_value, self.network.value_encoder))
+            if not config.CHAMP_DECIDER:
+                self.outputs.target_policy.append(torch.sum(torch.reshape(step_target_policy,
+                                                            (config.BATCH_SIZE, 55, 38)), dim=0))
 
         l2_loss = self.l2_regularization()
         self.outputs.l2_loss.append(l2_loss)
@@ -262,11 +269,12 @@ class Trainer(object):
                     torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
                               torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
         else:
-            for i in range(len(config.POLICY_HEAD_SIZES)):
-                self.summary_writer.add_scalar(
-                    'episode_info/value_diff_{}'.format(i),
-                    torch.max(torch.max(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values -
-                              torch.min(torch.stack([pol[i] for pol in self.outputs.policy]), 1).values), train_step)
+            self.summary_writer.add_scalar(
+                'episode_info/value_diff',
+                torch.max(torch.max(torch.stack(self.outputs.policy), 1).values -
+                          torch.min(torch.stack(self.outputs.policy), 1).values), train_step)
+            self.summary_writer.add_image('policy_preference', torch.reshape(torch.sum(torch.stack(
+                self.outputs.target_policy, 1), 1), (1, 55, 38)), global_step=train_step)
 
         self.summary_writer.flush()
 
@@ -303,7 +311,7 @@ class Trainer(object):
         if not config.CHAMP_DECIDER:
             idx_set = sample_set_to_idx(sample_set)
             target = create_target_and_mask(target, idx_set)
-            target = [torch.from_numpy(target_dim).to(config.DEVICE) for target_dim in target]
+            target = torch.from_numpy(target).to(config.DEVICE)
         else:
             target = [torch.tensor(target_dim).to(config.DEVICE) for target_dim in target]
 
@@ -317,6 +325,9 @@ class Trainer(object):
         return cross_entropy_loss(prediction, target)
 
     def policy_loss(self, prediction, target):
+        return cross_entropy_loss(prediction, target)
+
+    def decider_policy_loss(self, prediction, target):
         loss = 0.0
         for pred_dim, target_dim in zip(prediction, target):
             loss += cross_entropy_loss(pred_dim, target_dim)
@@ -347,9 +358,8 @@ def scale_gradient(x, scale):
     x.register_hook(lambda grad: grad * scale)
     
 def scale_dict_gradient(x, scale):
-    for key in x:
-        x[key].requires_grad_(True)
-        x[key].register_hook(lambda grad: grad * scale)
+    x.requires_grad_(True)
+    x.register_hook(lambda grad: grad * scale)
 
 
 def cross_entropy_loss(prediction, target):

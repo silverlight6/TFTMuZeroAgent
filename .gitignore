@@ -1,5 +1,7 @@
 *.pyc
 /.idea/
+/.pytest_cache
+UnitTests/.pytest_cache
 /.env
 suggestions.py
 /__pycache__

@@ -7,7 +7,7 @@ from PoroX.models.components.embedding import (
 from PoroX.models.components.transformer import EncoderConfig
 from PoroX.models.player_encoder import PlayerConfig
 
-@struct.dataclass
+@dataclass
 class MuZeroConfig:
     player_encoder: PlayerConfig
     cross_encoder: EncoderConfig

@@ -1,4 +1,4 @@
-# Scalar Encoder to convert scalar values into an N-dimensional vector
+# Scalar Encoder to convert scalar values into an N-dimensional token
 # Taken from https://github.com/google-research/google-research/blob/master/muzero/core.py
 
 from functools import partial
@@ -7,7 +7,7 @@ from jax import jit
 
 class ScalarEncoder:
     """
-    Converts scalar values into an N-dimensional vector and back.
+    Converts scalar values into an N-dimensional token and back.
     Allows for batch encoding and decoding.
     """
     def __init__(self, min_value: float, max_value: float, num_steps: int):
@@ -15,7 +15,7 @@ class ScalarEncoder:
         Args:
             min_value: Minimum value of the scalar
             max_value: Maximum value of the scalar
-            num_steps: Size of the encoding vector
+            num_steps: Size of the encoding token
         """
         self.min_value = min_value
         self.max_value = max_value
@@ -27,11 +27,11 @@ class ScalarEncoder:
 
     @partial(jit, static_argnums=(0,))
     def encode(self, value: float) -> jnp.ndarray:
-        """Encode a scalar value into a vector
+        """Encode a scalar value into a token
         Args:
             value: Scalar value to encode
         Returns:
-            ndarray: Encoded vector
+            ndarray: Encoded token
         """
         value = jnp.expand_dims(value , -1)
         clipped_value = jnp.clip(value, self.min_value, self.max_value)
@@ -53,9 +53,9 @@ class ScalarEncoder:
 
     @partial(jit, static_argnums=(0,))
     def decode(self, logits: jnp.ndarray) -> float:
-        """Decode a vector into a scalar value
+        """Decode a token into a scalar value
         Args:
-            logits: Encoded vector
+            logits: Encoded token
         Returns:
             float: Decoded scalar value
         """

@@ -1,11 +1,11 @@
 import pytest
 import jax
 
-from Simulator.porox.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_simulator import parallel_env, TFTConfig
 
 from PoroX.modules.observation import PoroXObservation
 
-from Simulator.porox.player import Player
+from Simulator.player import Player
 from Simulator import pool
 
 from PoroX.test.utils import sample_action
@@ -47,6 +47,6 @@ def first_obs(env):
             or (agent in truncated and not truncated[agent])
         )
     }
-    obs,rew,terminated,truncated,info = env.step(actions)
+    obs, rew, terminated, truncated, info = env.step(actions)
     
     return obs

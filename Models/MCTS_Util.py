@@ -1,47 +1,30 @@
 import config
 import torch
 import numpy as np
+import time
 
 
 def create_default_mapping():
-    local_type = []
-    local_shop = []
-    local_board = []
-    local_item = []
-    local_sell = []
+    mappings = []
 
-    # Shop masking
-    for i in range(5):
-        local_shop.append(f"_{i}")
+    for a in range(38):
+        for b in range(37):
+            if a == 37:
+                mappings.append(f"4_{b}")
+            else:
+                mappings.append(f"5_{a}_{b}")
 
-    # Board masking
-    # For all board + bench slots...
-    for a in range(37):
-        # rest of board slot locs for moving, last for sale
-        for b in range(a, 37):
-            if a == b:
-                continue
-            if a > 27:
-                continue
-            local_board.append(f"_{a}_{b}")
-    # Item masking
-    # For all board + bench slots...
-    for a in range(37):
-        # For every item slot...
         for b in range(10):
-            # if there is a unit and there is an item
-            local_item.append(f"_{a}_{b}")
-    # Sell unit masking
-    for a in range(9):
-        local_sell.append(f"_{a}")
+            mappings.append(f"6_{a}_{b}")
 
-    # All Type mappings
-    for i in range(7):
-        local_type.append(f"{i}")
+        for b in range(5):
+            mappings.append(f"3_{a}")
 
-    mappings = [[local_type] * config.NUM_PLAYERS, [local_shop] * config.NUM_PLAYERS,
-                [local_board] * config.NUM_PLAYERS, [local_item] * config.NUM_PLAYERS,
-                [local_sell] * config.NUM_PLAYERS]
+        mappings.append(f"0")
+        mappings.append(f"1")
+        mappings.append(f"2")
+
+    mappings = [mappings] * config.NUM_PLAYERS
 
     return mappings
 
@@ -112,49 +95,47 @@ def split_batch(mapping_batch, policy_batch):
         if config.CHAMP_DECIDER:
             unroll_mapping = [[] for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))]
             unroll_policy = [[] for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))]
+
+            for batch_idx in range(batch_size):
+                local_mapping = mapping_batch[batch_idx][unroll_idx]
+                local_policy = policy_batch[batch_idx][unroll_idx]
+
+                for dim_idx in range(len(local_mapping)):
+                    unroll_mapping[dim_idx].append(local_mapping[dim_idx])
+                    unroll_policy[dim_idx].append(local_policy[dim_idx])
+
         else:
-            unroll_mapping = [[], [], [], [], []]
-            unroll_policy = [[], [], [], [], []]
+            unroll_mapping = []
+            unroll_policy = []
 
-        for batch_idx in range(batch_size):
-            local_mapping = mapping_batch[batch_idx][unroll_idx]
-            local_policy = policy_batch[batch_idx][unroll_idx]
-
-            for dim_idx in range(len(local_mapping)):
-                unroll_mapping[dim_idx].append(local_mapping[dim_idx])
-                unroll_policy[dim_idx].append(local_policy[dim_idx])
+            for batch_idx in range(batch_size):
+                unroll_mapping.append(mapping_batch[batch_idx][unroll_idx])
+                unroll_policy.append(policy_batch[batch_idx][unroll_idx])
 
         mapping.append(unroll_mapping)
         policy.append(unroll_policy)
 
     return mapping, policy
 
-def action_to_idx(action, dim):
+def action_to_idx(sample):
     mapped_idx = None
+    split_action = sample.split("_")
+    first_idx = int(split_action[0])
 
-    if dim == 0:  # type dim; 7; "0", "1", ... "6"
-        mapped_idx = int(action)
+    if first_idx < 3:  # type dim; 7; "0", "1", ... "6"
+        mapped_idx = 1977 + 38 * first_idx
 
-    elif dim == 1:  # shop dim; 5; "_0", "_1", ... "_4"
-        mapped_idx = int(action[1])  # "_1" -> "1"
+    elif first_idx == 3:  # shop dim; 5; "_0", "_1", ... "_4"
+        mapped_idx = 1939 + int(split_action[1])  # "_1" -> "1"
 
-    elif dim == 2:  # board dim; 630; "_0_1", "_0_2", ... "_37_28"
-        action = action.split('_')  # "_20_21" -> ["", "20", "21"]
-        from_loc = int(action[1])  # ["", "20", "21"] -> "20"
-        to_loc = int(action[2])  # ["", "20", "21"] -> "21"
-        if from_loc < 28:
-            mapped_idx = sum([35 - i for i in range(from_loc)]) + (to_loc - 1)
-        else:
-            mapped_idx = sum([35 - i for i in range(28)]) + (to_loc - 1)
+    elif first_idx == 4:  # board dim; 630; "_0_1", "_0_2", ... "_37_28"
+        mapped_idx = 37 + 38 * int(split_action[1])
 
-    elif dim == 3:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
-        action = action.split('_')  # "_10_9" -> ["", "10", "9"]
-        item_loc = int(action[1])  # "_0_20" -> "0"
-        champ_loc = int(action[2])  # "_0_20" -> "20"
-        mapped_idx = (10 * item_loc) + champ_loc
+    elif first_idx == 5:  # item dim; 370; "_0_0", "_0_1", ... "_9_36"
+        mapped_idx = 38 * int(split_action[1]) + int(split_action[2])
 
-    elif dim == 4:  # sell dim; 37; "_0", "_1", "_36"
-        mapped_idx = int(action[1:])  # "_15" -> "15
+    elif first_idx == 6:  # sell dim; 37; "_0", "_1", "_36"
+        mapped_idx = 1559 + 38 * int(split_action[1]) + int(split_action[2])
 
     return mapped_idx
 
@@ -163,13 +144,10 @@ def action_to_idx(action, dim):
 def sample_set_to_idx(sample_set):
     idx_set = []
 
-    for dim, batch in enumerate(sample_set):  # [batch_size, dim]
+    for batch in sample_set:  # [batch_size, dim]
         dim_idx = []
         for sample in batch:  # [dim]
-            local_idx = []
-            for action in sample:  # single action
-                local_idx.append(action_to_idx(action, dim))
-            dim_idx.append(local_idx)
+            dim_idx.append(action_to_idx(sample))
         idx_set.append(dim_idx)
 
     return idx_set
@@ -179,17 +157,13 @@ def sample_set_to_idx(sample_set):
 # Create filled target with zeros as well as mask
 def create_target_and_mask(target, idx_set):
     batch_size = config.BATCH_SIZE
-    dim_sizes = config.POLICY_HEAD_SIZES
 
-    target_filled = [
-        np.zeros((batch_size, dim), dtype=np.float32) for dim in dim_sizes
-    ]
+    target_filled = np.zeros((batch_size, config.POLICY_HEAD_SIZE), dtype=np.float32)
 
     # TODO: Find a native numpy function to do this
-    for dim, batch in enumerate(idx_set):  # [batch_size, dim]
-        for batch_idx, sample in enumerate(batch):
-            for target_idx, mapped_idx in enumerate(sample):
-                target_filled[dim][batch_idx][mapped_idx] = target[dim][batch_idx][target_idx]
+    for batch_idx, batch in enumerate(idx_set):  # [batch_size, dim]
+        for sample_idx, sample in enumerate(batch):
+            target_filled[batch_idx][sample] = target[batch_idx][sample_idx]
 
     return target_filled
 

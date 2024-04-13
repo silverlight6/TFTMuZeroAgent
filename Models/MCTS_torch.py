@@ -1,9 +1,9 @@
 import time
-import config
 import numpy as np
 import core.ctree.cytree as tree
 import torch
 import Models.MCTS_Util as util
+import config
 from typing import Dict
 
 """
@@ -18,7 +18,7 @@ EXPLANATION OF MCTS:
 
 
 class MCTS:
-    def __init__(self, network):
+    def __init__(self, network, model_config):
         self.network = network
         self.times = [0] * 6
         self.NUM_ALIVE = config.NUM_PLAYERS
@@ -26,42 +26,44 @@ class MCTS:
         self.ckpt_time = time.time_ns()
         self.default_string_mapping = util.create_default_mapping()
         self.max_depth_search = 0
+        self.model_config = model_config
 
     def policy(self, observation):
         with torch.no_grad():
             self.NUM_ALIVE = observation[0]["shop"].shape[0]
 
-            # 0.02 seconds
+            # 0.013 seconds
             network_output = self.network.initial_inference(observation[0])
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
-            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
+            policy_logits = network_output["policy_logits"].cpu().numpy()
 
-            # 0.01 seconds
+            # 0.005 seconds
             policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
 
             noises = [
-                [
-                    np.random.dirichlet([config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[i][j])
+                    np.random.dirichlet([self.model_config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[j])
                                         ).astype(np.float32).tolist()
                     for j in range(self.NUM_ALIVE)
                 ]
-                for i in range(len(policy_logits_pool))
-            ]
+
+            # policy_logits_pool = policy_logits_pool.cpu().numpy()
+            # print(policy_logits_pool)
+            # print(policy_logits_pool.shape)
 
             # Policy Logits -> [ [], [], [], [], [], [], [], [],]
 
             policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
 
-            # 0.003 seconds
+            # 0.001 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits_pool, string_mapping, self.model_config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, config.NUM_SIMULATIONS, config.NUM_SAMPLES)
+            roots_cpp = tree.Roots(self.NUM_ALIVE, self.model_config.NUM_SIMULATIONS, self.model_config.NUM_SAMPLES)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
@@ -85,7 +87,7 @@ class MCTS:
                 distributions = roots_distributions[i]
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
-                target_policy.append([x / config.NUM_SIMULATIONS for x in distributions])
+                target_policy.append([x / self.model_config.NUM_SIMULATIONS for x in distributions])
 
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
@@ -96,37 +98,35 @@ class MCTS:
         num = roots_cpp.num
         # config variables
         discount = config.DISCOUNT
-        pb_c_init = config.PB_C_INIT
-        pb_c_base = config.PB_C_BASE
+        pb_c_init = self.model_config.PB_C_INIT
+        pb_c_base = self.model_config.PB_C_BASE
         hidden_state_index_x = 0
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
-        for _ in range(config.NUM_SIMULATIONS):
+        for _ in range(self.model_config.NUM_SIMULATIONS):
             # prepare a result wrapper to transport results between python and c++ parts
             results = tree.ResultsWrapper(num)
-            # 0.001 seconds
+            # basically 0 seconds (3e-5)
             # evaluation for leaf nodes, traversing across the tree and updating values
             hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
             self.max_depth_search = sum(results.get_search_len()) / len(results.get_search_len())
             num_states = len(hidden_state_index_x_lst)
-            tensors_states = {label: torch.empty((num_states, config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
-                              for label in config.OBSERVATION_LABELS}
+            tensors_states = torch.empty((num_states, self.model_config.HIDDEN_STATE_SIZE)).to(config.DEVICE)
 
             # obtain the states for leaf nodes
             for ix, iy, idx in zip(hidden_state_index_x_lst, hidden_state_index_y_lst, range(num_states)):
-                for label in config.OBSERVATION_LABELS:
-                    tensors_states[label][idx] = hidden_state_pool[ix][label][iy]
+                tensors_states[idx] = hidden_state_pool[ix][iy]
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
             last_action = np.asarray(last_action)
 
-            # 0.003 seconds
+            # 0.005 to 0.01 seconds
             network_output = self.network.recurrent_inference(tensors_states, last_action)
 
             reward_pool = network_output["reward"].reshape(-1).tolist()
@@ -135,11 +135,11 @@ class MCTS:
             if diff > 150.:
                 print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
-            policy_logits = [output_head.cpu().numpy() for output_head in network_output["policy_logits"]]
+            policy_logits = network_output["policy_logits"].cpu().numpy()
 
-            # 0.014 seconds
+            # 0.003 to 0.01 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits, self.default_string_mapping, config.NUM_SAMPLES)
+                self.sample(policy_logits, self.default_string_mapping, self.model_config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -154,12 +154,11 @@ class MCTS:
                                       min_max_stats_lst, results, mappings, policy_sizes)
 
     def add_exploration_noise(self, policy_logits, noises):
-        exploration_fraction = config.ROOT_EXPLORATION_FRACTION
+        exploration_fraction = self.model_config.ROOT_EXPLORATION_FRACTION
         for i in range(len(noises)):  # Batch
-            for j in range(len(noises[i])):  # Policy Dims
-                for k in range(len(noises[i][j])):
-                    policy_logits[i][j][k] = policy_logits[i][j][k] * (1 - exploration_fraction) + \
-                        noises[i][j][k] * exploration_fraction
+            for k in range(len(noises[i])):
+                policy_logits[i][k] = policy_logits[i][k] * (1 - exploration_fraction) + \
+                                         noises[i][k] * exploration_fraction
         return policy_logits
 
     """
@@ -208,155 +207,51 @@ class MCTS:
                       A string mapping that is used in the same way but for the python side. This gets used on the 
                       values that get sent back to the AI_Interface
     """
-    @staticmethod
-    def encode_action_to_str(policy_logits, mask):
-        # mask[0] = decision mask
-        # mask[1] = shop mask - 1 if can buy champ, 0 if can't
-        # mask[2] = board mask - 1 if slot is occupied, 0 if not
-        # mask[3] = bench mask - 1 if slot is occupied, 0 if not
-        # mask[4] = item mask - 1 if slot is occupied, 0 if not
-        # mask[5] = util mask for space in different containers
-        # mask[5][0] = board mask, mask[5][1] = bench mask, mask[5][2] item_bench mask
-        # mask[6] = thieves glove mask - 1 if slot has a thieves glove, 0 if not
-        # mask[7] = sparring glove + item mask
-        # mask[8] = glove mask
-        # mask[9] = dummy_mask
-        # mask[10] = board full items mask
-        # TODO: add 7 more masks for:
-        # 1. Kayn items on bench
-        # 2. Kayn champions on board
-        # 3. Reforger on bench
-        # 4. thieves glove on bench
-        # 5. if champion has items
-        # 6. if champion has FULL items on bench
-        #
+    def encode_action_to_str(self, policy_logits, mask):
+        batch_size = policy_logits.shape[0]  # 8
+        flat_mask = np.reshape(mask, (self.NUM_ALIVE, -1))
+        policy_logits = policy_logits * flat_mask
 
-        # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
-        batch_size = policy_logits[0].shape[0]  # 8
-        masked_policy_logits = [[]]  # Start with empty type_dim
-        masked_policy_mappings = [[]]
+        masked_policy_mappings = []
+        masked_policy_logits = []
 
-        for dim in range(len(policy_logits)):  # 5
-            masked_dim = []  # (8, ?)
+        for batch in range(batch_size):
             masked_dim_mapping = []
-
-            if dim == 0:  # We deal with type masking at the end
-                continue
-
-            if dim == 1:  # Shop Masking
-                for idx in range(batch_size):
-                    local_shop = []
-                    local_shop_mapping = []
-                    for i in range(5):
-                        if mask[idx][1][i] and mask[idx][5][1]:
-                            local_shop.append(policy_logits[dim][idx][i])
-                            local_shop_mapping.append(f"_{i}")
-                    masked_dim.append(local_shop)
-                    masked_dim_mapping.append(local_shop_mapping)
-
-            elif dim == 2:  # Board Masking
-                for idx in range(batch_size):
-                    local_board = []
-                    local_board_mapping = []
-                    board_counter = 0
-                    # Board masking
-                    # For all board + bench slots...
-                    for a in range(28):
-                        # rest of board slot locs for moving, last for sale
-                        for b in range(a, 37):
-                            if a == b:
-                                continue
-                            # if we are trying to move a non-existent champion, skip
-                            if not ((mask[idx][2][a]) or
-                                    ((b < 28 and mask[idx][2][b]) or (b > 27 and mask[idx][3][b - 28]))):
-                                board_counter += 1
-                                continue
-                            # if we're doing a bench to board move and board is full
-                            # and there is no champ at destination, skip
-                            if b > 27 and (not mask[idx][5][0] and not mask[idx][2][a]):
-                                board_counter += 1
-                                continue
-                            # if we're doing a board to bench move and there is no champion at that bench location
-                            if a < 28 and b > 27 and not mask[idx][3][b - 28]:
-                                board_counter += 1
-                                continue
-                            local_board.append(policy_logits[dim][idx][board_counter])
-                            local_board_mapping.append(f"_{a}_{b}")
-                            board_counter += 1
-                    masked_dim.append(local_board)
-                    masked_dim_mapping.append(local_board_mapping)
-
-            elif dim == 3:  # Item masking
-                for idx in range(batch_size):
-                    local_item = []
-                    local_item_mapping = []
-                    # For all board + bench slots...
-                    item_counter = 0
-                    for a in range(37):
-                        # For every item slot...
-                        for b in range(10):
-                            # if there is a unit and there is an item
-                            if not (((a < 28 and mask[idx][2][a] and not mask[idx][9][a] and not mask[idx][10][a])
-                                     or (a > 27 and mask[idx][3][a - 28])) and mask[idx][4][b]):
-                                item_counter += 1
-                                continue
-                            # if it is a legal action to put that item on the unit
-                            if (mask[idx][7][a] and mask[idx][8][b]) or mask[idx][6][a]:
-                                item_counter += 1
-                                continue
-                            local_item.append(policy_logits[dim][idx][item_counter])
-                            local_item_mapping.append(f"_{a}_{b}")
-                            item_counter += 1
-                    masked_dim.append(local_item)
-                    masked_dim_mapping.append(local_item_mapping)
-
-            elif dim == 4:  # Sell unit masking
-                #  Sell unit masking
-                for idx in range(batch_size):
-                    local_sell = []
-                    local_sell_mapping = []
-                    for a in range(9):  # Only include board commands
-                        # If unit exists
-                        if not (mask[idx][3][a]):
-                            continue
-                        local_sell.append(policy_logits[dim][idx][a])
-                        local_sell_mapping.append(f"_{a}")
-                    masked_dim.append(local_sell)
-                    masked_dim_mapping.append(local_sell_mapping)
-
-            masked_policy_logits.append(masked_dim)
+            masked_pol_logits = []
+            for dim in range(len(mask[batch])):
+                if dim < 37:
+                    for idx in range(len(mask[batch][dim])):
+                        if mask[batch][dim][idx]:
+                            if idx < 37:
+                                masked_dim_mapping.append(f"5_{dim}_{idx}")
+                                masked_pol_logits.append(policy_logits[batch][dim * 38 + idx])
+                            else:
+                                masked_dim_mapping.append(f"4_{dim}")
+                                masked_pol_logits.append(policy_logits[batch][dim * 38 + 37])
+                elif dim < 47:
+                    for idx in range(len(mask[batch][dim])):
+                        if mask[batch][dim][idx]:
+                            masked_dim_mapping.append(f"6_{dim - 37}_{idx}")
+                            masked_pol_logits.append(policy_logits[batch][dim * 38 + idx])
+                elif dim < 52:
+                    for idx in range(5):
+                        if mask[batch][dim][idx]:
+                            masked_dim_mapping.append(f"3_{dim - 47}")
+                            masked_pol_logits.append(policy_logits[batch][dim * 38])
+                elif dim == 52:
+                    if mask[batch][dim][0]:
+                        masked_dim_mapping.append(f"0")
+                        masked_pol_logits.append(policy_logits[batch][dim * 38])
+                elif dim == 53:
+                    if mask[batch][dim][0]:
+                        masked_dim_mapping.append(f"1")
+                        masked_pol_logits.append(policy_logits[batch][dim * 38])
+                elif dim == 54:
+                    if mask[batch][dim][0]:
+                        masked_dim_mapping.append(f"2")
+                        masked_pol_logits.append(policy_logits[batch][dim * 38])
             masked_policy_mappings.append(masked_dim_mapping)
-
-        type_dim = []
-        type_dim_mapping = []
-
-        for idx in range(batch_size):
-            local_type_dim = []
-            local_type_dim_mapping = []
-
-            # Always append pass action
-            local_type_dim.append(policy_logits[0][idx][0])
-            local_type_dim_mapping.append("0")
-
-            # For shop, board, item, and sell
-            for i in range(1, 5):
-                if masked_policy_logits[i][idx]:
-                    local_type_dim.append(policy_logits[0][idx][i])
-                    local_type_dim_mapping.append(f"{i}")
-
-            if mask[idx][0][4]:
-                local_type_dim.append(policy_logits[0][idx][5])
-                local_type_dim_mapping.append("5")
-
-            if mask[idx][0][5]:
-                local_type_dim.append(policy_logits[0][idx][6])
-                local_type_dim_mapping.append("6")
-
-            type_dim.append(local_type_dim)
-            type_dim_mapping.append(local_type_dim_mapping)
-
-        masked_policy_logits[0] = type_dim
-        masked_policy_mappings[0] = type_dim_mapping
+            masked_policy_logits.append(masked_pol_logits)
 
         return masked_policy_logits, masked_policy_mappings
 
@@ -386,7 +281,7 @@ class MCTS:
     """
     def sample(self, policy_logits, string_mapping, num_samples):
         # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
-        batch_size = len(policy_logits[0])  # 8
+        batch_size = len(policy_logits)  # 8
 
         output_logits = []
         output_string_mapping = []
@@ -398,46 +293,15 @@ class MCTS:
             local_string = []
             local_byte = []
 
-            probs = self.softmax_stable(policy_logits[0][idx])
-            policy_range = np.arange(stop=len(policy_logits[0][idx]))
+            probs = self.softmax_stable(policy_logits[idx])
+            policy_range = np.arange(stop=len(policy_logits[idx]))
 
             samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
-            counts = np.bincount(samples, minlength=len(policy_logits[0][idx]))
+            counts = np.bincount(samples, minlength=len(policy_logits[idx]))
 
             for i, count in enumerate(counts):
-                dim_base_string = string_mapping[0][idx][i]
-                dim_idx_mapping = int(dim_base_string)
-
-                if dim_idx_mapping in config.NEEDS_2ND_DIM:
-                    local_dim_logits = []
-                    local_dim_string = []
-                    local_dim_byte = []
-
-                    dim_policy_logits = policy_logits[dim_idx_mapping][idx]
-
-                    dim_probs = self.softmax_stable(dim_policy_logits)
-                    dim_range = np.arange(stop=len(dim_policy_logits))
-
-                    dim_samples = np.random.choice(a=dim_range, p=dim_probs, size=count)
-
-                    for dim_sample in dim_samples:
-                        sampled_action = dim_base_string + string_mapping[dim_idx_mapping][idx][dim_sample]
-
-                        isSampled = False
-                        for j, action in enumerate(local_dim_string):
-                            if sampled_action == action:
-                                local_dim_logits[j] += (1 / num_samples)
-                                isSampled = True
-                                break
-                        if not isSampled:
-                            local_dim_logits.append((1 / num_samples))
-                            local_dim_string.append(sampled_action)
-                            local_dim_byte.append(bytes(sampled_action, "utf-8"))
-
-                    local_logits.extend(local_dim_logits)
-                    local_string.extend(local_dim_string)
-                    local_byte.extend(local_dim_byte)
-                else:
+                if count > 0:
+                    dim_base_string = string_mapping[idx][i]
                     local_logits.append(((1 / num_samples) * count))
                     local_string.append(dim_base_string)
                     local_byte.append(bytes(dim_base_string, "utf-8"))
@@ -451,14 +315,16 @@ class MCTS:
 
     @staticmethod
     def softmax_stable(x):
-        return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+        top_value = x - np.max(x)
+        top_value = np.exp(top_value)
+        bottom_value = np.exp(x - np.max(x)).sum()
+        return top_value / bottom_value
 
     def fill_metadata(self) -> Dict[str, str]:
         return {'network_id': str(self.network.training_steps())}
 
-    @staticmethod
-    def visit_softmax_temperature():
-        return config.VISIT_TEMPERATURE
+    def visit_softmax_temperature(self):
+        return self.model_config.VISIT_TEMPERATURE
 
 
 def masked_distribution(x, use_exp, mask=None):

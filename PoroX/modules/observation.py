@@ -1,6 +1,6 @@
 import numpy as np
 import chex
-from Simulator.porox.observation import ObservationVector
+from Simulator.observation import ObservationToken
 
 @chex.dataclass(frozen=True)
 class PlayerObservation:
@@ -16,21 +16,20 @@ class BatchedObservation:
     opponents: PlayerObservation
 
 
-class PoroXObservation(ObservationVector):
+class PoroXObservation(ObservationToken):
     def __init__(self, player):
         super().__init__(player)
         
-        self.board_zeros = np.zeros_like(self.board_vector)
-        self.bench_zeros = np.zeros_like(self.bench_vector)
-        self.shop_zeros = np.zeros_like(self.shop_vector)
-        self.item_bench_zeros = np.zeros_like(self.item_bench_vector)
-        self.trait_zeros = np.zeros_like(self.trait_vector)
-        self.public_zeros = np.zeros_like(self.public_scalars)
-        self.private_zeros = np.zeros_like(self.private_scalars)
-        self.game_zeros = np.zeros_like(self.game_scalars)
+        self.board_zeros = np.zeros_like(self.board_vector, dtype=np.float32)
+        self.bench_zeros = np.zeros_like(self.bench_vector, dtype=np.float32)
+        self.shop_zeros = np.zeros_like(self.shop_vector, dtype=np.float32)
+        self.item_bench_zeros = np.zeros_like(self.item_bench_vector, dtype=np.float32)
+        self.trait_zeros = np.zeros_like(self.trait_vector, dtype=np.float32)
+        self.public_zeros = np.zeros_like(self.public_scalars, dtype=np.float32)
+        self.private_zeros = np.zeros_like(self.private_scalars, dtype=np.float32)
+        self.game_zeros = np.zeros_like(self.game_scalars, dtype=np.float32)
         
         self.public_zeros[0] = player.player_num
-
 
     def fetch_player_observation(self):
         """Fetch Public Observation."""
@@ -57,12 +56,12 @@ class PoroXObservation(ObservationVector):
         champions = np.concatenate([
             self.board_vector,
             self.bench_vector,
-            self.shop_zeros # MASK
+            self.shop_zeros  # MASK
         ])
         scalars = np.concatenate([
             self.public_scalars,
-            self.private_zeros, # MASK
-            self.game_zeros # MASK
+            self.private_zeros,  # MASK
+            self.game_zeros  # MASK
         ])
         
         return PlayerObservation(

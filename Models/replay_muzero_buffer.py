@@ -1,6 +1,6 @@
 import numpy as np
-import config
 import time
+import config
 from Models.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
@@ -177,10 +177,11 @@ class ReplayBuffer:
                         final_tier_set.append(self.team_tiers[-1])
                         champion_set.append(self.team_champions[-1])
 
-                for i in range(len(sample_set)):
-                    split_mapping, split_policy = split_sample_decide(sample_set[i], policy_set[i])
-                    sample_set[i] = split_mapping
-                    policy_set[i] = split_policy
+                if config.CHAMP_DECIDER:
+                    for i in range(len(sample_set)):
+                        split_mapping, split_policy = split_sample_decide(sample_set[i], policy_set[i])
+                        sample_set[i] = split_mapping
+                        policy_set[i] = split_policy
 
                 # formula for priority over unroll steps,
                 # adding small randomness to get around a priority queue error where it crashes if you add two items

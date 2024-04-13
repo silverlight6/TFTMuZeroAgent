@@ -1,13 +1,14 @@
 import ray
-import config
 import glob
+import config
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.checkpoint import Checkpoint
+from config import STORAGE_GPU_SIZE
 
 
-@ray.remote(num_gpus=config.STORAGE_GPU_SIZE, num_cpus=0.1)
+@ray.remote(num_gpus=STORAGE_GPU_SIZE, num_cpus=0.1)
 class Storage:
     """
     Class that stores the global agent and other meta data that all of the data workers can access.
@@ -49,9 +50,9 @@ class Storage:
                 Weights for a fresh model
         """
         if config.CHAMP_DECIDER:
-            return DefaultNetwork()
+            return DefaultNetwork(config.ModelConfig())
         else:
-            return TFTNetwork()
+            return TFTNetwork(config.ModelConfig())
 
     def get_target_model(self):
         """
@@ -125,7 +126,7 @@ class Storage:
         Inputs the checkpoint related to a fresh model into the checkpoint list.
     """
     def store_base_checkpoint(self):
-        base_checkpoint = Checkpoint(0, 1)
+        base_checkpoint = Checkpoint(0, 1, config.ModelConfig())
         # TODO: Verify if this is super inefficient or if there is a better way.
         self.checkpoint_list = np.append(self.checkpoint_list, [base_checkpoint])
 
@@ -138,7 +139,7 @@ class Storage:
         for checkpoint in self.checkpoint_list:
             if checkpoint.epoch == episode:
                 return
-        checkpoint = Checkpoint(episode, self.max_q_value)
+        checkpoint = Checkpoint(episode, self.max_q_value, config.ModelConfig())
         self.checkpoint_list = np.append(self.checkpoint_list, [checkpoint])
 
         # Update this later to delete the model with the lowest value.

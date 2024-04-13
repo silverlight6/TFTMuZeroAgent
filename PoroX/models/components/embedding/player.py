@@ -39,7 +39,7 @@ def vector_size(config: EmbeddingConfig):
 
 class ChampionEmbedding(nn.Module):
     """
-    Embeds a champion vector into a latent space
+    Embeds a champion token into a latent space
 
     Champion Vector:
     0: championID

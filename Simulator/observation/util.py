@@ -1,4 +1,3 @@
-from Simulator.origin_class_stats import tiers
 from Simulator.item_stats import items, trait_items, basic_items, item_builds
 from Simulator.pool_stats import cost_star_values
 import numpy as np

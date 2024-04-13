@@ -279,7 +279,8 @@ def die(champion):
     enemy_team = champion.enemy_team()
     # mark everyone's target to be 'None' who targeted this champion
     for c in enemy_team:
-        if c.target == champion: c.target = None
+        if c.target == champion:
+            c.target = None
 
     if not champion.will_revive[0][0] and not champion.will_revive[1][0]:
 
@@ -352,3 +353,9 @@ def die(champion):
         champion.add_que('change_stat', revive_delay, None, 'damage_reduction', 0)
         champion.add_que('change_stat', revive_delay, None, 'idle', True)
         champion.add_que('change_stat', revive_delay, None, 'champion', True)
+
+    for c in enemy_team:
+        if c.target is None:
+            field.find_target(c)
+
+

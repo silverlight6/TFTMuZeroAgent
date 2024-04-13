@@ -1,7 +1,7 @@
-import config
 import time
 import numpy as np
 import asyncio
+import config
 from Concurrency.priority_queue import PriorityBuffer
 
 

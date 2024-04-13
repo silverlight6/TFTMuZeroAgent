@@ -1,11 +1,10 @@
 import numpy as np
 from gymnasium.spaces import MultiDiscrete
 
-from Simulator.porox.observation.interface import ActionBase
-from Simulator.porox.observation.vector.interface import ActionVectorBase
-from Simulator.porox.observation.util import Util
+from Simulator.observation.interface import ActionBase, ActionVectorBase
+from Simulator.observation.util import Util
 
-class ActionVector(ActionBase, ActionVectorBase):
+class ActionToken(ActionBase, ActionVectorBase):
     def __init__(self, player):
         super().__init__()
         self.player = player
@@ -129,7 +128,7 @@ class ActionVector(ActionBase, ActionVectorBase):
         Saves me the headache of trying to figure out how to format the mask
         """
         
-        action_mask = np.zeros((55, 38))
+        action_mask = np.zeros((55, 38), dtype=np.float32)
         
         # --- Board mask --- #
         # Board mask is currently (7, 4, 38), so we need to reshape it to (28, 38)
@@ -298,7 +297,7 @@ class ActionVector(ActionBase, ActionVectorBase):
         Buy Action Vector: (5)
         """
 
-        buy_action_mask = np.zeros(5)
+        buy_action_mask = np.zeros(5, dtype=np.float32)
 
         if player.bench_full() or player.shop_empty():
             return buy_action_mask
@@ -328,19 +327,19 @@ class ActionVector(ActionBase, ActionVectorBase):
         Move Bench Action Vector: (9, 38)
         """
 
-        move_sell_board_action_mask = np.zeros((7, 4, 38))
-        move_sell_bench_action_mask = np.zeros((9, 38))
+        move_sell_board_action_mask = np.zeros((7, 4, 38), dtype=np.float32)
+        move_sell_bench_action_mask = np.zeros((9, 38), dtype=np.float32)
 
         # --- Utility Masks --- #
         max_items = max(player.item_bench.count(None), 3)
 
-        invalid_champion_mask = np.ones(28)
-        board_champion_mask = np.zeros(28)
-        bench_to_bench_mask = np.zeros(9)
+        invalid_champion_mask = np.ones(28, dtype=np.float32)
+        board_champion_mask = np.zeros(28, dtype=np.float32)
+        bench_to_bench_mask = np.zeros(9, dtype=np.float32)
 
-        default_board_mask = np.ones(38)
-        invalid_board_mask = np.concatenate(
-            [np.ones(28), np.zeros(9), np.zeros(1)])
+        default_board_mask = np.ones(38, dtype=np.float32)
+        invalid_board_mask = np.concatenate([np.ones(28, dtype=np.float32), np.zeros(9, dtype=np.float32),
+                                             np.zeros(1, dtype=np.float32)])
 
         # --- Board Mask --- #
         for x in range(len(player.board)):
@@ -351,7 +350,7 @@ class ActionVector(ActionBase, ActionVectorBase):
                     if champion.target_dummy or champion.overlord:
                         invalid_champion_mask[x * 4 + y] = 0
 
-                    # Update board mask if champion is on the board
+                        # Update board mask if champion is on the board
                         move_sell_board_action_mask[x][y] = invalid_board_mask
                     else:
                         move_sell_board_action_mask[x][y] = default_board_mask
@@ -366,11 +365,11 @@ class ActionVector(ActionBase, ActionVectorBase):
         # When board is not full, all board indices are valid
         # Except invalid champions (Sandguard, Dummy)
         if player.num_units_in_play < player.max_units:
-            board_mask = np.ones(28) * invalid_champion_mask
+            board_mask = np.ones(28, dtype=np.float32) * invalid_champion_mask
         else:
             board_mask = board_champion_mask * invalid_champion_mask
 
-        bench_mask = np.concatenate([board_mask, bench_to_bench_mask, np.ones(1)])
+        bench_mask = np.concatenate([board_mask, bench_to_bench_mask, np.ones(1, dtype=np.float32)])
 
         for idx, champion in enumerate(player.bench):
             if champion:
@@ -400,18 +399,18 @@ class ActionVector(ActionBase, ActionVectorBase):
         Item Action Vector: (10, 38); 10 item slots, 38 will always be 0
         """
 
-        item_action_mask = np.zeros((10, 38))
+        item_action_mask = np.zeros((10, 38), dtype=np.float32)
 
-        valid_component_mask = np.zeros(38)
-        valid_full_item_mask = np.zeros(38)
+        valid_component_mask = np.zeros(38, dtype=np.float32)
+        valid_full_item_mask = np.zeros(38, dtype=np.float32)
 
-        valid_theives_gloves_mask = np.zeros(38)
-        valid_glove_mask = np.zeros(38)
+        valid_theives_gloves_mask = np.zeros(38, dtype=np.float32)
+        valid_glove_mask = np.zeros(38, dtype=np.float32)
 
-        valid_kayn_mask = np.zeros(38)
+        valid_kayn_mask = np.zeros(38, dtype=np.float32)
 
-        valid_reforge_mask = np.zeros(38)
-        valid_duplicator_mask = np.zeros(38)
+        valid_reforge_mask = np.zeros(38, dtype=np.float32)
+        valid_duplicator_mask = np.zeros(38, dtype=np.float32)
         
         # Oh my god what a pain...
         trait_mask = {
@@ -467,7 +466,7 @@ class ActionVector(ActionBase, ActionVectorBase):
 
         # If bench is full, remove valid duplicator
         if player.bench_full():
-            valid_duplicator_mask = np.zeros(38)
+            valid_duplicator_mask = np.zeros(38, dtype=np.float32)
 
         for idx, item in enumerate(player.item_bench):
             if item:
