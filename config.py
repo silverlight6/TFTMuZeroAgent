@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 BASE_DIR = path.abspath(path.join(path.dirname(__file__), "."))
 load_dotenv(path.join(BASE_DIR, ".env"))
 
-
 def get_bool_env(var_name, default="False"):
     """Converts environment variable to a boolean."""
     return environ.get(var_name, default).lower() in ("true", "1", "t")
@@ -145,11 +144,24 @@ MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
-    HIDDEN_STATE_SIZE = get_int_env("HIDDEN_STATE_SIZE", 1024)
-    NUM_RNN_CELLS = get_int_env("NUM_RNN_CELLS", 2)
-    # Placeholders for dynamic attributes. They will be set after the class definition.
-    LSTM_SIZE = None
-    RNN_SIZES = []
+    HIDDEN_STATE_SIZE = int(environ.get("HIDDEN_STATE_SIZE", 1024))
+    NUM_RNN_CELLS = int(environ.get("NUM_RNN_CELLS", 2))
+    LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
+    RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
+    LAYER_HIDDEN_SIZE = int(environ.get("LAYER_HIDDEN_SIZE", 1024))
+    ROOT_DIRICHLET_ALPHA = float(environ.get("ROOT_DIRICHLET_ALPHA", 1.0))
+    ROOT_EXPLORATION_FRACTION = float(environ.get("ROOT_EXPLORATION_FRACTION", 0.25))
+    VISIT_TEMPERATURE = float(environ.get("VISIT_TEMPERATURE", 1.0))
+
+    PB_C_BASE = int(environ.get("PB_C_BASE", 19652))
+    PB_C_INIT = float(environ.get("PB_C_INIT", 1.25))
+
+    # ACTION_DIM = 10
+    ENCODER_NUM_STEPS = int(environ.get("ENCODER_NUM_STEPS", 601))
+    SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
+    if isinstance(SELECTED_SAMPLES, str):
+        SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
+    MAX_GRAD_NORM = int(environ.get("MAX_GRAD_NORM", 5))
 
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
     ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)

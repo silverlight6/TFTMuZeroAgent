@@ -49,7 +49,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
             "scalars": np.concatenate([
                 self.public_scalars,
                 self.private_scalars
-            ]),
+            ], dtype=np.float32),
             "board": self.board_vector,
             "bench": self.bench_vector,
             "shop": self.shop_vector,
@@ -80,12 +80,12 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
     def fetch_dead_observation(self):
         """Zero out public observations for all dead players"""
         return {
-            "scalars": np.zeros(self.public_scalars.shape),
-            "board": np.zeros(self.board_vector.shape),
+            "scalars": np.zeros(self.public_scalars.shape, dtype=np.float32),
+            "board": np.zeros(self.board_vector.shape, dtype=np.float32),
             # "bench": np.zeros(self.bench_vector.shape),
             # "shop": np.zeros(self.shop_vector.shape),
             # "items": np.zeros(self.item_bench_vector.shape),
-            "traits": np.zeros(self.trait_vector.shape),
+            "traits": np.zeros(self.trait_vector, dtype=np.float32),
         }
         
     def update_observation(self, action):

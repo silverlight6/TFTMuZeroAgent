@@ -10,7 +10,7 @@ from Simulator.observation.vector.observation import ObservationVector
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.rllib_ppo import PPO_Position_Model, PPO_Item_Model
+from Models.rllib_ppo import PPO_Position_Model, PPO_Item_Model, Base_PPO_Position_Model
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
@@ -130,21 +130,21 @@ class AIInterface:
 
     def position_ppo_testing(self):
         gpus = torch.cuda.device_count()
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
-
+        print(f"gpu_count = {gpus}")
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS):
             positioning_storage = QueueStorage(name="position")
             # item_storage = QueueStorage(name="item")
             workers = []
 
-            ppo_position_model = PPO_Position_Model.remote(positioning_storage)
+            ppo_position_model = Base_PPO_Position_Model(positioning_storage)
+            # ppo_position_model = PPO_Position_Model.remote(positioning_storage)
             # ppo_item_model = PPO_Item_Model.remote(item_storage)
 
             # ppo_item_model.train_item_model.remote()
-            workers.append(ppo_position_model.train_position_model.remote())
+            workers.append(ppo_position_model.train_position_model())
+            # workers.append(ppo_position_model.train_position_model.remote())
 
             ray.get(workers)
-
-
 
     def collect_dummy_data(self) -> None:
         """

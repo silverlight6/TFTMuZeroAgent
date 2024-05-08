@@ -1,8 +1,8 @@
 *.pyc
-.env
 /.idea/
 /.pytest_cache
 UnitTests/.pytest_cache
+/.env
 suggestions.py
 /__pycache__
 /Simulator/__pycache__
@@ -10,12 +10,14 @@ suggestions.py
 /interface/__pycache__
 /UnitTests/__pycache__
 /logs
+/LogStorage
 log.txt
 /SavedModels
 libdevice.10.bc
 /Checkpoints
 /core/build
 /core/ctree/cytree.cpython-38-x86_64-linux-gnu.so
+/core/ctree/cytree.cpython-310-x86_64-linux-gnu.so
 /core/ctree/cytree.cpp
 /core/ctree/build
 .vscode/
@@ -37,6 +39,3 @@ PoroSight/vite.config.js.timestamp-*
 PoroSight/vite.config.ts.timestamp-*
 PoroSight/bun.lockb
 PoroSight/package-lock.json
-
-# venv
-TFTMuZeroAgent
