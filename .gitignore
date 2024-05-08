@@ -22,6 +22,7 @@ libdevice.10.bc
 /core/ctree/build
 .vscode/
 core/ctree/cytree.cpython-39-x86_64-linux-gnu.so
+core/ctree/cytree.cpython-39-darwin.so
 core/ctree/cytree.cp39-win_amd64.pyd
 
 # UI
