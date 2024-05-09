@@ -163,21 +163,6 @@ class ModelConfig:
         SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
     MAX_GRAD_NORM = int(environ.get("MAX_GRAD_NORM", 5))
 
-    LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
-    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
-    ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
-    VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
-
-    PB_C_BASE = get_int_env("PB_C_BASE", 19652)
-    PB_C_INIT = get_float_env("PB_C_INIT", 1.25)
-
-    ENCODER_NUM_STEPS = get_int_env("ENCODER_NUM_STEPS", 601)
-    SELECTED_SAMPLES = get_bool_env("SELECTED_SAMPLES", "True")
-    MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
-
     N_HEAD_HIDDEN_LAYERS = 2
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
-    
-    LSTM_SIZE = int(ModelConfig.HIDDEN_STATE_SIZE / (ModelConfig.NUM_RNN_CELLS * 2))
-    RNN_SIZES = [ModelConfig.LSTM_SIZE] * ModelConfig.NUM_RNN_CELLS
