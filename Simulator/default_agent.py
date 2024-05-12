@@ -46,30 +46,28 @@ class Default_Agent:
     def move_bench_to_empty_board(self, player, bench_location, unit):
         if unit in FRONT_LINE_UNITS:
             is_full = self.is_row_full(player, 3)
-            start_idx = 24 if not is_full else 10
             row_idx = 3 if not is_full else 1
             for displacement in range(4):
                 if not player.board[3 + displacement][row_idx]:
-                    return "5_" + str(bench_location) + "_" + str(start_idx + displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 + displacement, row_idx))
                 if not player.board[3 - displacement][row_idx]:
-                    return "5_" + str(bench_location) + "_" + str(start_idx - displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 - displacement, row_idx))
             print("Empty Front line with board {}".format(player.board))
         if unit in MIDDLE_LINE_UNITS:
             for displacement in range(4):
                 if not player.board[3 + displacement][2]:
-                    return "5_" + str(bench_location) + "_" + str(17 + displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 + displacement, 2))
                 if not player.board[3 - displacement][2]:
-                    return "5_" + str(bench_location) + "_" + str(17 - displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 - displacement, 2))
             print("Empty Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
             is_full = self.is_row_full(player, 0)
-            start_idx = 3 if not is_full else 10
             row_idx = 0 if not is_full else 1
             for displacement in range(4):
                 if not player.board[3 + displacement][row_idx]:
-                    return "5_" + str(bench_location) + "_" + str(start_idx + displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 + displacement, row_idx))
                 if not player.board[3 - displacement][row_idx]:
-                    return "5_" + str(bench_location) + "_" + str(start_idx - displacement)
+                    return "5_" + str(bench_location) + "_" + str(x_y_to_1d_coord(3 - displacement, row_idx))
             print("Empty Back line with board {}".format(player.board))
         return "0"
 
@@ -77,42 +75,61 @@ class Default_Agent:
         if unit in FRONT_LINE_UNITS:
             if y != 3:
                 is_full = self.is_row_full(player, 3)
-                start_idx = 24 if not is_full else 10
+                player.print(f"row is full = {is_full}")
                 row_idx = 3 if not is_full else 1
                 for displacement in range(4):
                     if not player.board[3 + displacement][row_idx]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 + displacement, row_idx))
                     if not player.board[3 - displacement][row_idx]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 - displacement, row_idx))
                 print("Check Front line with board {}".format(player.board))
 
         if unit in MIDDLE_LINE_UNITS:
             if y != 2:
                 for displacement in range(4):
                     if not player.board[3 + displacement][2]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(17 + displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 + displacement, 2))
                     if not player.board[3 - displacement][2]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(17 - displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 - displacement, 2))
                 print("Check Mid line with board {}".format(player.board))
         if unit in BACK_LINE_UNITS:
             if y != 0:
                 is_full = self.is_row_full(player, 0)
-                start_idx = 3 if not is_full else 10
                 row_idx = 0 if not is_full else 1
                 for displacement in range(4):
                     if not player.board[3 + displacement][row_idx]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx + displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 + displacement, row_idx))
                     if not player.board[3 - displacement][row_idx]:
-                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(start_idx - displacement)
+                        return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(x_y_to_1d_coord(3 - displacement, row_idx))
                 print("Check Back line with board {}".format(player.board))
         return False
 
-    def max_unit_check(self, player):
+    def buy_every_shop_unit(self, player, shop, mask):
+        shop_position = 0
+        for s in shop:
+            if not mask[47 + shop_position][0]:
+                shop_position += 1
+            elif s.endswith("_c"):
+                c_shop = s.split('_')[0]
+                if COST[c_shop] * 2 - 1 > player.gold or COST[c_shop] == 1:
+                    shop_position += 1
+                else:
+                    break
+            else:
+                break
+        return shop_position
+
+    def max_unit_check(self, player, shop, mask):
         # place units in front or back.
         if player.num_units_in_play < player.max_units:
             for i, bench_slot in enumerate(player.bench):
                 if bench_slot:
                     return self.move_bench_to_empty_board(player, 28 + i, bench_slot.name)
+            if not any(player.bench) and player.gold > 0:
+                # if no gold remains and we just bought a unit
+                shop_position = self.buy_every_shop_unit(player, shop, mask)
+                if shop_position != 5:
+                    return "3_" + str(shop_position)
         return " "
     
     def is_row_full(self, player, row):
@@ -211,22 +228,11 @@ class Default_Agent:
         # buy every unit in the shop until no gold
         self.next_round = self.current_round + 1
         if player.gold > 0 and not player.bench_full():
-            shop_position = 0
-            for s in shop:
-                if not mask[47 + shop_position][0]:
-                    shop_position += 1
-                elif s.endswith("_c"):
-                    c_shop = s.split('_')[0]
-                    if COST[c_shop] * 2 - 1 > player.gold or COST[c_shop] == 1:
-                        shop_position += 1
-                    else:
-                        break
-                else:
-                    break
+            shop_position = self.buy_every_shop_unit(player, shop, mask)
             # if no gold remains and we just bought a unit
             if shop_position != 5:
                 return "3_" + str(shop_position)
-        max_unit_check = self.max_unit_check(player)
+        max_unit_check = self.max_unit_check(player, shop, mask)
         if max_unit_check != " ":
             return max_unit_check
         return "0"
@@ -252,7 +258,7 @@ class Default_Agent:
         self.next_round = self.current_round + 1
 
         # Verify that we have a full board.
-        max_unit_check = self.max_unit_check(player)
+        max_unit_check = self.max_unit_check(player, shop, mask)
         if max_unit_check != " ":
             return max_unit_check
 
@@ -350,6 +356,7 @@ class Default_Agent:
                     if player.board[x][y]:
                         movement = self.check_unit_location(player, x, y, player.board[x][y].name)
                         if movement:
+                            player.print(f"movement command with {player.board[x][y]} at {x} {y} to {movement}")
                             return movement
             self.round_3_10_checks[3] = False
 
@@ -365,6 +372,7 @@ class Default_Agent:
                         position = i + 28
 
             if player.gold // 10 != (player.gold + cost) // 10 and player.gold < 50:
+                player.print(f"selling units at position for gold {position} ")
                 return "4_" + str(position)
             self.round_3_10_checks[3] = False
         return "0"
@@ -414,7 +422,7 @@ class Default_Agent:
         self.next_round = self.current_round + 1
 
         # Verify that we have a full board.
-        max_unit_check = self.max_unit_check(player)
+        max_unit_check = self.max_unit_check(player, shop, mask)
         if max_unit_check != " ":
             return max_unit_check
 
@@ -544,7 +552,7 @@ class Default_Agent:
             return "1"
 
         # Verify that we have a full board.
-        max_unit_check = self.max_unit_check(player)
+        max_unit_check = self.max_unit_check(player, shop, mask)
         if max_unit_check != " ":
             return max_unit_check
 

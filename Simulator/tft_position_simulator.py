@@ -15,25 +15,6 @@ from Simulator.tft_simulator import TFTConfig
 from Simulator.utils import coord_to_x_y
 
 
-# The number of environments here is required as part of ray.
-# Method is currently not being used but keeping for now for utility.
-def make_env(num_envs=1):
-    """
-    Creates the TFT environment for the PPO model.
-    """
-    return TFT_Position_Simulator()
-
-
-# TODO: subclass the overall simulator from the vector gym environment in Ray so I can use my buffer.
-def vector_env(num_envs=1):
-    local_env = TFT_Position_Simulator()
-    ray_vector_env = VectorEnv(local_env.observation_space, local_env.action_space, num_envs)
-    vectorized_env = ray_vector_env.vectorize_gym_envs(make_env=make_env, num_envs=num_envs,
-                                                       action_space=local_env.action_space,
-                                                       observation_space=local_env.observation_space)
-    return vectorized_env
-
-
 class TFT_Position_Simulator(gym.Env):
     """
     Environment for training the positioning model.
@@ -134,6 +115,7 @@ class TFT_Position_Simulator(gym.Env):
                     no longer improve the positioning of the board from what it is given. 
     """
     def step(self, action):
+        self.PLAYER.printt("Position Simulator before movement")
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
         self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
@@ -150,6 +132,7 @@ class TFT_Position_Simulator(gym.Env):
             "observations": {key: initial_observation[key] for key in ["player", "opponents"]},
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
         }
+        self.PLAYER.print("Position Simulator after movement")
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
 

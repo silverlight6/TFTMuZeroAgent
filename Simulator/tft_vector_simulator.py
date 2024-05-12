@@ -2,6 +2,7 @@ import logging
 import time
 
 from ray.rllib.env.vector_env import VectorEnv
+from ray.rllib.env.base_env import convert_to_base_env
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import (
     EnvActionType,

@@ -563,6 +563,8 @@ def evelynn(champion):
     elif r > stats.ABILITY_TARGET_PROBABILITIES[champion.name][2]:
         targets = 2
 
+    if champion.target is None:
+        field.find_target(champion)
     target_y = champion.target.y
     target_x = champion.target.x
 

@@ -64,8 +64,13 @@ class PPO_Position_Model:
                              "custom_model_config": {"hidden_state_size": base_config.HIDDEN_STATE_SIZE // 2,
                                                      "num_hidden_layers": base_config.N_HEAD_HIDDEN_LAYERS}, },
                       train_batch_size=4096,
+                      sample_batch_size=128,
+                      sgd_minibatch_size=512,
                       lambda_=0.95,
+                      kl_coeff=0.5,
                       gamma=0.95,
+                      observation_filter="NoFilter",
+                      batch_mode="complete_episodes",
                       lr=0.001)
             .evaluation(evaluation_num_workers=1,
                         evaluation_interval=5,

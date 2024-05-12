@@ -18,8 +18,8 @@ class BattleGenerator:
     def __init__(self):
         ...
 
-    def generate_battle(self):
-        level = np.random.randint(3, 9)
+    def generate_battle(self, epoch=0):
+        level = np.random.randint(3, 5 + min(int(epoch / 1000), 4))
         base_pool = pool()
         player_list = [Player(base_pool, player_num) for player_num in range(config.NUM_PLAYERS)]
         for player in player_list:
@@ -27,8 +27,9 @@ class BattleGenerator:
             player.max_units = level
             action_mask = ActionToken(player)
             self.add_champions(player, action_mask)
-            self.add_items_to_champions(player, action_mask)
-            self.add_items_to_item_bench(player)
+            # Add these back in later after I see proof of learning
+            # self.add_items_to_champions(player, action_mask)
+            # self.add_items_to_item_bench(player)
         player_returns = random.sample(range(0, 8), 2)
         return [player_list[player_returns[0]], player_list[player_returns[1]],
                 {f"player_{player.player_num}": player for player in player_list}]

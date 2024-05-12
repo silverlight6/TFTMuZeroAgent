@@ -85,7 +85,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
             # "bench": np.zeros(self.bench_vector.shape),
             # "shop": np.zeros(self.shop_vector.shape),
             # "items": np.zeros(self.item_bench_vector.shape),
-            "traits": np.zeros(self.trait_vector, dtype=np.float32),
+            "traits": np.zeros(self.trait_vector.shape, dtype=np.float32),
         }
         
     def update_observation(self, action):

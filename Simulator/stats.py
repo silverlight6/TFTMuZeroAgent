@@ -1297,3 +1297,4 @@ BASE_CHAMPION_LIST = ['diana', 'elise', 'fiora', 'garen', 'lissandra', 'tahmkenc
                       'aatrox', 'ahri', 'ashe', 'cassiopeia', 'jhin', 'morgana', 'riven', 'sejuani', 'shen', 'talon',
                       'warwick', 'azir', 'ezreal', 'kayn', 'leesin', 'lillia', 'sett', 'yone', 'zilean'
                       ]
+
