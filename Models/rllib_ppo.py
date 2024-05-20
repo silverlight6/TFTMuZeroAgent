@@ -1,5 +1,7 @@
 import ray
 import config
+import torch
+import os
 
 from Models.action_mask_catalog import ActionMaskCatalog
 from Models.action_mask_env_runner import ActionMaskEnvRunner
@@ -56,6 +58,7 @@ class PPO_Position_Model:
                                                               catalog_class=ActionMaskCatalog))
             .resources(num_gpus=2,
                        # This number times the num_rollout_workers has to be less than the num_gpus
+                       num_cpus_per_worker=1.5,
                        num_gpus_per_worker=0.1)
 
             .framework("torch")
@@ -172,12 +175,13 @@ class PPO_Item_Model:
 # This is the same as the other position model but not wrapped in Ray. Useful in some multi-processing situaiotns
 class Base_PPO_Position_Model:
     def __init__(self, position_buffer):
-        self.position_model = self.PPO_position_algorithm(position_buffer)
+        self.position_buffer = position_buffer
 
-    def PPO_position_algorithm(self, position_buffer):
+    def PPO_position_algorithm(self, ray_config):
         """
         The PPO implementation for the TFT project. This is an alternative to our MuZero model.
         """
+        position_buffer = self.position_buffer
 
         # Number of environments to sample in one thread in the vector gym.
         num_envs = 64
@@ -201,7 +205,7 @@ class Base_PPO_Position_Model:
             # Custom environment runner. It is the equivalent of both the remote worker and singleAgentEnvRunner in Ray
             .rollouts(env_runner_cls=ActionMaskEnvRunner,
                       # Number of parallel threads.
-                      num_rollout_workers=16,
+                      num_rollout_workers=4,
                       num_envs_per_worker=num_envs,
                       remote_worker_envs=False)
             .experimental(_enable_new_api_stack=False,
@@ -209,26 +213,35 @@ class Base_PPO_Position_Model:
             # Custom RL_Module to allow for training and action masks
             .rl_module(rl_module_spec=SingleAgentRLModuleSpec(module_class=TorchActionMaskRLM,
                                                               catalog_class=ActionMaskCatalog))
-            .resources(num_gpus=2,
+            .resources(num_gpus=0.5,
                        # This number times the num_rollout_workers has to be less than the num_gpus
-                       num_gpus_per_worker=0.1)
+                       num_gpus_per_worker=0.1,
+                       num_cpus_per_worker=1.5)
 
             .framework("torch")
             # Custom model to allow for multiple head observation space and action masks
             .training(model={"custom_model": "action_mask_model",
-                             "custom_model_config": {"hidden_state_size": base_config.HIDDEN_STATE_SIZE // 2,
+                             "custom_model_config": {"hidden_state_size": base_config.HIDDEN_STATE_SIZE,
                                                      "num_hidden_layers": base_config.N_HEAD_HIDDEN_LAYERS}, },
                       train_batch_size=4096,
-                      lambda_=0.95,
-                      gamma=0.95,
-                      lr=0.001)
-            .evaluation(evaluation_num_workers=1,
-                        evaluation_interval=5,
-                        enable_async_evaluation=True)
+                      lambda_=ray_config["lambda"],
+                      gamma=ray_config["gamma"],
+                      lr=ray_config["lr"],
+                      clip_param=ray_config["clip_param"])
+            # .evaluation(evaluation_num_workers=1,
+            #             evaluation_interval=5,
+            #             enable_async_evaluation=True)
         )
         # Construct the actual (PPO) algorithm object from the config.
-        self.position_model = cfg.build()
-        return self.position_model
+        # self.position_model = cfg.build()
+        #
+        # # Training loop with Tune reporting
+        # for i in range(10):
+        #     result = self.position_model.train()
+        #     tune.report(episode_reward_mean=result["episode_reward_mean"])  # report metrics
+
+        return cfg
+
 
     def fetch_model(self):
         return self.position_model

@@ -1,3 +1,4 @@
+import random
 import time
 import ray
 import os
@@ -129,22 +130,82 @@ class AIInterface:
             ray.get(workers)
 
     def position_ppo_testing(self):
+        from ray import train, tune
+        from ray.tune.schedulers import PopulationBasedTraining
+        from ray.tune.execution.placement_groups import PlacementGroupFactory
+
         gpus = torch.cuda.device_count()
-        print(f"gpu_count = {gpus}")
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS):
-            positioning_storage = QueueStorage(name="position")
-            # item_storage = QueueStorage(name="item")
-            workers = []
+        print(f"gpu_count START = {gpus}")
+        # with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, dashboard_host="0.0.0.0"):
 
-            ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-            # ppo_position_model = PPO_Position_Model.remote(positioning_storage)
-            # ppo_item_model = PPO_Item_Model.remote(item_storage)
+        positioning_storage = QueueStorage(name="position")
+        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
 
-            # ppo_item_model.train_item_model.remote()
-            workers.append(ppo_position_model.train_position_model())
-            # workers.append(ppo_position_model.train_position_model.remote())
+        def explore(local_config):
+            if local_config["train_batch_size"] < local_config["sgd_minibatch_size"] * 2:
+                local_config["train_batch_size"] = local_config["sgd_minibatch_size"] * 2
+            if local_config["num_sgd_iter"] < 1:
+                local_config["num_sgd_iter"] = 1
 
-            ray.get(workers)
+        search_space = {
+            "lambda": lambda: random.uniform(0.9, 1.0),
+            "gamma": lambda: random.uniform(0.9, 1.0),
+            "lr": [1e-2, 5e-3, 1e-3, 5e-4, 1e-4, 5e-5, 1e-5],
+            "clip_param": lambda: random.uniform(0.1, 0.3),
+            "num_sgd_iter": lambda: random.uniform(1, 30),
+            # "position_buffer": positioning_storage
+        }
+
+        search_space_start = {
+            "lambda": 0.95,
+            "gamma": 0.95,
+            "lr": 5e-4,
+            "clip_param": 0.2,
+            "num_sgd_iter": 15,
+            # "position_buffer": positioning_storage
+        }
+
+        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space_start)
+
+        pdt = PopulationBasedTraining(
+            time_attr="time_total_s",
+            perturbation_interval=120,
+            resample_probability=0.25,
+            hyperparam_mutations=search_space,
+            custom_explore_fn=explore
+        )
+
+        stopping_criteria = {"training_iteration": 100, "episode_reward_mean": 10}
+        # trainable_with_resources = tune.with_resources(ppo_position_config.algo_class,
+        #                                                resources=PlacementGroupFactory([
+        #                                                    {"CPU": 1, "GPU": 0.2},
+        #                                                    {"CPU": 27, "GPU": 3.4}]))
+
+        tuner = tune.Tuner(
+            ppo_position_config.algo_class,
+            param_space=ppo_position_config,
+            tune_config=tune.TuneConfig(
+                metric="episode_reward_mean",
+                mode="max",
+                scheduler=pdt,
+                num_samples=10,
+                max_concurrent_trials=4
+            ),
+            # param_space={
+            #     "num_workers": 16,
+            #     "num_cpus": 2,
+            #     "num_gpus": 0.5,
+            # },
+            run_config=train.RunConfig(stop=stopping_criteria)
+        )
+
+        results = tuner.fit()
+
+        best_trial = results.get_best_result(metric="episode_reward_mean", mode="max")
+        best_config = best_trial.config
+        print("FINAL CONFIG")
+        print(best_config)
+        time.sleep(5)
 
     def collect_dummy_data(self) -> None:
         """
