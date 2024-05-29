@@ -813,6 +813,7 @@ class ActionMaskEnvRunner(EnvRunner):
         Returns:
             The policy under the given ID (or None if not found).
         """
+        print(f"POLICY_ID {policy_id}")
         return self.policy_map.get(policy_id)
 
     def get_global_vars(self) -> dict:

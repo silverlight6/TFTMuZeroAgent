@@ -66,7 +66,7 @@ class PPO_Position_Model:
             .training(model={"custom_model": "action_mask_model",
                              "custom_model_config": {"hidden_state_size": base_config.HIDDEN_STATE_SIZE // 2,
                                                      "num_hidden_layers": base_config.N_HEAD_HIDDEN_LAYERS}, },
-                      train_batch_size=4096,
+                      train_batch_size=512,
                       sample_batch_size=128,
                       sgd_minibatch_size=512,
                       lambda_=0.95,
@@ -213,10 +213,14 @@ class Base_PPO_Position_Model:
             # Custom RL_Module to allow for training and action masks
             .rl_module(rl_module_spec=SingleAgentRLModuleSpec(module_class=TorchActionMaskRLM,
                                                               catalog_class=ActionMaskCatalog))
-            .resources(num_gpus=0.5,
+            # .resources(num_gpus=0.5,
+            #            # This number times the num_rollout_workers has to be less than the num_gpus
+            #            num_gpus_per_worker=0.1,
+            #            num_cpus_per_worker=1.5)
+            .resources(num_gpus=1,
                        # This number times the num_rollout_workers has to be less than the num_gpus
-                       num_gpus_per_worker=0.1,
-                       num_cpus_per_worker=1.5)
+                       num_gpus_per_worker=0.2,
+                       num_cpus_per_worker=3)
 
             .framework("torch")
             # Custom model to allow for multiple head observation space and action masks
@@ -228,17 +232,7 @@ class Base_PPO_Position_Model:
                       gamma=ray_config["gamma"],
                       lr=ray_config["lr"],
                       clip_param=ray_config["clip_param"])
-            # .evaluation(evaluation_num_workers=1,
-            #             evaluation_interval=5,
-            #             enable_async_evaluation=True)
         )
-        # Construct the actual (PPO) algorithm object from the config.
-        # self.position_model = cfg.build()
-        #
-        # # Training loop with Tune reporting
-        # for i in range(10):
-        #     result = self.position_model.train()
-        #     tune.report(episode_reward_mean=result["episode_reward_mean"])  # report metrics
 
         return cfg
 
@@ -246,14 +240,12 @@ class Base_PPO_Position_Model:
     def fetch_model(self):
         return self.position_model
 
-    def train_position_model(self):
-        while True:
+    def train_position_model(self, cfg):
+        # Construct the actual (PPO) algorithm object from the config.
+        self.position_model = cfg.build()
+
+        # Training loop with Tune reporting
+        for i in range(50):
             result = self.position_model.train()
-            # This is what lets us know how our model is doing
-            print(pretty_print(result))
-            save_result = self.position_model.save()
-            path_to_checkpoint = save_result.checkpoint.path
-            print(
-                "An Algorithm checkpoint has been created inside directory: "
-                f"'{path_to_checkpoint}'."
-            )
+            print("FINISHED A TRAINING ROUND")
+            ray.train.report(episode_reward_mean=result["episode_reward_mean"])  # report metrics

@@ -162,3 +162,7 @@ class TFT_Vector_Pos_Simulator(VectorEnv):
 
     def make_env(self, index):
         return TFT_Position_Simulator(self.data_generator, index)
+
+    def close(self):
+        for env in self.envs:
+            env.close()

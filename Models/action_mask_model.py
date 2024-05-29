@@ -9,6 +9,7 @@ from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.utils.typing import ModelConfigDict
+from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
 
 
 torch, nn = try_import_torch()
@@ -41,6 +42,7 @@ class TorchActionMaskModel(TorchModelV2, nn.Module):
                                             "ActionMaskVFModel", **kwargs)
 
         self._features = None
+        self.policy_id = DEFAULT_POLICY_ID
 
     def _forward(self, input_dict, state, seq_lens):
         hidden_state, _ = self.encoder.forward(input_dict, state, seq_lens)
