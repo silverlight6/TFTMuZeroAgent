@@ -813,7 +813,6 @@ class ActionMaskEnvRunner(EnvRunner):
         Returns:
             The policy under the given ID (or None if not found).
         """
-        print(f"POLICY_ID {policy_id}")
         return self.policy_map.get(policy_id)
 
     def get_global_vars(self) -> dict:
@@ -876,3 +875,13 @@ class ActionMaskEnvRunner(EnvRunner):
             self.global_vars["num_grad_updates_per_policy"] = {
                     pid: self.policy_map[pid].num_grad_updates
                     for pid in list(self.policy_map.keys())}
+
+    @override(EnvRunner)
+    def get_state(self):
+        return {
+            "policy_mapping_fn": self.policy_mapping_fn,
+            "is_policy_to_train": self.is_policy_to_train,
+            "policy_states": {policy: self.get_policy(policy).get_state() for policy in self.policy_dict.keys()},
+            "policy_ids": list(self.policy_dict.keys()),
+            "filters": {}
+        }

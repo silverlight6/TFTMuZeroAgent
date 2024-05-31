@@ -7,7 +7,7 @@ from gymnasium.spaces import MultiDiscrete, Dict, Box
 from ray.rllib.env.vector_env import VectorEnv
 from Simulator import pool
 from Simulator.battle_generator import BattleGenerator
-from Simulator.game_round import Game_Round, log_to_file
+from Simulator.game_round import Game_Round, log_to_file, log_to_file_start
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.player_manager import PlayerManager
 from Simulator.step_function import Step_Function
@@ -67,8 +67,8 @@ class TFT_Position_Simulator(gym.Env):
         else:
             [player, opponent, other_players] = self.battle_generator.generate_battle()
 
-        # Objects for the player manager
         pool_obj = pool.pool()
+        # Objects for the player manager
         self.PLAYER = player
         # Reinit to get around a ray memory bug.
         self.PLAYER.reinit_numpy_arrays()
@@ -87,6 +87,7 @@ class TFT_Position_Simulator(gym.Env):
         self.game_round = Game_Round(self.PLAYER, pool_obj, self.player_manager)
 
         self.reward = 0
+        log_to_file_start()
 
         # Single step environment so this fetch will be the observation for the entire step.
         initial_observation = self.player_manager.fetch_observation(f"player_{self.PLAYER.player_num}")

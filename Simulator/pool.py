@@ -85,13 +85,13 @@ class pool:
 	# TO DO: Turn the cost arrays into a dictionary of dictionaries.
 	# TO DO: Implement the chosen mechanic and ensure the doubling of the right stat
 	# Chosen is implemented as a string with the class being the possible one.
-	def sample(self, player, num, idx=-1):
+	def sample(self, player, num, idx=-1, allow_chosen=True):
 		# If player is None, for example they died, return an empty shop
 		if player is None:
 			return [" " for _ in range(num)]
 		ranInt = [0 for _ in range(num)]
 		championOptions = [None for _ in range(num)]
-		chosen = player.chosen
+		chosen = player.chosen or not allow_chosen
 		chosen_index = -1
 		if not chosen:
 			if random.random() < .5:

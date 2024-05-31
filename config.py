@@ -57,6 +57,8 @@ DEVICE = "cuda"
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 
+PATH = path.dirname(path.realpath(__file__))
+
 # GPU Configurations
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
 STORAGE_GPU_SIZE = get_float_env("STORAGE_GPU_SIZE", 0.1) if DEVICE == "cuda" else 0

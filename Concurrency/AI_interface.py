@@ -134,37 +134,40 @@ class AIInterface:
         from ray.tune.search.bohb.bohb_search import TuneBOHB
         from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 
+        local_path = config.PATH
+        print(f"PATH file://{local_path}/ray_results")
+
         positioning_storage = QueueStorage(name="position")
         ppo_position_model = Base_PPO_Position_Model(positioning_storage)
 
         search_space = {
             "lambda": tune.uniform(0.9, 1.0),
-            "gamma": tune.uniform(0.9, 1.0),
-            "lr": tune.choice([1e-2, 5e-3, 1e-3, 5e-4, 1e-4, 5e-5, 1e-5]),
-            "clip_param": tune.uniform(0.1, 0.3),
+            "lr": tune.choice([5e-3, 1e-3, 5e-4, 1e-4, 5e-5, 1e-5, 5e-6]),
+            "clip_param": tune.uniform(0.1, 0.5),
             "num_sgd_iter": tune.randint(1, 30),
+            "num_heads": tune.choice([1, 2, 4, 8, 16, 32]),
+            "hidden_size": tune.choice([64, 128, 256, 512, 1024]),
+            "entropy_coeff": tune.loguniform(1e-4, 1e-1)
         }
 
         ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-        algo = TuneBOHB(metric="episode_reward_mean", mode="max")
-        bohb = HyperBandForBOHB(
-            time_attr="training_iteration",
-            metric="episode_reward_mean",
-            mode="max",
-            max_t=100)
+        algo = TuneBOHB()
+        bohb = HyperBandForBOHB(time_attr="training_iteration", max_t=100)
 
-        stopping_criteria = {"training_iteration": 100, "episode_reward_mean": 10}
+        stopping_criteria = {"training_iteration": 50, "episode_reward_mean": 1}
 
         tuner = tune.Tuner(
             ppo_position_config.algo_class,
             param_space=ppo_position_config,
             tune_config=tune.TuneConfig(
-                num_samples=4,
-                max_concurrent_trials=2,
+                metric="info/learner/default_policy/learner_stats/total_loss",
+                mode="min",
+                num_samples=8,
+                max_concurrent_trials=1,
                 search_alg=algo,
                 scheduler=bohb,
             ),
-            run_config=train.RunConfig(stop=stopping_criteria)
+            run_config=train.RunConfig(stop=stopping_criteria, storage_path=f"file://{local_path}/ray_results")
         )
 
         results = tuner.fit()
@@ -195,6 +198,28 @@ class AIInterface:
 
             ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space_start)
             ppo_position_model.train_position_model(ppo_position_config)
+
+    def ppo_checkpoint_test(self):
+        save_path = "/home/silver/TFTacticsAI/TFTAI/ray_results"
+
+        positioning_storage = QueueStorage(name="position")
+        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
+
+        search_space = {
+            "lambda": 1.0,
+            "gamma": 1.0,
+            "lr": 1e-3,
+            "clip_param": 0.2,
+            "num_sgd_iter": 5,
+        }
+
+        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
+        PPO_Alg = ppo_position_config.algo_class(config=ppo_position_config)
+        PPO_Alg.save_checkpoint(save_path)
+
+        new_model = PPO_Alg.load_checkpoint(save_path)
+
+        time.sleep(5)
 
 
     def collect_dummy_data(self) -> None:

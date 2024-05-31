@@ -26,7 +26,7 @@ class BattleGenerator:
             player.level = level
             player.max_units = level
             action_mask = ActionToken(player)
-            self.add_champions(player, action_mask)
+            self.add_champions(player, action_mask, base_pool)
             # Add these back in later after I see proof of learning
             # self.add_items_to_champions(player, action_mask)
             # self.add_items_to_item_bench(player)
@@ -34,10 +34,10 @@ class BattleGenerator:
         return [player_list[player_returns[0]], player_list[player_returns[1]],
                 {f"player_{player.player_num}": player for player in player_list}]
 
-    def add_champions(self, player, action_mask):
+    def add_champions(self, player, action_mask, base_pool):
         move_failure = 0
         for _ in range(player.max_units):
-            random_champ = random.sample(BASE_CHAMPION_LIST, 1)
+            random_champ = base_pool.sample(player, 1, allow_chosen=False)
             player.add_to_bench(champion(random_champ[0]))
             _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
             coord = np.random.randint(0, 28)

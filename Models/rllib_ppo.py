@@ -10,10 +10,13 @@ from Models.action_mask_rlm import TorchActionMaskRLM
 from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.core.rl_module.rl_module import SingleAgentRLModuleSpec
+# from ray.rllib.agents.callbacks import DefaultCallbacks
+# from ray.tune import logger
 from ray.tune.logger import pretty_print
 from ray.rllib.models import ModelCatalog
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator as vector_env
+
 
 
 @ray.remote(num_gpus=2)
@@ -189,8 +192,13 @@ class Base_PPO_Position_Model:
         # Register the environment into ray's memory so we can access it later.
         ModelCatalog.register_custom_model('action_mask_model', TorchActionMaskModel)
 
-        # Build the config
-        base_config = config.ModelConfig()
+        # class CustomCallbacks(DefaultCallbacks):
+        #     def on_train_result(self, *, trainer, result: dict, **info):
+        #         # Assuming you have a single policy named "default_policy"
+        #         policy = trainer.get_policy("default_policy")
+        #         entropy = policy.get_exploration_info()["entropy"]
+        #         result["custom_metrics"] = {"entropy": entropy.item()}
+        #         logger.info(f"Entropy: {entropy:.4f}")  # Optional: Print to console
 
         # Create an RLlib Algorithm instance from a PPOConfig object.
         cfg = (
@@ -205,7 +213,7 @@ class Base_PPO_Position_Model:
             # Custom environment runner. It is the equivalent of both the remote worker and singleAgentEnvRunner in Ray
             .rollouts(env_runner_cls=ActionMaskEnvRunner,
                       # Number of parallel threads.
-                      num_rollout_workers=4,
+                      num_rollout_workers=16,
                       num_envs_per_worker=num_envs,
                       remote_worker_envs=False)
             .experimental(_enable_new_api_stack=False,
@@ -217,21 +225,23 @@ class Base_PPO_Position_Model:
             #            # This number times the num_rollout_workers has to be less than the num_gpus
             #            num_gpus_per_worker=0.1,
             #            num_cpus_per_worker=1.5)
-            .resources(num_gpus=1,
+            .resources(num_gpus=2,
                        # This number times the num_rollout_workers has to be less than the num_gpus
-                       num_gpus_per_worker=0.2,
-                       num_cpus_per_worker=3)
+                       num_gpus_per_worker=0.1,
+                       num_cpus_per_worker=1.8)
 
             .framework("torch")
             # Custom model to allow for multiple head observation space and action masks
             .training(model={"custom_model": "action_mask_model",
-                             "custom_model_config": {"hidden_state_size": base_config.HIDDEN_STATE_SIZE,
-                                                     "num_hidden_layers": base_config.N_HEAD_HIDDEN_LAYERS}, },
-                      train_batch_size=4096,
+                             "custom_model_config": {"hidden_state_size": ray_config["hidden_size"],
+                                                     "num_hidden_layers": ray_config["num_heads"]}, },
+                      train_batch_size=512,
                       lambda_=ray_config["lambda"],
-                      gamma=ray_config["gamma"],
+                      gamma=0.99,
                       lr=ray_config["lr"],
-                      clip_param=ray_config["clip_param"])
+                      num_sgd_iter=ray_config["num_sgd_iter"],
+                      clip_param=ray_config["clip_param"],
+                      entropy_coeff=ray_config["entropy_coeff"])
         )
 
         return cfg
