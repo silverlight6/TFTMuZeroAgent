@@ -159,16 +159,16 @@ class PredNetwork(torch.nn.Module):
 
         self.comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
                                                [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-                                               config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
+                                               config.TEAM_TIERS_VECTOR)
 
         self.final_comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
                                                      [model_config.LAYER_HIDDEN_SIZE] *
                                                      model_config.N_HEAD_HIDDEN_LAYERS,
-                                                     config.TEAM_TIERS_VECTOR, output_activation=torch.nn.ReLU)
+                                                     config.TEAM_TIERS_VECTOR)
 
         self.champ_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
                                                 [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-                                                config.CHAMPION_LIST_DIM, output_activation=torch.nn.ReLU)
+                                                config.CHAMPION_LIST_DIM)
 
     def forward(self, hidden_state, training=True):
 

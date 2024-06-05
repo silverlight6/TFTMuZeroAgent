@@ -31,6 +31,9 @@ def main():
         # interface.ppo_checkpoint_test()
         interface.position_ppo_tune()
         # interface.train_guide_model()
+    elif config.REP_TRAINER:
+        # interface.representation_testing()
+        interface.representation_evauation()
     else:
         interface.train_torch_model()
 

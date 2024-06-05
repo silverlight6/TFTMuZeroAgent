@@ -6,7 +6,7 @@ from Simulator import champion, origin_class
 import Simulator.utils as utils
 import Simulator.config as config
 from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
-    starting_items, trait_items
+    starting_items, trait_items, items
 
 from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
@@ -55,7 +55,7 @@ class Player:
         # Bench Champions
         # 9 slots for champions
         # | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-        self.bench = [None for _ in range(9)]
+        self.bench = [None for _ in range(config.BENCH_SIZE)]
 
         # Board Champions
         # 7 rows, 4 columns
@@ -80,12 +80,20 @@ class Player:
                                 Bottom
         """
 
-        self.board = [[None for _ in range(4)] for _ in range(7)]
+        self.board = [[None for _ in range(config.BOARD_Y)] for _ in range(config.BOARD_X)]
 
         # List of items, there is no object for this so this is a string array
         # 10 slots for items
         # | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-        self.item_bench = [None for _ in range(10)]
+        self.item_bench = [None for _ in range(config.ITEM_BENCH_SIZE)]
+
+        # --- Private Objects ---
+        # List of shop champions in string format
+        # if chosen, will have _c appended to the end
+        # 5 slots for champions
+        # | 0 | 1 | 2 | 3 | 4 |
+        self.shop = [None for _ in range(config.SHOP_SIZE)]
+        self.shop_champions = [None for _ in range(config.SHOP_SIZE)]
 
         # List of team compositions
         self.team_composition = origin_class.game_compositions[self.player_num]
@@ -94,14 +102,6 @@ class Player:
         self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
         self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
         self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
-
-        # --- Private Objects ---
-        # List of shop champions in string format
-        # if chosen, will have _c appended to the end
-        # 5 slots for champions
-        # | 0 | 1 | 2 | 3 | 4 |
-        self.shop = [None for _ in range(5)]
-        self.shop_champions = [None for _ in range(5)]
 
         # --- Game Related Variables ---
         self.round = 0
@@ -1151,11 +1151,47 @@ class Player:
                 neighbors.append([nX, nY])
         return neighbors
 
-    def get_team_tier_labels(self):
-        return self.team_tier_labels
-
-    def get_team_champion_labels(self):
+    def get_champion_labels(self):
         return self.team_champion_labels
+
+    def get_item_labels(self):
+        item_labels = np.zeros([len(self.item_bench), config.MAX_ITEMS_IN_SET + 1], np.float32)
+        for i, item_name in enumerate(self.item_bench):
+            if item_name is None:
+                item_labels[i][-1] = 1
+            else:
+                c_index = list(items.keys()).index(item_name)
+                item_labels[i][c_index - 1] = 1
+        return item_labels
+
+    def get_scalar_labels(self):
+        scalar_labels = np.zeros([3, 100], np.float32)
+        if self.gold < 100:
+            scalar_labels[0][self.gold] = 1
+        else:
+            scalar_labels[0][-1] = 1
+        scalar_labels[1][self.exp] = 1
+        scalar_labels[2][self.health - 1] = 1
+        return scalar_labels
+
+    def get_shop_labels(self):
+        shop_labels = np.zeros([len(self.shop), config.MAX_CHAMPION_IN_SET + 1], np.float32)
+        for i, champion_name in enumerate(self.shop):
+            if champion_name is None:
+                shop_labels[i][-1] = 1
+            elif champion_name.endswith("_c"):
+                champion_name = champion_name[:-2]
+                # Chosen champions are defined as `<name>_<trait>_c`
+                champion_name, _ = champion_name.split("_")
+                c_index = list(COST.keys()).index(champion_name)
+                shop_labels[i][c_index - 1] = 1
+            else:
+                c_index = list(COST.keys()).index(champion_name)
+                shop_labels[i][c_index - 1] = 1
+        return shop_labels
+
+    def get_tier_labels(self):
+        return self.team_tier_labels
 
     """
     Description - Checks if there's a kayn on the board

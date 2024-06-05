@@ -56,6 +56,7 @@ DEVICE = "cuda"
 
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
+REP_TRAINER = get_bool_env("REP_TRAINER")
 
 PATH = path.dirname(path.realpath(__file__))
 
@@ -80,6 +81,14 @@ CHAMPION_LIST_DIM = [2 for _ in range(58)]
 ITEM_CHOICE_DIM = [3 for _ in range(10)]
 CHAMP_DECIDER_ACTION_DIM = CHAMPION_ACTION_DIM + [2] + ITEM_CHOICE_DIM
 
+# Team Tiers Vector - Number of categories for each trait tier. Emperor, for example, has 2: no emperors or 1.
+TEAM_TIERS_VECTOR = [
+    4, 5, 4, 4, 4, 3, 3, 3, 2, 4,
+    4, 4, 5, 3, 5, 2, 3, 5, 4, 4,
+    3, 4, 4, 4, 2, 5,
+]
+TIERS_FLATTEN_LENGTH = 97
+
 DISCOUNT = get_float_env("DISCOUNT", 0.997)
 TRAINING_STEPS = 1e10
 OBSERVATION_SIZE = get_int_env("OBSERVATION_SIZE", 10432)
@@ -91,13 +100,6 @@ ACTION_ENCODING_SIZE = get_int_env("ACTION_ENCODING_SIZE", 1045)
 ACTION_CONCAT_SIZE = get_int_env("ACTION_CONCAT_SIZE", 83)
 ACTION_DIM = [7, 38, 38]
 
-# Team Tiers Vector - Number of categories for each trait tier. Emperor, for example, has 2: no emperors or 1.
-TEAM_TIERS_VECTOR = [
-    4, 5, 4, 4, 4, 3, 3, 3, 2, 4,
-    4, 4, 5, 3, 5, 2, 3, 5, 4, 4,
-    3, 4, 4, 4, 2, 5,
-]
-TIERS_FLATTEN_LENGTH = 97
 # Buffer settings and sample management
 CHANCE_BUFFER_SEND = get_int_env("CHANCE_BUFFER_SEND", 1)
 GLOBAL_BUFFER_SIZE = get_int_env("GLOBAL_BUFFER_SIZE", 20000)
@@ -118,6 +120,7 @@ BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
 INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
 WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-5)
+DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
 REWARD_LOSS_SCALING = get_int_env("REWARD_LOSS_SCALING", 1)
 POLICY_LOSS_SCALING = get_int_env("POLICY_LOSS_SCALING", 1)
 VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
@@ -166,5 +169,11 @@ class ModelConfig:
     MAX_GRAD_NORM = int(environ.get("MAX_GRAD_NORM", 5))
 
     N_HEAD_HIDDEN_LAYERS = 2
+    N_HEADS = 4
+    N_LAYERS = 4
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
+
+    ITEM_EMBEDDING_DIM = int(environ.get("ITEM_EMBEDDING_DIM", 60))
+    CHAMPION_EMBEDDING_DIM = int(environ.get("CHAMPION_EMBEDDING_DIM", 256))
+    SHOP_EMBEDDING_DIM = int(environ.get("CHAMPION_EMBEDDING_DIM", 64))

@@ -4,7 +4,6 @@ import numpy as np
 
 from gymnasium.envs.registration import EnvSpec
 from gymnasium.spaces import MultiDiscrete, Dict, Box
-from ray.rllib.env.vector_env import VectorEnv
 from Simulator import pool
 from Simulator.battle_generator import BattleGenerator
 from Simulator.game_round import Game_Round, log_to_file, log_to_file_start

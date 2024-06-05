@@ -1,6 +1,7 @@
 import config
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Models.representation_model import RepresentationTesting as RepNetwork
 
 
 # TODO: Add description / inputs when doing unit testing on this object
@@ -22,6 +23,8 @@ class Checkpoint:
     def get_model(self) -> dict:
         if config.CHAMP_DECIDER:
             model = DefaultNetwork(self.model_config)
+        elif config.REP_TRAINER:
+            model = RepNetwork(self.model_config)
         else:
             model = TFTNetwork(self.model_config)
         if self.epoch == 0:

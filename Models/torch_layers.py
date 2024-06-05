@@ -148,3 +148,49 @@ class MemoryLayer(nn.Module):
         for cell_state in state:
             states.extend(cell_state)
         return torch.cat(states, dim=-1)
+
+class ResidualBlock(nn.Module):
+    """
+    A simple residual block with a skip connection.
+    """
+    def __init__(self, block, norm_size, local_norm=True):
+        super(ResidualBlock, self).__init__()
+        self.block = block
+        self.normalize = local_norm
+        if normalize:
+            self.batch_norm = nn.BatchNorm1d(norm_size)
+
+    def forward(self, x):
+        x = x + self.block(x)
+        if self.normalize:
+            x = self.batch_norm(x)
+        return x
+
+
+class TransformerEncoder(nn.Module):
+    """
+    A basic Transformer encoder block.
+    """
+    def __init__(self, d_model, d_hidden, n_heads, n_layers, dropout=0.1):
+        super(TransformerEncoder, self).__init__()
+
+        self.encoder_layers = nn.ModuleList([
+            nn.TransformerEncoderLayer(d_model, n_heads, d_hidden, dropout)
+            for _ in range(n_layers)
+        ])
+
+    def forward(self, x, src_key_padding_mask=None):
+        """
+        Args:
+            x: Input tensor of shape (sequence_length, batch_size, d_model).
+               In TFT, sequence_length could be the number of champions on the board/bench
+               or the number of items.
+            src_key_padding_mask: Boolean tensor indicating padding positions.
+                                  Shape: (batch_size, sequence_length)
+                                  True values indicate padding positions.
+        """
+
+        # Iterate over the encoder layers
+        for encoder_layer in self.encoder_layers:
+            x = encoder_layer(x, src_key_padding_mask=src_key_padding_mask)
+        return x

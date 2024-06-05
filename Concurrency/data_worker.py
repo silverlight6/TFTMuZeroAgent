@@ -83,10 +83,10 @@ class DataWorker(object):
             # Doing this to try to get around the edge case of the very last time step for each player where
             # The player is null but we still need to collect a reward.
             current_comp = {
-                key: info[key]["player"].get_team_tier_labels() for key in terminated.keys()
+                key: info[key]["player"].get_tier_labels() for key in terminated.keys()
             }
             current_champs = {
-                key: info[key]["player"].get_team_champion_labels() for key in terminated.keys()
+                key: info[key]["player"].get_champion_labels() for key in terminated.keys()
             }
 
             # While the game is still going on.
@@ -104,8 +104,8 @@ class DataWorker(object):
                         if not self.past_version[i] and (not self.default_agent[i] or config.IMITATION) \
                                 and np.random.rand() <= config.CHANCE_BUFFER_SEND:
                             if info[key]["player"]:
-                                current_comp[key] = info[key]["player"].get_team_tier_labels()
-                                current_champs[key] = info[key]["player"].get_team_champion_labels()
+                                current_comp[key] = info[key]["player"].get_tier_labels()
+                                current_champs[key] = info[key]["player"].get_champion_labels()
                             # Store the information in a buffer to train on later.
                             buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
                                                                storage_actions[i], reward[key], policy[i],
@@ -204,10 +204,10 @@ class DataWorker(object):
             # Doing this to try to get around the edge case of the very last time step for each player where
             # The player is null but we still need to collect a reward.
             current_comp = {
-                key: info[key]["player"].get_team_tier_labels() for key in terminated.keys()
+                key: info[key]["player"].get_tier_labels() for key in terminated.keys()
             }
             current_champs = {
-                key: info[key]["player"].get_team_champion_labels() for key in terminated.keys()
+                key: info[key]["player"].get_champion_labels() for key in terminated.keys()
             }
 
             # print("Checkpoint 1")
@@ -236,8 +236,8 @@ class DataWorker(object):
                     # store the action for MuZero
                     for i, key in enumerate(terminated.keys()):
                         if info[key]["player"]:
-                            current_comp[key] = info[key]["player"].get_team_tier_labels()
-                            current_champs[key] = info[key]["player"].get_team_champion_labels()
+                            current_comp[key] = info[key]["player"].get_tier_labels()
+                            current_champs[key] = info[key]["player"].get_champion_labels()
                         # Store the information in a buffer to train on later.
                         buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
                                                            storage_actions[i], reward[key], policy[i],

@@ -73,6 +73,55 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
+    """
+    I'll write in here what I want to do with this.
+    I need to start by creating an environment where I can get random positions. 
+    """
+    def representation_testing(self):
+        import datetime
+        from Models.representation_model import RepresentationTesting
+        from Models.representation_trainer import RepresentationTrainer
+        from torch.utils.tensorboard import SummaryWriter
+        train_step = config.STARTING_EPISODE
+
+        model_config = config.ModelConfig()
+
+        global_agent = RepresentationTesting(model_config)
+        global_agent.to(config.DEVICE)
+
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+        summary_writer = SummaryWriter(train_log_dir)
+
+        rep_trainer = RepresentationTrainer(global_agent, summary_writer)
+
+        while True:
+            rep_trainer.train_network(train_step)
+            train_step += 1
+
+        # Keeping this line commented because this tells us the number of parameters that our current model has.
+        # total_params = sum(p.numel() for p in global_agent.parameters())
+
+    def representation_evauation(self):
+        from Models.representation_model import RepresentationTesting
+        from Evaluator.representation_evaluator import RepresentationEvaluator
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = config.STARTING_EPISODE
+
+            model_config = config.ModelConfig()
+
+            storage = Storage.remote(train_step)
+
+            global_agent = RepresentationTesting(model_config)
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            evaluator = RepresentationEvaluator(global_agent)
+            evaluator.evaluate()
+            ray.wait()
+
     def train_guide_model(self) -> None:
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):

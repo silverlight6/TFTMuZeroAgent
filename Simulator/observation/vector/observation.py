@@ -329,8 +329,8 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
         """
         board_vector = np.zeros(728, dtype=np.float32)
 
-        player.team_champion_labels[:][0] = 1
-        player.team_champion_labels[:][1] = 0
+        player.team_champion_labels[:, 0] = 1
+        player.team_champion_labels[:, 1] = 0
         for y in range(0, 4):
             # IMPORTANT TO HAVE THE X INSIDE -- Silver is not sure why but ok.
             for x in range(0, 7):
@@ -342,8 +342,8 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                     c_index = list(COST.keys()).index(player.board[x][y].name)
                     # create the label for the champion to help with training
                     if c_index < len(config.CHAMPION_ACTION_DIM):
-                        player.team_champion_labels[c_index - 1][0] = 0
-                        player.team_champion_labels[c_index - 1][1] = 1
+                        player.team_champion_labels[c_index - 1, 0] = 0
+                        player.team_champion_labels[c_index - 1, 1] = 1
 
                 # Fit the area into the designated spot in the token
                 board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
@@ -471,3 +471,39 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                     i_index -= 2 * z
         tiers_vector = np.concatenate([tiers_vector, chosen_vector], axis=-1)
         return tiers_vector
+
+    @staticmethod
+    def observation_to_input(observation):
+        other_players = np.concatenate(
+            [
+                np.concatenate(
+                    [
+                        observation["opponents"][x]["board"],
+                        observation["opponents"][x]["scalars"],
+                        observation["opponents"][x]["traits"],
+                    ],
+                    axis=-1,
+                )
+                for x in range(config.NUM_PLAYERS)
+            ],
+            axis=0,  # Concatenate opponent data along axis 0
+        )
+
+        return {
+            "scalars": np.array(observation["player"]["scalars"]),
+            "shop": np.array(observation["player"]["shop"]),
+            "board": np.array(observation["player"]["board"]),
+            "bench": np.array(observation["player"]["bench"]),
+            "items": np.array(observation["player"]["items"]),
+            "traits": np.array(observation["player"]["traits"]),
+            "other_players": np.array(other_players)
+        }
+
+    @staticmethod
+    def observation_to_dictionary(observation):
+        """Converts a list of observations to a batched dictionary."""
+
+        return {
+            key: np.stack([obs[key] for obs in observation])
+            for key in observation[0].keys()
+        }

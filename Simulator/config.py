@@ -1,12 +1,17 @@
 import config
-from Simulator.item_stats import uncraftable_items
+from Simulator.item_stats import uncraftable_items, items
 
 CHAMPION_INFORMATION = 12
-BOARD_SIZE = 28
+BOARD_X = 7
+BOARD_Y = 4
+BOARD_SIZE = BOARD_X * BOARD_Y
 BENCH_SIZE = 9
-MAX_CHAMPION_IN_SET = 58
+SHOP_SIZE = 5
+ITEM_BENCH_SIZE = 10
+MAX_CHAMPION_IN_SET = 62
 UNCRAFTABLE_ITEM = len(uncraftable_items)
 MAX_BENCH_SPACE = 10
+MAX_ITEMS_IN_SET = len(list(items.keys()))
 
 
 NUM_PLAYERS = config.NUM_PLAYERS
