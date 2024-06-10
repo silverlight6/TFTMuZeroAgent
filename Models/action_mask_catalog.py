@@ -109,7 +109,7 @@ class ActionMaskModelEncoderConfig(ModelConfig):
     output_layer_dim: Optional[int] = None
     output_layer_use_bias: bool = True
     output_layer_activation: str = "linear"
-    shared: bool = True
+    shared: bool = False
 
     act_space: gym.Space = None
     obs_space: gym.Space = None

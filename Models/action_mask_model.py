@@ -89,23 +89,12 @@ class TorchActionMaskEncoderModel(TorchModelV2, nn.Module):
 
         obs_space_local = obs_space["observations"]["player"]
 
-        self.scalar_encoder = feature_encoder(obs_space_local["scalars"].shape[0],
-                                              layer_sizes, output_size, self.device)
-        self.shop_encoder = feature_encoder(obs_space_local["shop"].shape[0],
-                                            layer_sizes, output_size, self.device)
         self.board_encoder = feature_encoder(obs_space_local["board"].shape[0],
-                                             layer_sizes, output_size, self.device)
-        self.bench_encoder = feature_encoder(obs_space_local["bench"].shape[0],
-                                             layer_sizes, output_size, self.device)
-        self.items_encoder = feature_encoder(obs_space_local["items"].shape[0],
                                              layer_sizes, output_size, self.device)
         self.traits_encoder = feature_encoder(obs_space_local["traits"].shape[0],
                                               layer_sizes, output_size, self.device)
 
-        self.other_players_encoder = feature_encoder(obs_space["observations"]["opponents"].shape[0], layer_sizes,
-                                                     output_size, self.device)
-
-        self.feature_to_hidden = feature_encoder(hidden_layer_size * 7,
+        self.feature_to_hidden = feature_encoder(hidden_layer_size * 2,
                                                  layer_sizes, output_size, self.device)
 
         self._features = None
@@ -113,16 +102,10 @@ class TorchActionMaskEncoderModel(TorchModelV2, nn.Module):
     def _forward(self, input_dict, state, seq_lens):
         x = input_dict["obs"]["observations"]
 
-        scalar = self.scalar_encoder(x["player"]["scalars"])
-        shop = self.shop_encoder(x["player"]["shop"])
         board = self.board_encoder(x["player"]["board"])
-        bench = self.bench_encoder(x["player"]["bench"])
-        items = self.items_encoder(x["player"]["items"])
         traits = self.traits_encoder(x["player"]["traits"])
 
-        other_players = self.other_players_encoder(x["opponents"])
-
-        full_state = torch.cat((scalar, shop, board, bench, items, traits, other_players), -1)
+        full_state = torch.cat((board, traits), -1)
 
         hidden_state = self.feature_to_hidden(full_state)
         return {ENCODER_OUT: {CRITIC: hidden_state, ACTOR: hidden_state}}

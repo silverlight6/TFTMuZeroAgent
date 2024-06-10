@@ -758,14 +758,9 @@ class ActionMaskEnvRunner(EnvRunner):
         return {
             "observations": {
                 "player": {
-                    "bench": observation["observations"]["player"]["bench"][idx],
                     "board": observation["observations"]["player"]["board"][idx],
-                    "items": observation["observations"]["player"]["items"][idx],
-                    "scalars": observation["observations"]["player"]["scalars"][idx],
-                    "shop": observation["observations"]["player"]["shop"][idx],
                     "traits": observation["observations"]["player"]["traits"][idx],
                 },
-                "opponents": observation["observations"]["opponents"][idx]
             },
             "action_mask": observation["action_mask"][idx]
         }
@@ -782,8 +777,6 @@ class ActionMaskEnvRunner(EnvRunner):
                     'player': {key: torch.swapaxes(torch.stack([obs_item['observations']['player'][key]
                                                                 for obs_item in observation['obs']], dim=1), 0, 1)
                                for key in player_data},
-                    'opponents': torch.swapaxes(torch.stack(
-                        [obs_item['observations']['opponents'] for obs_item in observation['obs']], dim=1), 0, 1)
                 },
                 'action_mask': torch.swapaxes(torch.stack(action_mask, dim=1), 0, 1)
             }
@@ -798,7 +791,6 @@ class ActionMaskEnvRunner(EnvRunner):
             'observations': {
                 'player': {key: np.asarray([obs_item['observations']['player'][key] for obs_item in observation])
                            for key in player_data},
-                'opponents': np.asarray([obs_item['observations']['opponents'] for obs_item in observation])
             },
             'action_mask': np.asarray(action_mask)
         }

@@ -192,7 +192,7 @@ class RepNetwork(torch.nn.Module):
 
         def feature_encoder(input_size, feature_layer_sizes, feature_output_sizes):
             return torch.nn.Sequential(
-                mlp(input_size, feature_layer_sizes, feature_output_sizes),
+                mlp(input_size, feature_layer_sizes, feature_output_sizes, torch.nn.ReLU),
                 Normalize()
             ).to(config.DEVICE)
 

@@ -13,6 +13,10 @@ class ObservationBase(abc.ABC):
     @abc.abstractmethod
     def fetch_player_observation(self):
         """Fetch player observation."""
+
+    @abc.abstractmethod
+    def fetch_player_position_observation(self):
+        """Fetch player position observation"""
         
     @abc.abstractmethod
     def fetch_dead_observation(self):

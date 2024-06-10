@@ -14,13 +14,13 @@ class RepresentationTesting(AbstractNetwork):
         super().__init__()
         self.full_support_size = model_config.ENCODER_NUM_STEPS
 
-        # self.representation_network = RepNetwork(
-        #     [model_config.LAYER_HIDDEN_SIZE // 2] * model_config.N_HEAD_HIDDEN_LAYERS,
-        #     model_config.HIDDEN_STATE_SIZE // 2,
-        #     model_config
-        # )
+        self.representation_network = RepNetwork(
+            [model_config.LAYER_HIDDEN_SIZE // 2] * model_config.N_HEAD_HIDDEN_LAYERS,
+            model_config.HIDDEN_STATE_SIZE // 2,
+            model_config
+        )
 
-        self.representation_network = GeminiRepresentation(model_config)
+        # self.representation_network = GeminiRepresentation(model_config)
 
         self.prediction_network = PredNetwork(model_config)
 

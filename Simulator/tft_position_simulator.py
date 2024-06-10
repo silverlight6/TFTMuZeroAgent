@@ -31,6 +31,7 @@ class TFT_Position_Simulator(gym.Env):
         self.render_mode = None
 
         self.reward = 0
+        self.max_reward = 1
 
         self.action_space = MultiDiscrete(np.ones(12) * 29)
 
@@ -89,10 +90,9 @@ class TFT_Position_Simulator(gym.Env):
         log_to_file_start()
 
         # Single step environment so this fetch will be the observation for the entire step.
-        initial_observation = self.player_manager.fetch_observation(f"player_{self.PLAYER.player_num}")
-        initial_observation["opponents"] = opponents_to_one_vector(initial_observation["opponents"])
+        initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": {key: initial_observation[key] for key in ["player", "opponents"]},
+            "observations": {key: initial_observation[key] for key in ["player"]},
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
 
@@ -125,11 +125,13 @@ class TFT_Position_Simulator(gym.Env):
             self.step_function.position_controller(action, self.PLAYER)
         self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
         self.reward = self.PLAYER.reward - initial_reward
+        if np.abs(self.reward) > self.max_reward:
+            self.max_reward = np.abs(self.reward)
+        self.reward = self.reward / self.max_reward
 
-        initial_observation = self.player_manager.fetch_observation(f"player_{self.PLAYER.player_num}")
-        initial_observation["opponents"] = opponents_to_one_vector(initial_observation["opponents"])
+        initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": {key: initial_observation[key] for key in ["player", "opponents"]},
+            "observations": {key: initial_observation[key] for key in ["player"]},
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
         }
         self.PLAYER.print("Position Simulator after movement")

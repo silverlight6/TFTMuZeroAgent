@@ -98,6 +98,10 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             "traits": self.trait_vector,
         }
 
+    def fetch_player_position_observation(self):
+        """Fetch player position observation"""
+        ...
+
     def fetch_dead_observation(self):
         """Zero out public observations for all dead players"""
         return {

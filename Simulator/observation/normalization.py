@@ -226,3 +226,21 @@ class Normalizer:
         item_stats[:, 9] = self.batch_apply_z_score_item(item_stats[:, 9], "SP")
 
         return item_stats.reshape(original_shape)
+
+def safe_normalize(vector):
+    """
+    Normalizes a vector safely, handling potential zero-norm cases.
+
+    Args:
+      vector: A 1D, 2D, or 3D numpy array representing the vector.
+
+    Returns:
+      A normalized version of the input vector. If the vector has zero norm,
+      it returns a vector of zeros with the same shape as the input.
+    """
+
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return np.zeros_like(vector)
+    else:
+        return vector / norm

@@ -188,22 +188,25 @@ class AIInterface:
 
         positioning_storage = QueueStorage(name="position")
         ppo_position_model = Base_PPO_Position_Model(positioning_storage)
+        model_config = config.ModelConfig()
 
         search_space = {
             "lambda": tune.uniform(0.9, 1.0),
-            "lr": tune.choice([5e-3, 1e-3, 5e-4, 1e-4, 5e-5, 1e-5, 5e-6]),
-            "clip_param": tune.uniform(0.1, 0.5),
+            "lr": tune.choice([1e-4, 5e-5, 1e-5, 5e-6, 1e-6, 5e-7, 1e-7]),
+            "clip_param": tune.uniform(0.05, 0.7),
+            # Focusing on ideas that have higher effect on training.
             "num_sgd_iter": tune.randint(1, 30),
-            "num_heads": tune.choice([1, 2, 4, 8, 16, 32]),
-            "hidden_size": tune.choice([64, 128, 256, 512, 1024]),
-            "entropy_coeff": tune.loguniform(1e-4, 1e-1)
+            "num_heads": model_config.N_HEADS,
+            "hidden_size": model_config.HIDDEN_STATE_SIZE,
+            # This has an inverse relationship. Want higher values for less exploration.
+            "entropy_coeff": tune.loguniform(1e-3, 2e-1)
         }
 
         ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
         algo = TuneBOHB()
         bohb = HyperBandForBOHB(time_attr="training_iteration", max_t=100)
 
-        stopping_criteria = {"training_iteration": 50, "episode_reward_mean": 1}
+        stopping_criteria = {"training_iteration": 100, "episode_reward_mean": 1}
 
         tuner = tune.Tuner(
             ppo_position_config.algo_class,
@@ -211,7 +214,7 @@ class AIInterface:
             tune_config=tune.TuneConfig(
                 metric="info/learner/default_policy/learner_stats/total_loss",
                 mode="min",
-                num_samples=8,
+                num_samples=16,
                 max_concurrent_trials=1,
                 search_alg=algo,
                 scheduler=bohb,
@@ -236,16 +239,21 @@ class AIInterface:
 
             positioning_storage = QueueStorage(name="position")
             ppo_position_model = Base_PPO_Position_Model(positioning_storage)
+            model_config = config.ModelConfig()
 
-            search_space_start = {
-                "lambda": 0.95,
-                "gamma": 0.95,
-                "lr": 5e-4,
-                "clip_param": 0.2,
-                "num_sgd_iter": 15,
+            search_space = {
+                "lambda": 1,
+                "lr": 1e-5,
+                "clip_param": 0.1,
+                # Number of times it goes over a batch before moving onto a new batch.
+                "num_sgd_iter": 1,
+                "num_heads": model_config.N_HEADS,
+                "hidden_size": model_config.HIDDEN_STATE_SIZE,
+                # This has an inverse relationship. Want higher values for less exploration.
+                "entropy_coeff": 0.3
             }
 
-            ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space_start)
+            ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
             ppo_position_model.train_position_model(ppo_position_config)
 
     def ppo_checkpoint_test(self):

@@ -1,13 +1,15 @@
 import numpy as np
 import config
 
-from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
-from Simulator.stats import COST
-from Simulator.origin_class import team_traits
 from Simulator.config import MAX_BENCH_SPACE, BENCH_SIZE
-from Simulator.utils import item_binary_encode, champ_binary_encode
 from Simulator.item_stats import item_builds, uncraftable_items
+from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
+from Simulator.observation.normalization import safe_normalize
+from Simulator.origin_class import team_traits
 from Simulator.origin_class_stats import tiers
+from Simulator.stats import COST
+from Simulator.utils import item_binary_encode, champ_binary_encode
+
 
 
 class ObservationVector(ObservationBase, ObservationUpdateBase):
@@ -54,6 +56,18 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
             "bench": self.bench_vector,
             "shop": self.shop_vector,
             "items": self.item_bench_vector,
+            "traits": self.trait_vector,
+        }
+
+    def fetch_player_position_observation(self):
+        """Fetch the PlayerObservation for a player.
+
+        PlayerObservation:
+            board: board token
+            traits: trait token
+        """
+        return {
+            "board": self.board_vector,
             "traits": self.trait_vector,
         }
 
@@ -348,7 +362,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                 # Fit the area into the designated spot in the token
                 board_vector[x * 4 + y:x * 4 + y + 26] = champion_info_array
                     
-        return board_vector
+        return safe_normalize(board_vector)
     
     # -- Bench Vector -- #
     def create_bench_vector(self, player):
@@ -470,7 +484,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                     chosen_vector[5 - z] = 1
                     i_index -= 2 * z
         tiers_vector = np.concatenate([tiers_vector, chosen_vector], axis=-1)
-        return tiers_vector
+        return safe_normalize(tiers_vector)
 
     @staticmethod
     def observation_to_input(observation):

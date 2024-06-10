@@ -225,23 +225,26 @@ class Base_PPO_Position_Model:
             #            # This number times the num_rollout_workers has to be less than the num_gpus
             #            num_gpus_per_worker=0.1,
             #            num_cpus_per_worker=1.5)
-            .resources(num_gpus=2,
+            # In ray tune, the first num_gpus is how many gpus tune is allocated, the rest are for this algorithm
+            .resources(num_gpus=0.5,
                        # This number times the num_rollout_workers has to be less than the num_gpus
                        num_gpus_per_worker=0.1,
-                       num_cpus_per_worker=1.8)
+                       num_cpus_per_worker=1)
 
             .framework("torch")
             # Custom model to allow for multiple head observation space and action masks
             .training(model={"custom_model": "action_mask_model",
                              "custom_model_config": {"hidden_state_size": ray_config["hidden_size"],
                                                      "num_hidden_layers": ray_config["num_heads"]}, },
-                      train_batch_size=512,
+                      train_batch_size=1024,
+                      sgd_minibatch_size=128,
                       lambda_=ray_config["lambda"],
                       gamma=0.99,
                       lr=ray_config["lr"],
                       num_sgd_iter=ray_config["num_sgd_iter"],
                       clip_param=ray_config["clip_param"],
-                      entropy_coeff=ray_config["entropy_coeff"])
+                      entropy_coeff=ray_config["entropy_coeff"],
+                      grad_clip=1)
         )
 
         return cfg
@@ -252,10 +255,14 @@ class Base_PPO_Position_Model:
 
     def train_position_model(self, cfg):
         # Construct the actual (PPO) algorithm object from the config.
+        import time
         self.position_model = cfg.build()
 
         # Training loop with Tune reporting
-        for i in range(50):
+        for i in range(10000):
             result = self.position_model.train()
-            print("FINISHED A TRAINING ROUND")
+            printable_info = result['info']['learner']['default_policy']['learner_stats']
+            print(f"episode reward mean {result['episode_reward_mean']} and total_loss {printable_info['total_loss']}")
+            print(f"policy_loss {printable_info['policy_loss']}, entropy {printable_info['entropy']}")
+            print(f"kl_divergence {printable_info['cur_kl_coeff']}, kl {printable_info['kl']}")
             ray.train.report(episode_reward_mean=result["episode_reward_mean"])  # report metrics

@@ -87,6 +87,22 @@ class PlayerManager:
             "opponents": self.opponent_observations[player_id],
         }
 
+    def fetch_position_observation(self, player_id):
+        """Creates the observation for the given player.
+
+        Format:
+        {
+            "player": PlayerObservation
+            "action_mask": (5, 11, 38)  # Same as action space
+            "opponents": [PlayerPublicObservation, ...]
+        }
+        """
+
+        return {
+            "player": self.observation_states[player_id].fetch_player_observation(),
+            "action_mask": self.action_handlers[player_id].fetch_action_mask(),
+        }
+
     def fetch_observations(self):
         """Creates the observation for every player."""
         return {player_id: self.fetch_observation(player_id) for player_id, alive in self.terminations.items() if alive}

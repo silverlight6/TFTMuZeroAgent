@@ -27,7 +27,6 @@ class RepresentationEvaluator:
 
         self.create_graphs(predictions, labels)
 
-
     def compute_forward(self, observation):
         self.network.train()
         output = self.network.forward(observation)
@@ -54,7 +53,7 @@ class RepresentationEvaluator:
     def create_graphs(self, pred, labels):
         # TODO: Figure out how to speed up the tier, final_tier, and champion losses
         pred_comp = pred.comp
-        pred_comp = (pred_comp > 0.5).astype(int)
+        # pred_comp = (pred_comp > 0.5).astype(int)
         tier_target = [label[0] for label in labels]
         tier_target = np.concatenate([list(b) for b in zip(*tier_target)], axis=1).flatten()
         comp_cm = confusion_matrix(pred_comp, tier_target)

@@ -29,8 +29,9 @@ def main():
     interface = AI_interface.AIInterface()
     if config.CHAMP_DECIDER:
         # interface.ppo_checkpoint_test()
-        interface.position_ppo_tune()
+        # interface.position_ppo_tune()
         # interface.train_guide_model()
+        interface.position_ppo_testing()
     elif config.REP_TRAINER:
         # interface.representation_testing()
         interface.representation_evauation()

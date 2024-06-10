@@ -12,8 +12,8 @@ from Simulator.tft_simulator import TFTConfig
 class BatchGenerator:
     def __init__(self):
         self.battle_generator = BattleGenerator()
-        # self.observation_class = ObservationVector
-        self.observation_class = GeminiObservation
+        self.observation_class = ObservationVector
+        # self.observation_class = GeminiObservation
 
     # So this needs to take in a batch size then generate the necessary number of positions
     # It will need to create the observations as the x and the y as the labels
