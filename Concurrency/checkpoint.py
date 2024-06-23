@@ -1,7 +1,7 @@
 import config
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.representation_model import RepresentationTesting as RepNetwork
+from Models.Representations.representation_model import RepresentationTesting as RepNetwork
 
 
 # TODO: Add description / inputs when doing unit testing on this object

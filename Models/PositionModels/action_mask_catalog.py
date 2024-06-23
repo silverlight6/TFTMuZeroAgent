@@ -109,7 +109,7 @@ class ActionMaskModelEncoderConfig(ModelConfig):
     output_layer_dim: Optional[int] = None
     output_layer_use_bias: bool = True
     output_layer_activation: str = "linear"
-    shared: bool = False
+    shared: bool = True
 
     act_space: gym.Space = None
     obs_space: gym.Space = None
@@ -147,7 +147,7 @@ class ActionMaskModelEncoderConfig(ModelConfig):
 
     def build(self, framework: str = "torch"):
         self._validate(framework=framework)
-        from Models.action_mask_model import TorchActionMaskEncoderModel
+        from Models.PositionModels.action_mask_model import TorchActionMaskEncoderModel
         return TorchActionMaskEncoderModel(action_space=self.act_space,
                                            obs_space=self.obs_space,
                                            num_outputs=self.output_size,
@@ -175,7 +175,7 @@ class ActionMaskModelVFConfig(ModelConfig):
 
     def build(self, framework: str = "torch"):
         self._validate(framework=framework)
-        from Models.action_mask_model import TorchActionMaskValueModel
+        from Models.PositionModels.action_mask_model import TorchActionMaskValueModel
         return TorchActionMaskValueModel(action_space=self.act_space,
                                          obs_space=self.obs_space,
                                          num_outputs=self.output_size,
@@ -199,7 +199,7 @@ class ActionMaskModelPConfig(ModelConfig):
     def build(self, framework: str = "torch") -> "Model":
         self._validate(framework=framework)
 
-        from Models.action_mask_model import TorchActionMaskPolicyModel
+        from Models.PositionModels.action_mask_model import TorchActionMaskPolicyModel
         return TorchActionMaskPolicyModel(action_space=self.act_space,
                                           obs_space=self.obs_space,
                                           num_outputs=self.output_size,

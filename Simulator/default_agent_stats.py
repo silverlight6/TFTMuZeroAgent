@@ -108,3 +108,76 @@ TEAM_ITEM_HOLDER = [
     ['aphelios', 'sylas'],
     ['talon', 'shen']
 ]
+
+ONE_COST_UNITS = [
+    'diana',
+    'elise',
+    'fiora',
+    'garen',
+    'lissandra',
+    'maokai',
+    'nami',
+    'nidalee',
+    'tahmkench',
+    'twistedfate',
+    'vayne',
+    'wukong',
+    'yasuo'
+]
+
+TWO_COST_UNITS = [
+    'annie',
+    'aphelios',
+    'hecarim',
+    'janna',
+    'jarvaniv',
+    'jax',
+    'lulu',
+    'pyke',
+    'sylas',
+    'teemo',
+    'thresh',
+    'vi',
+    'zed'
+]
+
+THREE_COST_UNITS = [
+    'akali',
+    'evelynn',
+    'irelia',
+    'jinx',
+    'kalista',
+    'katarina',
+    'kennen',
+    'kindred',
+    'lux',
+    'nunu',
+    'veigar',
+    'yuumi',
+    'xinzhao'
+]
+
+FOUR_COST_UNITS = [
+    'aatrox',
+    'ahri',
+    'ashe',
+    'cassiopeia',
+    'jhin',
+    'morgana',
+    'riven',
+    'sejuani',
+    'shen',
+    'talon',
+    'warwick'
+]
+
+FIVE_COST_UNITS = [
+    'azir',
+    'ezreal',
+    'kayn',
+    'leesin',
+    'lillia',
+    'sett',
+    'yone',
+    'zilean'
+]

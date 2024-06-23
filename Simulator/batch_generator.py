@@ -3,16 +3,31 @@ import numpy as np
 
 from Simulator.battle_generator import BattleGenerator
 from Simulator import pool
+from Simulator.observation.token.basic_observation import ObservationToken
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.observation.vector.gemini_observation import GeminiObservation
 from Simulator.player_manager import PlayerManager
 from Simulator.tft_simulator import TFTConfig
 
-
 class BatchGenerator:
     def __init__(self):
-        self.battle_generator = BattleGenerator()
-        self.observation_class = ObservationVector
+        # TODO: Find the bug with 5 costs that is causing instability in the add to bench, most likely kayn
+        # TODO: Another bug if you add items.. Don't have the energy to find it today.
+        base_level_config = {
+            "num_unique_champions": 12,
+            "max_cost": 5,
+            "num_items": 0,
+            "current_level": 8,
+            "chosen": True,
+            "sample_from_pool": True,
+            "two_star_unit_percentage": .3,
+            "three_star_unit_percentage": .01,
+            "scenario_info": True,
+            "extra_randomness": False
+        }
+
+        self.battle_generator = BattleGenerator(base_level_config)
+        self.observation_class = ObservationToken
         # self.observation_class = GeminiObservation
 
     # So this needs to take in a batch size then generate the necessary number of positions
@@ -21,11 +36,7 @@ class BatchGenerator:
         input_batch = []
         labels = []
         for _ in range(batch_size):
-            starting_level = np.random.randint(1, 6)
-            item_count = np.random.randint(0, 3)
-            [player, opponent, other_players] = self.battle_generator.generate_battle(
-                starting_level=starting_level, item_count=item_count, scenario_info=False, extra_randomness=False
-            )
+            [player, opponent, other_players] = self.battle_generator.generate_battle()
 
             pool_obj = pool.pool()
             player.opponent = opponent
@@ -42,7 +53,7 @@ class BatchGenerator:
                                            TFTConfig(observation_class=self.observation_class))
             player_manager.reinit_player_set([player] + list(other_players.values()))
 
-            initial_observation = player_manager.fetch_observation(f"player_{player.player_num}")
+            initial_observation = player_manager.fetch_position_observation(f"player_{player.player_num}")
             observation = self.observation_class.observation_to_input(initial_observation)
 
             input_batch.append(observation)

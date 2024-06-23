@@ -1,6 +1,6 @@
 import numpy as np
 import chex
-from Simulator.observation import ObservationToken
+from Simulator.observation.token.observation import ObservationToken
 
 @chex.dataclass(frozen=True)
 class PlayerObservation:

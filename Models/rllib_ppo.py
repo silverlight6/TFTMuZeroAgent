@@ -1,12 +1,10 @@
 import ray
 import config
-import torch
-import os
 
-from Models.action_mask_catalog import ActionMaskCatalog
-from Models.action_mask_env_runner import ActionMaskEnvRunner
-from Models.action_mask_model import TorchActionMaskModel
-from Models.action_mask_rlm import TorchActionMaskRLM
+from Models.PositionModels.action_mask_catalog import ActionMaskCatalog
+from Models.PositionModels.action_mask_env_runner import ActionMaskEnvRunner
+from Models.PositionModels.action_mask_model import TorchActionMaskModel
+from Models.PositionModels.action_mask_rlm import TorchActionMaskRLM
 from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.core.rl_module.rl_module import SingleAgentRLModuleSpec
@@ -15,7 +13,7 @@ from ray.rllib.core.rl_module.rl_module import SingleAgentRLModuleSpec
 from ray.tune.logger import pretty_print
 from ray.rllib.models import ModelCatalog
 from Simulator.tft_item_simulator import TFT_Item_Simulator
-from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator as vector_env
+from Simulator.tft_rllib_vector_simulator import TFT_RLLIB_Vector_Pos_Simulator as vector_env
 
 
 
@@ -255,7 +253,6 @@ class Base_PPO_Position_Model:
 
     def train_position_model(self, cfg):
         # Construct the actual (PPO) algorithm object from the config.
-        import time
         self.position_model = cfg.build()
 
         # Training loop with Tune reporting

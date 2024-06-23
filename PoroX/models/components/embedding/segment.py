@@ -76,24 +76,24 @@ class GlobalPlayerSegmentFFN(nn.Module):
     
     @nn.compact
     def __call__(self, x):
-        board   = x[..., :28, :]
-        bench   = x[..., 28:37, :]
-        shop    = x[..., 37:42, :]
-        items   = x[..., 42:52, :]
-        traits  = x[..., 52:53, :]
+        board = x[..., :28, :]
+        bench = x[..., 28:37, :]
+        shop = x[..., 37:42, :]
+        items = x[..., 42:52, :]
+        traits = x[..., 52:53, :]
         playerIDs = x[..., 53:57, :]
         scalars = x[..., 57:, :]
         
         def ffn(hidden_dim=self.config.hidden_dim):
             return FFNSwiGLU(hidden_dim)
 
-        board_fc    = ffn()(board)
-        bench_fc    = ffn()(bench)
-        shop_fc     = ffn()(shop)
-        items_fc    = ffn()(items)
-        traits_fc   = ffn()(traits)
-        ids_fc      = ffn()(playerIDs)
-        scalars_fc  = ffn()(scalars)
+        board_fc = ffn()(board)
+        bench_fc = ffn()(bench)
+        shop_fc = ffn()(shop)
+        items_fc = ffn()(items)
+        traits_fc = ffn()(traits)
+        ids_fc = ffn()(playerIDs)
+        scalars_fc = ffn()(scalars)
 
         return jnp.concatenate([
             board_fc,
@@ -110,22 +110,22 @@ class PlayerSegmentFFN(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        board   = x[..., :28, :]
-        bench   = x[..., 28:37, :]
-        shop    = x[..., 37:42, :]
-        items   = x[..., 42:52, :]
-        traits  = x[..., 52:53, :]
+        board = x[..., :28, :]
+        bench = x[..., 28:37, :]
+        shop = x[..., 37:42, :]
+        items = x[..., 42:52, :]
+        traits = x[..., 52:53, :]
         scalars = x[..., 53:, :]
         
         def ffn(hidden_dim=self.config.hidden_dim):
             return FFNSwiGLU(hidden_dim)
 
-        board_fc    = ffn()(board)
-        bench_fc    = ffn()(bench)
-        shop_fc     = ffn()(shop)
-        items_fc    = ffn()(items)
-        traits_fc   = ffn()(traits)
-        scalars_fc  = ffn()(scalars)
+        board_fc = ffn()(board)
+        bench_fc = ffn()(bench)
+        shop_fc = ffn()(shop)
+        items_fc = ffn()(items)
+        traits_fc = ffn()(traits)
+        scalars_fc = ffn()(scalars)
 
         return jnp.concatenate([
             board_fc,
@@ -141,20 +141,20 @@ class OpponentSegmentFFN(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        board   = x[..., :28, :]
-        bench   = x[..., 28:37, :]
-        items   = x[..., 37:47, :]
-        traits  = x[..., 47:48, :]
+        board = x[..., :28, :]
+        bench = x[..., 28:37, :]
+        items = x[..., 37:47, :]
+        traits = x[..., 47:48, :]
         scalars = x[..., 48:, :]
 
         def ffn(hidden_dim=self.config.hidden_dim):
             return FFNSwiGLU(hidden_dim)
 
-        board_fc    = ffn()(board)
-        bench_fc    = ffn()(bench)
-        items_fc    = ffn()(items)
-        traits_fc   = ffn()(traits)
-        scalars_fc  = ffn()(scalars)
+        board_fc = ffn()(board)
+        bench_fc = ffn()(bench)
+        items_fc = ffn()(items)
+        traits_fc = ffn()(traits)
+        scalars_fc = ffn()(scalars)
 
         return jnp.concatenate([
             board_fc,
@@ -205,8 +205,8 @@ class SegmentFFN(nn.Module):
         else:
             placeholder = x
             
-        for range in segment_ranges:
-            start, end = range
+        for range_i in segment_ranges:
+            start, end = range_i
             # segment_x = x[..., start:end, :]
             segment_x = jax.lax.dynamic_slice_in_dim(x, start, end - start, axis=-2)
             segment_x = FFNSwiGLU(self.config.hidden_dim)(segment_x)

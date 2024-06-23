@@ -134,6 +134,7 @@ BENCH_INPUT_SIZE = 234
 ITEMS_INPUT_SIZE = 60
 TRAIT_INPUT_SIZE = 102
 OTHER_PLAYER_INPUT_SIZE = 6704
+OTHER_PLAYER_POS_INPUT_SIZE = 5810
 OTHER_PLAYER_ITEM_POS_SIZE = 5920
 OTHER_PLAYER_SCALAR_SIZE = 8
 
@@ -149,24 +150,24 @@ MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
-    HIDDEN_STATE_SIZE = int(environ.get("HIDDEN_STATE_SIZE", 1024))
-    NUM_RNN_CELLS = int(environ.get("NUM_RNN_CELLS", 2))
+    HIDDEN_STATE_SIZE = get_int_env("HIDDEN_STATE_SIZE", 1024)
+    NUM_RNN_CELLS = get_int_env("NUM_RNN_CELLS", 2)
     LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
-    LAYER_HIDDEN_SIZE = int(environ.get("LAYER_HIDDEN_SIZE", 1024))
-    ROOT_DIRICHLET_ALPHA = float(environ.get("ROOT_DIRICHLET_ALPHA", 1.0))
-    ROOT_EXPLORATION_FRACTION = float(environ.get("ROOT_EXPLORATION_FRACTION", 0.25))
-    VISIT_TEMPERATURE = float(environ.get("VISIT_TEMPERATURE", 1.0))
+    LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
+    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
+    ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
+    VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
 
-    PB_C_BASE = int(environ.get("PB_C_BASE", 19652))
-    PB_C_INIT = float(environ.get("PB_C_INIT", 1.25))
+    PB_C_BASE = get_int_env("PB_C_BASE", 19652)
+    PB_C_INIT = get_float_env("PB_C_INIT", 1.25)
 
     # ACTION_DIM = 10
-    ENCODER_NUM_STEPS = int(environ.get("ENCODER_NUM_STEPS", 601))
+    ENCODER_NUM_STEPS = get_int_env("ENCODER_NUM_STEPS", 601)
     SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
     if isinstance(SELECTED_SAMPLES, str):
         SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
-    MAX_GRAD_NORM = int(environ.get("MAX_GRAD_NORM", 5))
+    MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
 
     N_HEAD_HIDDEN_LAYERS = 2
     N_HEADS = 4
@@ -174,6 +175,30 @@ class ModelConfig:
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
 
-    ITEM_EMBEDDING_DIM = int(environ.get("ITEM_EMBEDDING_DIM", 60))
-    CHAMPION_EMBEDDING_DIM = int(environ.get("CHAMPION_EMBEDDING_DIM", 256))
-    SHOP_EMBEDDING_DIM = int(environ.get("CHAMPION_EMBEDDING_DIM", 64))
+    ITEM_EMBEDDING_DIM = get_int_env("ITEM_EMBEDDING_DIM", 60)
+    CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)
+    SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
+
+class PPOConfig:
+    EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
+    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-4)
+    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
+    NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
+    ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
+    TOTAL_TIMESTEPS = get_int_env("PPO_TOTAL_TIME_STEPS", 1000000)
+    GAE = get_bool_env("PPO_GAE", "True")
+    GAMMA = get_float_env("PPO_GAMMA", 0.99)
+    GAE_LAMBDA = get_float_env("PPO_GAE_LAMBDA", 0.95)
+    NUM_MINIBATCHES = get_int_env("PPO_NUM_MINIBATCHES", 4)
+    BATCH_SIZE = int(NUM_ENVS * NUM_STEPS)
+    MINIBATCH_SIZE = int(BATCH_SIZE // NUM_MINIBATCHES)
+    UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 4)
+    NORM_ADVANTAGE = get_bool_env("PPO_NORM_ADVANTAGE", "True")
+    CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.1)
+    CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "True")
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.01)
+    VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
+    MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
+    TARGET_KL = 0.05
+
+

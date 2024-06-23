@@ -1,12 +1,11 @@
 import copy
 import numpy as np
 import tree
-import time
 
 from collections import defaultdict
 from gymnasium.spaces import Space
-from Models.action_mask_catalog import ActionMaskCatalog
-from Models.action_mask_rlm import TorchActionMaskRLM
+from Models.PositionModels.action_mask_catalog import ActionMaskCatalog
+from Models.PositionModels.action_mask_rlm import TorchActionMaskRLM
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.connectors.util import (

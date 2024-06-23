@@ -5,9 +5,10 @@ import numpy as np
 from gymnasium.envs.registration import EnvSpec
 from gymnasium.spaces import MultiDiscrete, Dict, Box
 from Simulator import pool
-from Simulator.battle_generator import BattleGenerator
+from Simulator.position_leveling_system import PositionLevelingSystem
 from Simulator.game_round import Game_Round, log_to_file, log_to_file_start
 from Simulator.observation.vector.observation import ObservationVector
+from Simulator.observation.token.basic_observation import ObservationToken
 from Simulator.player_manager import PlayerManager
 from Simulator.step_function import Step_Function
 from Simulator.tft_simulator import TFTConfig
@@ -56,7 +57,7 @@ class TFT_Position_Simulator(gym.Env):
         )
 
         # Object that creates random battles. Used when the buffer is empty.
-        self.battle_generator = BattleGenerator()
+        self.leveling_system = PositionLevelingSystem()
         self.index = index
 
         super().__init__()
@@ -65,7 +66,7 @@ class TFT_Position_Simulator(gym.Env):
         if self.data_generator and self.data_generator.q_size() >= config.MINIMUM_POP_AMOUNT:
             [player, opponent, other_players] = self.data_generator.pop()
         else:
-            [player, opponent, other_players] = self.battle_generator.generate_battle()
+            [player, opponent, other_players] = self.leveling_system.generate_battle()
 
         pool_obj = pool.pool()
         # Objects for the player manager
@@ -79,7 +80,7 @@ class TFT_Position_Simulator(gym.Env):
             player.reinit_numpy_arrays()
 
         self.player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj,
-                                            TFTConfig(observation_class=ObservationVector))
+                                            TFTConfig(observation_class=ObservationToken))
         self.player_manager.reinit_player_set([self.PLAYER] + list(other_players.values()))
 
         self.step_function = Step_Function(self.player_manager)
@@ -91,6 +92,7 @@ class TFT_Position_Simulator(gym.Env):
 
         # Single step environment so this fetch will be the observation for the entire step.
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
+        initial_observation["player"]["opponents"] = opponents_to_one_vector(initial_observation["opponents"])
         observation = {
             "observations": {key: initial_observation[key] for key in ["player"]},
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
@@ -130,6 +132,7 @@ class TFT_Position_Simulator(gym.Env):
         self.reward = self.reward / self.max_reward
 
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
+        initial_observation["player"]["opponents"] = opponents_to_one_vector(initial_observation["opponents"])
         observation = {
             "observations": {key: initial_observation[key] for key in ["player"]},
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
@@ -152,6 +155,9 @@ class TFT_Position_Simulator(gym.Env):
                 idx += 1
 
         return action_mask
+
+    def level_up(self):
+        self.leveling_system.level_up()
 
 # Turns the 3 separate vectors that belong to the opponent into one.
 def opponents_to_one_vector(opponents):

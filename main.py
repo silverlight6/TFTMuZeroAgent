@@ -33,8 +33,8 @@ def main():
         # interface.train_guide_model()
         interface.position_ppo_testing()
     elif config.REP_TRAINER:
-        # interface.representation_testing()
-        interface.representation_evauation()
+        interface.representation_testing()
+        # interface.representation_evauation()
     else:
         interface.train_torch_model()
 

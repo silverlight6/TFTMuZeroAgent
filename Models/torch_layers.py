@@ -1,6 +1,7 @@
 import torch
 import config
 import torch.nn as nn
+import numpy as np
 import time
 
 def mlp(
@@ -16,6 +17,26 @@ def mlp(
         act = activation if i < len(sizes) - 2 else output_activation
         layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), act()]
     return torch.nn.Sequential(*layers).to(config.DEVICE)
+
+def ppo_mlp(
+    input_size,
+    layer_sizes,
+    output_size,
+    output_activation=torch.nn.Identity,
+    activation=torch.nn.LeakyReLU,
+):
+    sizes = [input_size] + layer_sizes + [output_size]
+    layers = []
+    for i in range(len(sizes) - 1):
+        act = activation if i < len(sizes) - 2 else output_activation
+        layers += [layer_init(torch.nn.Linear(sizes[i], sizes[i + 1])), act()]
+    return torch.nn.Sequential(*layers).to(config.DEVICE)
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
 
 # Cursed? Idk
 # Linear(input, layer_size) -> RELU

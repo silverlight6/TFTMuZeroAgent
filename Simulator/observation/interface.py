@@ -11,6 +11,10 @@ class ObservationBase(abc.ABC):
         """Fetch public observation."""
 
     @abc.abstractmethod
+    def fetch_public_position_observation(self):
+        """Fetch public position observation."""
+
+    @abc.abstractmethod
     def fetch_player_observation(self):
         """Fetch player observation."""
 
@@ -21,6 +25,10 @@ class ObservationBase(abc.ABC):
     @abc.abstractmethod
     def fetch_dead_observation(self):
         """Fetch dead observation."""
+
+    @abc.abstractmethod
+    def fetch_dead_position_observation(self):
+        """Fetch dead position observation."""
         
     @abc.abstractmethod
     def update_observation(self, action):

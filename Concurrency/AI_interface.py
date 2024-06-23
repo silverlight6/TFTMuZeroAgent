@@ -79,8 +79,8 @@ class AIInterface:
     """
     def representation_testing(self):
         import datetime
-        from Models.representation_model import RepresentationTesting
-        from Models.representation_trainer import RepresentationTrainer
+        from Models.Representations.representation_model import RepresentationTesting
+        from Models.Representations.representation_trainer import RepresentationTrainer
         from torch.utils.tensorboard import SummaryWriter
         train_step = config.STARTING_EPISODE
 
@@ -103,7 +103,7 @@ class AIInterface:
         # total_params = sum(p.numel() for p in global_agent.parameters())
 
     def representation_evauation(self):
-        from Models.representation_model import RepresentationTesting
+        from Models.Representations.representation_model import RepresentationTesting
         from Evaluator.representation_evaluator import RepresentationEvaluator
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
@@ -232,7 +232,7 @@ class AIInterface:
         print(best_config)
         time.sleep(5)
 
-    def position_ppo_testing(self):
+    def position_rllib_ppo_testing(self):
         gpus = torch.cuda.device_count()
         print(f"gpu_count START = {gpus}")
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, dashboard_host="0.0.0.0"):
@@ -242,7 +242,7 @@ class AIInterface:
             model_config = config.ModelConfig()
 
             search_space = {
-                "lambda": 1,
+                "lambda": 0.95,
                 "lr": 1e-5,
                 "clip_param": 0.1,
                 # Number of times it goes over a batch before moving onto a new batch.
@@ -250,11 +250,167 @@ class AIInterface:
                 "num_heads": model_config.N_HEADS,
                 "hidden_size": model_config.HIDDEN_STATE_SIZE,
                 # This has an inverse relationship. Want higher values for less exploration.
-                "entropy_coeff": 0.3
+                "entropy_coeff": 0.1
             }
 
             ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
             ppo_position_model.train_position_model(ppo_position_config)
+
+    def position_ppo_testing(self):
+        import torch.nn as nn
+        import torch.optim as optim
+        import numpy as np
+        from torch.utils.tensorboard import SummaryWriter
+
+        from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator, list_to_dict
+        from Models.PositionModels.action_mask_model import TorchPositionModel
+        from Models.utils import convert_to_torch_tensor
+
+        ppo_config = config.PPOConfig()
+
+        run_name = f"{ppo_config.EXP_NAME}__{int(time.time())}"
+
+        writer = SummaryWriter(f"runs/{run_name}")
+        writer.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(ppo_config).items()])),
+        )
+
+        # TRY NOT TO MODIFY: seeding
+        random.seed(8)
+        np.random.seed(8)
+        torch.manual_seed(8)
+        torch.backends.cudnn.deterministic = True
+
+        device = torch.device(config.DEVICE)
+
+        # env setup
+        envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+
+        model_config = config.ModelConfig()
+        agent = TorchPositionModel(model_config).to(device)
+
+        optimizer = optim.Adam(agent.parameters(), lr=ppo_config.LEARNING_RATE, eps=1e-5)
+
+        # TRY NOT TO MODIFY: start the game
+        global_step = 0
+        start_time = time.time()
+        reset_env = []
+        for env in envs:
+            reset_env.append(ray.get(env.vector_reset.remote())[0])
+
+        obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
+        num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
+        kl_coef = 1
+
+        for update in range(1, num_updates + 1):
+            # Annealing the rate if instructed to do so.
+            if ppo_config.ANNEAL_LR:
+                frac = 1.0 - (update - 1.0) / num_updates
+                lrnow = frac * ppo_config.LEARNING_RATE
+                optimizer.param_groups[0]["lr"] = lrnow
+
+            global_step += ppo_config.NUM_STEPS * ppo_config.NUM_ENVS
+
+            # ALGO LOGIC: action logic
+            with torch.no_grad():
+                action, logprob, _, value = agent(obs)
+                values = value.flatten()
+            actions = action.cpu().numpy()
+
+            workers = []
+            for j in range(ppo_config.NUM_STEPS):
+                workers.append(
+                    envs[j].vector_reset_step.remote(actions[j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS]))
+
+            obs, reward, done = [], [], []
+            for worker in workers:
+                local_worker = ray.get(worker)
+                obs.append(local_worker[0])
+                reward.append(local_worker[1])
+            obs = list_to_dict(obs)
+            reward = torch.tensor(reward)
+
+            # info = ray.get(ray_info_batch_ref)
+
+            # TRY NOT TO MODIFY: execute the game and log data.
+            rewards = torch.tensor(reward).to(device).view(-1)
+            obs = convert_to_torch_tensor(obs, config.DEVICE)
+
+            advantages = rewards - values
+
+            # Optimizing the policy and value network
+            clipfracs = []
+            for epoch in range(ppo_config.UPDATE_EPOCHS):
+                # get new action probabilities and values
+                _, newlogprob, entropy, newvalue = agent(obs, actions)
+                # calculate log ratio (element-wise for each action dimension)
+                logratio = newlogprob - logprob
+                ratio = logratio.exp()
+
+                with torch.no_grad():
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > ppo_config.CLIP_COEF).float().mean().item()]
+
+                # Policy loss
+                pg_loss1 = -advantages[:, None] * ratio
+                pg_loss2 = -advantages[:, None] * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Value loss
+                newvalue = newvalue.view(-1)
+                if ppo_config.CLIP_VLOSS:
+                    v_loss_unclipped = (newvalue - rewards) ** 2
+                    v_clipped = values + torch.clamp(
+                        newvalue - values,
+                        -ppo_config.CLIP_COEF,
+                        ppo_config.CLIP_COEF,
+                    )
+                    v_loss_clipped = (v_clipped - rewards) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
+
+                entropy_loss = entropy.mean()
+                loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss
+
+                if approx_kl > ppo_config.TARGET_KL * 1.5:
+                    kl_coef *= 1.5
+                elif approx_kl < ppo_config.TARGET_KL / 1.5:
+                    kl_coef /= 1.5
+                loss += kl_coef * approx_kl
+
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(agent.parameters(), ppo_config.MAX_GRAD_NORM)
+                optimizer.step()
+
+                if ppo_config.TARGET_KL is not None:
+                    if approx_kl > ppo_config.TARGET_KL:
+                        break
+
+            y_pred, y_true = values.cpu().numpy(), rewards.cpu().numpy()
+            var_y = np.var(y_true)
+            explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+            # TRY NOT TO MODIFY: record rewards for plotting purposes
+            writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+            writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+            writer.add_scalar("losses/  explained_variance", explained_var, global_step)
+            writer.add_scalar("charts/mean_reward", torch.mean(rewards).detach().cpu(), global_step)
+            print("Reward:", torch.mean(rewards).detach().cpu())
+            writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+        envs.close()
+        writer.close()
 
     def ppo_checkpoint_test(self):
         save_path = "/home/silver/TFTacticsAI/TFTAI/ray_results"

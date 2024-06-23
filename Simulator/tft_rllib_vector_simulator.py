@@ -1,18 +1,27 @@
 import logging
 import time
-import numpy as np
-import ray
+
+from ray.rllib.env.vector_env import VectorEnv
+from ray.rllib.env.base_env import convert_to_base_env
+from ray.rllib.utils.annotations import override
+from ray.rllib.utils.typing import (
+    EnvActionType,
+    EnvInfoDict,
+    EnvObsType,
+    EnvType,
+)
+from ray.util import log_once
+
 from Simulator.tft_position_simulator import TFT_Position_Simulator
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
 
-@ray.remote
-class TFT_Vector_Pos_Simulator:
+class TFT_RLLIB_Vector_Pos_Simulator(VectorEnv):
     """Internal wrapper to translate the position simulator into a VectorEnv object."""
 
-    def __init__(self, data_generator=None, num_envs=1):
+    def __init__(self, data_generator, num_envs):
         """Initializes a TFT_Vector_Pos_Simulator object.
 
         Args:
@@ -31,15 +40,19 @@ class TFT_Vector_Pos_Simulator:
             self.envs.append(TFT_Position_Simulator(data_generator, index))
             index += 1
 
+        super().__init__(
+            observation_space=self.envs[0].observation_space,
+            action_space=self.envs[0].action_space,
+            num_envs=num_envs,
+        )
+
         self.restart_failed_sub_environments = True
-        self.rounds_improvement = 0
-        self.current_level = 0
-        self.average_rewards = []
 
     # A fair amount of this code came strait from Ray source files. Not changing unless broken.
+    @override(VectorEnv)
     def vector_reset(
         self, *, seeds: Optional[List[int]] = None, options: Optional[List[dict]] = None
-    ):
+    ) -> Tuple[List[EnvObsType], List[EnvInfoDict]]:
         seeds = seeds or [None] * self.num_envs
         options = options or [None] * self.num_envs
         # Use reset_at(index) to restart and retry until
@@ -55,13 +68,14 @@ class TFT_Vector_Pos_Simulator:
             resetted_infos.append(infos)
         return resetted_obs, resetted_infos
 
+    @override(VectorEnv)
     def reset_at(
         self,
         index: Optional[int] = None,
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
-    ):
+    ) -> Tuple[Union[EnvObsType, Exception], Union[EnvInfoDict, Exception]]:
         if index is None:
             index = 0
         try:
@@ -77,20 +91,33 @@ class TFT_Vector_Pos_Simulator:
 
         return obs_and_infos
 
+    @override(VectorEnv)
     def restart_at(self, index: Optional[int] = None) -> None:
         logger.warning("Finding myself in an reset or step error.")
         if index is None:
             index = 0
 
         # Try closing down the old (possibly faulty) sub-env, but ignore errors.
-        self.envs[index].close()
+        try:
+            self.envs[index].close()
+        except Exception as e:
+            if log_once("close_sub_env"):
+                logger.warning(
+                    "Trying to close old and replaced sub-environment (at vector "
+                    f"index={index}), but closing resulted in error:\n{e}"
+                )
 
         # Re-create the sub-env at the new index.
         logger.warning(f"Trying to restart sub-environment at index {index}.")
         self.envs[index] = self.make_env(index)
         logger.warning(f"Sub-environment at index {index} restarted successfully.")
 
-    def vector_step(self, actions: List):
+    @override(VectorEnv)
+    def vector_step(
+        self, actions: List[EnvActionType]
+    ) -> Tuple[
+        List[EnvObsType], List[float], List[bool], List[bool], List[EnvInfoDict]
+    ]:
         obs_batch, reward_batch, terminated_batch, truncated_batch, info_batch = (
             [],
             [],
@@ -121,13 +148,13 @@ class TFT_Vector_Pos_Simulator:
             terminated_batch.append(terminated)
             truncated_batch.append(truncated)
             info_batch.append(info)
+        return obs_batch, reward_batch, terminated_batch, truncated_batch, info_batch
 
-        return list_to_dict(obs_batch), reward_batch, terminated_batch, truncated_batch, info_batch
-
-
-    def get_sub_environments(self):
+    @override(VectorEnv)
+    def get_sub_environments(self) -> List[EnvType]:
         return self.envs
 
+    @override(VectorEnv)
     def try_render_at(self, index: Optional[int] = None):
         if index is None:
             index = 0
@@ -139,101 +166,3 @@ class TFT_Vector_Pos_Simulator:
     def close(self):
         for env in self.envs:
             env.close()
-
-    def vector_reset_step(self, ray_actions: List, ray_seeds: Optional[List[int]] = None,
-                         ray_options: Optional[List[dict]] = None):
-        obs_batch, reward_batch, terminated_batch, truncated_batch, info_batch = (
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        for i in range(self.num_envs):
-            try:
-                results = self.envs[i].step(ray_actions[i])
-            except Exception as e:
-                logger.warning(f"exception found {e}")
-                if self.restart_failed_sub_environments:
-                    logger.exception(e.args[0])
-                    self.restart_at(i)
-                    results = e, 0.0, True, True, {}
-                else:
-                    raise e
-
-            obs, reward, terminated, truncated, info = results
-
-            if not isinstance(info, dict):
-                raise ValueError(
-                    "Info should be a dict, got {} ({})".format(info, type(info))
-                )
-            obs_batch.append(obs)
-            reward_batch.append(reward)
-            terminated_batch.append(terminated)
-            truncated_batch.append(truncated)
-            info_batch.append(info)
-        seeds = ray_seeds or [None] * self.num_envs
-        options = ray_options or [None] * self.num_envs
-        # Use reset_at(index) to restart and retry until
-        # we successfully create a new env.
-        resetted_obs = []
-        resetted_infos = []
-        for i in range(len(self.envs)):
-            while True:
-                obs, infos = self.reset_at(i, seed=seeds[i], options=options[i])
-                if not isinstance(obs, Exception):
-                    break
-            resetted_obs.append(obs)
-            resetted_infos.append(infos)
-        self.average_rewards.append(sum(reward_batch) / len(reward_batch))
-        # try to keep the size down
-        if len(self.average_rewards) > 100:
-            self.average_rewards = self.average_rewards[-95:]
-        if self.check_greater_than_last_five():
-            self.average_rewards = []
-            for env in self.envs:
-                env.level_up()
-
-        # ray.put(resetted_obs)
-        return resetted_obs, reward_batch, terminated_batch, truncated_batch, resetted_infos
-
-
-    def check_greater_than_last_five(self):
-        """
-        Checks if the current value in a list is greater than or equal to the last 5 values.
-
-        Args:
-          data: The list of values.
-          current_index: The index of the current value.
-
-        Returns:
-          True if the current value is greater than or equal to the last 5 values, False otherwise.
-        """
-        if len(self.average_rewards) < 10:
-            return False  # Not enough previous values to compare
-
-        overall_average = sum(self.average_rewards) / len(self.average_rewards)
-
-        for i in range(5):
-            if self.average_rewards[i - 5] < overall_average:
-                return False
-
-        self.current_level += 1
-        print(f"LEVELING UP WITH AVERAGE REWARD OF {[self.average_rewards[-5:]]} "
-              f"with overall average {overall_average} to level {self.current_level}")
-        return True
-
-
-def list_to_dict(observation):
-    # Extract common sub-dictionaries outside the loop
-    player_data = observation[0][0]["observations"]['player']
-    action_mask = [obs_item['action_mask'] for obs_step in observation for obs_item in obs_step]
-
-    return {
-        'observations': {
-            'player': {key: np.array([obs_item['observations']['player'][key] for obs_step in observation
-                                      for obs_item in obs_step])
-                       for key in player_data},
-        },
-        'action_mask': np.array(action_mask)
-    }

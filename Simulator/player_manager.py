@@ -5,11 +5,11 @@ class PlayerManager:
     def __init__(self, 
                  num_players,
                  pool_obj,
-                 config
+                 tft_config
                  ):
         
         self.pool_obj = pool_obj
-        self.config = config
+        self.config = tft_config
         
         self.players = {
             "player_" + str(player_id) for player_id in range(num_players)
@@ -26,7 +26,7 @@ class PlayerManager:
         }
         
         self.observation_states = {
-            player: config.observation_class(self.player_states[player])
+            player: tft_config.observation_class(self.player_states[player])
             for player in self.players
         }
         
@@ -36,7 +36,7 @@ class PlayerManager:
         }
         
         self.action_handlers = {
-            player: config.action_class(self.player_states[player])
+            player: tft_config.action_class(self.player_states[player])
             for player in self.players
         }
 
@@ -62,10 +62,25 @@ class PlayerManager:
             self.observation_states[player].fetch_public_observation()
             if not self.terminations[player]
             else self.observation_states[player].fetch_dead_observation()
-            for player in self.player_ids
-            
-            # TODO: make this an option
-            # if player != player_id
+            for player in self.player_ids if player != player_id
+        ]
+
+        return observations
+
+    def fetch_opponent_position_observations(self, player_id):
+        """Fetches the opponent observations for the given player.
+
+        Args:
+            player_id (int): Player id to fetch opponent observations for.
+
+        Returns:
+            list: List of observations for the given player.
+        """
+        observations = [
+            self.observation_states[player].fetch_public_position_observation()
+            if not self.terminations[player]
+            else self.observation_states[player].fetch_dead_position_observation()
+            for player in self.player_ids if player != player_id
         ]
 
         return observations
@@ -99,7 +114,8 @@ class PlayerManager:
         """
 
         return {
-            "player": self.observation_states[player_id].fetch_player_observation(),
+            "player": self.observation_states[player_id].fetch_player_position_observation(),
+            "opponents": self.fetch_opponent_position_observations(player_id),
             "action_mask": self.action_handlers[player_id].fetch_action_mask(),
         }
 
