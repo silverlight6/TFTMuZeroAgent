@@ -6,12 +6,9 @@ import torch.nn.functional as F
 import numpy as np
 from Simulator.batch_generator import BatchGenerator
 
-# Prediction = collections.namedtuple(
-#     'Prediction',
-#     'comp champ shop, item scalar')
 Prediction = collections.namedtuple(
     'Prediction',
-    'comp')
+    'comp champ shop, item scalar')
 
 LossOutput = collections.namedtuple(
     'LossOutput',
@@ -66,15 +63,12 @@ class RepresentationTrainer(object):
         self.network.train()
         output = self.network.forward(observation)
 
-        # predictions = Prediction(
-        #     comp=output["comp"],
-        #     champ=output["champ"],
-        #     shop=output["shop"],
-        #     item=output["item"],
-        #     scalar=output["scalar"]
-        # )
         predictions = Prediction(
-            comp=output["comp"]
+            comp=output["comp"],
+            champ=output["champ"],
+            shop=output["shop"],
+            item=output["item"],
+            scalar=output["scalar"]
         )
 
         return predictions
@@ -94,21 +88,21 @@ class RepresentationTrainer(object):
         comp_target = [list(b) for b in zip(*comp_target)]
         comp_loss = self.supervised_loss(predictions.comp, comp_target)
 
-        # champion_target = [label[1] for label in labels]
-        # champion_target = [list(b) for b in zip(*champion_target)]
-        # champ_loss = self.supervised_loss(predictions.champ, champion_target)
-        #
-        # shop_target = [label[2] for label in labels]
-        # shop_target = [list(b) for b in zip(*shop_target)]
-        # shop_loss = self.supervised_loss(predictions.shop, shop_target)
-        #
-        # item_target = [label[3] for label in labels]
-        # item_target = [list(b) for b in zip(*item_target)]
-        # item_loss = self.supervised_loss(predictions.item, item_target)
-        #
-        # scalar_target = [label[4] for label in labels]
-        # scalar_target = [list(b) for b in zip(*scalar_target)]
-        # scalar_loss = self.supervised_loss(predictions.scalar, scalar_target)
+        champion_target = [label[1] for label in labels]
+        champion_target = [list(b) for b in zip(*champion_target)]
+        champ_loss = self.supervised_loss(predictions.champ, champion_target)
+
+        shop_target = [label[2] for label in labels]
+        shop_target = [list(b) for b in zip(*shop_target)]
+        shop_loss = self.supervised_loss(predictions.shop, shop_target)
+
+        item_target = [label[3] for label in labels]
+        item_target = [list(b) for b in zip(*item_target)]
+        item_loss = self.supervised_loss(predictions.item, item_target)
+
+        scalar_target = [label[4] for label in labels]
+        scalar_target = [list(b) for b in zip(*scalar_target)]
+        scalar_loss = self.supervised_loss(predictions.scalar, scalar_target)
 
         # print("Losses tier {} final tier {} champion {}".format(tier_loss, final_tier_loss, champ_loss))
 
@@ -116,19 +110,18 @@ class RepresentationTrainer(object):
         self.outputs.l2_loss.append(l2_loss)
 
         self.outputs.comp_loss.append(comp_loss)
-        # self.outputs.champ_loss.append(champ_loss)
-        # self.outputs.shop_loss.append(shop_loss)
-        # self.outputs.item_loss.append(item_loss)
-        # self.outputs.scalar_loss.append(scalar_loss)
+        self.outputs.champ_loss.append(champ_loss)
+        self.outputs.shop_loss.append(shop_loss)
+        self.outputs.item_loss.append(item_loss)
+        self.outputs.scalar_loss.append(scalar_loss)
 
         tier_loss = torch.stack(self.outputs.comp_loss, -1)
-        # champ_loss = torch.stack(self.outputs.champ_loss, -1)
-        # shop_loss = torch.stack(self.outputs.shop_loss, -1)
-        # item_loss = torch.stack(self.outputs.item_loss, -1)
-        # scalar_loss = torch.stack(self.outputs.scalar_loss, -1)
+        champ_loss = torch.stack(self.outputs.champ_loss, -1)
+        shop_loss = torch.stack(self.outputs.shop_loss, -1)
+        item_loss = torch.stack(self.outputs.item_loss, -1)
+        scalar_loss = torch.stack(self.outputs.scalar_loss, -1)
 
-        # self.loss = torch.sum(tier_loss + champ_loss + shop_loss + item_loss + scalar_loss, -1).to(config.DEVICE)
-        self.loss = torch.sum(tier_loss, -1).to(config.DEVICE)
+        self.loss = torch.sum(tier_loss + champ_loss + shop_loss + item_loss + scalar_loss, -1).to(config.DEVICE)
 
         self.loss = self.loss.mean()
         self.loss += l2_loss
@@ -140,24 +133,22 @@ class RepresentationTrainer(object):
         self.optimizer.zero_grad()
 
     def write_summaries(self, train_step):
-        # print(f"tier_loss is {self.outputs.comp_loss}, champ_loss is {self.outputs.champ_loss}, "
-        #       f"shop_loss is {self.outputs.shop_loss}, item_loss is {self.outputs.item_loss}, "
-        #       f"scalar_loss is {self.outputs.scalar_loss}, learning rate {self.optimizer.param_groups[0]['lr']}, "
-        #       f"total loss is {self.loss} at time step {train_step}")
-        print(f"tier_loss is {self.outputs.comp_loss}, learning rate {self.optimizer.param_groups[0]['lr']}, "
+        print(f"tier_loss is {self.outputs.comp_loss}, champ_loss is {self.outputs.champ_loss}, "
+              f"shop_loss is {self.outputs.shop_loss}, item_loss is {self.outputs.item_loss}, "
+              f"scalar_loss is {self.outputs.scalar_loss}, learning rate {self.optimizer.param_groups[0]['lr']}, "
               f"total loss is {self.loss} at time step {train_step}")
         self.summary_writer.add_scalar('losses/total', self.loss, train_step)
 
         self.summary_writer.add_scalar(
             'losses/tier_loss', torch.mean(torch.stack(self.outputs.comp_loss)), train_step)
-        # self.summary_writer.add_scalar(
-        #     'losses/champ_loss', torch.mean(torch.stack(self.outputs.champ_loss)), train_step)
-        # self.summary_writer.add_scalar(
-        #     'losses/shop_loss', torch.mean(torch.stack(self.outputs.shop_loss)), train_step)
-        # self.summary_writer.add_scalar(
-        #     'losses/item_loss', torch.mean(torch.stack(self.outputs.item_loss)), train_step)
-        # self.summary_writer.add_scalar(
-        #     'losses/scalar_loss', torch.mean(torch.stack(self.outputs.scalar_loss)), train_step)
+        self.summary_writer.add_scalar(
+            'losses/champ_loss', torch.mean(torch.stack(self.outputs.champ_loss)), train_step)
+        self.summary_writer.add_scalar(
+            'losses/shop_loss', torch.mean(torch.stack(self.outputs.shop_loss)), train_step)
+        self.summary_writer.add_scalar(
+            'losses/item_loss', torch.mean(torch.stack(self.outputs.item_loss)), train_step)
+        self.summary_writer.add_scalar(
+            'losses/scalar_loss', torch.mean(torch.stack(self.outputs.scalar_loss)), train_step)
         self.summary_writer.add_scalar(
             'losses/l2', torch.mean(torch.stack(self.outputs.l2_loss)), train_step)
 

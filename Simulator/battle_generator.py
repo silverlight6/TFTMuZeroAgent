@@ -67,14 +67,9 @@ class BattleGenerator:
     def add_champions(self, player, action_mask, base_pool):
         if not self.sample_from_pool:
             list_of_champs = sample_with_limit(self.list_of_units, player.max_units)
-            for unit in list_of_champs:
-                if random.random() < self.generator_config["two_star_unit_percentage"]:
-                    player.add_to_bench(champion(unit, stars=2))
-                if random.random() < self.generator_config["three_star_unit_percentage"]:
-                    player.add_to_bench(champion(unit, stars=3))
-                else:
-                    player.add_to_bench(champion(unit))
-        for _ in range(player.max_units):
+        else:
+            list_of_champs = []
+        for i in range(player.max_units):
             if self.sample_from_pool:
                 random_champ = base_pool.sample(player, 1, allow_chosen=False)
                 success = player.add_to_bench(champion(random_champ[0]))
@@ -83,7 +78,17 @@ class BattleGenerator:
                     continue
                 # unit was tripled
                 if success and player.bench[0] is None:
+                    # i is always 2 or greater since it needs 3 units to triple.
+                    # Putting this here, so we can always fill up the board
+                    i -= 2
                     continue
+            else:
+                if random.random() < self.generator_config["two_star_unit_percentage"]:
+                    player.add_to_bench(champion(list_of_champs[i], stars=2))
+                if random.random() < self.generator_config["three_star_unit_percentage"]:
+                    player.add_to_bench(champion(list_of_champs[i], stars=3))
+                else:
+                    player.add_to_bench(champion(list_of_champs[i]))
             _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
             coord = np.random.randint(0, 28)
             coord_x, coord_y = coord_to_x_y(coord)

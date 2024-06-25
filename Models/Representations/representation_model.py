@@ -26,26 +26,19 @@ class RepresentationTesting(AbstractNetwork):
         return self.representation_network(observation)
 
     def prediction(self, encoded_state):
-        # comp, champ, shop, item, scalar = self.prediction_network(encoded_state)
-        # return comp, champ, shop, item, scalar
-        comp = self.prediction_network(encoded_state)
-        return comp
+        comp, champ, shop, item, scalar = self.prediction_network(encoded_state)
+        return comp, champ, shop, item, scalar
 
     def forward(self, observation):
         hidden_state = self.representation(observation)
-        # comp, champ, shop, item, scalar = self.prediction(hidden_state)
-        #
-        # outputs = {
-        #     "comp": comp,
-        #     "champ": champ,
-        #     "shop": shop,
-        #     "item": item,
-        #     "scalar": scalar
-        # }
-        comp = self.prediction(hidden_state)
+        comp, champ, shop, item, scalar = self.prediction(hidden_state)
 
         outputs = {
             "comp": comp,
+            "champ": champ,
+            "shop": shop,
+            "item": item,
+            "scalar": scalar
         }
 
         return outputs
@@ -58,30 +51,26 @@ class PredNetwork(torch.nn.Module):
                                                [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
                                                config.TEAM_TIERS_VECTOR)
 
-        # self.champ_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
-        #                                         [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-        #                                         config.CHAMPION_LIST_DIM)
-        #
-        # self.shop_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
-        #                                        [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-        #                                        [63, 63, 63, 63, 63])
-        #
-        # self.item_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
-        #                                        [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-        #                                        [60 for _ in range(10)])
-        #
-        # self.scalar_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
-        #                                          [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-        #                                          [100 for _ in range(3)])
+        self.champ_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                                [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+                                                config.CHAMPION_LIST_DIM)
+
+        self.shop_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                               [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+                                               [63, 63, 63, 63, 63])
+
+        self.item_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                               [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+                                               [60 for _ in range(10)])
+
+        self.scalar_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+                                                 [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+                                                 [100 for _ in range(3)])
 
     def forward(self, hidden_state):
         comp = self.comp_predictor_network(hidden_state)
-        # champ = self.champ_predictor_network(hidden_state)
-        # shop = self.shop_predictor_network(hidden_state)
-        # item = self.item_predictor_network(hidden_state)
-        # scalar = self.scalar_predictor_network(hidden_state)
-        # return comp, champ, shop, item, scalar
-        return comp
-
-
-
+        champ = self.champ_predictor_network(hidden_state)
+        shop = self.shop_predictor_network(hidden_state)
+        item = self.item_predictor_network(hidden_state)
+        scalar = self.scalar_predictor_network(hidden_state)
+        return comp, champ, shop, item, scalar

@@ -4,7 +4,7 @@ import config
 import time
 
 from config import ModelConfig
-from Models.torch_layers import mlp, Normalize, ppo_mlp
+from Models.torch_layers import ResidualBlock, TransformerEncoder, mlp, Normalize, ppo_mlp
 from torch.distributions.categorical import Categorical
 
 from ray.rllib.core.models.base import ENCODER_OUT, CRITIC, ACTOR
@@ -14,6 +14,7 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.utils.typing import ModelConfigDict
 from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
+
 
 
 torch, nn = try_import_torch()
@@ -244,34 +245,100 @@ class TorchPositionEncoderModel(nn.Module):
     def __init__(self, model_config: ModelConfig):
         super().__init__()
 
-        hidden_layer_size = model_config.LAYER_HIDDEN_SIZE
-        self.device = config.DEVICE
+        self.champion_embedding = torch.nn.Embedding(221, model_config.CHAMPION_EMBEDDING_DIM // 2)
 
-        layer_sizes = [model_config.LAYER_HIDDEN_SIZE // 2] * model_config.N_HEAD_HIDDEN_LAYERS
+        self.champion_item_embedding_1 = torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
+        self.champion_item_embedding_2 = torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
+        self.champion_item_embedding_3 = torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
 
-        self.board_encoder = ppo_feature_encoder(config.BOARD_INPUT_SIZE, layer_sizes, hidden_layer_size, self.device)
-        self.traits_encoder = ppo_feature_encoder(config.TRAIT_INPUT_SIZE, layer_sizes, hidden_layer_size, self.device)
-        self.opponents_encoder = ppo_feature_encoder(config.OTHER_PLAYER_POS_INPUT_SIZE, layer_sizes, hidden_layer_size,
-                                                     self.device)
+        self.champion_trait_embedding = torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 8)
 
-        self.feature_to_hidden = ppo_feature_encoder(hidden_layer_size * 3, layer_sizes, hidden_layer_size, self.device)
+        self.board_encoder = TransformerEncoder(
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.N_HEADS,
+            model_config.N_LAYERS
+        )
 
-        self.hidden_to_actor = ppo_feature_encoder(hidden_layer_size, layer_sizes, hidden_layer_size, self.device)
+        self.other_player_encoder = TransformerEncoder(
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.N_HEADS,
+            model_config.N_LAYERS
+        )
 
-        self.hidden_to_critic = ppo_feature_encoder(hidden_layer_size, layer_sizes, hidden_layer_size, self.device)
+        self.full_encoder = TransformerEncoder(
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.CHAMPION_EMBEDDING_DIM,
+            model_config.N_HEADS,
+            model_config.N_LAYERS
+        )
+
+        layer_sizes = [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS
+        self.trait_encoder = ppo_feature_encoder(config.TRAIT_INPUT_SIZE, layer_sizes,
+                                                 model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
+
+        # Combine encoded features from all components
+        self.feature_combiner = ppo_feature_encoder(model_config.CHAMPION_EMBEDDING_DIM * 30, layer_sizes,
+                                                    model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        self.feature_processor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
+                                                     model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        # Optional: Add residual connections around encoders and combiner for better gradient flow
+        self.board_residual = ResidualBlock(self.board_encoder, 28)
+        self.full_residual = ResidualBlock(self.full_encoder, 30)
+        self.combiner_residual = ResidualBlock(self.feature_processor, model_config.HIDDEN_STATE_SIZE, local_norm=False)
+        self.model_config = model_config
+
+        self.hidden_to_actor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
+                                                   model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        self.hidden_to_critic = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
+                                                    model_config.HIDDEN_STATE_SIZE, config.DEVICE)
 
         self._features = None
 
     def _forward(self, input_dict):
-        x = input_dict["observations"]["player"]
+        x = input_dict["observations"]
 
-        board = self.board_encoder(x["board"])
-        traits = self.traits_encoder(x["traits"])
-        opponents = self.opponents_encoder(x["opponents"])
+        champion_emb = self.champion_embedding(x['board'][..., 0].long())
+        champion_item_emb_1 = self.champion_item_embedding_1(x['board'][..., 1].long())
+        champion_item_emb_2 = self.champion_item_embedding_2(x['board'][..., 2].long())
+        champion_item_emb_3 = self.champion_item_embedding_3(x['board'][..., 3].long())
+        champion_trait_emb = self.champion_trait_embedding(x['board'][..., 4].long())
 
-        full_state = torch.cat((board, traits, opponents), -1)
+        champion_item_emb = torch.cat([champion_item_emb_1, champion_item_emb_2, champion_item_emb_3], dim=-1)
+        cie_shape = champion_item_emb.shape
+        champion_item_emb = torch.reshape(champion_item_emb, (cie_shape[0], cie_shape[1], cie_shape[2], -1))
 
-        hidden_state = self.feature_to_hidden(full_state)
+        board_emb = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
+
+        board_residual_input = torch.reshape(board_emb[:, 0], [cie_shape[0], cie_shape[2],
+                                                               self.model_config.CHAMPION_EMBEDDING_DIM])
+
+        trait_enc = self.trait_encoder(x['traits'])
+
+        board_enc = self.board_residual(board_residual_input)
+
+        other_player_enc = torch.cat([torch.reshape(board_emb[:, 1:],
+                                                    (cie_shape[0], -1, self.model_config.CHAMPION_EMBEDDING_DIM)),
+                                      trait_enc[:, 1:]], dim=1)
+
+        other_player_enc = self.other_player_encoder(other_player_enc)
+        other_player_enc = torch.sum(other_player_enc, dim=1)
+        other_player_enc = other_player_enc[:, None, :]
+        player_trait_enc = trait_enc[:, 0]
+        player_trait_enc = player_trait_enc[:, None, :]
+
+        cat_encode = torch.cat([board_enc, other_player_enc, player_trait_enc], dim=1)
+
+        full_enc = self.full_encoder(cat_encode)
+        full_enc = torch.reshape(full_enc, [cie_shape[0], -1])
+
+        # Pass through final combiner network
+        hidden_state = self.feature_combiner(full_enc)
+        hidden_state = self.combiner_residual(hidden_state)
         hidden_critic = self.hidden_to_critic(hidden_state)
         hidden_actor = self.hidden_to_actor(hidden_state)
         return {ENCODER_OUT: {CRITIC: hidden_critic, ACTOR: hidden_actor}}

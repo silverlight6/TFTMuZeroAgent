@@ -38,7 +38,7 @@ class TFT_Vector_Pos_Simulator:
 
     # A fair amount of this code came strait from Ray source files. Not changing unless broken.
     def vector_reset(
-        self, *, seeds: Optional[List[int]] = None, options: Optional[List[dict]] = None
+            self, *, seeds: Optional[List[int]] = None, options: Optional[List[dict]] = None
     ):
         seeds = seeds or [None] * self.num_envs
         options = options or [None] * self.num_envs
@@ -56,11 +56,11 @@ class TFT_Vector_Pos_Simulator:
         return resetted_obs, resetted_infos
 
     def reset_at(
-        self,
-        index: Optional[int] = None,
-        *,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None,
+            self,
+            index: Optional[int] = None,
+            *,
+            seed: Optional[int] = None,
+            options: Optional[dict] = None,
     ):
         if index is None:
             index = 0
@@ -124,7 +124,6 @@ class TFT_Vector_Pos_Simulator:
 
         return list_to_dict(obs_batch), reward_batch, terminated_batch, truncated_batch, info_batch
 
-
     def get_sub_environments(self):
         return self.envs
 
@@ -141,7 +140,7 @@ class TFT_Vector_Pos_Simulator:
             env.close()
 
     def vector_reset_step(self, ray_actions: List, ray_seeds: Optional[List[int]] = None,
-                         ray_options: Optional[List[dict]] = None):
+                          ray_options: Optional[List[dict]] = None):
         obs_batch, reward_batch, terminated_batch, truncated_batch, info_batch = (
             [],
             [],
@@ -197,7 +196,6 @@ class TFT_Vector_Pos_Simulator:
         # ray.put(resetted_obs)
         return resetted_obs, reward_batch, terminated_batch, truncated_batch, resetted_infos
 
-
     def check_greater_than_last_five(self):
         """
         Checks if the current value in a list is greater than or equal to the last 5 values.
@@ -226,14 +224,12 @@ class TFT_Vector_Pos_Simulator:
 
 def list_to_dict(observation):
     # Extract common sub-dictionaries outside the loop
-    player_data = observation[0][0]["observations"]['player']
+    player_data = observation[0][0]["observations"]
     action_mask = [obs_item['action_mask'] for obs_step in observation for obs_item in obs_step]
 
     return {
-        'observations': {
-            'player': {key: np.array([obs_item['observations']['player'][key] for obs_step in observation
-                                      for obs_item in obs_step])
-                       for key in player_data},
-        },
+        'observations': {key: np.array([obs_item['observations'][key] for obs_step in observation
+                                        for obs_item in obs_step])
+                         for key in player_data},
         'action_mask': np.array(action_mask)
     }
