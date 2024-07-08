@@ -4,7 +4,6 @@ import collections
 import numpy as np
 import time
 import os
-import MCTS
 
 NetworkOutput = collections.namedtuple(
     'NetworkOutput',
@@ -16,31 +15,9 @@ def dcord_to_2dcord(dcord):
         return x, y
 
 def action_to_3d(action):
-    cube_action = np.zeros((action.shape[0], 7, 4, 7))
+    cube_action = np.zeros((action.shape[0], 1, 4))
     for i in range(action.shape[0]):
-        action_selector = np.argmax(action[i][0])
-        if action_selector == 0:
-            cube_action[0,:,:] = np.ones((1,4,7))
-        elif action_selector == 1:
-            champ_shop_target = np.argmax(action[i][2])
-            if champ_shop_target < 5:
-                cube_action[1, champ_shop_target, 9] = 1
-        elif action_selector == 2:
-            champ1 = dcord_to_2dcord(action[i][1])
-            cube_action[2, champ1[0], champ1[1]] = 1
-            champ2 = dcord_to_2dcord(action[i][2])
-            cube_action[2, champ2[0], champ2[1]] = 1
-        elif action_selector == 3:
-            champ1 = dcord_to_2dcord(action[i][1])
-            cube_action[3, champ1[0], champ1[1]] = 1
-            cube_action[3, 5, action[i][2]] = 1
-        elif action_selector == 4:
-            champ1 = dcord_to_2dcord(action[i][1])
-            cube_action[4, champ1[0], champ1[1]] = 1
-        elif action_selector == 5:
-            cube_action[5,:,:] = np.ones((1,4,7))
-        elif action_selector == 6:
-            cube_action[6,:,:] = np.ones((1,4,7))
+        cube_action[i] = action[i]
     return cube_action
 
 def dict_to_cpu(dictionary):
@@ -106,13 +83,13 @@ class MuZeroNetwork(AbstractNetwork):
 
         self.prediction_network = PredNetwork(28, [256] * 16, 1, self.full_support_size).cuda()
 
-        self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+        # self.value_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-        self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
+        # self.reward_encoder = ValueEncoder(*tuple(map(inverse_contractive_mapping, (-300., 300.))), 0)
 
-    def calculate_loss(self, observations, n_observations, real_value, real_reward, real_action):
-        # PLACEHOLDER
-        return 0        
+        self.board_generator = BoardGenerator(128).cuda()
+
+        self.directive_generator = DirectiveGenerator(128, 58).cuda()
 
     def prediction(self, encoded_state):
         # print("encoded", encoded_state.shape)
@@ -120,11 +97,10 @@ class MuZeroNetwork(AbstractNetwork):
         return policy_logits, value
 
     def representation(self, observation):
-        observation = torch.from_numpy(observation).float().cuda()
         encoded_state = self.representation_network(observation)
         # Scale encoded state between [0, 1] (See appendix paper Training)
-        min_encoded_state = encoded_state.min(1, keepdim=True)[0]
-        max_encoded_state = encoded_state.max(1, keepdim=True)[0]
+        min_encoded_state = encoded_state.min(0, keepdim=True)[0]
+        max_encoded_state = encoded_state.max(0, keepdim=True)[0]
         scale_encoded_state = max_encoded_state - min_encoded_state
         scale_encoded_state[scale_encoded_state < 1e-5] += 1e-5
         encoded_state_normalized = (
@@ -154,8 +130,8 @@ class MuZeroNetwork(AbstractNetwork):
         next_hidden_state, reward = self.dynamics_network(hidden_state, cube_action)
 
         # Scale encoded state between [0, 1] (See paper appendix Training)
-        min_next_hidden_state = next_hidden_state.min(1, keepdim=True)[0]
-        max_next_hidden_state = next_hidden_state.max(1, keepdim=True)[0]
+        min_next_hidden_state = next_hidden_state.min(0, keepdim=True)[0]
+        max_next_hidden_state = next_hidden_state.max(0, keepdim=True)[0]
         scale_next_hidden_state = max_next_hidden_state - min_next_hidden_state
         scale_next_hidden_state[scale_next_hidden_state < 1e-5] += 1e-5
         next_hidden_state_normalized = (
@@ -165,23 +141,25 @@ class MuZeroNetwork(AbstractNetwork):
         return next_hidden_state_normalized, reward
 
     def initial_inference(self, observation):
-        hidden_state = self.representation(observation)
+        observation_tensor = torch.from_numpy(observation).float().cuda()
+        hidden_state = self.representation(observation_tensor)
         policy_logits, value_logits = self.prediction(hidden_state)
+        directive = self.directive_generator(observation_tensor)
+        board_distribution = self.board_generator(observation_tensor)
 
         reward = np.zeros(observation.shape[0])
 
-        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
-        reward_logits = self.reward_encoder.encode(reward)
+        # value = self.value_encoder.decode(value_logits.detach().cpu().numpy())
+        value = value_logits
+        # reward_logits = self.reward_encoder.encode(reward)
 
         outputs = {
             "value": value,
-            "value_logits": value_logits,
             "reward": reward,
-            "reward_logits": reward_logits,
             "policy_logits": policy_logits,
             "hidden_state": hidden_state
         }
-        return outputs
+        return outputs, directive, board_distribution
 
     @staticmethod
     def rnn_to_flat(state):
@@ -209,14 +187,14 @@ class MuZeroNetwork(AbstractNetwork):
         next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
         policy_logits, value_logits = self.prediction(next_hidden_state)
 
-        value = self.value_encoder.decode(torch.softmax(value_logits, dim=-1).detach().cpu().numpy())
-        reward = self.reward_encoder.decode(torch.softmax(reward_logits, dim=-1).detach().cpu().numpy())
+        # value = self.value_encoder.decode(value_logits.detach().cpu().numpy())
+        value = value_logits
+        # reward = self.reward_encoder.decode(reward_logits.detach().cpu().numpy())
+        reward = np.zeros(hidden_state.shape[0])
 
         outputs = {
             "value": value,
-            "value_logits": value_logits,
             "reward": reward,
-            "reward_logits": reward_logits,
             "policy_logits": policy_logits,
             "hidden_state": next_hidden_state
         }
@@ -235,41 +213,168 @@ def mlp(input_size,
     return torch.nn.Sequential(*layers).cuda()
 
 
+class BoardGenerator(torch.nn.Module):
+
+    def __init__(self, ngf) -> torch.nn.Module:
+        # Input -> Unit Mask  (batch, obs.shape, 1, 1)
+        # Output -> Board Distribution -> (batch, 58, 4, 7)
+        super(BoardGenerator, self).__init__()
+        self.main = torch.nn.Sequential(
+            # input is Z, going into a convolution
+            torch.nn.ConvTranspose2d(config.OBSERVATION_SIZE, ngf * 8, (2,2), (1,1), bias=False),
+            torch.nn.BatchNorm2d(ngf * 8),
+            torch.nn.LeakyReLU(0.2,True),
+            # NoiseLayer(),
+            # state size. ``(ngf*8) x 4 x 4``
+            torch.nn.ConvTranspose2d(ngf * 8, ngf * 8, (1,2), (1,1), (0,0), bias=False),
+            torch.nn.BatchNorm2d(ngf * 8),
+            torch.nn.LeakyReLU(0.2,True),
+            # NoiseLayer(),
+            # state size. ``(ngf*4) x 8 x 8``
+            torch.nn.ConvTranspose2d( ngf * 8, ngf * 4, (2,2), (1,1), (0,0), bias=False),
+            torch.nn.BatchNorm2d(ngf * 4),
+            torch.nn.LeakyReLU(0.2,True),
+            # NoiseLayer(),
+            # state size. ``(ngf*4) x 8 x 8``
+            torch.nn.ConvTranspose2d( ngf * 4, ngf * 4, (1,2), (1,1), (0,0), bias=False),
+            torch.nn.BatchNorm2d(ngf * 4),
+            torch.nn.LeakyReLU(0.2,True),
+            # NoiseLayer(),
+            # state size. ``(ngf*2) x 16 x 16``
+            torch.nn.ConvTranspose2d( ngf * 4, ngf * 2, (2,2), (1,1), (0,0), bias=False),
+            torch.nn.BatchNorm2d(ngf * 2),
+            torch.nn.LeakyReLU(0.2,True),
+            # NoiseLayer(),
+            # state size. ``(ngf) x 32 x 32``
+            torch.nn.ConvTranspose2d( ngf * 2, 58*1, (1,2), (1,1), (0,0), bias=False),
+            # torch.nn.LeakyReLU()
+            # state size. ``58 x 4 x 7``
+        )
+    
+    def forward(self, input):
+        input = torch.flatten(input, start_dim=1)
+        # input = input.expand(input.shape + (1, 1))
+        input = torch.unsqueeze(torch.unsqueeze(input, 2), 3)
+        return self.main(input)
+
+    def __call__(self, x):
+        return self.forward(x)
+    
+class DirectiveGenerator(torch.nn.Module):
+    def __init__(self, ndf, n_units):
+        # Input = (batch, 58*3+1+1+1+1+1+1+1+58, 1)
+        # Output =  (batch, 58)
+        super(DirectiveGenerator, self).__init__()
+        self.main = torch.nn.Sequential(
+            # TODO: Encode items and extra data``
+            # torch.nn.Conv1d(58*3+58+1+1+1+1+1+1+1, ndf, 1, 1, 0, bias=False),
+            torch.nn.Linear(config.OBSERVATION_SIZE, ndf),
+            torch.nn.LeakyReLU(inplace=True),
+
+            # torch.nn.Conv1d(ndf, ndf * 2, 1, 1, 0, bias=False),
+            torch.nn.Linear(ndf, ndf * 2),
+            # torch.nn.BatchNorm1d(ndf * 2),
+            torch.nn.LeakyReLU(inplace=True),
+
+            # torch.nn.Conv1d(ndf * 2, ndf * 4, 1, 1, 0, bias=False),
+            torch.nn.Linear(ndf * 2, ndf * 4),
+            # torch.nn.BatchNorm1d(ndf * 4),
+            torch.nn.LeakyReLU(inplace=True),
+
+            # torch.nn.Conv1d(ndf * 4, ndf * 8, 1, 1, 0, bias=False),
+            torch.nn.Linear(ndf * 4, ndf * 8),
+            # torch.nn.BatchNorm1d(ndf * 8),
+            torch.nn.LeakyReLU(inplace=True),
+
+            # torch.nn.Flatten(),
+            torch.nn.Linear(ndf * 8, n_units),
+        )
+
+    def forward(self, input):
+        # input = torch.squeeze(input, dim=2)
+        # return self.main(input)
+        input = torch.flatten(input, start_dim=1)
+        # input = torch.squeeze(input)
+        return self.main(input)
+    
+    def __call__(self, x):
+        return self.forward(x)
+
 class PredNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
 
-        self.resnet = resnet(input_size, layer_sizes, output_size)
-        self.conv_value = torch.nn.Conv2d(256, 3, 1)
-        self.bn_value = torch.nn.BatchNorm2d(3)
-        self.conv_policy = torch.nn.Conv2d(256, 3, 1)
-        self.bn_policy = torch.nn.BatchNorm2d(3)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.fc_internal_v = torch.nn.Linear(84, 128)
-        self.fc_value = mlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
-        self.fc_internal_p = torch.nn.Linear(84, 128)
-        self.fc_policy = MultiMlp(128, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES, output_activation=torch.nn.Sigmoid)
+        # self.resnet = resnet(input_size, layer_sizes, output_size)
+        # self.conv_value = torch.nn.Conv1d(256, 3, 1)
+        # self.bn_value = torch.nn.BatchNorm1d(3)
+        # self.conv_policy = torch.nn.Conv1d(256, 3, 1)
+        # self.bn_policy = torch.nn.BatchNorm1d(3)
+        self.relu = torch.nn.LeakyReLU(inplace=True)
+        self.sigmoid = torch.nn.Sigmoid()
+        # self.fc_internal_v = torch.nn.Linear(9, 64)
+        # self.fc_value = mlp(64, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, 1, output_activation=torch.nn.LeakyReLU)
+        # self.fc_internal_p = torch.nn.Linear(9, 64)
+        # self.fc_policy = MultiMlp(64, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, config.POLICY_HEAD_SIZES)
+        hidden = config.HIDDEN_STATE_SIZE
+        layer_size = config.LAYER_HIDDEN_SIZE
+        
+
+        self.dense1 = torch.nn.Linear(hidden, layer_size)
+        self.dense2 = torch.nn.Linear(layer_size, layer_size)
+        self.dense3 = torch.nn.Linear(layer_size, layer_size)
+        self.dense4 = torch.nn.Linear(layer_size, layer_size)
+        self.dense5 = torch.nn.Linear(layer_size, layer_size)
+        self.dense6 = torch.nn.Linear(layer_size, layer_size)
+        self.dense7 = torch.nn.Linear(layer_size, layer_size)
+        self.dense8 = torch.nn.Linear(layer_size, layer_size)
+        self.value_dense1 = torch.nn.Linear(layer_size, layer_size)
+        self.value_dense2 = torch.nn.Linear(layer_size, layer_size)
+        self.value_dense3 = torch.nn.Linear(layer_size, layer_size)
+        self.value_dense4 = torch.nn.Linear(layer_size, 1)
+        self.policy_dense1 = torch.nn.Linear(layer_size, layer_size)
+        self.policy_dense2 = torch.nn.Linear(layer_size, layer_size)
+        self.policy_dense3 = torch.nn.Linear(layer_size, layer_size)
+        self.policy_dense4 = torch.nn.Linear(layer_size, config.ACTION_ENCODING_SIZE)
+        self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
-        x = self.resnet(x)
+        # x = self.resnet(x)
 
-        value = self.conv_value(x)
-        value = self.bn_value(value)
-        value = self.relu(value)
-        value = torch.flatten(value, start_dim=1)
-        # print("VALUE", value.shape)
-        value = self.fc_internal_v(value)
-        value = self.relu(value)
-        value = self.fc_value(value)
+        # value = self.conv_value(x)
+        # value = self.bn_value(value)
+        # value = self.relu(value)
+        # value = torch.flatten(value, start_dim=1)
+        # value = self.fc_internal_v(value)
+        # value = self.relu(value)
+        # value = self.fc_value(value)
 
-        policy = self.conv_policy(x)
-        policy = self.bn_policy(policy)
-        policy = self.relu(policy)
-        policy = torch.flatten(policy, start_dim=1)
-        policy = self.fc_internal_p(policy)
-        policy = self.relu(policy)
-        # print("Policy", policy.shape)
-        policy = self.fc_policy(policy)
+        # policy = self.conv_policy(x)
+        # policy = self.bn_policy(policy)
+        # policy = self.relu(policy)
+        # policy = torch.flatten(policy, start_dim=1)
+        # policy = self.fc_internal_p(policy)
+        # policy = self.relu(policy)
+        # policy = self.fc_policy(policy)
+        
+        # x = torch.squeeze(x)
+        x = self.relu(self.dense1(x))
+        x = self.relu(self.dense2(x)) + x
+        x = self.relu(self.dense3(x)) + x
+        x = self.relu(self.dense4(x)) + x
+        x = self.relu(self.dense5(x)) + x
+        x = self.dense6(x)
+
+        policy = self.relu(self.policy_dense1(x)) + x
+        policy = self.relu(self.policy_dense2(x)) + policy
+        policy = self.relu(self.policy_dense3(x)) + policy
+        # policy = self.softmax(self.sigmoid(self.policy_dense4(x)))
+        policy = self.policy_dense4(x)
+        # print(policy)
+
+        value = self.relu(self.value_dense1(x)) + x
+        value = self.relu(self.value_dense2(x)) + value
+        value = self.relu(self.value_dense3(x)) + value
+        value = self.relu(self.value_dense4(x))
 
         return policy, value
 
@@ -279,17 +384,36 @@ class PredNetwork(torch.nn.Module):
 class RepNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
+        hidden = config.HIDDEN_STATE_SIZE
 
-        self.conv1 = torch.nn.Conv2d(184, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn = torch.nn.BatchNorm2d(256)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.resnet = resnet(input_size, layer_sizes, output_size)
+        # self.conv1 = torch.nn.Conv1d(239, 256, kernel_size=1, stride=1, padding=1, bias=False)
+        # self.bn = torch.nn.BatchNorm1d(256)
+        self.relu = torch.nn.LeakyReLU(inplace=True)
+        # self.resnet = resnet(input_size, layer_sizes, output_size)
+        self.dense1 = torch.nn.Linear(config.OBSERVATION_SIZE, hidden)
+        # self.dropout1 = torch.nn.Dropout(0.5)
+        self.dense2 = torch.nn.Linear(hidden, hidden)
+        self.dense3 = torch.nn.Linear(hidden, hidden)
+        self.dense4 = torch.nn.Linear(hidden, hidden)
+        self.dense5 = torch.nn.Linear(hidden, hidden)
+        self.dense6 = torch.nn.Linear(hidden, hidden)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.resnet(x)
+        # print(x.shape)
+        # x = torch.squeeze(x, dim=2)
+        # x = self.conv1(x)
+        # x = self.bn(x)
+        # x = self.relu(x)
+        # x = self.resnet(x)
+        x = torch.flatten(x, start_dim=1)
+
+        # x = torch.squeeze(x)
+        x = self.relu(self.dense1(x))
+        x = self.relu(self.dense2(x)) + x
+        x = self.relu(self.dense3(x)) + x
+        x = self.relu(self.dense4(x)) + x
+        x = self.relu(self.dense5(x)) + x
+        x = self.dense6(x)
 
         return x
 
@@ -299,38 +423,49 @@ class RepNetwork(torch.nn.Module):
 class DynNetwork(torch.nn.Module):
     def __init__(self, input_size, layer_sizes, output_size, encoding_size) -> torch.nn.Module:
         super().__init__()
+        hidden = config.HIDDEN_STATE_SIZE
 
-        self.conv1 = torch.nn.Conv2d(263, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn = torch.nn.BatchNorm2d(256)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.conv_reward = torch.nn.Conv2d(256, 1, 1)
-        self.bn_reward = torch.nn.BatchNorm2d(1)
-        self.fc_reward = mlp(28, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, encoding_size)
-        self.resnet = resnet(input_size, layer_sizes, output_size)
-        # self.lstm = torch.nn.LSTM(input_size = 480,
-        #                   num_layers = config.NUM_RNN_CELLS, hidden_size = config.LSTM_SIZE, batch_first = True).cuda()
-
+        # self.conv1 = torch.nn.Conv1d(257, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        # self.bn = torch.nn.BatchNorm1d(256)
+        self.relu = torch.nn.LeakyReLU(inplace=True)
+        # self.conv_reward = torch.nn.Conv1d(256, 1, 1)
+        # self.bn_reward = torch.nn.BatchNorm1d(1)
+        # self.fc_reward = mlp(3, [config.LAYER_HIDDEN_SIZE] * config.N_HEAD_HIDDEN_LAYERS, 1, output_activation=torch.nn.LeakyReLU)
+        # self.resnet = resnet(input_size, layer_sizes, output_size)
+        self.dense1 = torch.nn.Linear(hidden + config.ACTION_ENCODING_SIZE, hidden)
+        # self.dropout1 = torch.nn.Dropout(0.5)
+        self.dense2 = torch.nn.Linear(hidden, hidden)
+        self.dense3 = torch.nn.Linear(hidden, hidden)
+        self.dense4 = torch.nn.Linear(hidden, hidden)
+        self.dense5 = torch.nn.Linear(hidden, hidden)
+        self.dense6 = torch.nn.Linear(hidden, hidden)
+        self.single_reward = torch.nn.Linear(hidden, 1)
 
     def forward(self, x, action):
-        # print("x", x.shape)
-        # print("action", action.shape)
-        state = torch.concatenate((x, action), dim=1).type(torch.cuda.FloatTensor)
-        # print("action", action.shape)
-        x = self.conv1(state)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.resnet(x)
-        new_state = x
+        # x = torch.squeeze(x, dim=2)
+        # state = torch.concatenate((x, action), dim=1).type(torch.cuda.FloatTensor)
+        # x = self.conv1(state)
+        # x = self.bn(x)
+        # x = self.relu(x)
+        # x = self.resnet(x)
+        # new_state = x
 
-        reward = self.conv_reward(x)
-        reward = self.bn_reward(reward)
-        # print("reward", reward.shape)
-        flat =  torch.flatten(reward, start_dim=1)
-        # lstm_state = self.flat_to_lstm_input(flat)
-        # h0, c0 = list(zip(*lstm_state))
-        # _, rnn_reward = self.lstm(action.reshape(8, ), (torch.stack(h0, dim=0), torch.stack(c0, dim=0)))
-        # flat_reward = self.rnn_to_flat(rnn_reward)
-        reward = self.fc_reward(flat)
+        # reward = self.conv_reward(x)
+        # reward = self.bn_reward(reward)
+        # flat =  torch.flatten(reward, start_dim=1)
+        # reward = self.fc_reward(flat)
+
+        # x = torch.squeeze(x)
+        action = torch.squeeze(action, dim=1)
+        x = torch.concatenate((x, action), dim=1).type(torch.cuda.FloatTensor)
+        x = self.relu(self.dense1(x))
+        x = self.relu(self.dense2(x)) + x
+        x = self.relu(self.dense3(x)) + x
+        x = self.relu(self.dense4(x)) + x
+        x = self.relu(self.dense5(x)) + x
+        new_state = self.dense6(x)
+
+        reward = self.relu(self.single_reward(x))
 
         return new_state, reward
 
@@ -364,7 +499,7 @@ def resnet(input_size,
         output_size):
     sizes = [input_size] + layer_sizes + [output_size]
     layers = []
-    for i in range(1, len(sizes) - 1):
+    for i in range(0, len(sizes) - 1):
         layers += [ResLayer(sizes[i], sizes[i + 1])]
     
     return torch.nn.Sequential(*layers).cuda()
@@ -394,8 +529,7 @@ class MultiMlp(torch.nn.Module):
         # self.output_heads = []
 
         self.head_0 = torch.nn.Sequential(
-                torch.nn.Linear(layer_sizes[-1], output_sizes[0]),
-                output_activation()
+                torch.nn.Linear(layer_sizes[-1], output_sizes[0])
             ).cuda()
         
         # self.head_1 = torch.nn.Sequential(
@@ -452,11 +586,11 @@ class ResLayer(torch.nn.Module):
     def __init__(self, input_channels, n_kernels) -> torch.nn.Module:
         super().__init__()
 
-        self.conv1 = torch.nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = torch.nn.BatchNorm2d(256)
-        self.conv2 = torch.nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = torch.nn.BatchNorm2d(256)
-        self.relu = torch.nn.ReLU(inplace=True)
+        self.conv1 = torch.nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = torch.nn.BatchNorm1d(256)
+        self.conv2 = torch.nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = torch.nn.BatchNorm1d(256)
+        self.relu = torch.nn.LeakyReLU(inplace=True)
 
     def forward(self, x):
         input = x
@@ -548,4 +682,3 @@ def inverse_contractive_mapping(x, eps=0.001):
 # Softmax function in np because we're converting it anyway
 def softmax_stable(x):
     return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
-

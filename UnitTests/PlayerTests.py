@@ -1,9 +1,11 @@
+import itertools
+from Simulator.observation import Observation
 from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator import champion as c_object
 from Simulator.item_stats import trait_items, starting_items
-from Simulator.origin_class_stats import origin_class
+from Simulator.utils import champ_id_from_name, player_map_from_obs
 
 
 def setup(player_num=0) -> Player:
@@ -84,7 +86,6 @@ def championDuplicatorTest():
     assert p1.bench[1].name == 'leesin'
     p1.move_bench_to_board(0, 0, 0)
     p1.move_item(1, 0, 0)
-    print(p1.bench)
     assert p1.board[0][0].stars == 2
     assert p1.gold == 995
     p1.buy_champion(champion('jax'))
@@ -405,6 +406,53 @@ def incomeTest4():
     p1.gold_income(5)
     assert p1.gold == 8, f"Interest calculation is messy, gold should be 8, it is {p1.gold}"
 
+def player_encode_decode():
+    base_pool = pool()
+    p1 = Player(base_pool, 0)
+    p1.gold = 1000
+    p1.max_units = 4
+    p1.level = 4
+    p1.buy_exp()
+    p1.buy_exp()
+    p1.buy_exp()
+    p1.buy_exp()
+    p1.health = 69
+    p1.round = 4
+    p1.turns_for_combat = 12
+    p1.loss_streak = -4
+    p1.buy_champion(champion('maokai', chosen='bruiser'))
+    p1.buy_champion(champion('fiora'))
+    p1.buy_champion(champion('garen'))
+    p1.buy_champion(champion('lissandra'))
+    p1.move_bench_to_board(0,0,0)
+    p1.move_bench_to_board(1,1,1)
+    p1.move_bench_to_board(2,2,2)
+    p1.move_bench_to_board(3,1,2)
+    p1.buy_champion(champion('nidalee'))
+    p1.buy_champion(champion('vayne'))
+    p1.buy_champion(champion('nidalee'))
+    p1.buy_champion(champion('nidalee'))
+    p1.buy_champion(champion('nidalee'))
+    obs_obj = Observation()
+    shop = base_pool.sample(p1, 5)
+    obs_obj.generate_shop_vector(shop, p1)
+    encoded_obs = obs_obj.observation(0, p1)
+    player_map = player_map_from_obs(encoded_obs["tensor"])
+    print(f"Gold: {p1.gold == player_map['gold']} == {player_map['gold']}")
+    print(f"Shop: {sorted(shop)} == {player_map['shop'], player_map['chosen_shop']}")
+    board = sorted(list(itertools.chain.from_iterable([[
+        {'name': champ.name,'id':champ_id_from_name(champ.name),'pos_y':y,'pos_x':x,
+         'stars':champ.stars, 'chosen':champ.chosen is not False} for y, champ in enumerate(row) if champ is not None] 
+         for x,row in enumerate(p1.board)])), key=lambda item:item['name'])
+    print(f"Board: {board == player_map['board']} == {player_map['board']}")
+    print(f"Level: {p1.level == player_map['level']} == {player_map['level']}")
+    print(f"Bench: {sorted([champ.name for champ in p1.bench if champ is not None]) == player_map['bench']} == {player_map['bench']}")
+    print(f"Round: {p1.round == player_map['round']} == {player_map['round']}")
+    print(f"Health: {p1.health == player_map['hp']} == {player_map['hp']}")
+    print(f"Exp to level: {p1.exp} == {player_map['exp_to_level']}")
+    print(f"Streak: {p1.loss_streak == player_map['streak']} == {player_map['streak']}")
+    print(f"Turns for combat: {p1.turns_for_combat == player_map['turns_for_combat']} == {player_map['turns_for_combat']}")
+
 
 def list_of_tests():
     """tests all test cases"""
@@ -428,12 +476,18 @@ def list_of_tests():
     buyExp()
     spamExp()
 
-    # Problem: Interest gets calculated after base income is added
+    # # Problem: Interest gets calculated after base income is added
     incomeTest1()
-    # Problem: Interest rate not capped
+    # # Problem: Interest rate not capped
     incomeTest2()
     incomeTest3()
     incomeTest4()
 
+    player_encode_decode()
+
     # I would like to go over move commands again before writing test code for that
     pass
+
+if __name__ == "__main__":
+    # attempted relative import with no known parent package, this needs to formalize the package
+    list_of_tests()

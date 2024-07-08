@@ -1,3 +1,4 @@
+from collections import deque
 import time
 import config
 import datetime
@@ -15,13 +16,14 @@ from ray.tune.registry import register_env
 from ray.rllib.env import PettingZooEnv
 from pettingzoo.test import parallel_api_test, api_test
 from Simulator import utils
+from tqdm import tqdm
 
 from Models.MCTS_torch import MCTS
-from Models.MuZero_torch_agent import MuZeroAgent
+from Models.MuZero_torch_agent import BaseMuZeroAgent, MuZeroAgent
 import Models.MuZero_torch_trainer as MuZero_trainer
 from torch.utils.tensorboard import SummaryWriter
 import torch
-from Models.Common_agents import RandomAgent, BuyingAgent
+from Models.Common_agents import CultistAgent, DivineAgent, RandomAgent, BuyingAgent
 
 class Agregator:
     def __init__(self):
@@ -30,6 +32,13 @@ class Agregator:
 
     def get_player_to_agent_mapping(self):
         return self.player_to_agents
+    
+    def set_agents(self, agents, agent_count):
+        if sum(agent_count) > config.NUM_PLAYERS or len(agents) != len(agent_count):
+            raise ValueError('More alocated agents than max players supported per config')
+        for i, agent in enumerate(agents):
+            for _ in range(agent_count[i]):
+                self.add_agent(agent, f"player_{len(self.player_to_agents.keys())}")
 
     def add_agent(self, new_agent, player_name):
         if not new_agent.__class__ in self.agents.keys():
@@ -56,25 +65,25 @@ class Agregator:
             mapped_reward[agent].append(rewards[player])
             mapped_terminated[agent].append(terminated[player])
             mapped_players[agent].append(player)
-
+        
         for key in mapped_obs.keys():
+            # print(mapped_mask[key][0])
+            # print("------------------------------")
+            # print(mapped_mask[key][1])
             concat_actions = self.agents[key].select_action(np.array(mapped_obs[key]), 
-                                                            np.array(mapped_mask[key]),
+                                                            np.array(mapped_mask[key], dtype="object"),
                                                             mapped_reward[key],
                                                             mapped_terminated[key])
+            # print(concat_actions, key, mapped_players[key])
             for i, player in enumerate(mapped_players[key]):
                 actions[player] = concat_actions[i]
         return actions
 
 # Can add scheduling_strategy="SPREAD" to ray.remote. Not sure if it makes any difference
-@ray.remote
+@ray.remote(num_gpus=0.001)
 class DataWorker(object):
-    def __init__(self, rank, weights, global_buffer):
+    def __init__(self, rank,):
         self.rank = rank
-        self.ckpt_time = time.time()
-        self.env = parallel_env()
-        self.weights = weights
-        self.global_buffer = global_buffer
 
     '''
     Description -
@@ -92,31 +101,21 @@ class DataWorker(object):
         weights
             Weights of the initial model for the agent to play the game with.
     '''
-    def collect_gameplay_experience(self):
+    def collect_gameplay_experience(self, agents, agents_count, placements=None):
         # self.agent_network.set_weights(weights)
-        # agent = MCTS(self.agent_network)
-        agent_1 = MuZeroAgent(3, [6, 37, 28], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, self.weights, self.global_buffer)
-        agent_random = RandomAgent(3, [6, 37, 28])
-        agent_buying = BuyingAgent(3, [6, 37, 28], ["elise", "twistedfate", "pyke", "evelynn", "aatrox", "zilean"])
+        # agent = MCTS(self.agent_network
         self.ckpt_time = time.time()
         # Reset the environment
+        self.env = parallel_env()
         players_observation = self.env.reset()
         # This is here to make the input (1, observation_size) for initial_inference
         # players_observation = self.observation_to_input(players_observation)
         # Used to know when players die and which agent is currently acting
         terminated = {player_id: False for player_id in self.env.possible_agents}
         reward = {player_id: 0.0 for player_id in self.env.possible_agents}
-        placements = {i: "" for i, _ in enumerate(self.env.possible_agents)}
         scores = {player_id: 0 for player_id in self.env.possible_agents}
         agregator = Agregator()
-        agregator.add_agent(agent_1, "player_0")
-        agregator.add_agent(agent_1, "player_1")
-        agregator.add_agent(agent_random, "player_2")
-        agregator.add_agent(agent_random, "player_3")
-        agregator.add_agent(agent_random, "player_4")
-        agregator.add_agent(agent_random, "player_5")
-        agregator.add_agent(agent_random, "player_6")
-        agregator.add_agent(agent_buying, "player_7")
+        agregator.set_agents(agents, agents_count)
 
         # While the game is still going on.
         while not all(terminated.values()):
@@ -150,16 +149,18 @@ class DataWorker(object):
         # self.buffer.store_global_buffer()
         # self.buffer.reset()
         
-        if config.DEBUG:
+        if placements:
+            placements = {i: None for i, _ in enumerate(self.env.possible_agents)}
             agent_mapping = agregator.get_player_to_agent_mapping()
             scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
             for i, player in enumerate(scores):
-                placements[i] = f'{player[0]} -> {agent_mapping[player[0]]}'
+                placements[i] = agent_mapping[player[0]]
             # print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes. Max AVG traversed depth: {agent.max_depth_search / agent.runs}')
-            print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes.')
-            for x in placements.keys():
-                print(f'{x+1} place -> {placements[x]}')
-        return self.rank
+            if config.DEBUG:
+                for x in placements.keys():
+                    print(f'{x+1} place -> {placements[x]}')
+        print(f'Worker {self.rank} finished a game in {(time.time() - self.ckpt_time)/60} minutes.')
+        return self.rank, placements
 
     '''
     Description -
@@ -202,11 +203,9 @@ class DataWorker(object):
     '''
 
     def decode_action_to_one_hot(self, str_action):
-        num_items = str_action.count("_")
-        split_action = str_action.split("_")
+        split_action = str_action.split("_")[0]
         element_list = [0, 0, 0, 0]
-        for i in range(num_items + 1):
-            element_list[i] = int(split_action[i])
+        element_list[0] = int(split_action)
 
         # decoded_action = np.zeros(config.ACTION_DIM[0] + config.ACTION_DIM[1] + config.ACTION_DIM[2])
         # decoded_action[0:7] = utils.one_hot_encode_number(element_list[0], 7)
@@ -236,9 +235,10 @@ class AIInterface:
     Global train model method. This is what gets called from main.
     '''
     def train_torch_model(self, starting_train_step=0, run_name=""):
-        # gpus = torch.cuda.device_count()
-        # ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
-        ray.init()
+        assert(config.EVALUATION_GAMES % config.EVALUATION_CONCURRENT_GAMES == 0, "Evaluation concurrency wrong")
+        gpus = torch.cuda.device_count()
+        ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS)
+        # ray.init()
 
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/' + run_name + current_time
@@ -254,46 +254,77 @@ class AIInterface:
         # global_agent.set_weights(global_agent_weights)
         # global_agent.to("cuda")
 
-        weights = np.array([])
-        weights_ref = ray.put(weights)
+        weights = np.array([0])
+        # weights_ref = ray.put(weights)
 
         # Load model weights into shared memory
 
-        # Create trainer with a ref to that shared memory
+        # Create trainer
+        trainer = MuZero_trainer.Trainer()
 
-        # trainer = MuZero_trainer.Trainer(weights_ref)
+        # Create global buffer
+        global_buffer = GlobalBuffer.remote()
+        base_agent = BaseMuZeroAgent(3, [6, 37, 28], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, global_buffer)
+        weights = copy.deepcopy(base_agent.get_weights())
 
-        # Create replay buffer
-        replay_buffer = GlobalBuffer.remote()
+        agent_1 = MuZeroAgent(3, [6, 37, 28], config.OBSERVATION_SIZE, config.NUM_SIMULATIONS, global_buffer, weights)
+        agent_random = RandomAgent(3, [6, 37, 28], global_buffer)
+        agent_buying_1 = CultistAgent(3, [6, 37, 28], ["elise", "twistedfate", "pyke", "evelynn", "aatrox", "zilean", "kalista", "jhin"], global_buffer)
+        agent_buying_2 = DivineAgent(3, [6, 37, 28], ["wukong", "jax", "irelia", "lux", "warwick", "leesin", "ashe", "kindred", "teemo"], global_buffer)
 
-        data_workers = [DataWorker.remote(agent_num, [weights_ref], replay_buffer) for agent_num in range(config.CONCURRENT_GAMES)]
+        agents = [agent_1, agent_random, agent_buying_1, agent_buying_2]
+        agents_count = [2, 4, 1, 1]
+
+        eval_workers = [DataWorker.remote(agent_num) for agent_num in range(config.EVALUATION_CONCURRENT_GAMES)]
+        data_workers = [DataWorker.remote(agent_num) for agent_num in range(config.CONCURRENT_GAMES)]
         # weights = storage.get_target_model()
-        workers = [worker.collect_gameplay_experience.remote() for worker in data_workers]
+        workers = [worker.collect_gameplay_experience.remote(agents, agents_count) for worker in data_workers]
+        tpbar = tqdm(total=config.CHECKPOINT_STEPS, desc="Checkpoint Progress")
         while True:
-            while True:
-                with open("run.txt", "r") as file:
-                    if file.readline() == "0":
-                        input("run = 0, press enter to continue and change run to 1")
-                    else:
-                        print("Continuing training")
-                        break
+            # while True:
+                # with open("run.txt", "r") as file:
+                #     if file.readline() == "0":
+                #         input("run = 0, press enter to continue and change run to 1")
+                #     else:
+                #         print("Continuing training")
+                #         break
             done, workers = ray.wait(workers)
-            rank = ray.get(done)[0]
-            print(f'Spawning agent {rank}')
-            workers.extend([data_workers[rank].collect_gameplay_experience.remote()])
-            print("Starting training ", ray.get(replay_buffer.available_batch.remote()))
-            while ray.get(replay_buffer.available_batch.remote()):
-                training_batch = ray.get(replay_buffer.sample_batch.remote())
-                print(len(training_batch))
-            #     trainer.train_network(gameplay_experience_batch, weights_ref, train_step, train_summary_writer)
-            #     # storage.set_trainer_busy.remote(False)
-            #     train_step += 1
-            #     if train_step % config.CHECKPOINT_STEPS == 0:
-            #         global_agent.tft_save_model(train_step)
-            #         # Evaluate
-            #     if train_step % config.UPDATE_MODEL_STEPS == 0:
-            #         trainer.update_ref()
-            print("Finished training")
+            rank, _ = ray.get(done)[0]
+            # print(f'Spawning agent {rank}')
+            workers.extend([data_workers[rank].collect_gameplay_experience.remote(agents, agents_count)])
+            while ray.get(global_buffer.available_gameplay_batch.remote(config.BATCH_SIZE)):
+                # print("Starting training ")
+                training_batch = ray.get(global_buffer.sample_gameplay_batch.remote(config.BATCH_SIZE))
+                combat_batch = []
+                if ray.get(global_buffer.available_combat_batch.remote(config.BATCH_SIZE//2)):
+                    combat_batch = ray.get(global_buffer.sample_combat_batch.remote(config.BATCH_SIZE//2))
+                trainer.train_network(training_batch, combat_batch, base_agent.model, train_step, train_summary_writer)
+                train_step += 1
+                tpbar.update(1)
+                if train_step % config.CHECKPOINT_STEPS == 0:
+                    agents = [base_agent, agent_1, agent_random, agent_buying_1, agent_buying_2]
+                    agents_count = [1, 1, 4, 1, 1]
+                    eval_steps = config.EVALUATION_GAMES // config.EVALUATION_CONCURRENT_GAMES
+                    evalbar = tqdm(total=eval_steps, desc="Evaluation Progress")
+                    base_placements = []
+                    old_placements = []
+                    for _ in range(eval_steps):
+                        evaluator = [worker.collect_gameplay_experience.remote(agents, agents_count, True) for worker in eval_workers]
+                        done, _ = ray.wait(evaluator)
+                        _, placements = ray.get(done)[0]
+                        base_placements.append(list(placements.keys())[list(placements.values()).index(base_agent.__class__)])
+                        old_placements.append(list(placements.keys())[list(placements.values()).index(agent_1.__class__)])
+                        evalbar.update(config.EVALUATION_CONCURRENT_GAMES)
+                    evalbar.close()
+                    if np.array(base_placements).mean() >= np.array(old_placements).mean():
+                        weights = copy.deepcopy(base_agent.get_weights())
+                        base_agent.model.tft_save_model(0)
+                    train_summary_writer.add_scalar('evaluation/old', np.array(old_placements).mean(), train_step)
+                    train_summary_writer.add_scalar('evaluation/new', np.array(base_placements).mean(), train_step)
+                    tpbar.close()
+                    tpbar = tqdm(total=config.CHECKPOINT_STEPS)
+                
+                # print("Finished training")
             
 
     '''

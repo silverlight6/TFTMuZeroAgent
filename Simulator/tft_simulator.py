@@ -84,7 +84,7 @@ class TFT_Simulator(AECEnv):
                 self.agents,
                 [
                     Dict({
-                        "tensor": Box(low=0, high=10.0, shape=config.OBSERVATION_SIZE, dtype=np.float64),
+                        "tensor": Box(low=0, high=10.0, shape=(config.OBSERVATION_SIZE,), dtype=np.float64),
                         "mask": Tuple((MultiDiscrete(np.ones(6) * 2, dtype=np.int8), 
                                        MultiDiscrete(np.ones(5) * 2, dtype=np.int8),
                                        MultiDiscrete(np.ones(28) * 2, dtype=np.int8),

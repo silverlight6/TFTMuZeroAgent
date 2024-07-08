@@ -20,7 +20,7 @@ class ReplayBuffer:
         self.policys = []
         self.actions = []
 
-    def store_step(self, observation, action, reward, policy ):
+    def store_step(self, observation, action, reward, policy):
         # Records a single step of gameplay experience
         # First few are self-explanatory
         # done is boolean if game is done after taking said action
@@ -28,12 +28,6 @@ class ReplayBuffer:
         self.actions.append(action)
         self.rewards.append(reward)
         self.policys.append(policy)
-
-    def get_prev_action(self):
-        if self.action_history:
-            return self.action_history[-1]
-        else:
-            return 9
 
     def get_reward_sequence(self):
         return self.rewards
@@ -47,12 +41,12 @@ class ReplayBuffer:
     def move_buffer_to_global(self):
         replay_set = []
 
-        for current_start in range(config.UNROLL_STEPS, len(self.actions)):
-            value = self.rewards[-1]
-            replay_set.append((self.observations[current_start-config.UNROLL_STEPS:current_start],
+        for current_start in range(config.UNROLL_STEPS, len(self.observations)):
+            value = float(self.rewards[-1])
+            replay_set.append([self.observations[current_start-config.UNROLL_STEPS],
                                self.actions[current_start-config.UNROLL_STEPS:current_start],
                                [value] * config.UNROLL_STEPS,
-                               self.rewards[current_start-config.UNROLL_STEPS:current_start],
-                               self.policys[current_start-config.UNROLL_STEPS:current_start]))
-
-        ray.get(self.g_buffer.store_replay_sequence.remote(replay_set))
+                            #    self.rewards[current_start-config.UNROLL_STEPS:current_start],
+                               [value] * config.UNROLL_STEPS, # TODO Check if this is actually used
+                               self.policys[current_start-config.UNROLL_STEPS:current_start]])
+        ray.get(self.g_buffer.store_episode.remote(replay_set)) #TODO MAKE THIS SO IT ONLY CALLS GLOBAL ONCE

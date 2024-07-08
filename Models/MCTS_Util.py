@@ -7,15 +7,15 @@ def create_default_mapping():
     local = []
 
     # Shop masking
-    for i in range(58):
-        local.append(f"2_{i}")
+    # for i in range(58):
+    #     local.append(f"2_{i}")
 
     # Board masking
     # For all board + bench slots...
-    for a in range(28):
-        # rest of board slot locs for moving, last for sale
-        for b in range(58):
-            local.append(f"1_{a}_{b}")
+    # for a in range(28):
+    #     # rest of board slot locs for moving, last for sale
+    #     for b in range(58):
+    #         local.append(f"1_{a}_{b}")
     # Item masking
     # For all board + bench slots...
     # TODO
@@ -26,12 +26,17 @@ def create_default_mapping():
     #         local.append(f"_{a}_{b}")
 
     # Sell unit masking
-    for a in range(58):
-        local.append(f"3_{a}")
+    # for a in range(58):
+    #     local.append(f"3_{a}")
 
-    local.append("0")
-    local.append("4")
-    local.append("5")
+    # local.append("0")
+    # local.append("4")
+    # local.append("5")
+
+    local.append("0_0_0_0")
+    local.append("1_1_1_1")
+    local.append("2_2_2_2")
+    local.append("3_3_3_3")
 
     mappings = [local] * config.NUM_PLAYERS
 

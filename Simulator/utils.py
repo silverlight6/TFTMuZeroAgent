@@ -58,8 +58,37 @@ def x_y_to_1d_coord(x1, y1):
     else:
         return 7 * y1 + x1
     
+def player_map_from_obs(observation):
+    player_map = {}
+    player_map["gold"] = gold_from_obs(observation)
+    player_map["shop"], player_map["chosen_shop"] = units_in_shop_from_obs(observation)
+    player_map["board"] = board_from_obs(observation)
+    player_map["bench"] = bench_from_obs(observation)
+    player_map["level"] = level_from_obs(observation)
+    player_map['hp'] = hp_from_obs(observation)
+    player_map['round'] = round_from_obs(observation)
+    player_map['turns_for_combat'] = t_f_c_from_obs(observation)
+    player_map['exp_to_level'] = exp_to_level_from_obs(observation)
+    player_map['streak'] = streak_from_obs(observation)
+    return player_map
+
+def streak_from_obs(observation):
+    return observation[60 + 58 + 1 + 1 + 1 + 1 + 61][0][0]
+    
 def gold_from_obs(observation):
     return observation[60 + 58 + 1 + 1 + 1 + 1 + 60][0][0]
+
+def exp_to_level_from_obs(observation):
+    return observation[60 + 58 + 1 + 1 + 1 + 1 + 59][0][0]
+
+def hp_from_obs(observation):
+    return observation[60 + 58][0][0]
+
+def round_from_obs(observation):
+    return observation[60 + 58 + 1 + 1 + 1][0][0]
+
+def t_f_c_from_obs(observation):
+    return observation[60 + 58 + 1][0][0]
 
 def units_in_shop_from_obs(observation):
     units = observation[60 + 58 + 1 + 1 + 1 + 1 : 60 + 58 + 1 + 1 + 1 + 1 + 58, 0, 0]
@@ -71,7 +100,8 @@ def units_in_shop_from_obs(observation):
     parsed_units = []
     for i, count in enumerate(units):
         if count > 0:
-            parsed_units.append(list(COST.keys())[i+1])
+            for _ in range(int(count)):
+                parsed_units.append(list(COST.keys())[i+1])
     return parsed_units, chosen
 
 def board_from_obs(observation):
@@ -94,9 +124,13 @@ def board_from_obs(observation):
     return champs
 
 def bench_from_obs(observation):
-    #TODO not working
+    bench_list = []
     bench = observation[60:60+58, 0, 0]
-    return bench
+    for i,n in enumerate(bench):
+        if n > 0:
+            for _ in range(int(n)):
+                bench_list.append(list(COST.keys())[i+1])
+    return bench_list
 
 def champ_id_from_name(champ_name):
     return (list(COST.keys()).index(champ_name)) - 1

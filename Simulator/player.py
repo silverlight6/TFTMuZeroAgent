@@ -231,7 +231,7 @@ class Player:
     @health.setter
     def health(self, new_health):
         self._health = new_health
-        self._player_public_vector[60+58] = np.ones((4,7))
+        self._player_public_vector[60+58] = np.ones((4,7)) * new_health
 
     @property
     def win_streak(self):

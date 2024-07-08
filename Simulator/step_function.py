@@ -156,8 +156,8 @@ class Step_Function:
         # print(player_id, player.player_num, " Champ Index ", champ_index, shop_action," in shop ", self.shops[player_id], " elems ", player.shop_elems)
 
         if len(champ_index[0]) == 0:
-            player.reward += player.mistake_reward
-            print("Champ not found, bug in mask")
+            # player.reward += player.mistake_reward
+            # print("Champ not found, bug in mask ", player.shop_elems ," vs ", shop_action)
             return
         champ_index = champ_index[0][0]
         if self.shops[player_id][champ_index].endswith("_c"):
