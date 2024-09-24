@@ -1,6 +1,7 @@
 import functools
 from dataclasses import dataclass
 
+import numpy as np
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
 from pettingzoo.utils.conversions import parallel_wrapper_fn
@@ -234,6 +235,11 @@ class TFT_Simulator(AECEnv):
             return
 
         agent = self.agent_selection
+
+        # if player is afk then pass action
+        if self.player_manager.player_states[agent].is_afk:
+            action = np.array([0,0,0])
+
         # Perform action and update observations
         if action.ndim == 0:
             self.step_function.perform_1d_action(agent, action)
@@ -255,12 +261,10 @@ class TFT_Simulator(AECEnv):
         }
 
         self._clear_rewards()
-
         _non_trunc_agents = self.agents[:]
-        if self.taken_max_actions(agent):
+        if self.taken_max_actions(agent) or self.player_manager.player_states[agent].is_afk:
             self.truncations[agent] = True
             self.truncated_agents.append(agent)
-
             _non_trunc_agents.remove(agent)
 
         if self._agent_selector.is_last():
@@ -315,8 +319,8 @@ class TFT_Simulator(AECEnv):
                 for killed_agent in killed_agents:
                     _live_agents.remove(killed_agent)
                     del self.player_manager.player_states[killed_agent]
-
-                if len(killed_agents) > 0 and _live_agents:
+                _live_agents_copy = _live_agents.copy()
+                if len(killed_agents) > 0  and _live_agents:
                     _live_agents.sort()
                     self._agent_selector.reinit(_live_agents)
 
