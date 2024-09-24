@@ -37,7 +37,7 @@ cdef extern from "cnode.h" namespace "tree":
         vector[char*] mappings
 
         void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                    vector[float] policy_logits, vector[char*] mappings, int act_num)
+                    vector[float] policy_logits, vector[char*] py_mappings, int act_num)
         void add_exploration_noise(float exploration_fraction, vector[float] noises)
 
         int expanded()

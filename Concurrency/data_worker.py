@@ -357,7 +357,8 @@ class DataWorker(object):
             traits.append(obs["player"]["traits"])
             local_other_players = np.concatenate([obs["opponents"][0]["board"], obs["opponents"][0]["scalars"],
                                                   obs["opponents"][0]["traits"]], axis=-1)
-            for x in range(1, config.NUM_PLAYERS):
+            # minus 1 because I filter out that player's observation in the player manager
+            for x in range(1, config.NUM_PLAYERS - 1):
                 local_other_players = np.concatenate(
                     [local_other_players, (np.concatenate([obs["opponents"][x]["board"],
                                                            obs["opponents"][x]["scalars"],

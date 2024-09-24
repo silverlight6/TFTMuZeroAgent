@@ -45,15 +45,15 @@ namespace tree {
     // or if we do a weighted softmax which is what is done below.
     // The alpha-go paper uses .67 as their weight but we appear to use e instead.
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                       const std::vector<float> &policy_logits, const std::vector<char*> &mappings, int act_num) {
+                       const std::vector<float> &policy_logits, const std::vector<char*> &py_mappings, int act_num) {
         // Index for finding the hidden state on python side, x is search path location, y is the player
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
         this->reward = reward;
         // Mapping to turn a set of samples into a 3 dimensional output that the simulation can understand
         this->mappings = std::vector<std::string> {};
-        for (auto i = 0; i < mappings.size(); i++) {
-            this->mappings.push_back(std::string(mappings[i]));
+        for (std::vector<char*>::size_type i = 0; i < py_mappings.size(); i++) {
+            this->mappings.push_back(std::string(py_mappings[i]));
         }
 
         // number of unique actions this node contains. Changes based on number of unique samples
@@ -270,7 +270,7 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               std::vector<std::vector<char*>> &mappings, const std::vector<int> &action_nums) {
+                               std::vector<std::vector<char*>> &&mappings, const std::vector<int> &action_nums) {
         // For each player
         for(int i = 0; i < results.num; ++i) {
             // Expand the node

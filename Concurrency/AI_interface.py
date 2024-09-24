@@ -280,7 +280,7 @@ class AIInterface:
         random.seed(8)
         np.random.seed(8)
         torch.manual_seed(8)
-        torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.deterministic = True
 
         device = torch.device(config.DEVICE)
 
@@ -301,7 +301,7 @@ class AIInterface:
 
         obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
         num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
-        kl_coef = 1
+        kl_coef = ppo_config.KL_COEF
 
         for update in range(1, num_updates + 1):
             # Annealing the rate if instructed to do so.
@@ -331,13 +331,12 @@ class AIInterface:
             obs = list_to_dict(obs)
             reward = torch.tensor(reward)
 
-            # info = ray.get(ray_info_batch_ref)
-
             # TRY NOT TO MODIFY: execute the game and log data.
             rewards = torch.tensor(reward).to(device).view(-1)
             obs = convert_to_torch_tensor(obs, config.DEVICE)
 
             advantages = rewards - values
+            loss_per_update = 0
 
             # Optimizing the policy and value network
             clipfracs = []
@@ -374,23 +373,19 @@ class AIInterface:
                 else:
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
-                entropy_loss = entropy.mean()
-                loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss
+                # if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
+                #     kl_coef /= ppo_config.KL_ADJUSTER
+                # elif approx_kl < ppo_config.TARGET_KL / ppo_config.KL_ADJUSTER:
+                #     kl_coef *= ppo_config.KL_ADJUSTER
 
-                if approx_kl > ppo_config.TARGET_KL * 1.5:
-                    kl_coef *= 1.5
-                elif approx_kl < ppo_config.TARGET_KL / 1.5:
-                    kl_coef /= 1.5
-                loss += kl_coef * approx_kl
+                entropy_loss = entropy.mean()
+                loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss + kl_coef * approx_kl
+                loss_per_update += loss
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), ppo_config.MAX_GRAD_NORM)
                 optimizer.step()
-
-                if ppo_config.TARGET_KL is not None:
-                    if approx_kl > ppo_config.TARGET_KL:
-                        break
 
             y_pred, y_true = values.cpu().numpy(), rewards.cpu().numpy()
             var_y = np.var(y_true)
@@ -404,9 +399,11 @@ class AIInterface:
             writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
             writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
             writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-            writer.add_scalar("losses/  explained_variance", explained_var, global_step)
+            writer.add_scalar("losses/explained_variance", explained_var, global_step)
             writer.add_scalar("charts/mean_reward", torch.mean(rewards).detach().cpu(), global_step)
-            print("Reward:", torch.mean(rewards).detach().cpu())
+            print(f"Reward: {torch.mean(rewards).detach().cpu()} with policy loss {pg_loss.item()} "
+                  f"value_loss {ppo_config.VF_COEF * v_loss.item()}, kl_loss {kl_coef * approx_kl.item()}, "
+                  f"entropy loss {ppo_config.ENT_COEF * entropy_loss.item()} and total_loss {loss_per_update}")
             writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
         envs.close()

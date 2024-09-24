@@ -27,7 +27,7 @@ namespace tree {
             ~CNode();
 
             void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                        const std::vector<float> &policy_logits, const std::vector<char*> &mappings,
+                        const std::vector<float> &policy_logits, const std::vector<char*> &py_mappings,
                         int act_num);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
 
