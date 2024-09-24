@@ -353,7 +353,7 @@ class TorchPositionValueModel(nn.Module):
     def __init__(self, model_config: ModelConfig):
         super().__init__()
 
-        hidden_layer_size = model_config.LAYER_HIDDEN_SIZE
+        hidden_layer_size = model_config.HIDDEN_STATE_SIZE
         layer_sizes = [model_config.LAYER_HIDDEN_SIZE // 2] * model_config.N_HEAD_HIDDEN_LAYERS
         self.device = config.DEVICE
 
@@ -377,7 +377,7 @@ class TorchPositionPolicyModel(nn.Module):
         super().__init__()
         super().__init__()
 
-        hidden_layer_size = model_config.LAYER_HIDDEN_SIZE
+        hidden_layer_size = model_config.HIDDEN_STATE_SIZE
         layer_sizes = [model_config.LAYER_HIDDEN_SIZE // 2] * model_config.N_HEAD_HIDDEN_LAYERS
         self.device = config.DEVICE
 

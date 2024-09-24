@@ -2,7 +2,7 @@ import gymnasium as gym
 import time
 
 from ray.rllib.algorithms.ppo.torch.ppo_torch_rl_module import PPOTorchRLModule
-from ray.rllib.core.models.base import ACTOR, CRITIC, ENCODER_OUT, STATE_OUT
+from ray.rllib.core.models.base import ACTOR, CRITIC, ENCODER_OUT
 from ray.rllib.core.rl_module.rl_module import RLModule, RLModuleConfig
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.framework import try_import_torch

@@ -81,9 +81,9 @@ cdef class Node:
         pass
 
     def expand(self, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-               list policy_logits, list mappings, int act_num):
+               list policy_logits, list py_mappings, int act_num):
         cdef vector[float] cpolicy = policy_logits
-        self.cnode.expand(hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, mappings, act_num)
+        self.cnode.expand(hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, py_mappings, act_num)
 
 def batch_back_propagate(int hidden_state_index_x, float discount, list rewards, list values, list policy,
                          MinMaxStatsList min_max_stats_lst, ResultsWrapper results, list mappings, list action_nums):

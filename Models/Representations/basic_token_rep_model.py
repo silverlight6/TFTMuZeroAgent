@@ -104,5 +104,4 @@ class BasicTokenRepModel(torch.nn.Module):
         # Pass through final combiner network
         hidden_state = self.feature_combiner(full_enc)
         hidden_state = self.combiner_residual(hidden_state)
-
         return hidden_state

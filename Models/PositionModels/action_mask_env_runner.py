@@ -12,7 +12,6 @@ from ray.rllib.connectors.util import (
     create_connectors_for_policy,
     maybe_get_filters_for_syncing,
 )
-from ray.rllib.core.models.base import STATE_IN, STATE_OUT
 from ray.rllib.core.rl_module.rl_module import RLModuleConfig
 from ray.rllib.env.env_runner import EnvRunner
 from ray.rllib.env.single_agent_episode import SingleAgentEpisode
@@ -192,7 +191,7 @@ class ActionMaskEnvRunner(EnvRunner):
             else:
                 # Note, RLModule `forward()` methods expect `NestedDict`s.
                 batch = {
-                    STATE_IN: tree.map_structure(lambda s: self._convert_from_numpy(s), {},),
+                    "state_in": tree.map_structure(lambda s: self._convert_from_numpy(s), {},),
                     SampleBatch.OBS: tree.map_structure(lambda s: self._convert_from_numpy(s), obs,)
                 }
 
@@ -213,8 +212,8 @@ class ActionMaskEnvRunner(EnvRunner):
 
                 fwd_out = convert_to_numpy(fwd_out)
 
-                if STATE_OUT in fwd_out:
-                    states = fwd_out[STATE_OUT]
+                if "state_out" in fwd_out:
+                    states = fwd_out["state_out"]
 
             obs, rewards, terminateds, truncateds, infos = self.env.vector_step(actions)
 
@@ -343,7 +342,7 @@ class ActionMaskEnvRunner(EnvRunner):
                 fwd_out = {}
             else:
                 batch = {
-                    STATE_IN: tree.map_structure(lambda s: self._convert_from_numpy(s), states),
+                    "state_in": tree.map_structure(lambda s: self._convert_from_numpy(s), states),
                     SampleBatch.OBS: tree.map_structure(lambda s: self._convert_from_numpy(s), obs,)
                 }
 
@@ -359,8 +358,8 @@ class ActionMaskEnvRunner(EnvRunner):
 
                 fwd_out = convert_to_numpy(fwd_out)
 
-                if STATE_OUT in fwd_out:
-                    states = convert_to_numpy(fwd_out[STATE_OUT])
+                if "state_out" in fwd_out:
+                    states = convert_to_numpy(fwd_out["state_out"])
 
             obs, rewards, terminateds, truncateds, infos = self.env.vector_step(actions)
             if with_render_data:
