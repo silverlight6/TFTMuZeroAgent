@@ -9,19 +9,7 @@ from Simulator.tft_simulator import TFTConfig
 
 
 def test_single_player_combat():
-    base_level_config = {
-        "num_unique_champions": 3,
-        "max_cost": 1,
-        "num_items": 0,
-        "current_level": 3,
-        "chosen": False,
-        "sample_from_pool": False,
-        "two_star_unit_percentage": 0,
-        "three_star_unit_percentage": 0,
-        "scenario_info": True,
-        "extra_randomness": False
-    }
-    battle_generator = BattleGenerator(base_level_config)
+    battle_generator = BattleGenerator()
     [player, opponent, other_players] = battle_generator.generate_battle()
 
     PLAYER = player
