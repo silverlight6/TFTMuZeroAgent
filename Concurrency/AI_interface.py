@@ -11,7 +11,6 @@ from Simulator.observation.vector.observation import ObservationVector
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.rllib_ppo import PPO_Position_Model, PPO_Item_Model, Base_PPO_Position_Model
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
@@ -122,139 +121,62 @@ class AIInterface:
             evaluator.evaluate()
             ray.wait()
 
-    def train_guide_model(self) -> None:
-        gpus = torch.cuda.device_count()
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
-            train_step = config.STARTING_EPISODE
+    # # # Commenting out until the position model is ready to be inserted again.
+    # def train_guide_model(self) -> None:
+    #     gpus = torch.cuda.device_count()
+    #     with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+    #         train_step = config.STARTING_EPISODE
+    #
+    #         workers = []
+    #         modelConfig = config.ModelConfig()
+    #         data_workers = [DataWorker.remote(rank, modelConfig) for rank in range(config.CONCURRENT_GAMES)]
+    #         storage = Storage.remote(train_step)
+    #
+    #         if config.CHAMP_DECIDER:
+    #             global_agent = DefaultNetwork(modelConfig)
+    #         else:
+    #             global_agent = TFTNetwork(modelConfig)
+    #
+    #         global_agent_weights = ray.get(storage.get_target_model.remote())
+    #         global_agent.set_weights(global_agent_weights)
+    #         global_agent.to(config.DEVICE)
+    #
+    #         training_manager = TrainingManager(global_agent, storage)
+    #
+    #         # Keeping this line commented because this tells us the number of parameters that our current model has.
+    #         # total_params = sum(p.numel() for p in global_agent.parameters())
+    #
+    #         tftConfig = TFTConfig(observation_class=ObservationVector)
+    #         env = parallel_env(tftConfig)
+    #
+    #         buffers = [BufferWrapper.remote()
+    #                    for _ in range(config.CONCURRENT_GAMES)]
+    #         positioning_storage = QueueStorage(name="position")
+    #         item_storage = QueueStorage(name="item")
 
-            workers = []
-            modelConfig = config.ModelConfig()
-            data_workers = [DataWorker.remote(rank, modelConfig) for rank in range(config.CONCURRENT_GAMES)]
-            storage = Storage.remote(train_step)
+            # ppo_position_model = PPO_Position_Model.remote(positioning_storage)
+            # ppo_item_model = PPO_Item_Model.remote(item_storage)
 
-            if config.CHAMP_DECIDER:
-                global_agent = DefaultNetwork(modelConfig)
-            else:
-                global_agent = TFTNetwork(modelConfig)
-
-            global_agent_weights = ray.get(storage.get_target_model.remote())
-            global_agent.set_weights(global_agent_weights)
-            global_agent.to(config.DEVICE)
-
-            training_manager = TrainingManager(global_agent, storage)
-
-            # Keeping this line commented because this tells us the number of parameters that our current model has.
-            # total_params = sum(p.numel() for p in global_agent.parameters())
-
-            tftConfig = TFTConfig(observation_class=ObservationVector)
-            env = parallel_env(tftConfig)
-
-            buffers = [BufferWrapper.remote()
-                       for _ in range(config.CONCURRENT_GAMES)]
-            positioning_storage = QueueStorage(name="position")
-            item_storage = QueueStorage(name="item")
-
-            ppo_position_model = PPO_Position_Model.remote(positioning_storage)
-            ppo_item_model = PPO_Item_Model.remote(item_storage)
-
-            weights = ray.get(storage.get_target_model.remote())
-
-            for i, worker in enumerate(data_workers):
-                workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager, storage,
-                                                                        weights, item_storage, positioning_storage,
-                                                                        ppo_position_model, ppo_item_model))
-                time.sleep(0.5)
-
-            training_manager.loop(storage, train_step)
-
-            # Tests for the position and item environment
-            # test_envs = DataWorker.remote(0)
-            # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
-
-            ppo_item_model.train_item_model.remote()
-            ppo_position_model.train_position_model.remote()
-
-            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
-            # ray.get(storage)
-            ray.get(workers)
-
-    def position_ppo_tune(self):
-        from ray import train, tune
-        from ray.tune.search.bohb.bohb_search import TuneBOHB
-        from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
-
-        local_path = config.PATH
-        print(f"PATH file://{local_path}/ray_results")
-
-        positioning_storage = QueueStorage(name="position")
-        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-        model_config = config.ModelConfig()
-
-        search_space = {
-            "lambda": tune.uniform(0.9, 1.0),
-            "lr": tune.choice([1e-4, 5e-5, 1e-5, 5e-6, 1e-6, 5e-7, 1e-7]),
-            "clip_param": tune.uniform(0.05, 0.7),
-            # Focusing on ideas that have higher effect on training.
-            "num_sgd_iter": tune.randint(1, 30),
-            "num_heads": model_config.N_HEADS,
-            "hidden_size": model_config.HIDDEN_STATE_SIZE,
-            # This has an inverse relationship. Want higher values for less exploration.
-            "entropy_coeff": tune.loguniform(1e-3, 2e-1)
-        }
-
-        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-        algo = TuneBOHB()
-        bohb = HyperBandForBOHB(time_attr="training_iteration", max_t=100)
-
-        stopping_criteria = {"training_iteration": 100, "episode_reward_mean": 1}
-
-        tuner = tune.Tuner(
-            ppo_position_config.algo_class,
-            param_space=ppo_position_config,
-            tune_config=tune.TuneConfig(
-                metric="info/learner/default_policy/learner_stats/total_loss",
-                mode="min",
-                num_samples=16,
-                max_concurrent_trials=1,
-                search_alg=algo,
-                scheduler=bohb,
-            ),
-            run_config=train.RunConfig(stop=stopping_criteria, storage_path=f"file://{local_path}/ray_results")
-        )
-
-        results = tuner.fit()
-
-        # algo.save("./my-checkpoint.pkl")
-
-        best_trial = results.get_best_result(metric="episode_reward_mean", mode="max")
-        best_config = best_trial.config
-        print("FINAL CONFIG")
-        print(best_config)
-        time.sleep(5)
-
-    def position_rllib_ppo_testing(self):
-        gpus = torch.cuda.device_count()
-        print(f"gpu_count START = {gpus}")
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, dashboard_host="0.0.0.0"):
-
-            positioning_storage = QueueStorage(name="position")
-            ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-            model_config = config.ModelConfig()
-
-            search_space = {
-                "lambda": 0.95,
-                "lr": 1e-5,
-                "clip_param": 0.1,
-                # Number of times it goes over a batch before moving onto a new batch.
-                "num_sgd_iter": 1,
-                "num_heads": model_config.N_HEADS,
-                "hidden_size": model_config.HIDDEN_STATE_SIZE,
-                # This has an inverse relationship. Want higher values for less exploration.
-                "entropy_coeff": 0.1
-            }
-
-            ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-            ppo_position_model.train_position_model(ppo_position_config)
+            # weights = ray.get(storage.get_target_model.remote())
+            #
+            # for i, worker in enumerate(data_workers):
+            #     workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager, storage,
+            #                                                             weights, item_storage, positioning_storage,
+            #                                                             ppo_position_model, ppo_item_model))
+            #     time.sleep(0.5)
+            #
+            # training_manager.loop(storage, train_step)
+            #
+            # # Tests for the position and item environment
+            # # test_envs = DataWorker.remote(0)
+            # # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
+            #
+            # ppo_item_model.train_item_model.remote()
+            # ppo_position_model.train_position_model.remote()
+            #
+            # # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # # ray.get(storage)
+            # ray.get(workers)
 
     def position_ppo_testing(self):
         import torch.nn as nn
@@ -371,6 +293,7 @@ class AIInterface:
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
+                    print(f"rewards {rewards}, values {newvalue}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
                 # if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
@@ -408,28 +331,6 @@ class AIInterface:
 
         envs.close()
         writer.close()
-
-    def ppo_checkpoint_test(self):
-        save_path = "/home/silver/TFTacticsAI/TFTAI/ray_results"
-
-        positioning_storage = QueueStorage(name="position")
-        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-
-        search_space = {
-            "lambda": 1.0,
-            "gamma": 1.0,
-            "lr": 1e-3,
-            "clip_param": 0.2,
-            "num_sgd_iter": 5,
-        }
-
-        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-        PPO_Alg = ppo_position_config.algo_class(config=ppo_position_config)
-        PPO_Alg.save_checkpoint(save_path)
-
-        new_model = PPO_Alg.load_checkpoint(save_path)
-
-        time.sleep(5)
 
 
     def collect_dummy_data(self) -> None:
