@@ -49,6 +49,10 @@ class BattleGenerator:
                 if level > 9:
                     level = 9
                 item_count += np.random.randint(-1, 2)
+                if item_count < 0:
+                    item_count = 0
+                elif item_count > 3:
+                    item_count = 3
             player.level = level
             player.max_units = level
             # These two are needed for masks

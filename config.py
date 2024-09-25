@@ -182,7 +182,7 @@ class ModelConfig:
 class PPOConfig:
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
     LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-3)
-    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
+    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 32)
     NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
     ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
     TOTAL_TIMESTEPS = get_int_env("PPO_TOTAL_TIME_STEPS", 1000000)
@@ -195,7 +195,7 @@ class PPOConfig:
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
     CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.3)
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.01)
     VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
     KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)

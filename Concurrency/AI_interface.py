@@ -294,13 +294,13 @@ class AIInterface:
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
-                    print(f"values {newvalue}")
+                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
-                # if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
-                #     kl_coef /= ppo_config.KL_ADJUSTER
-                # elif approx_kl < ppo_config.TARGET_KL / ppo_config.KL_ADJUSTER:
-                #     kl_coef *= ppo_config.KL_ADJUSTER
+                if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
+                    kl_coef /= ppo_config.KL_ADJUSTER
+                elif approx_kl < ppo_config.TARGET_KL / ppo_config.KL_ADJUSTER:
+                    kl_coef *= ppo_config.KL_ADJUSTER
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss + kl_coef * approx_kl
@@ -317,11 +317,15 @@ class AIInterface:
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
-            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/value_loss", ppo_config.VF_COEF * v_loss.item(), global_step)
             writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/kl_loss", kl_coef * approx_kl.item(), global_step)
+            writer.add_scalar("losses/kl_coef", kl_coef, global_step)
+            writer.add_scalar("losses/entropy_loss", ppo_config.ENT_COEF * entropy_loss.item(), global_step)
+            writer.add_scalar("losses/total_loss", loss_per_update, global_step)
             writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
             writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
             writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
             writer.add_scalar("losses/explained_variance", explained_var, global_step)
             writer.add_scalar("charts/mean_reward", torch.mean(rewards).detach().cpu(), global_step)
