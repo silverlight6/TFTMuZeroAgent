@@ -18,12 +18,12 @@ class PositionLevelingSystem:
         }
 
         self.levels = [
-            {**base_level_config},
-            {**base_level_config, "num_unique_champions": 4},
-            {**base_level_config, "num_unique_champions": 6},
-            {**base_level_config, "num_unique_champions": 12},
-            {**base_level_config, "num_unique_champions": 12, "current_level": 4},
-            {**base_level_config, "num_unique_champions": 6, "current_level": 4, "max_cost": 2},
+            # {**base_level_config},
+            # {**base_level_config, "num_unique_champions": 4},
+            # {**base_level_config, "num_unique_champions": 6},
+            # {**base_level_config, "num_unique_champions": 12},
+            # {**base_level_config, "num_unique_champions": 12, "current_level": 4},
+            # {**base_level_config, "num_unique_champions": 6, "current_level": 4, "max_cost": 2},
             {**base_level_config, "num_unique_champions": 12, "current_level": 4, "max_cost": 2},
             {**base_level_config, "num_unique_champions": 12, "current_level": 5, "max_cost": 2},
             {**base_level_config, "num_unique_champions": 6, "current_level": 5, "max_cost": 3},

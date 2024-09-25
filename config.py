@@ -181,7 +181,7 @@ class ModelConfig:
 
 class PPOConfig:
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
-    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-4)
+    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-3)
     NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
     NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
     ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
@@ -193,13 +193,13 @@ class PPOConfig:
     BATCH_SIZE = int(NUM_ENVS * NUM_STEPS)
     MINIBATCH_SIZE = int(BATCH_SIZE // NUM_MINIBATCHES)
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
-    CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.2)
+    CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.3)
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.005)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
     VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
     KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
-    TARGET_KL = 0.1
+    TARGET_KL = 0.2
     KL_ADJUSTER = 1.5
 
 

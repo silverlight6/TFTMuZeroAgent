@@ -283,6 +283,7 @@ class AIInterface:
                 # Value loss
                 newvalue = newvalue.view(-1)
                 if ppo_config.CLIP_VLOSS:
+                    print(f"values {newvalue}")
                     v_loss_unclipped = (newvalue - rewards) ** 2
                     v_clipped = values + torch.clamp(
                         newvalue - values,
@@ -293,7 +294,7 @@ class AIInterface:
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
-                    print(f"rewards {rewards}, values {newvalue}")
+                    print(f"values {newvalue}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
                 # if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:

@@ -29,12 +29,12 @@ class TorchPositionModel(torch.nn.Module):
         self.policy_id = "policy"
 
     def _forward(self, observation, action=None):
-        hidden_state = self.encoder.forward(observation)
+        hidden_critic, hidden_actor = self.encoder.forward(observation)
 
         # Compute the unmasked logits.
-        action, log_prob, entropy = self.pf.forward({"observations": hidden_state["Encoder_Out"]["Actor"],
+        action, log_prob, entropy = self.pf.forward({"observations": hidden_actor,
                                                      "action_mask": observation["action_mask"]}, action)
-        value = self.vf.forward(hidden_state["Encoder_Out"]["Critic"])
+        value = self.vf.forward(hidden_critic)
 
         return action, log_prob, entropy, value
 
@@ -59,20 +59,6 @@ class TorchPositionEncoderModel(torch.nn.Module):
 
         self.champion_trait_embedding = torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 8)
 
-        self.board_encoder = TransformerEncoder(
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.N_HEADS,
-            model_config.N_LAYERS
-        )
-
-        self.other_player_encoder = TransformerEncoder(
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.N_HEADS,
-            model_config.N_LAYERS
-        )
-
         self.full_encoder = TransformerEncoder(
             model_config.CHAMPION_EMBEDDING_DIM,
             model_config.CHAMPION_EMBEDDING_DIM,
@@ -81,20 +67,11 @@ class TorchPositionEncoderModel(torch.nn.Module):
         )
 
         layer_sizes = [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS
-        self.trait_encoder = ppo_feature_encoder(config.TRAIT_INPUT_SIZE, layer_sizes,
-                                                 model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
 
-        # Combine encoded features from all components
-        self.feature_combiner = ppo_feature_encoder(model_config.CHAMPION_EMBEDDING_DIM * 30, layer_sizes,
-                                                    model_config.HIDDEN_STATE_SIZE, config.DEVICE)
-
-        self.feature_processor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
+        self.feature_processor = ppo_feature_encoder(model_config.CHAMPION_EMBEDDING_DIM, layer_sizes,
                                                      model_config.HIDDEN_STATE_SIZE, config.DEVICE)
 
         # Optional: Add residual connections around encoders and combiner for better gradient flow
-        self.board_residual = ResidualBlock(self.board_encoder, 28)
-        self.full_residual = ResidualBlock(self.full_encoder, 30)
-        self.combiner_residual = ResidualBlock(self.feature_processor, model_config.HIDDEN_STATE_SIZE, local_norm=False)
         self.model_config = model_config
 
         self.hidden_to_actor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
@@ -102,6 +79,10 @@ class TorchPositionEncoderModel(torch.nn.Module):
 
         self.hidden_to_critic = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
                                                     model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        self.positional_embedding = torch.nn.Embedding(224, model_config.CHAMPION_EMBEDDING_DIM)
+
+        self.cls_token = torch.nn.Parameter(torch.zeros(1, 1, model_config.CHAMPION_EMBEDDING_DIM))
 
         self._features = None
 
@@ -118,36 +99,41 @@ class TorchPositionEncoderModel(torch.nn.Module):
         cie_shape = champion_item_emb.shape
         champion_item_emb = torch.reshape(champion_item_emb, (cie_shape[0], cie_shape[1], cie_shape[2], -1))
 
-        board_emb = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
+        full_embeddings = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
+        full_embeddings = torch.reshape(full_embeddings, (cie_shape[0], cie_shape[1] * cie_shape[2], -1))
 
-        board_residual_input = torch.reshape(board_emb[:, 0], [cie_shape[0], cie_shape[2],
-                                                               self.model_config.CHAMPION_EMBEDDING_DIM])
+        seq_length = 224  # Number of tokens in the sequence (224 in your case)
 
-        trait_enc = self.trait_encoder(x['traits'])
+        # Create a position index [0, 1, 2, ..., 223] repeated for each sample in the batch
+        positions = torch.arange(0, seq_length).unsqueeze(0).expand(cie_shape[0], seq_length).to(config.DEVICE)
 
-        board_enc = self.board_residual(board_residual_input)
+        # Get the positional encodings and add them to the full embeddings
+        positional_enc = self.positional_embedding(positions)
+        # print(f"positional_enc {positional_enc}")
+        full_embeddings = full_embeddings + positional_enc
 
-        other_player_enc = torch.cat([torch.reshape(board_emb[:, 1:],
-                                                    (cie_shape[0], -1, self.model_config.CHAMPION_EMBEDDING_DIM)),
-                                      trait_enc[:, 1:]], dim=1)
+        # Expand the classification token to match the batch size
+        cls_tokens = self.cls_token.expand(cie_shape[0], -1, -1)
 
-        other_player_enc = self.other_player_encoder(other_player_enc)
-        other_player_enc = torch.sum(other_player_enc, dim=1)
-        other_player_enc = other_player_enc[:, None, :]
-        player_trait_enc = trait_enc[:, 0]
-        player_trait_enc = player_trait_enc[:, None, :]
+        # Concatenate the cls token to the full_embeddings
+        full_embeddings = torch.cat([cls_tokens, full_embeddings], dim=1)
+        # print(f"hidden_state full_embeddings + position {full_embeddings}")
 
-        cat_encode = torch.cat([board_enc, other_player_enc, player_trait_enc], dim=1)
+        # Note to future self, if I want to separate current board for some processing. Do it here but use two
+        # Position encodings.
 
-        full_enc = self.full_encoder(cat_encode)
-        full_enc = torch.reshape(full_enc, [cie_shape[0], -1])
+        full_enc = self.full_encoder(full_embeddings)
+
+        cls_hidden_state = full_enc[:, 0, :]
+        # print(f"cls_hidden_state {cls_hidden_state}")
 
         # Pass through final combiner network
-        hidden_state = self.feature_combiner(full_enc)
-        hidden_state = self.combiner_residual(hidden_state)
+        hidden_state = self.feature_processor(cls_hidden_state)
+        # print(f"hidden_state {hidden_state}")
         hidden_critic = self.hidden_to_critic(hidden_state)
         hidden_actor = self.hidden_to_actor(hidden_state)
-        return {"Encoder_Out": {"Critic": hidden_critic, "Actor": hidden_actor}}
+
+        return hidden_critic, hidden_actor
 
     def forward(self, input_dict):
         return self._forward(input_dict)
@@ -164,12 +150,15 @@ class TorchPositionValueModel(torch.nn.Module):
         self.device = config.DEVICE
 
         self.prediction_value_network = ppo_feature_encoder(hidden_layer_size, layer_sizes, 1,
-                                                            self.device, do_normalize=False)
+                                                            self.device)
 
         self._features = None
 
     def _forward(self, hidden_state):
-        return self.prediction_value_network(hidden_state).squeeze(1)
+        # print(f"hidden_state critic {hidden_state}")
+        pred_output = self.prediction_value_network(hidden_state).squeeze(1)
+        # print(f"initial_value {pred_output}")
+        return pred_output
 
     # The input_dict here is actually just a tensor but typically this calls for a dictionary so I'm calling it a dict
     def forward(self, hidden_state):
@@ -188,7 +177,7 @@ class TorchPositionPolicyModel(torch.nn.Module):
         self.device = config.DEVICE
 
         self.policy_network = ppo_feature_encoder(hidden_layer_size, layer_sizes, 29 * 12,
-                                                  self.device, do_normalize=False)
+                                                  self.device)
 
     def _forward(self, input_dict, action=None):
         # Compute the unmasked logits.
@@ -212,8 +201,34 @@ class TorchPositionPolicyModel(torch.nn.Module):
     def forward(self, input_dict, action):
         return self._forward(input_dict, action)
 
-def ppo_feature_encoder(input_size, feature_layer_sizes, feature_output_sizes, device, do_normalize=True):
-    return torch.nn.Sequential(
-        ppo_mlp(input_size, feature_layer_sizes, feature_output_sizes),
-        Normalize() if do_normalize else torch.nn.Identity()
-    ).to(device)
+
+class ppo_feature_encoder(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, device, dropout_rate=0.1, use_layer_norm=True):
+        super(ppo_feature_encoder, self).__init__()
+
+        layers = []
+        current_size = input_size
+
+        # Add hidden layers
+        for size in layer_sizes:
+            layers.append(torch.nn.Linear(current_size, size))
+            layers.append(torch.nn.ReLU())
+
+            # Optionally add layer normalization
+            if use_layer_norm:
+                layers.append(torch.nn.LayerNorm(size))
+
+            # Optionally add dropout
+            layers.append(torch.nn.Dropout(dropout_rate))
+
+            current_size = size
+
+        # Final layer
+        layers.append(torch.nn.Linear(current_size, output_size))
+
+        self.network = torch.nn.Sequential(*layers)
+        self.device = device
+
+    def forward(self, x):
+        x = x.to(self.device)  # Ensure the input is on the correct device
+        return self.network(x)
