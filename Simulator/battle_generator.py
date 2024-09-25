@@ -31,7 +31,7 @@ class BattleGenerator:
         self.stationary_coords = []
         if self.generator_config["stationary"]:
             random.seed(8)
-            self.stationary_coords = random.sample(list(range(0, 28)), self.generator_config["current_level"])
+            self.stationary_coords = random.sample(list(range(0, 28)), 12)
 
 
     """
