@@ -1,5 +1,5 @@
 import config
-from Simulator.player import Player as player_class
+from Set12Simulator.player import Player as player_class
 
 class PlayerManager:
     def __init__(self, 

@@ -2,14 +2,14 @@ import config
 import time
 import numpy as np
 import gymnasium as gym
-from Simulator import pool
-from Simulator.observation.vector.observation import ObservationVector
-from Simulator.step_function import Step_Function
-from Simulator.game_round import Game_Round, log_to_file
-from Simulator.player import Player as player_class
-from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
-from Simulator.battle_generator import BattleGenerator
+from Set12Simulator import pool
+from Set12Simulator.observation.vector.observation import ObservationVector
+from Set12Simulator.step_function import Step_Function
+from Set12Simulator.game_round import Game_Round, log_to_file
+from Set12Simulator.player import Player as player_class
+from Set12Simulator.player_manager import PlayerManager
+from Set12Simulator.tft_simulator import TFTConfig
+from Set12Simulator.battle_generator import BattleGenerator
 from gymnasium.spaces import MultiDiscrete, Dict, Box, Tuple
 from gymnasium.envs.registration import EnvSpec
 

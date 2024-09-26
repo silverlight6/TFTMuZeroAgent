@@ -3,21 +3,21 @@ import time
 import numpy as np
 import random
 
-from Set12Simulator.augments import SelectedAugmentConfig, Augment, handle_start_round_augment, handle_can_perform_action_augment
-from Simulator import champion, origin_class
-import Simulator.utils as utils
-import Simulator.config as config
-from Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
+from Set12Simulator.augment import Augment, AugmentType
+from Set12Simulator import champion, origin_class
+import Set12Simulator.utils as utils
+import Set12Simulator.config as config
+from Set12Simulator.item_stats import basic_items, item_builds, thieves_gloves_items, \
     starting_items, trait_items, items
 
-from Simulator.stats import COST
-from Simulator.pool_stats import cost_star_values
-from Simulator.origin_class_stats import tiers, fortune_returns
+from Set12Simulator.stats import COST
+from Set12Simulator.pool_stats import cost_star_values
+from Set12Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
 from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR
 
-from Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
-from Simulator.default_agent import Default_Agent
+from Set12Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
+from Set12Simulator.default_agent import Default_Agent
 
 from typing import Dict, List, Optional
 
@@ -78,7 +78,7 @@ class Player:
         Rotated to match the board in game
                                 Top
         | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
-  Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+    Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
         | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
         | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
                                 Bottom
@@ -183,7 +183,7 @@ class Player:
         self.default_player = False
 
         # Store augments for the player
-        self.augments: List[SelectedAugmentConfig] = []
+        self.augments: List[Augment] = []
 
         # Store if the player has afk augment active
         self.is_afk = False
@@ -383,16 +383,16 @@ class Player:
 
         return champion_added
 
-    def add_augment(self, augment:Augment)-> bool:
+    def add_augment(self, augment_type:AugmentType) -> bool:
         """ Adds an augment to the player's list of augments
         Parameters:
-            augment (Augment): The augment to be added
+            augment_type (AugmentType): The augment to be added
         Returns:
             bool: True if the augment was successfully added, False otherwise
         """
         if len(self.augments) >= 3:
             return False
-        self.augments.append(SelectedAugmentConfig(augment, self.round))
+        self.augments.append(Augment(augment_type, self.round))
         return True
 
 
@@ -1630,7 +1630,6 @@ class Player:
         self.health = 100
         self.max_units = 1
         self.num_units_in_play = 0
-        self.is_afk = False
 
     def spill_reward(self, damage):
         """Gives reward for taking damage
@@ -1654,17 +1653,9 @@ class Player:
         self.round = t_round
         self.reward += self.num_units_in_play * self.minion_count_reward
         self.gold_income(self.round)
-        for augment in self.augments:
-            handle_start_round_augment(self, augment)
-
-        # TODO: remove when augment is correctly implemented
-        if Augment.is_augment_round(self.round):
-            self.add_augment(Augment.AFK)
         self.is_afk = False
         for augment in self.augments:
-            if handle_can_perform_action_augment(self.round, augment):
-                self.is_afk = True
-                break
+            augment.start_round(self)
         if self.kayn_check():
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:

@@ -5,16 +5,16 @@ from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
 from pettingzoo.utils.conversions import parallel_wrapper_fn
 
-from Simulator import pool
-from Simulator.game_round import Game_Round
+from Set12Simulator import pool
+from Set12Simulator.game_round import Game_Round
 
-from Simulator.player_manager import PlayerManager
-from Simulator.step_function import Step_Function
-from Simulator.ui import GameState
+from Set12Simulator.player_manager import PlayerManager
+from Set12Simulator.step_function import Step_Function
+from Set12Simulator.ui import GameState
 
-from Simulator.observation.interface import ObservationBase, ActionBase
-from Simulator.observation.token.observation import ObservationToken
-from Simulator.observation.token.action import ActionToken
+from Set12Simulator.observation.interface import ObservationBase, ActionBase
+from Set12Simulator.observation.token.observation import ObservationToken
+from Set12Simulator.observation.token.action import ActionToken
 
 import time
 import numpy as np

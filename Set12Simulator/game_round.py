@@ -1,12 +1,14 @@
-import Simulator.config as config
+import Set12Simulator.config as config
 import config as global_config
 import time
 import random
 import numpy as np
-from Simulator import champion, minion
-from Simulator.champion_functions import MILLIS
-from Simulator.carousel import carousel
-from Simulator.alt_autobattler import alt_auto_battle
+
+from Set12Simulator.augment import Augment, AugmentType
+from Set12Simulator import champion, minion
+from Set12Simulator.champion_functions import MILLIS
+from Set12Simulator.carousel import carousel
+from Set12Simulator.alt_autobattler import alt_auto_battle
 from copy import deepcopy
 
 
@@ -354,6 +356,23 @@ class Game_Round:
 
     def update_players(self, players):
         self.PLAYERS = players
+
+
+
+    def augment_round(self):
+        """
+            Execute augment round for all players
+        """
+        for player in self.PLAYERS.values():
+            if player and player.augments.len() < 3:
+                player.augments.append(Augment(AugmentType.AFK, self.current_round))
+
+
+    def is_augment_round(self):
+        """
+        Checks if the current round is an augment round
+        """
+        return self.current_round in [3,10,17]
 
 
 def log_to_file_start():
