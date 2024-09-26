@@ -17,6 +17,7 @@ from Simulator.observation.token.observation import ObservationToken
 from Simulator.observation.token.action import ActionToken
 
 import time
+import numpy as np
 
 @dataclass
 class TFTConfig:
@@ -234,6 +235,11 @@ class TFT_Simulator(AECEnv):
             return
 
         agent = self.agent_selection
+
+        # if player is afk then pass action
+        if self.player_manager.player_states[agent].is_afk:
+            action = np.array([0, 0, 0])
+
         # Perform action and update observations
         if action.ndim == 0:
             self.step_function.perform_1d_action(agent, action)
@@ -257,7 +263,7 @@ class TFT_Simulator(AECEnv):
         self._clear_rewards()
 
         _non_trunc_agents = self.agents[:]
-        if self.taken_max_actions(agent):
+        if self.taken_max_actions(agent) or self.player_manager.player_states[agent].is_afk:
             self.truncations[agent] = True
             self.truncated_agents.append(agent)
 

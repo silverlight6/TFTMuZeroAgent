@@ -2,6 +2,8 @@ import math
 import time
 import numpy as np
 import random
+
+from Set12Simulator.augments import SelectedAugmentConfig, Augment, handle_start_round_augment, handle_can_perform_action_augment
 from Simulator import champion, origin_class
 import Simulator.utils as utils
 import Simulator.config as config
@@ -16,6 +18,8 @@ from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_
 
 from Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
 from Simulator.default_agent import Default_Agent
+
+from typing import Dict, List, Optional
 
 
 """
@@ -177,6 +181,12 @@ class Player:
 
         self.default_agent = Default_Agent()
         self.default_player = False
+
+        # Store augments for the player
+        self.augments: List[SelectedAugmentConfig] = []
+
+        # Store if the player has afk augment active
+        self.is_afk = False
 
     # --- Exp Action --- #
     def buy_exp_action(self):
@@ -372,6 +382,19 @@ class Player:
                 print("Did not buy champion successfully")
 
         return champion_added
+
+    def add_augment(self, augment:Augment)-> bool:
+        """ Adds an augment to the player's list of augments
+        Parameters:
+            augment (Augment): The augment to be added
+        Returns:
+            bool: True if the augment was successfully added, False otherwise
+        """
+        if len(self.augments) >= 3:
+            return False
+        self.augments.append(SelectedAugmentConfig(augment, self.round))
+        return True
+
 
     def add_to_bench(self, a_champion, from_carousel=False):
         """Adds a champion to the bench.
@@ -1607,6 +1630,7 @@ class Player:
         self.health = 100
         self.max_units = 1
         self.num_units_in_play = 0
+        self.is_afk = False
 
     def spill_reward(self, damage):
         """Gives reward for taking damage
@@ -1630,6 +1654,17 @@ class Player:
         self.round = t_round
         self.reward += self.num_units_in_play * self.minion_count_reward
         self.gold_income(self.round)
+        for augment in self.augments:
+            handle_start_round_augment(self, augment)
+
+        # TODO: remove when augment is correctly implemented
+        if Augment.is_augment_round(self.round):
+            self.add_augment(Augment.AFK)
+        self.is_afk = False
+        for augment in self.augments:
+            if handle_can_perform_action_augment(self.round, augment):
+                self.is_afk = True
+                break
         if self.kayn_check():
             self.kayn_turn_count += 1
         if self.kayn_turn_count >= 3:
