@@ -86,7 +86,11 @@ class TFT_Simulator(AECEnv):
             ...
 
     def observe(self, agent):
-        return self.player_manager.fetch_observation(agent)
+        initial_observation = self.player_manager.fetch_observation(agent)
+        return {
+            "observations": self.player_manager.observation_states[agent].observation_to_input(initial_observation),
+            "action_mask": initial_observation["action_mask"]
+        }
 
     def close(self):
         pass

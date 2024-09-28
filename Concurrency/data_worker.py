@@ -107,7 +107,8 @@ class DataWorker(object):
                                 current_comp[key] = info[key]["player"].get_tier_labels()
                                 current_champs[key] = info[key]["player"].get_champion_labels()
                             # Store the information in a buffer to train on later.
-                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
+                            buffers.store_replay_buffer.remote(key,
+                                                               self.get_obs_idx(player_observation["observations"], i),
                                                                storage_actions[i], reward[key], policy[i],
                                                                string_samples[i], root_values[i], current_comp[key],
                                                                current_champs[key])
@@ -220,7 +221,7 @@ class DataWorker(object):
                 if info_values[0]['start_turn']:
                     # Ask our model for an action and policy.
                     # Use on normal case or if we only have current versions left
-                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)
                     # print("Checkpoint 2")
                     # item_position_observation = self.observation_to_pos_item_input(next_observation)
                     # print("Checkpoint 3")
@@ -337,35 +338,22 @@ class DataWorker(object):
         Turns a dictionary of player observations into a list of list format that the model can use.
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
-
     def observation_to_input(self, observation):
-        masks = []
-        keys = []
         scalars = []
         shop = []
         board = []
         bench = []
         items = []
         traits = []
-        other_players = []
+        masks = []
         for key, obs in observation.items():
-            scalars.append(obs["player"]["scalars"])
-            shop.append(obs["player"]["shop"])
-            board.append(obs["player"]["board"])
-            bench.append(obs["player"]["bench"])
-            items.append(obs["player"]["items"])
-            traits.append(obs["player"]["traits"])
-            local_other_players = np.concatenate([obs["opponents"][0]["board"], obs["opponents"][0]["scalars"],
-                                                  obs["opponents"][0]["traits"]], axis=-1)
-            # minus 1 because I filter out that player's observation in the player manager
-            for x in range(1, config.NUM_PLAYERS - 1):
-                local_other_players = np.concatenate(
-                    [local_other_players, (np.concatenate([obs["opponents"][x]["board"],
-                                                           obs["opponents"][x]["scalars"],
-                                                           obs["opponents"][x]["traits"]], axis=-1))], )
-            other_players.append(local_other_players)
+            scalars.append(obs["observations"]["scalars"])
+            shop.append(obs["observations"]["shop"])
+            board.append(obs["observations"]["board"])
+            bench.append(obs["observations"]["bench"])
+            items.append(obs["observations"]["items"])
+            traits.append(obs["observations"]["traits"])
             masks.append(obs["action_mask"])
-            keys.append(key)
         tensors = {
             "scalars": np.array(scalars),
             "shop": np.array(shop),
@@ -373,17 +361,15 @@ class DataWorker(object):
             "bench": np.array(bench),
             "items": np.array(items),
             "traits": np.array(traits),
-            "other_players": np.array(other_players)
         }
-        masks = np.array(masks)
-        return [tensors, masks, keys]
+        return {"observations": tensors,
+                "action_mask": np.array(masks)}
 
     '''
-        Description -
-            Turns a dictionary of player observations into a list of list format that the model can use.
-            Adding key to the list to ensure the right values are attached in the right places in debugging.
-        '''
-
+    Description -
+        Turns a dictionary of player observations into a list of list format that the model can use.
+        Adding key to the list to ensure the right values are attached in the right places in debugging.
+    '''
     def observation_to_pos_item_input(self, observation):
         observation = {player: {key: observation[player][key] for key in ["player", "opponents"]}
                        for player in range(observation.keys())}
@@ -397,7 +383,6 @@ class DataWorker(object):
             "bench": observation["bench"][idx],
             "items": observation["items"][idx],
             "traits": observation["traits"][idx],
-            "other_players": observation["other_players"][idx]
         }
 
     '''
@@ -446,19 +431,19 @@ class DataWorker(object):
             actions, policy, string_samples, root_values = self.imitation_learning(info, player_observation[1])
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)
         # Ff all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version) and not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.past_network.policy(player_observation)
         # If all of our versions are default agents
         elif all(self.default_agent):
             actions, policy, string_samples, root_values = self.default_model_call(info)
         # If there are no default agents but a mix of past and present
         elif not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation[:2])
+            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation)
         # Implement the remaining mixes of agents here.
         elif not any(self.past_version):
-            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation[:2], info)
+            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation, info)
         # If we only have default_agents remaining.
         else:
             actions, policy, string_samples, root_values = self.default_model_call(info)
@@ -501,7 +486,6 @@ class DataWorker(object):
             "bench": [],
             "items": [],
             "traits": [],
-            "other_players": []
         }
         past_agent_observations = {
             "scalars": [],
@@ -510,14 +494,13 @@ class DataWorker(object):
             "bench": [],
             "items": [],
             "traits": [],
-            "other_players": []
         }
         live_agent_masks = []
         past_agent_masks = []
 
         for i, past_version in enumerate(self.past_version):
-            local_obs = self.get_obs_idx(player_observation[0], i)
-            local_mask = player_observation[1][i]
+            local_obs = self.get_obs_idx(player_observation["observations"], i)
+            local_mask = player_observation["action_mask"][i]
             if not past_version:
                 for key in live_agent_observations.keys():
                     live_agent_observations[key].append(local_obs[key])
@@ -533,9 +516,29 @@ class DataWorker(object):
         for key in past_agent_observations.keys():
             past_agent_observations[key] = np.asarray(past_agent_observations[key])
 
-        live_observation = [live_agent_observations, live_agent_masks]
-        past_observation = [past_agent_observations, past_agent_masks]
+        live_observation = {"observations": live_agent_observations, "action_mask": live_agent_masks}
+        past_observation = {"observations": past_agent_observations, "action_mask": past_agent_masks}
         return live_observation, past_observation
+
+    def live_agent_to_input(self, live_player_observation, live_agent_masks):
+        live_agent_observations = {
+            "scalars": [],
+            "shop": [],
+            "board": [],
+            "bench": [],
+            "items": [],
+            "traits": [],
+        }
+
+        for obs in live_player_observation:
+            for key in obs.keys():
+                live_agent_observations[key].append(np.asarray(obs[key]))
+
+        for key in live_agent_observations.keys():
+            live_agent_observations[key] = np.asarray(live_agent_observations[key])
+
+        return {"observations": live_agent_observations,
+                "action_mask": np.array(live_agent_masks)}
 
     """
     Description - 
@@ -553,13 +556,12 @@ class DataWorker(object):
 
         for i, default_agent in enumerate(self.default_agent):
             if not default_agent:
-                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
-                live_agent_masks.append(player_observation[1][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation["observations"], i))
+                live_agent_masks.append(player_observation["action_mask"][i])
 
-        live_observation = [live_agent_observations, live_agent_masks]
-        if len(live_observation[0]) != 0:
+        if len(live_agent_observations) != 0:
             live_actions, live_policy, live_string_samples, live_root_values = \
-                self.agent_network.policy(live_observation)
+                self.agent_network.policy(self.live_agent_to_input(live_agent_observations, live_agent_masks))
 
             counter_live, counter_default = 0, 0
             local_info = list(info.values())

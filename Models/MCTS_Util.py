@@ -187,7 +187,6 @@ def create_target_and_mask(target, idx_set):
 
     # TODO: Find a native numpy function to do this
     for batch_idx, batch in enumerate(idx_set):  # [batch_size, dim]
-        print(f"batch {batch}")
         for sample_idx, sample in enumerate(batch):
             target_filled[batch_idx][sample] = target[batch_idx][sample_idx]
 

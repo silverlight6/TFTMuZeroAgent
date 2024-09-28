@@ -64,7 +64,7 @@ PATH = path.dirname(path.realpath(__file__))
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
 STORAGE_GPU_SIZE = get_float_env("STORAGE_GPU_SIZE", 0.1) if DEVICE == "cuda" else 0
 BUFFER_GPU_SIZE = get_float_env("BUFFER_GPU_SIZE", 0.02) if DEVICE == "cuda" else 0
-TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.2) if DEVICE == "cuda" else 0
+TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.4) if DEVICE == "cuda" else 0
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = get_int_env("ACTIONS_PER_TURN", 15)
@@ -127,7 +127,7 @@ VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = 25
+SCALAR_INPUT_SIZE = 86
 SHOP_INPUT_SIZE = 45
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234

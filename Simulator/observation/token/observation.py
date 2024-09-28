@@ -563,3 +563,6 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
     
     def create_trait_vector(self, player):
         return self.compute_traits_from_board(self.board_vector)
+
+    def observation_to_input(self, observation):
+        ...

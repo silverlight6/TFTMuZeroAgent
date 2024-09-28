@@ -103,15 +103,16 @@ class TorchPositionEncoderModel(torch.nn.Module):
         full_embeddings = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
         full_embeddings = torch.reshape(full_embeddings, (cie_shape[0], cie_shape[1] * cie_shape[2], -1))
 
-        seq_length = 224  # Number of tokens in the sequence (224 in your case)
-
         # Create a position index [0, 1, 2, ..., 223] repeated for each sample in the batch
-        positions = torch.arange(0, seq_length).unsqueeze(0).expand(cie_shape[0], seq_length).to(config.DEVICE)
+        positions = torch.arange(full_embeddings.shape[1], dtype=torch.long, device=config.DEVICE).unsqueeze(0)
+        print(positions.shape)
 
         # Get the positional encodings and add them to the full embeddings
         positional_enc = self.positional_embedding(positions)
+        print(positional_enc.shape)
         # print(f"positional_enc {positional_enc}")
         full_embeddings = full_embeddings + positional_enc
+        print(full_embeddings.shape)
 
         # Expand the classification token to match the batch size
         cls_tokens = self.cls_token.expand(cie_shape[0], -1, -1)

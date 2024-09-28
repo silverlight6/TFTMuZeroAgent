@@ -43,18 +43,15 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(player)
 
         # --- Public Scalars --- #
-        self.public_scalars = self.create_public_scalars(
-            player)
+        self.public_scalars = self.create_public_scalars(player)
 
         # --- Private Scalars --- #
-        self.private_scalars = self.create_private_scalars(
-            player)
+        self.private_scalars = self.create_private_scalars(player)
 
         # --- Public Vectors --- #
         self.board_vector = self.create_board_vector(player)
         self.bench_vector = self.create_bench_vector(player)
-        self.item_bench_vector = self.create_item_bench_vector(
-            player)
+        self.item_bench_vector = self.create_item_bench_vector(player)
         self.trait_vector = self.create_trait_vector(player)
 
         # --- Private Vectors --- #
@@ -292,6 +289,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             # TODO: Action History
         ])
 
+    # TODO: Turn health and gold into embeddable numbers.
     def create_public_scalars(self, player):
         """Create public scalars for a player
 
@@ -376,15 +374,18 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
         # -2 because 1 and 2 are not used if not there.
         champion_vector[0] = list(COST.keys()).index(champion.name) * 3 + champion.stars - 2
+        assert champion_vector[0] < 221
 
         for i, item_id in enumerate(champion.items):
             if item_id is not None:
                 champion_vector[i + 1] = list(items.keys()).index(item_id)
+                assert champion_vector[i + 1] < 58
 
         is_chosen = True if champion.chosen else False
 
-        trait_number = list(origin_class.keys()).index(champion.name) * 2
-        champion_vector[-1] = trait_number * 2 if is_chosen else trait_number
+        trait_number = list(origin_class.keys()).index(champion.name)
+        champion_vector[-1] = trait_number + len(origin_class.keys()) if is_chosen else trait_number
+        assert champion_vector[-1] < 145
 
         return champion_vector
 
@@ -405,12 +406,12 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
                         Right
 
         Rotated to match the board in game
-                                Top
-        | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
-  Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
-        | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
-        | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
-                                Bottom
+                                    Top
+            | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
+      Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
+            | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
+            | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
+                                    Bottom
 
         """
 
@@ -436,7 +437,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) |
 
         """
-        bench_vector = np.zeros((9, self.champion_vector_length), dtype=np.float32)
+        bench_vector = np.zeros((9, self.champion_vector_length), dtype=np.int16)
 
         for idx, champion in enumerate(player.bench):
             if champion:
@@ -475,11 +476,12 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             | (0) (1) (2) (3) (4) (5) (6) (7) (8) (9) |
 
         """
-        item_bench_vector = np.zeros(10, dtype=np.float32)
+        item_bench_vector = np.zeros(10, dtype=np.int16)
 
         for i, item in enumerate(player.item_bench):
             if item:
                 item_bench_vector[i] = self.util.get_item_id(item)
+                assert(item_bench_vector[i]) < 58
 
         return item_bench_vector
 
@@ -510,19 +512,17 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         return safe_normalize(tiers_vector)
 
     @staticmethod
-    def observation_to_input(observation):
+    def observation_to_position_input(observation):
         other_players = {
             "board":
                 np.array(
                     [observation["opponents"][x]["board"] for x in range(config.NUM_PLAYERS - 1)], dtype=np.int16
                 )
-
             ,
             "traits":
                 np.array(
                     [observation["opponents"][x]["traits"] for x in range(config.NUM_PLAYERS - 1)],
                 )
-
             ,
         }
         return {
@@ -530,6 +530,35 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
                                      other_players["board"]], axis=0).astype(np.int16),
             "traits": np.concatenate([np.expand_dims(observation["player"]["traits"], axis=0),
                                       other_players["traits"]], axis=0, dtype=np.float32),
+        }
+
+    def observation_to_input(self, observation):
+        other_players = {
+            "board":
+                np.array(
+                    [observation["opponents"][x]["board"] for x in range(config.NUM_PLAYERS - 1)], dtype=np.int16
+                )
+            ,
+            "traits":
+                np.array(
+                    [observation["opponents"][x]["traits"] for x in range(config.NUM_PLAYERS - 1)],
+                )
+            ,
+            "scalars":
+                np.reshape(np.array(
+                    [observation["opponents"][x]["scalars"] for x in range(config.NUM_PLAYERS - 1)]
+                ), (1, -1)),
+        }
+        return {
+            "board": np.concatenate([np.expand_dims(observation["player"]["board"], axis=0),
+                                     other_players["board"]], axis=0).astype(np.int16),
+            "traits": np.concatenate([np.expand_dims(observation["player"]["traits"], axis=0),
+                                      other_players["traits"]], axis=0, dtype=np.float32),
+            "bench": np.expand_dims(observation["player"]["bench"], axis=0),
+            "items": np.expand_dims(observation["player"]["items"], axis=0),
+            "shop": observation["player"]["shop"],
+            "scalars": np.concatenate([np.expand_dims(observation["player"]["scalars"], axis=0),
+                                      other_players["scalars"]], axis=1, dtype=np.float32),
         }
 
     @staticmethod

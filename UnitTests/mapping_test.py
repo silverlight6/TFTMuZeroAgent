@@ -144,10 +144,6 @@ def kayn_mask():
 def azir_mask():
     ...
 
-# I need to test that none of the values in the array are 0.
-def encode_action_to_string_test():
-    ...
-
 # Since this file doesn't have many test in it, I am going to use it for masking as well
 def test_list():
     default_mapping_test()

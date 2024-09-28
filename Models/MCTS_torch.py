@@ -31,10 +31,10 @@ class MCTS:
 
     def policy(self, observation):
         with torch.no_grad():
-            self.NUM_ALIVE = observation[0]["shop"].shape[0]
+            self.NUM_ALIVE = observation["observations"]["shop"].shape[0]
 
             # 0.013 seconds
-            network_output = self.network.initial_inference(observation[0])
+            network_output = self.network.initial_inference(observation["observations"])
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
@@ -42,7 +42,7 @@ class MCTS:
             # Mask illegal actions
 
             # is it quicker to do this as a tensor or as a numpy array?
-            flat_mask = torch.tensor(np.reshape(observation[1], (self.NUM_ALIVE, -1))).to(config.DEVICE)
+            flat_mask = torch.tensor(np.reshape(observation["action_mask"], (self.NUM_ALIVE, -1))).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
             masked_policy_logits = policy_logits.cpu().numpy()
@@ -87,7 +87,6 @@ class MCTS:
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
                 target_policy.append([x / self.model_config.NUM_SIMULATIONS for x in distributions])
-                index_in_default = self.default_string_mapping[0].index(string_mapping[i][action])
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
             return actions, target_policy, string_mapping, root_values
@@ -193,72 +192,6 @@ class MCTS:
 
         return action_pos
 
-    """
-    Description - Turns a 1081 action into a policy that includes only actions that are legal in the current state
-                  This also creates a mask for both the c++ side and python side to convert the legal action set into
-                  a single action that we can give to the buffers and the trainer.
-                  Masks for this method are generated in the player and observation classes.
-                  This is only called by the root node since that is the only node that has access to the observation
-    Inputs      - Policy logits: List
-                      output of the prediction network, initial_inference in this case
-                  Mappings: List
-                      A mask of binary values that tell the policy what actions are legal and what actions are not.
-    Outputs     - Actions: List
-                      A policy including actions that are legal in the field.
-                  Mappings: List
-                      A byte mapping that maps those actions to a single 3 dimensional action that can be used in the 
-                      simulator as well as in the recurrent inference. This gets sent to the c++ side
-                  Seconds Mappings: List
-                      A string mapping that is used in the same way but for the python side. This gets used on the 
-                      values that get sent back to the AI_Interface
-    """
-    def encode_action_to_str(self, policy_logits, mask):
-        batch_size = policy_logits.shape[0]  # 8
-        # flat_mask = np.reshape(mask, (self.NUM_ALIVE, -1))
-        # policy_logits = policy_logits * flat_mask
-
-        masked_policy_mappings = []
-        masked_policy_logits = []
-
-        for batch in range(batch_size):
-            masked_dim_mapping = []
-            masked_pol_logits = []
-            for dim in range(len(mask[batch])):
-                if dim < 37:
-                    for idx in range(len(mask[batch][dim])):
-                        if mask[batch][dim][idx]:
-                            if idx < 37:
-                                masked_dim_mapping.append(f"5_{dim}_{idx}")
-                                masked_pol_logits.append(policy_logits[batch][dim * 38 + idx])
-                            else:
-                                masked_dim_mapping.append(f"4_{dim}")
-                                masked_pol_logits.append(policy_logits[batch][dim * 38 + 37])
-                elif dim < 47:
-                    for idx in range(len(mask[batch][dim])):
-                        if mask[batch][dim][idx]:
-                            masked_dim_mapping.append(f"6_{dim - 37}_{idx}")
-                            masked_pol_logits.append(policy_logits[batch][dim * 38 + idx])
-                elif dim < 52:
-                    for idx in range(5):
-                        if mask[batch][dim][idx]:
-                            masked_dim_mapping.append(f"3_{dim - 47}")
-                            masked_pol_logits.append(policy_logits[batch][dim * 38])
-                elif dim == 52:
-                    if mask[batch][dim][0]:
-                        masked_dim_mapping.append(f"0")
-                        masked_pol_logits.append(policy_logits[batch][dim * 38])
-                elif dim == 53:
-                    if mask[batch][dim][0]:
-                        masked_dim_mapping.append(f"1")
-                        masked_pol_logits.append(policy_logits[batch][dim * 38])
-                elif dim == 54:
-                    if mask[batch][dim][0]:
-                        masked_dim_mapping.append(f"2")
-                        masked_pol_logits.append(policy_logits[batch][dim * 38])
-            masked_policy_mappings.append(masked_dim_mapping)
-            masked_policy_logits.append(masked_pol_logits)
-
-        return masked_policy_logits, masked_policy_mappings
 
     """
     Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 

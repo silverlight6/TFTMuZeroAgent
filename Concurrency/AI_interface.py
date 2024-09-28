@@ -7,7 +7,7 @@ import config
 
 from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env, TFTConfig
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.observation.token.basic_observation import ObservationToken
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
@@ -53,7 +53,7 @@ class AIInterface:
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            tftConfig = TFTConfig(observation_class=ObservationVector)
+            tftConfig = TFTConfig(observation_class=ObservationToken)
             env = parallel_env(tftConfig)
 
             buffers = [BufferWrapper.remote()
