@@ -193,7 +193,7 @@ class Player:
         # Can't buy exp if you are max level or don't have enough gold
         if self.gold < self.exp_cost or self.level == self.max_level:
             if DEBUG:
-                print("Did not have gold to buy_exp")
+                print(f"Did not have gold to buy_exp, gold {self.gold} with level {self.level}")
             return False
 
         self.gold -= self.exp_cost
@@ -709,7 +709,7 @@ class Player:
         """
         if (x1 < 0 or x1 > 36) or (x2 < 0 or x2 > 36):
             if DEBUG:
-                print("Invalid move index")
+                print(f"Invalid move index 1 -> [x1, x2] -> [{x1}, {x2}]")
             return False
 
         # I forgot why, but the smaller index needed to be first... maybe not?
@@ -958,7 +958,7 @@ class Player:
         """
         if (x1 < 0 or x1 > 9) or (x2 < 0 or x2 > 36):
             if DEBUG:
-                print("Invalid move index")
+                print(f"Invalid move index 2 -> [x1, x2] -> [{x1}, {x2}]")
             return False
 
         item_loc = x1

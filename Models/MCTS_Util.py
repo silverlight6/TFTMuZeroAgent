@@ -6,27 +6,52 @@ import time
 
 def create_default_mapping():
     mappings = []
+    mask = []
 
-    for a in range(38):
-        for b in range(37):
+    for b in range(37):
+        for a in range(38):
             if a == 37:
                 mappings.append(f"4_{b}")
+                mask.append(1)
             else:
                 mappings.append(f"5_{a}_{b}")
+                if a == b:
+                    mask.append(0)
+                else:
+                    mask.append(1)
 
-        for b in range(10):
+    for b in range(10):
+        for a in range(38):
             mappings.append(f"6_{a}_{b}")
+            mask.append(1)
 
-        for b in range(5):
-            mappings.append(f"3_{a}")
+    for b in range(5):
+        for a in range(38):
+            if a == 0:
+                mappings.append(f"3_{b}")
+                mask.append(1)
+            else:
+                mappings.append(f"3_{b}_{a}")
+                mask.append(0)
 
-        mappings.append(f"0")
-        mappings.append(f"1")
-        mappings.append(f"2")
+    for a in range(38):
+        if a == 0:
+            mappings.append(f"0")
+            mappings.append(f"1")
+            mappings.append(f"2")
+            for _ in range(3):
+                mask.append(1)
+        else:
+            mappings.append(f"0_{a}")
+            mappings.append(f"1_{a}")
+            mappings.append(f"2_{a}")
+            for _ in range(3):
+                mask.append(0)
 
     mappings = [mappings] * config.NUM_PLAYERS
+    mask = mask
 
-    return mappings
+    return mappings, mask
 
 def split_sample_decide(sample_mapping, target_policy):
     if config.CHAMP_DECIDER:
@@ -135,7 +160,7 @@ def action_to_idx(sample):
         mapped_idx = 38 * int(split_action[1]) + int(split_action[2])
 
     elif first_idx == 6:  # sell dim; 37; "_0", "_1", "_36"
-        mapped_idx = 1559 + 38 * int(split_action[1]) + int(split_action[2])
+        mapped_idx = 1559 + 38 * int(split_action[2]) + int(split_action[1])
 
     return mapped_idx
 
@@ -162,6 +187,7 @@ def create_target_and_mask(target, idx_set):
 
     # TODO: Find a native numpy function to do this
     for batch_idx, batch in enumerate(idx_set):  # [batch_size, dim]
+        print(f"batch {batch}")
         for sample_idx, sample in enumerate(batch):
             target_filled[batch_idx][sample] = target[batch_idx][sample_idx]
 

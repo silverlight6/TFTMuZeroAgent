@@ -4,11 +4,33 @@ import random
 from Simulator.pool import pool
 from Simulator.player import Player
 from Simulator.utils import coord_to_x_y, x_y_to_1d_coord
-from Simulator.item_stats import item_builds
+from Simulator.item_stats import item_builds, thieves_gloves_items
 from Simulator.champion import champion
 from Simulator.observation.token.action import ActionToken
 from Simulator.default_agent_stats import ONE_COST_UNITS, TWO_COST_UNITS, THREE_COST_UNITS, FOUR_COST_UNITS, FIVE_COST_UNITS
 
+
+base_level_config = {
+    "num_unique_champions": 3,
+    "max_cost": 1,
+    "num_items": 0,
+    "current_level": 3,
+    "chosen": False,
+    "sample_from_pool": False,
+    "two_star_unit_percentage": 0,
+    "three_star_unit_percentage": 0,
+    "scenario_info": True,
+    "extra_randomness": False,
+    "stationary": True,
+    "azir": False,
+    "kayn": False,
+    "thieves_gloves": False,
+    "set_test_position": False,
+    "test_position": [0, 0],
+    "fill_bench": False,
+    "test_mode": False,
+    "allow_trait_items": False,
+}
 
 """
 Description - This is the Battle Generator class
@@ -32,6 +54,11 @@ class BattleGenerator:
         if self.generator_config["stationary"]:
             random.seed(8)
             self.stationary_coords = random.sample(list(range(0, 28)), 12)
+            if self.generator_config["set_test_position"]:
+                if x_y_to_1d_coord(self.generator_config["test_position"][0],
+                                   self.generator_config["test_position"][1]) not in self.stationary_coords:
+                    self.stationary_coords[0] = x_y_to_1d_coord(self.generator_config["test_position"][0],
+                                                                self.generator_config["test_position"][1])
 
 
     """
@@ -60,15 +87,21 @@ class BattleGenerator:
             player.shop = base_pool.sample(player, 5, allow_chosen=allow_chosen)
             player.shop_champions = player.create_shop_champions()
             if self.generator_config["scenario_info"]:
-                player.gold = np.random.randint(0, 60)
+                if self.generator_config["test_mode"]:
+                    player.gold = np.random.randint(20, 60)
+                    player.round = np.random.randint(3, 30)
+                else:
+                    player.gold = np.random.randint(0, 60)
+                    player.round = np.random.randint(0, 100) % (level * 3)
                 player.exp = np.random.randint(0, player.level_costs[level])
                 player.health = np.random.randint(1, 101)
-                player.round = np.random.randint(0, 100) % (level * 3)
             action_mask = ActionToken(player)
             self.add_champions(player, action_mask, base_pool)
             # Add these back in later after I see proof of learning
             self.add_items_to_champions(player, action_mask, item_count)
             self.add_items_to_item_bench(player)
+            if self.generator_config["fill_bench"]:
+                self.add_champions_to_bench(player, base_pool)
         player_returns = random.sample(range(0, 8), 2)
         return [player_list[player_returns[0]], player_list[player_returns[1]],
                 {f"player_{player.player_num}": player for player in player_list}]
@@ -81,7 +114,13 @@ class BattleGenerator:
         for i in range(player.max_units):
             if self.sample_from_pool:
                 random_champ = base_pool.sample(player, 1, allow_chosen=False)
-                success = player.add_to_bench(champion(random_champ[0]))
+                if i == 0 and (self.generator_config["azir"] or self.generator_config["kayn"]):
+                    if self.generator_config["azir"]:
+                        success = player.add_to_bench(champion('azir'))
+                    else:
+                        success = player.add_to_bench(champion('kayn'))
+                else:
+                    success = player.add_to_bench(champion(random_champ[0]))
                 if not success:
                     print("I was not successful")
                     continue
@@ -128,22 +167,44 @@ class BattleGenerator:
             for y in range(len(player.board[0])):
                 if player.board[x][y]:
                     for i in range(item_count):
-                        random_item = random.sample(list(item_builds.keys()), 1)
-                        player.add_to_item_bench(random_item[0])
-                        item_mask = action_mask.create_item_action_mask(player)
-                        if item_mask[move_failures][x_y_to_1d_coord(x, y)] and \
-                                not (random_item[0] == "thieves_gloves" and i > 0):
-                            player.move_item(move_failures, x, y)
+                        if i == 0 and self.generator_config["thieves_gloves"]:
+                            player.add_to_item_bench("thieves_gloves")
+                            item_mask = action_mask.create_item_action_mask(player)
+                            if item_mask[move_failures][x_y_to_1d_coord(x, y)]:
+                                player.move_item(move_failures, x, y)
+                            else:
+                                move_failures += 1
                         else:
-                            move_failures += 1
-                            if move_failures > 9:
-                                break
+                            if self.generator_config["allow_trait_items"]:
+                                random_item = random.sample(list(item_builds.keys()), 1)
+                            else:
+                                random_item = random.sample(thieves_gloves_items, 1)
+                            player.add_to_item_bench(random_item[0])
+                            item_mask = action_mask.create_item_action_mask(player)
+                            if item_mask[move_failures][x_y_to_1d_coord(x, y)] and \
+                                    not (random_item[0] == "thieves_gloves" and i > 0):
+                                player.move_item(move_failures, x, y)
+                            else:
+                                move_failures += 1
+                                if move_failures > 9:
+                                    break
 
     def add_items_to_item_bench(self, player):
-        for _ in range(8):
-            if not player.item_bench_full(1):
+        while not player.item_bench_full(1):
+            if self.generator_config["allow_trait_items"]:
                 random_item = random.sample(list(item_builds.keys()), 1)
-                player.add_to_item_bench(random_item[0])
+            else:
+                random_item = random.sample(thieves_gloves_items, 1)
+            player.add_to_item_bench(random_item[0])
+
+    def add_champions_to_bench(self, player, base_pool):
+        i = 0
+        while not player.bench_full():
+            random_champ = base_pool.sample(player, 1, allow_chosen=False)
+            player.add_to_bench(champion(random_champ[0]))
+            i += 1
+            if i > 10:
+                print(f"ADD_CHAMPIONS_TO_BENCH has an issue {i}")
 
 def sample_with_limit(units, x, seed=None):
     """Samples x units from the list, but returns the whole list if x is larger.

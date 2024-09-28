@@ -24,9 +24,10 @@ class MCTS:
         self.NUM_ALIVE = config.NUM_PLAYERS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
-        self.default_string_mapping = util.create_default_mapping()
+        self.default_string_mapping, self.default_mask = util.create_default_mapping()
         self.max_depth_search = 0
         self.model_config = model_config
+        self.default_mask = torch.tensor(self.default_mask).to(config.DEVICE)
 
     def policy(self, observation):
         with torch.no_grad():
@@ -37,28 +38,26 @@ class MCTS:
 
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
-            policy_logits = network_output["policy_logits"].cpu().numpy()
+            policy_logits = network_output["policy_logits"]
+            # Mask illegal actions
 
-            # 0.005 seconds
-            policy_logits_pool, string_mapping = self.encode_action_to_str(policy_logits, observation[1])
+            # is it quicker to do this as a tensor or as a numpy array?
+            flat_mask = torch.tensor(np.reshape(observation[1], (self.NUM_ALIVE, -1))).to(config.DEVICE)
+            inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
+            policy_logits = policy_logits + inf_mask
+            masked_policy_logits = policy_logits.cpu().numpy()
 
             noises = [
-                    np.random.dirichlet([self.model_config.ROOT_DIRICHLET_ALPHA] * len(policy_logits_pool[j])
+                    np.random.dirichlet([self.model_config.ROOT_DIRICHLET_ALPHA] * len(masked_policy_logits[j])
                                         ).astype(np.float32).tolist()
                     for j in range(self.NUM_ALIVE)
                 ]
 
-            # policy_logits_pool = policy_logits_pool.cpu().numpy()
-            # print(policy_logits_pool)
-            # print(policy_logits_pool.shape)
-
-            # Policy Logits -> [ [], [], [], [], [], [], [], [],]
-
-            policy_logits_pool = self.add_exploration_noise(policy_logits_pool, noises)
+            policy_logits_pool = self.add_exploration_noise(masked_policy_logits, noises)
 
             # 0.001 seconds
             policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, string_mapping, self.model_config.NUM_SAMPLES)
+                self.sample(policy_logits_pool, self.default_string_mapping, self.model_config.NUM_SAMPLES)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
@@ -88,7 +87,7 @@ class MCTS:
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
                 target_policy.append([x / self.model_config.NUM_SIMULATIONS for x in distributions])
-
+                index_in_default = self.default_string_mapping[0].index(string_mapping[i][action])
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
             return actions, target_policy, string_mapping, root_values
@@ -135,11 +134,17 @@ class MCTS:
             if diff > 150.:
                 print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
-            policy_logits = network_output["policy_logits"].cpu().numpy()
+            policy_logits = network_output["policy_logits"]
+            # Mask illegal actions
+
+            default_mask = self.default_mask.repeat(self.NUM_ALIVE, 1)
+            inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
+            policy_logits = policy_logits + inf_mask
+            masked_policy_logits = policy_logits.cpu().numpy()
 
             # 0.003 to 0.01 seconds
             policy_logits, _, mappings, policy_sizes = \
-                self.sample(policy_logits, self.default_string_mapping, self.model_config.NUM_SAMPLES)
+                self.sample(masked_policy_logits, self.default_string_mapping, self.model_config.NUM_SAMPLES)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -209,8 +214,8 @@ class MCTS:
     """
     def encode_action_to_str(self, policy_logits, mask):
         batch_size = policy_logits.shape[0]  # 8
-        flat_mask = np.reshape(mask, (self.NUM_ALIVE, -1))
-        policy_logits = policy_logits * flat_mask
+        # flat_mask = np.reshape(mask, (self.NUM_ALIVE, -1))
+        # policy_logits = policy_logits * flat_mask
 
         masked_policy_mappings = []
         masked_policy_logits = []
@@ -280,7 +285,6 @@ class MCTS:
                       Number of samples per player, can change if legal actions < num_samples
     """
     def sample(self, policy_logits, string_mapping, num_samples):
-        # policy_logits [(8, 7), (8, 5), (8, 667), (8, 370), (8, 38)]
         batch_size = len(policy_logits)  # 8
 
         output_logits = []

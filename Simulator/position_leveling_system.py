@@ -1,21 +1,7 @@
-from Simulator.battle_generator import BattleGenerator
+from Simulator.battle_generator import BattleGenerator, base_level_config
 
 class PositionLevelingSystem:
     def __init__(self):
-
-        base_level_config = {
-            "num_unique_champions": 3,
-            "max_cost": 1,
-            "num_items": 0,
-            "current_level": 3,
-            "chosen": False,
-            "sample_from_pool": False,
-            "two_star_unit_percentage": 0,
-            "three_star_unit_percentage": 0,
-            "scenario_info": True,
-            "extra_randomness": False,
-            "stationary": True
-        }
 
         self.levels = [
             # {**base_level_config},

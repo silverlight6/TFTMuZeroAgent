@@ -4,7 +4,7 @@ import torch
 import Models.MCTS_Util as utils
 import config
 from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer
+from Models.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer, AlternateFeatureEncoder
 
 
 class MuZeroNetwork(AbstractNetwork):
@@ -146,7 +146,8 @@ class PredNetwork(torch.nn.Module):
         super().__init__()
 
         def feature_encoder(input_size, layer_sizes, output_size):
-            return torch.nn.Sequential(mlp(input_size, layer_sizes, output_size)).to(config.DEVICE)
+            return torch.nn.Sequential(AlternateFeatureEncoder(input_size, layer_sizes,
+                                                               output_size, config.DEVICE)).to(config.DEVICE)
 
         # 6 is the number of separate dynamic networks
         self.prediction_value_network = feature_encoder(model_config.HIDDEN_STATE_SIZE,
@@ -192,7 +193,7 @@ class RepNetwork(torch.nn.Module):
 
         def feature_encoder(input_size, feature_layer_sizes, feature_output_sizes):
             return torch.nn.Sequential(
-                mlp(input_size, feature_layer_sizes, feature_output_sizes, torch.nn.ReLU),
+                AlternateFeatureEncoder(input_size, feature_layer_sizes, feature_output_sizes, config.DEVICE),
                 Normalize()
             ).to(config.DEVICE)
 
@@ -235,13 +236,13 @@ class DynNetwork(torch.nn.Module):
                 Normalize()
             ).to(config.DEVICE)
 
-        self.action_encodings = mlp(config.ACTION_CONCAT_SIZE, [
-            model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE)
+        self.action_encodings = AlternateFeatureEncoder(config.ACTION_CONCAT_SIZE, [
+            model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
 
         self.dynamics_memory = memory()
 
-        self.dynamics_reward_network = mlp(input_size, [model_config.LAYER_HIDDEN_SIZE] * 1,
-                                           model_config.ENCODER_NUM_STEPS)
+        self.dynamics_reward_network = AlternateFeatureEncoder(input_size, [model_config.LAYER_HIDDEN_SIZE] * 1,
+                                           model_config.ENCODER_NUM_STEPS, config.DEVICE)
         self.model_config = model_config
 
     def forward(self, hidden_state, action):

@@ -67,7 +67,7 @@ class Step_Function:
 
         # Item action
         elif action_type == 6:
-            player.move_item_action(x1, x2)
+            player.move_item_action(x2, x1)
 
         else:
             player.print(f"Action Type is invalid: {action}")
