@@ -300,7 +300,7 @@ class AIInterface:
             reset_env.append(ray.get(env.vector_reset.remote())[0])
 
         obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
-        num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
+        num_updates = int(ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE)
         kl_coef = ppo_config.KL_COEF
 
         for update in range(1, num_updates + 1):

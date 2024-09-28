@@ -150,56 +150,94 @@ MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
+    # Hidden State Size is the number of neurons in the hidden state. This is the primary variable for model size
     HIDDEN_STATE_SIZE = get_int_env("HIDDEN_STATE_SIZE", 1024)
+    # LSTM controls. Any other number than 2 has not been tested with
     NUM_RNN_CELLS = get_int_env("NUM_RNN_CELLS", 2)
     LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
+    # Layer Hidden Size -> Inner layer size for the MLP blocks.
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
+    # Used to create dirichlet noise to allow for exploration in the MCTS tree
     ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
+    # Base exploration fraction
     ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
+    # How much to expand or contract the policy function. 1.0 means do not touch.
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
 
+    # Base values from the MuZero paper for base and init
     PB_C_BASE = get_int_env("PB_C_BASE", 19652)
     PB_C_INIT = get_float_env("PB_C_INIT", 1.25)
 
-    # ACTION_DIM = 10
+    # This is the number of neurons on the value and reward network.
+    # This maps to a number from -300 to 300. A more detailed explanation can be found in the MuZero paper
     ENCODER_NUM_STEPS = get_int_env("ENCODER_NUM_STEPS", 601)
-    SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
-    if isinstance(SELECTED_SAMPLES, str):
-        SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
+    # Maximum norm for the training gradient
     MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
 
+    # Used in a few experiments but need cleaning up
     N_HEAD_HIDDEN_LAYERS = 2
     N_HEADS = 4
     N_LAYERS = 4
+    # Number of sampled actions to pull from the total number of actions
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
+    # Number of MCTS Simulations to expand on every action
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
 
-    ITEM_EMBEDDING_DIM = get_int_env("ITEM_EMBEDDING_DIM", 60)
+    # Size of champion embedding
     CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)
+    # Size of the shop embeddings
     SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
 
+# Commenting in the code for PPO Config.
 class PPOConfig:
+    # Name of the experiment. This will be used for save files. Fill in the details on the default later
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
+    # This is the learning rate specifically for PPO.
+    # This is separate from the MuZero section because there are times when using a different learning rate than
+    # MuZero. During the training of the Guide Model, both models are training at the same time so having separate
+    # Learning rates is useful.
     LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-4)
+    # Number of separate environments to be loaded in parallel
     NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
+    # Number of steps that each of those environments takes before returning their data
     NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
+    # If we want to lower the learning over the course of training. A simple linear function is currently used for
+    # learning rate anneal.
     ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
-    TOTAL_TIMESTEPS = get_int_env("PPO_TOTAL_TIME_STEPS", 1000000)
-    GAE = get_bool_env("PPO_GAE", "True")
-    GAMMA = get_float_env("PPO_GAMMA", 0.99)
-    GAE_LAMBDA = get_float_env("PPO_GAE_LAMBDA", 0.95)
+    # How long do we want to train our model for. When checkpoints get implemented, this is going to be traded for a
+    # while(True) loop.
+    TOTAL_TIMESTEPS = get_float_env("PPO_TOTAL_TIME_STEPS", 10000000)
+    # Will mention here that GAMMA, GAE, and LAMBDA are elimated due to this being a single step implementation of PPO
+    # How many minibatches to run before combining into a full batch and updating the weights of the model.
     NUM_MINIBATCHES = get_int_env("PPO_NUM_MINIBATCHES", 4)
+    # Full batch size.
     BATCH_SIZE = int(NUM_ENVS * NUM_STEPS)
+    # Mini batch size.
     MINIBATCH_SIZE = int(BATCH_SIZE // NUM_MINIBATCHES)
+    # How many times do we want to use the data we gathered to update the model.
+    # Since the Position and Item Simulator are very fast and collecting a full batch can be done in around 2 seconds,
+    # The number of updates is currently set to 1. If collecting data from the simulator was the main form of
+    # computational restraint, then setting this number higher would be beneficial.
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
+    # Factor on how much to clip the policy loss. 0.2 is standard
     CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.2)
+    # Boolean on clipping the value loss. Set to false currently to allow large changes early in the policy and value
+    # functions
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
+    # Entropy coefficient. Set low to keep the entropy loss less than that of the poilcy and value
     ENT_COEF = get_float_env("PPO_ENT_COEF", 0.005)
+    # Value Function coefficient. Set at 0.5 to keep in line with the policy loss
     VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
+    # KL_Loss Coefficient. Currently, experimenting with this but when the KL stabilizes around 0.1, keeping this
+    # around 0.5 makes it in line with the value and policy loss. In general, large changes to the policy and value
+    # network are generally acceptable early in training but have yet to test the results as training gets deeper
     KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
+    # Make sure the gradient stays within reason to prevent leaving the function space entirely
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
+    # What we want the KL to hover around
     TARGET_KL = 0.1
+    # How much to change the KL_COEF if the target kl is either too high or too low.
     KL_ADJUSTER = 1.5
 
 
