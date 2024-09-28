@@ -4,8 +4,9 @@ import time
 import torch
 
 from config import ModelConfig
-from Models.torch_layers import ResidualBlock, TransformerEncoder, mlp, Normalize, ppo_mlp
+from Models.torch_layers import TransformerEncoder
 from torch.distributions.categorical import Categorical
+from gymnasium.spaces import MultiDiscrete
 
 
 """
@@ -179,6 +180,8 @@ class TorchPositionPolicyModel(torch.nn.Module):
         self.policy_network = ppo_feature_encoder(hidden_layer_size, layer_sizes, 29 * 12,
                                                   self.device)
 
+        self.action_space = MultiDiscrete(np.ones(12) * 29).nvec.tolist()
+
     def _forward(self, input_dict, action=None):
         # Compute the unmasked logits.
         x = input_dict["observations"]
@@ -192,11 +195,16 @@ class TorchPositionPolicyModel(torch.nn.Module):
         masked_logits = logits + inf_mask
         masked_logits = torch.reshape(masked_logits, (action_mask_shape[0], action_mask_shape[1], action_mask_shape[2]))
 
-        probs = Categorical(logits=masked_logits)
+        print(self.action_space)
+        print(masked_logits.shape)
+        time.sleep(2)
+        split_logits = torch.split(masked_logits, self.action_space, dim=2)
+        multi_categoricals = [Categorical(logits=logits) for logits in split_logits]
         if action is None:
-            action = probs.sample()
-
-        return action, probs.log_prob(action), probs.entropy()
+            action = torch.stack([categorical.sample() for categorical in multi_categoricals])
+        logprob = torch.stack([categorical.log_prob(a) for a, categorical in zip(action, multi_categoricals)])
+        entropy = torch.stack([categorical.entropy() for categorical in multi_categoricals])
+        return action.T, logprob.sum(0), entropy.sum(0)
 
     def forward(self, input_dict, action):
         return self._forward(input_dict, action)

@@ -165,7 +165,7 @@ class BattleGenerator:
         move_failures = 0
         for x in range(len(player.board)):
             for y in range(len(player.board[0])):
-                if player.board[x][y]:
+                if player.board[x][y] and move_failures <= 9:
                     for i in range(item_count):
                         if i == 0 and self.generator_config["thieves_gloves"]:
                             player.add_to_item_bench("thieves_gloves")

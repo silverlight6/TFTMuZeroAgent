@@ -129,7 +129,7 @@ class TFT_Position_Simulator(gym.Env):
         self.reward = self.PLAYER.reward - initial_reward
         if np.abs(self.reward) > self.max_reward:
             self.max_reward = np.abs(self.reward)
-        self.reward = self.reward / self.max_reward
+        self.reward = self.reward / self.max_reward + 1
 
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {

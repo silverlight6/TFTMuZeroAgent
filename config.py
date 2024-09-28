@@ -193,13 +193,15 @@ class PPOConfig:
     BATCH_SIZE = int(NUM_ENVS * NUM_STEPS)
     MINIBATCH_SIZE = int(BATCH_SIZE // NUM_MINIBATCHES)
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
-    CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.3)
+    CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.2)
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.01)
-    VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
-    KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
+    VF_COEF = get_float_env("PPO_VF_COEF", 1)
+    KL_COEF = get_float_env("PPO_KL_COEF", 0.3)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
-    TARGET_KL = 0.2
-    KL_ADJUSTER = 1.5
+    TARGET_KL = 0.05
+    KL_ADJUSTER = 0.5
+    MAX_KL_COEF = 1
+    MIN_KL_COEF = 0.01
 
 

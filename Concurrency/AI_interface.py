@@ -276,31 +276,32 @@ class AIInterface:
                     clipfracs += [((ratio - 1.0).abs() > ppo_config.CLIP_COEF).float().mean().item()]
 
                 # Policy loss
-                pg_loss1 = -advantages[:, None] * ratio
-                pg_loss2 = -advantages[:, None] * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
+                print(advantages.shape)
+                print(ratio.shape)
+                print(logratio)
+                print(ratio)
+                time.sleep(2)
+                pg_loss1 = -advantages * ratio
+                pg_loss2 = -advantages * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
                 newvalue = newvalue.view(-1)
                 if ppo_config.CLIP_VLOSS:
-                    print(f"values {newvalue}")
+                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss_unclipped = (newvalue - rewards) ** 2
-                    v_clipped = values + torch.clamp(
-                        newvalue - values,
-                        -ppo_config.CLIP_COEF,
-                        ppo_config.CLIP_COEF,
-                    )
+                    v_clipped = values + torch.clamp(newvalue - values, -ppo_config.CLIP_COEF, ppo_config.CLIP_COEF)
                     v_loss_clipped = (v_clipped - rewards) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 else:
                     print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
-                if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
-                    kl_coef /= ppo_config.KL_ADJUSTER
-                elif approx_kl < ppo_config.TARGET_KL / ppo_config.KL_ADJUSTER:
-                    kl_coef *= ppo_config.KL_ADJUSTER
+                if approx_kl > ppo_config.TARGET_KL * (1 + ppo_config.KL_ADJUSTER):
+                    kl_coef *= (1 + ppo_config.KL_ADJUSTER)
+                elif approx_kl < ppo_config.TARGET_KL / (1 + ppo_config.KL_ADJUSTER):
+                    kl_coef *= (1 - ppo_config.KL_ADJUSTER)
+                kl_coef = max(min(kl_coef, ppo_config.MAX_KL_COEF), ppo_config.MIN_KL_COEF)
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss + kl_coef * approx_kl
