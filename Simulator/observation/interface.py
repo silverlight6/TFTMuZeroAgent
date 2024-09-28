@@ -37,6 +37,10 @@ class ObservationBase(abc.ABC):
     @abc.abstractmethod
     def update_game_round(self):
         """Update observation after a battle."""
+
+    @abc.abstractmethod
+    def observation_to_input(self, observation):
+        """Turns the observation into the desired input"""
         
 class ActionBase(abc.ABC):
     @staticmethod

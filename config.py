@@ -64,7 +64,7 @@ PATH = path.dirname(path.realpath(__file__))
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
 STORAGE_GPU_SIZE = get_float_env("STORAGE_GPU_SIZE", 0.1) if DEVICE == "cuda" else 0
 BUFFER_GPU_SIZE = get_float_env("BUFFER_GPU_SIZE", 0.02) if DEVICE == "cuda" else 0
-TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.2) if DEVICE == "cuda" else 0
+TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.4) if DEVICE == "cuda" else 0
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = get_int_env("ACTIONS_PER_TURN", 15)
@@ -127,7 +127,7 @@ VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = 25
+SCALAR_INPUT_SIZE = 86
 SHOP_INPUT_SIZE = 45
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234
@@ -181,8 +181,8 @@ class ModelConfig:
 
 class PPOConfig:
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
-    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-4)
-    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
+    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-3)
+    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 32)
     NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
     ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
     TOTAL_TIMESTEPS = get_int_env("PPO_TOTAL_TIME_STEPS", 1000000)
@@ -195,11 +195,13 @@ class PPOConfig:
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
     CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.2)
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.005)
-    VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
-    KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
+    VF_COEF = get_float_env("PPO_VF_COEF", 1)
+    KL_COEF = get_float_env("PPO_KL_COEF", 0.3)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
-    TARGET_KL = 0.1
-    KL_ADJUSTER = 1.5
+    TARGET_KL = 0.05
+    KL_ADJUSTER = 0.5
+    MAX_KL_COEF = 1
+    MIN_KL_COEF = 0.01
 
 

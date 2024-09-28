@@ -1,21 +1,7 @@
-from Simulator.battle_generator import BattleGenerator
+from Simulator.battle_generator import BattleGenerator, base_level_config
 
 class PositionLevelingSystem:
     def __init__(self):
-
-        base_level_config = {
-            "num_unique_champions": 3,
-            "max_cost": 1,
-            "num_items": 0,
-            "current_level": 3,
-            "chosen": False,
-            "sample_from_pool": False,
-            "two_star_unit_percentage": 0,
-            "three_star_unit_percentage": 0,
-            "scenario_info": True,
-            "extra_randomness": False,
-            "stationary": True
-        }
 
         self.levels = [
             {**base_level_config},
@@ -33,8 +19,27 @@ class PositionLevelingSystem:
             {**base_level_config, "num_unique_champions": 12, "current_level": 5, "max_cost": 3,
              "two_star_unit_percentage": 0.5},
             {**base_level_config, "current_level": 6, "sample_from_pool": True},
-            {**base_level_config, "current_level": 6, "sample_from_pool": True, "chosen": True},
-            {**base_level_config, "current_level": 6, "sample_from_pool": True, "chosen": True, "num_items": 1},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 1,
+             "extra_randomness": True},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 1,
+             "extra_randomness": True, "two_star_unit_percentage": 0.25},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 1,
+             "extra_randomness": True, "two_star_unit_percentage": 0.25, "three_star_unit_percentage": 0.1},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 1,
+             "extra_randomness": True, "two_star_unit_percentage": 0.25, "three_star_unit_percentage": 0.2},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 1,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.1},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 2,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.2},
+            {**base_level_config, "current_level": 7, "sample_from_pool": True, "chosen": True, "num_items": 2,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.2},
+            {**base_level_config, "current_level": 8, "sample_from_pool": True, "chosen": True, "num_items": 2,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.2},
+            {**base_level_config, "current_level": 8, "sample_from_pool": True, "chosen": True, "num_items": 3,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.2},
+            {**base_level_config, "current_level": 9, "sample_from_pool": True, "chosen": True, "num_items": 3,
+             "extra_randomness": True, "two_star_unit_percentage": 0.5, "three_star_unit_percentage": 0.2},
         ]
 
         self.level = 0

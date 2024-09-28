@@ -54,7 +54,7 @@ class BatchGenerator:
             player_manager.reinit_player_set([player] + list(other_players.values()))
 
             initial_observation = player_manager.fetch_position_observation(f"player_{player.player_num}")
-            observation = self.observation_class.observation_to_input(initial_observation)
+            observation = self.observation_class.observation_to_position_input(initial_observation)
 
             input_batch.append(observation)
 
