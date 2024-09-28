@@ -1,13 +1,13 @@
 import config
 import numpy as np
-import Simulator.champion as champion
-from Simulator.default_agent_stats import *
-from Simulator.pool_stats import cost_star_values
-from Simulator.origin_class_stats import tiers, origin_class
-from Simulator.origin_class import team_traits
-from Simulator.utils import x_y_to_1d_coord
-from Simulator.stats import COST, BASE_CHAMPION_LIST
-from Simulator.item_stats import starting_items
+import Set12Simulator.champion as champion
+from Set12Simulator.default_agent_stats import *
+from Set12Simulator.pool_stats import cost_star_values
+from Set12Simulator.origin_class_stats import tiers, origin_class
+from Set12Simulator.origin_class import team_traits
+from Set12Simulator.utils import x_y_to_1d_coord
+from Set12Simulator.stats import COST, BASE_CHAMPION_LIST
+from Set12Simulator.item_stats import starting_items
 from copy import deepcopy
 
 

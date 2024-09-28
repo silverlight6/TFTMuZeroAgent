@@ -1,6 +1,6 @@
-import Simulator.stats as stats
-import Simulator.field as field
-import Simulator.origin_class_stats as origin_class_stats
+import Set12Simulator.stats as stats
+import Set12Simulator.field as field
+import Set12Simulator.origin_class_stats as origin_class_stats
 import random
 
 

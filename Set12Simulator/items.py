@@ -1,7 +1,7 @@
-from Simulator import field, item_stats
-import Simulator.champion_functions as champion_functions
-import Simulator.stats as stats
-import Simulator.origin_class as origin_class
+from Set12Simulator import field, item_stats
+import Set12Simulator.champion_functions as champion_functions
+import Set12Simulator.stats as stats
+import Set12Simulator.origin_class as origin_class
 import random
 
 # ALL FUNCTIONS REGARDING ITEMS ARE HERE

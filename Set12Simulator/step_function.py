@@ -1,6 +1,6 @@
 import time
 
-from Simulator.utils import coord_to_x_y
+from Set12Simulator.utils import coord_to_x_y
 
 class Step_Function:
     def __init__(self, player_manager):
