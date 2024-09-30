@@ -50,7 +50,6 @@ def initiate(champion):
 
 # where item functions are based at
 
-
 def blue_buff(champion):
     if('blue_buff' in champion.items):
         change_stat(champion, 'mana', 20)
@@ -74,22 +73,8 @@ def bramble_vest(champion):
                     champion.spell(n, item_stats.damage['bramble_vest'][champion.stars], 0, True)
 
 
-def chalice_of_power(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'chalice_of_power' in x.items, units))
-
-    coords = field.coordinates
-    for holder in holders:
-        item_amount = len(list(filter(lambda x: x == 'chalice_of_power', holder.items)))
-
-        hexes = []
-        if(holder.x >= 1): hexes.append(coords[holder.y][holder.x - 1])
-        hexes.append(coords[holder.y][holder.x])
-        if(holder.x <= 5): hexes.append(coords[holder.y][holder.x + 1])
-    
-        for h in hexes:
-            if(h and h.team == champion.team and h.champion):
-                change_stat(h, 'SP', h.SP + item_stats.SP['chalice_of_power'] * item_amount)
+def adaptive_helm(champion):
+    return
 
 
 #adding stack whenever dealing damage to a target
@@ -108,61 +93,11 @@ def deathblade(champion, target):
         if([champion, target] not in deathblade_list):
             deathblade_list.append([champion, target])
 
+def edge_of_night(champion):
+    return
 
-frozen_heart_list = []
-def frozen_heart(champion):
-    units = champion.own_team() + champion.enemy_team()
-
-    #if a unit has died and they had some enemies affected, clear those debuffs
-    for i in range(0, 5):
-        for u in frozen_heart_list:
-            if(u[0] not in units):
-                for c in u[1]:
-                    change_stat(c, 'AS', c.AS / item_stats.item_as_decrease['frozen_heart'])
-                frozen_heart_list.remove(u)
-
-    has_item = list(filter(lambda x: 'frozen_heart' in x.items, units))
-
-    #loop through every unit with the item
-    for c in has_item:
-        items = 0
-        for i in c.items:
-            if(i == 'frozen_heart'): items += 1
-
-        c_in_list = list(filter(lambda x: x[0] == c, frozen_heart_list))
-        units_in_c_list = []
-        new_c_list = []
-
-        #current affected list by this holder
-        if(len(c_in_list) > 0):
-            c_in_list = c_in_list[0]
-            units_in_c_list = c_in_list[1]
-
-        #if current neighbors are not on the list, debuff
-        #if they are on the list, keep them on it
-        current_neighbors = field.enemies_in_distance(c, c.y, c.x, items)
-        for n in current_neighbors:
-            if(n not in units_in_c_list):
-                change_stat(n, 'AS', n.AS * item_stats.item_as_decrease['frozen_heart'])
-            if(n not in new_c_list):
-                new_c_list.append(n)
-
-        #if there are some units on the list that aren't neighbors, clear debuff
-        #otherwise keep the neighbor in the list
-        for u in units_in_c_list:
-            if(u not in current_neighbors):
-                change_stat(u, 'AS', u.AS / item_stats.item_as_decrease['frozen_heart'])
-            elif(n not in new_c_list): new_c_list.append(u)
-
-        #if there are no entries of this unit's list, append one
-        if(len(c_in_list) == 0):
-            frozen_heart_list.append([c, new_c_list])
-        #otherwise just replace the list of affected enemy units
-        else:
-            for u in frozen_heart_list:
-                if(u[0] == c):
-                    u[1] = new_c_list
-                    break
+def protectors_vow(champion):
+    return
 
 
 gargoyle_stoneplate_list = []
@@ -351,60 +286,12 @@ def last_whisper(champion, target):
             target.add_que('change_stat', length, None, 'armor', None, {'vi': item_stats.item_armor_decrease['last_whisper']})
             last_whisper_list.append([target, millis])
 
-def locket_of_the_iron_solari(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'locket_of_the_iron_solari' in x.items, units))
-
-    coords = field.coordinates
-    for holder in holders:
-        item_amount = len(list(filter(lambda x: x == 'locket_of_the_iron_solari', holder.items)))
+def crownguard(champion):
+    return
 
 
-        hexes = []
-        if(holder.x >= 2): hexes.append(coords[holder.y][holder.x - 2])
-        if(holder.x >= 1): hexes.append(coords[holder.y][holder.x - 1])
-        hexes.append(coords[holder.y][holder.x])
-        if(holder.x <= 5): hexes.append(coords[holder.y][holder.x + 1])
-        if(holder.x <= 4): hexes.append(coords[holder.y][holder.x + 2])
-
-        for h in hexes:
-            if(h and h.team == holder.team and h.champion):
-                shield_size = item_stats.shield['locket_of_the_iron_solari'][holder.stars] * item_amount
-
-                shield_identifier = round(champion_functions.MILLIS() * shield_size + holder.armor)
-                shield_length = item_stats.item_change_length['locket_of_the_iron_solari']
-                h.add_que('shield', -1, None, None, {'amount': shield_size, 'identifier': shield_identifier, 'applier': holder, 'original_amount': shield_size}, {'increase': True, 'expires': shield_length})
-
-
-def ludens_echo(champion, target):
-
-    if 'ludens_echo' in champion.items:
-        item_amount = len(list(filter(lambda x: x == 'ludens_echo', champion.items)))
-
-        # change the flag
-        champion.spell_has_used_ludens = True
-
-        # find the enemies in range and sort out the proper amount. always include the target
-        enemies_in_range = field.enemies_in_distance(champion, target.y, target.x, item_stats.item_range['ludens_echo'])
-        if target in enemies_in_range:
-            enemies_in_range.remove(target)
-
-        target_amount = item_stats.item_targets['ludens_echo']
-        if len(enemies_in_range) > target_amount:
-            enemies_in_range = enemies_in_range[:target_amount]
-
-        targets = [target]
-        targets += enemies_in_range
-
-        champion.print(' luden\'s echo hits {} target{}'.format(len(targets), 's' if (len(targets) > 1) else ''))
-        for t in targets:
-            damage = item_stats.damage['ludens_echo']
-            if (t.stunned or t.disarmed or t.blinded or t.AD_reduction_cc) and not t.name == 'sandguard':
-                damage *= 2
-            
-            damage *= item_amount
-            champion.spell(t, damage, 0, True)
-
+def archangels_staff(champion, target):
+    return
 
 
 def morellonomicon(champion, target):
@@ -412,9 +299,8 @@ def morellonomicon(champion, target):
         champion.burn(target)
 
 
-def rapid_firecannon(champion):
-        change_stat(champion, 'range', champion.range + stats.RANGE[champion.name] * 2)
-
+def red_buff(champion):
+    return
 
 def redemption(champion):
     if('redemption' in champion.items):
@@ -445,56 +331,8 @@ def runaans_hurricane(champion, target):
 
 
 #hexagonal coordinates are fun and all
-def shroud_of_stillness(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'locket_of_the_iron_solari' in x.items, units))
-
-    for holder in holders:
-        affect_odd_x = []
-        affect_even_x = []
-
-        #find which hexes will be affected by the shroud
-        #depends on champion's position
-        if(champion.y % 2 == 0):
-            affect_odd_x.append(champion.x)
-            if(champion.x <= 5): affect_odd_x.append(champion.x + 1)
-            
-            if(champion.x >= 1): affect_even_x.append(champion.x - 1)
-            affect_even_x.append(champion.x)
-            if(champion.x <= 5): affect_even_x.append(champion.x + 1)
-
-        if(champion.y % 2 == 1):
-            affect_even_x.append(champion.x)
-            if(champion.x >= 1): affect_even_x.append(champion.x - 1)
-
-            if(champion.x >= 1): affect_odd_x.append(champion.x - 1)
-            affect_odd_x.append(champion.x)
-            if(champion.x <= 5): affect_odd_x.append(champion.x + 1)
-
-
-        affected_hexes = []
-        for i in range(0, 8):
-            if(i % 2 == 0):
-                for j in affect_even_x:
-                    affected_hexes.append([i, j])
-            
-            if(i % 2 == 1):
-                for j in affect_odd_x:
-                    affected_hexes.append([i, j])
-                    
-
-        coords = field.coordinates
-        for h in affected_hexes:
-            c = coords[h[0]][h[1]]
-            if(c and c.team != champion.team and c.champion):
-
-                #increase next spell mana cost of every enemy in the line by x% = reduce mana by x% of maxmana (can go negative)
-                if(not c.mana_cost_increased and c.maxmana > 0):
-                    mana_reduce_amount = c.maxmana * item_stats.item_mana_cost_increase['shroud_of_stillness']
-                    start_value = c.mana
-                    c.mana -= mana_reduce_amount
-                    c.print(' {} {} --> {}'.format('mana', round(start_value,1), round(c.mana,1)))
-                    c.add_que('change_stat', -1, None, 'mana_cost_increased', True)
+def steadfast_heart(champion):
+    return
 
 
 
@@ -610,146 +448,330 @@ def titans_resolve_helper(unit):
 
     
 # see item notes
-def trap_claw(champion, target):
+def guardbreaker(champion, target):
+    return
 
-    target.items.remove('trap_claw')
 
-    change_stat(champion, 'stunned', True)
-    champion.add_que('change_stat', item_stats.item_stun_duration['trap_claw'], None, 'stunned', False)
+def steraks_gage(champion):
+    return
 
-    if not target.stunned:
-        target.add_que('change_stat', 1, None, 'stunned', False)
-    if not target.disarmed:
-        target.add_que('change_stat', 1, None, 'disarmed', False)
-    if not target.blinded:
-        target.add_que('change_stat', 1, None, 'blinded', False)
+def evenshroud(champion):
+    return
 
+def nashors_tooth(champion):
+    return
+
+def absolution(champion):
+    return
+
+def blessed_bloodthirster(champion):
+    return
+
+def blue_blessing(champion):
+    return
+
+def brink_of_dawn(champion):
+    return
+
+def bulwarks_oath(champion):
+    return
+
+def covalent_spark(champion):
+    return
+
+def crest_of_cinders(champion):
+    return
+
+def demonslayer(champion):
+    return
+
+def dragons_will(champion):
+    return
+
+def dvarapala_stoneplate(champion):
+    return
+
+def equinox(champion):
+    return
+
+def eternal_whisper(champion):
+    return
+
+def fist_of_fairness(champion):
+    return
+
+def glamourous_gauntlet(champion):
+    return
+
+def guinsoos_reckoning(champion):
+    return
+
+def hextech_lifeblade(champion):
+    return
+
+def jaksho_the_protean(champion):
+    return
+
+def legacy_of_the_colossus(champion):
+    return
+
+def luminous_deathblade(champion):
+    return
+
+def more_more_ellonomicon(champion):
+    return
+
+def quickestsilver(champion):
+    return
+
+def rabadons_ascended_deathcap(champion):
+    return
+
+def rascals_gloves(champion):
+    return
+
+def rosethrorn_vest(champion):
+    return
+
+def royal_crownshield(champion):
+    return
+
+def runaans_tempest(champion):
+    return
+
+def spear_of_hirana(champion):
+    return
+
+def statikk_favor(champion):
+    return
+
+def steraks_megashield(champion):
+    return
+
+def sunlight_cape(champion):
+    return
+
+def the_barons_gift(champion):
+    return
+
+def titans_vow(champion):
+    return
+
+def urf_angels_staff(champion):
+    return
+
+def warmogs_pride(champion):
+    return
+
+def willbreaker(champion):
+    return
+
+def zenith_edge(champion):
+    return
+
+def accomplices_glove(champion):
+    return
+
+def aegis_of_the_legion(champion):
+    return
+
+def banshees_veil(champion):
+    return
+
+def chalice_of_power(champion):
+    return
+
+def knights_vow(champion):
+    return
+
+def locket_of_the_iron_solari(champion):
+    return
+
+def moonstone_renewer(champion):
+    return
+
+def needlessly_big_gem(champion):
+    return
+
+def obsidian_cleaver(champion):
+    return
+
+def randuins_omen(champion):
+    return
+
+def shroud_of_stillness(champion):
+    return
+
+def spite(champion):
+    return
+
+def the_eternal_flame(champion):
+    return
+
+def unstable_treasure_chest(champion):
+    return
+
+def virtue_of_the_martyr(champion):
+    return
 
 def zekes_herald(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'zekes_herald' in x.items, units))
-
-    coords = field.coordinates
-    for holder in holders:
-        item_amount = len(list(filter(lambda x: x == 'zekes_herald', holder.items)))
-
-        hexes = []
-        if holder.x >= 1:
-            hexes.append(coords[holder.y][holder.x - 1])
-        hexes.append(coords[holder.y][holder.x])
-        if holder.x <= 5:
-            hexes.append(coords[holder.y][holder.x + 1])
-    
-        for h in hexes:
-            if h and h.team == champion.team and h.champion:
-
-                change_stat(h, 'AS', h.AS * ((item_stats.item_as_increase['zekes_herald'] - 1) * item_amount + 1))
-
+    return
 
 def zephyr(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'zephyr' in x.items, units))
-
-    coords = field.coordinates
-    for holder in holders:
-        item_amount = len(list(filter(lambda x: x == 'zephyr', holder.items)))
-
-        # targeted hex
-        target_coords = [7 - holder.y, 6 - holder.x]
-        targets = list(filter(lambda x: x.champion, holder.enemy_team()))
-        targets = sorted(targets, key=lambda x: field.distance({'y': x.y, 'x': x.x}, {'y': target_coords[0], 'x': target_coords[1]}, False))
-        targets = targets[:item_amount]
-        for t in targets:
-            c = coords[t.y][t.x]
-            if c and c.team != holder.team and c.champion:
-                c.print(' targeted by zephyr')
-                change_stat(c, 'stunned', True)
-                change_stat(c, 'champion', False)
-
-                length = item_stats.item_stun_duration['zephyr']
-                c.add_que('change_stat', length, None, 'stunned', False)
-                c.add_que('change_stat', length, None, 'champion', True)
-
+    return
 
 def zzrot_portal(champion):
-    units = champion.own_team() + champion.enemy_team()
-    holders = list(filter(lambda x: 'zzrot_portal' in x.items, units))
-    for holder in holders:
+    return
 
-        # taunting
-        neighbor_enemies = field.enemies_in_distance(champion, champion.y, champion.x, 1)
-        for n in neighbor_enemies:
-            old_target = n.target
-            n.add_que('change_target', -1, None, None, champion)
-            n.add_que('change_target', item_stats.item_change_length['zzrot_portal'], None, None, old_target)
+def anima_visage(champion):
+    return
 
+def blacksmiths_gloves(champion):
+    return
 
-# summon the blobs
-def zzrot_portal_helper(champion):
+def blighting_jewel(champion):
+    return
 
-    item_amount = len(list(filter(lambda x: x == 'zzrot_portal', champion.items)))
-    spawn_hexes = field.hexes_in_distance(champion.y, champion.x, 3)
+def corrupt_vampiric_scepter(champion):
+    return
 
-    coords = field.coordinates
+def deaths_defiance(champion):
+    return
 
-    for i, s in enumerate(spawn_hexes):
-        d = field.distance({'y': s[0], 'x': s[1]}, {'y': champion.y, 'x': champion.x}, False)
-        spawn_hexes[i].append(d)
-    random.shuffle(spawn_hexes)
-    spawn_hexes = sorted(spawn_hexes, key=lambda x: x[2])
+def deathfire_grasp(champion):
+    return
 
-    # find us a list of free hexes
-    spawn_hexes = list(filter(lambda x: not coords[x[0]][x[1]], spawn_hexes))
-    spawn_hexes = spawn_hexes[:item_amount]
+def eternal_winter(champion):
+    return
 
-    for s in spawn_hexes:
-        champion.print(' zzrot_portal spawns a construct at {}'.format([s[0], s[1]]))
-        champion.spawn('construct', champion.stars, s[0], s[1])
+def fishbones(champion):
+    return
 
+def forbidden_idol(champion):
+    return
 
-def duelists_zeal(champion):
-    if champion.team:
-        origin_class.amounts['duelist'][champion.team] += \
-            len(list(filter(lambda x: x == 'duelists_zeal', champion.items)))
+def gamblers_blade(champion):
+    return
 
+def gold_collector(champion):
+    return
 
-def elderwood_heirloom(champion):
-    if champion.team:
-        origin_class.amounts['elderwood'][champion.team] += \
-            len(list(filter(lambda x: x == 'elderwood_heirloom', champion.items)))
+def horizon_focus(champion):
+    return
 
+def hullcrusher(champion):
+    return
 
-def mages_cap(champion):
-    if champion.team:
-        origin_class.amounts['mage'][champion.team] += \
-            len(list(filter(lambda x: x == 'mages_cap', champion.items)))
+def infinity_force(champion):
+    return
 
+def innervating_locket(champion):
+    return
 
-def mantle_of_dusk(champion):
-    if champion.team:
-        origin_class.amounts['dusk'][champion.team] += \
-            len(list(filter(lambda x: x == 'mantle_of_dusk', champion.items)))
+def lich_bane(champion):
+    return
 
+def lightshield_crest(champion):
+    return
 
-def sword_of_the_divine(champion):
-    if champion.team:
-        origin_class.amounts['divine'][champion.team] +=\
-            len(list(filter(lambda x: x == 'sword_of_the_divine', champion.items)))
+def ludens_tempest(champion):
+    return
 
+def manazane(champion):
+    return
 
-def vanguards_cuirass(champion):
-    if champion.team:
-        origin_class.amounts['vanguard'][champion.team] += \
-            len(list(filter(lambda x: x == 'vanguards_cuirass', champion.items)))
+def mittens(champion):
+    return
 
+def moguls_mail(champion):
+    return
 
-def warlords_banner(champion):
-    if champion.team:
-        origin_class.amounts['warlord'][champion.team] += \
-            len(list(filter(lambda x: x == 'warlords_banner', champion.items)))
+def prowlers_claw(champion):
+    return
 
+def rapid_firecannon(champion):
+    return
 
-def youmuus_ghostblade(champion):
-    if champion.team:
-        origin_class.amounts['assassin'][champion.team] += \
-            len(list(filter(lambda x: x == 'youmuus_ghostblade', champion.items)))
+def seekers_armguard(champion):
+    return
+
+def silvermere_dawn(champion):
+    return
+
+def snipers_focues(champion):
+    return
+
+def spectral_cutlass(champion):
+    return
+
+def talisman_of_ascension(champion):
+    return
+
+def tricksters_glass(champion):
+    return
+
+def unending_despair(champion):
+    return
+
+def wits_end(champion):
+    return
+
+def zhonyas_paradox(champion):
+    return
+
+def sugarcraft_emblem(champion):
+    return
+
+def frost_emblem(champion):
+    return
+
+def eldritch_emblem(champion):
+    return
+
+def portal_emblem(champion):
+    return
+
+def witchcraft_emblem(champion):
+    return
+
+def pyro_emblem(champion):
+    return
+
+def honeymancy_emblem(champion):
+    return
+
+def faerie_emblem(champion):
+    return
+
+def hunter_emblem(champion):
+    return
+
+def bastion_emblem(champion):
+    return
+
+def shapeshifter_emblem(champion):
+    return
+
+def mage_emblem(champion):
+    return
+
+def preserver_emblem(champion):
+    return
+
+def multistriker_emblem(champion):
+    return
+
+def warrior_emblem(champion):
+    return
+
+def scholar_emblem(champion):
+    return
+
+def tacticians_crown(champion):
+    return
+
+def tacticians_cape(champion):
+    return
+
+def tacticians_shield(champion):
+    return
