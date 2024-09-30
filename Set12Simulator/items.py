@@ -93,6 +93,8 @@ def deathblade(champion, target):
         if([champion, target] not in deathblade_list):
             deathblade_list.append([champion, target])
 
+def edge_of_night(champion):
+    return
 
 def protectors_vow(champion):
     return
@@ -457,6 +459,264 @@ def evenshroud(champion):
     return
 
 def nashors_tooth(champion):
+    return
+
+def absolution(champion):
+    return
+
+def blessed_bloodthirster(champion):
+    return
+
+def blue_blessing(champion):
+    return
+
+def brink_of_dawn(champion):
+    return
+
+def bulwarks_oath(champion):
+    return
+
+def covalent_spark(champion):
+    return
+
+def crest_of_cinders(champion):
+    return
+
+def demonslayer(champion):
+    return
+
+def dragons_will(champion):
+    return
+
+def dvarapala_stoneplate(champion):
+    return
+
+def equinox(champion):
+    return
+
+def eternal_whisper(champion):
+    return
+
+def fist_of_fairness(champion):
+    return
+
+def glamourous_gauntlet(champion):
+    return
+
+def guinsoos_reckoning(champion):
+    return
+
+def hextech_lifeblade(champion):
+    return
+
+def jaksho_the_protean(champion):
+    return
+
+def legacy_of_the_colossus(champion):
+    return
+
+def luminous_deathblade(champion):
+    return
+
+def more_more_ellonomicon(champion):
+    return
+
+def quickestsilver(champion):
+    return
+
+def rabadons_ascended_deathcap(champion):
+    return
+
+def rascals_gloves(champion):
+    return
+
+def rosethrorn_vest(champion):
+    return
+
+def royal_crownshield(champion):
+    return
+
+def runaans_tempest(champion):
+    return
+
+def spear_of_hirana(champion):
+    return
+
+def statikk_favor(champion):
+    return
+
+def steraks_megashield(champion):
+    return
+
+def sunlight_cape(champion):
+    return
+
+def the_barons_gift(champion):
+    return
+
+def titans_vow(champion):
+    return
+
+def urf_angels_staff(champion):
+    return
+
+def warmogs_pride(champion):
+    return
+
+def willbreaker(champion):
+    return
+
+def zenith_edge(champion):
+    return
+
+def accomplices_glove(champion):
+    return
+
+def aegis_of_the_legion(champion):
+    return
+
+def banshees_veil(champion):
+    return
+
+def chalice_of_power(champion):
+    return
+
+def knights_vow(champion):
+    return
+
+def locket_of_the_iron_solari(champion):
+    return
+
+def moonstone_renewer(champion):
+    return
+
+def needlessly_big_gem(champion):
+    return
+
+def obsidian_cleaver(champion):
+    return
+
+def randuins_omen(champion):
+    return
+
+def shroud_of_stillness(champion):
+    return
+
+def spite(champion):
+    return
+
+def the_eternal_flame(champion):
+    return
+
+def unstable_treasure_chest(champion):
+    return
+
+def virtue_of_the_martyr(champion):
+    return
+
+def zekes_herald(champion):
+    return
+
+def zephyr(champion):
+    return
+
+def zzrot_portal(champion):
+    return
+
+def anima_visage(champion):
+    return
+
+def blacksmiths_gloves(champion):
+    return
+
+def blighting_jewel(champion):
+    return
+
+def corrupt_vampiric_scepter(champion):
+    return
+
+def deaths_defiance(champion):
+    return
+
+def deathfire_grasp(champion):
+    return
+
+def eternal_winter(champion):
+    return
+
+def fishbones(champion):
+    return
+
+def forbidden_idol(champion):
+    return
+
+def gamblers_blade(champion):
+    return
+
+def gold_collector(champion):
+    return
+
+def horizon_focus(champion):
+    return
+
+def hullcrusher(champion):
+    return
+
+def infinity_force(champion):
+    return
+
+def innervating_locket(champion):
+    return
+
+def lich_bane(champion):
+    return
+
+def lightshield_crest(champion):
+    return
+
+def ludens_tempest(champion):
+    return
+
+def manazane(champion):
+    return
+
+def mittens(champion):
+    return
+
+def moguls_mail(champion):
+    return
+
+def prowlers_claw(champion):
+    return
+
+def rapid_firecannon(champion):
+    return
+
+def seekers_armguard(champion):
+    return
+
+def silvermere_dawn(champion):
+    return
+
+def snipers_focues(champion):
+    return
+
+def spectral_cutlass(champion):
+    return
+
+def talisman_of_ascension(champion):
+    return
+
+def tricksters_glass(champion):
+    return
+
+def unending_despair(champion):
+    return
+
+def wits_end(champion):
+    return
+
+def zhonyas_paradox(champion):
     return
 
 def sugarcraft_emblem(champion):
