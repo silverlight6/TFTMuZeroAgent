@@ -338,6 +338,8 @@ class AIInterface:
         envs.close()
         writer.close()
 
+    def position_muzero_testing(self):
+        return
 
     def collect_dummy_data(self) -> None:
         """

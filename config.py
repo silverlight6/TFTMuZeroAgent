@@ -57,6 +57,7 @@ DEVICE = "cuda"
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 REP_TRAINER = get_bool_env("REP_TRAINER")
+MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
 
 PATH = path.dirname(path.realpath(__file__))
 

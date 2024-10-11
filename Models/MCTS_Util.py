@@ -49,7 +49,16 @@ def create_default_mapping():
                 mask.append(0)
 
     mappings = [mappings] * config.NUM_PLAYERS
-    mask = mask
+
+    return mappings, mask
+
+def create_position_default_mapping():
+    mappings = []
+    mask = []
+
+    for a in range(29):
+        mappings.append(f"{a}")
+        mask.append(1)
 
     return mappings, mask
 

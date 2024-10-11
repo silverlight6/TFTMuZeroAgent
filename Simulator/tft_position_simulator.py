@@ -33,8 +33,9 @@ class TFT_Position_Simulator(gym.Env):
 
         self.reward = 0
         self.max_reward = 1
+        self.max_player_count = 12
 
-        self.action_space = MultiDiscrete(np.ones(12) * 29)
+        self.action_space = MultiDiscrete(np.ones(self.max_player_count) * 29)
 
         self.observation_space = Dict({
             "observations": Dict({
@@ -60,6 +61,9 @@ class TFT_Position_Simulator(gym.Env):
         self.leveling_system = PositionLevelingSystem()
         self.index = index
         self.observation_class = ObservationToken
+
+        self.multi_step = config.MULTI_STEP_POSITION
+        self.action_count = 0
 
         super().__init__()
 
@@ -97,6 +101,7 @@ class TFT_Position_Simulator(gym.Env):
             "observations": self.observation_class.observation_to_position_input(initial_observation),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
+        self.action_count = 0
 
         return observation, {}
 
@@ -120,16 +125,27 @@ class TFT_Position_Simulator(gym.Env):
         self.PLAYER.printt("Position Simulator before movement")
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
-        self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
-        initial_reward = self.PLAYER.reward
-        self.PLAYER.reward = 0
+        if self.action_count == 0:
+            self.step_function.create_unit_list(self.PLAYER)
+            self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
         if action is not None:
-            self.step_function.position_controller(action, self.PLAYER)
-        self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
-        self.reward = self.PLAYER.reward - initial_reward
-        if np.abs(self.reward) > self.max_reward:
-            self.max_reward = np.abs(self.reward)
-        self.reward = self.reward / self.max_reward + 1
+            if config.MULTI_STEP_POSITION:
+                self.step_function.multi_step_position_controller(action, self.PLAYER, self.action_count)
+                self.action_count += 1
+            else:
+                self.step_function.position_controller(action, self.PLAYER)
+        if not config.MULTI_STEP_POSITION or self.action_count == self.max_player_count - 1:
+            initial_reward = self.PLAYER.reward
+            self.PLAYER.reward = 0
+            self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
+            self.reward = self.PLAYER.reward - initial_reward
+            if np.abs(self.reward) > self.max_reward:
+                self.max_reward = np.abs(self.reward)
+            self.reward = self.reward / self.max_reward + 1
+            termination = True
+        else:
+            self.reward = 0
+            termination = False
 
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
@@ -140,7 +156,7 @@ class TFT_Position_Simulator(gym.Env):
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
 
-        return observation, self.reward, True, False, {}
+        return observation, self.reward, termination, False, {}
 
     # Building the action mask, the from_place is in case I need information for debugging.
     def full_mask_to_action_mask(self, player, mask, from_place='step'):

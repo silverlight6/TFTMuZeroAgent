@@ -5,6 +5,7 @@ from Simulator.utils import coord_to_x_y
 class Step_Function:
     def __init__(self, player_manager):
         self.player_manager = player_manager
+        self.position_list = []
 
     # --- Main Action Function ---
     def perform_action(self, player_id, action):
@@ -103,7 +104,6 @@ class Step_Function:
                 | (21) (22) (23) (24) (25) (26) (27) |
                                         Bottom
         """
-        # print(f"action {action} for player {player.player_num}")
         # Remove all duplicate actions, keep the early ones.
         destination = []
         for x in action:
@@ -117,27 +117,17 @@ class Step_Function:
             x1, y1 = coord_to_x_y(int(x))
             destination_coords.append([x1, y1])
 
-        starting_square = []
-        starting_square_names = []
-        for coord in range(len(player.board) * len(player.board[0])):
-            x, y = coord_to_x_y(coord)
-            if player.board[x][y]:
-                starting_square.append([x, y])
-                starting_square_names.append(player.board[x][y].name)
-        # print(f"destination_coords {destination_coords} for player {player.player_num}")
-        # print(f"starting_square {starting_square}")
-        # print(f"starting_square_names {starting_square_names}")
         for i, coord in enumerate(destination_coords):
             # 28 pass rule.
             if coord[0] != 7:
-                temp_square = starting_square[i]
+                temp_square = self.position_list[i]
                 player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
                 # Make note that this square was already used
-                starting_square[i] = [-1, -1]
+                self.position_list[i] = [-1, -1]
                 # Adjust starting points to keep track of where units are moving.
-                for j, square in enumerate(starting_square):
+                for j, square in enumerate(self.position_list):
                     if coord == square:
-                        starting_square[j] = temp_square
+                        self.position_list[j] = temp_square
 
     def item_controller(self, action, player, item_guide):
         """
@@ -177,3 +167,10 @@ class Step_Function:
             if coord[0] != 7:
                 if coord in starting_square:
                     player.move_item(i, coord[0], coord[1])
+
+    def create_unit_list(self, player):
+        self.position_list = []
+        for coord in range(len(player.board) * len(player.board[0])):
+            x, y = coord_to_x_y(coord)
+            if player.board[x][y]:
+                self.position_list.append([x, y])
