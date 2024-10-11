@@ -340,6 +340,7 @@ class DataWorker(object):
     '''
     def observation_to_input(self, observation):
         scalars = []
+        emb_scalars = []
         shop = []
         board = []
         bench = []
@@ -348,6 +349,7 @@ class DataWorker(object):
         masks = []
         for key, obs in observation.items():
             scalars.append(obs["observations"]["scalars"])
+            emb_scalars.append(obs["observations"]["emb_scalars"])
             shop.append(obs["observations"]["shop"])
             board.append(obs["observations"]["board"])
             bench.append(obs["observations"]["bench"])
@@ -356,6 +358,7 @@ class DataWorker(object):
             masks.append(obs["action_mask"])
         tensors = {
             "scalars": np.array(scalars),
+            "emb_scalars": np.array(emb_scalars),
             "shop": np.array(shop),
             "board": np.array(board),
             "bench": np.array(bench),
@@ -378,6 +381,7 @@ class DataWorker(object):
     def get_obs_idx(self, observation, idx):
         return {
             "scalars": observation["scalars"][idx],
+            "emb_scalars": observation["emb_scalars"][idx],
             "shop": observation["shop"][idx],
             "board": observation["board"][idx],
             "bench": observation["bench"][idx],
@@ -428,7 +432,8 @@ class DataWorker(object):
 
     def model_call(self, player_observation, info):
         if config.IMITATION:
-            actions, policy, string_samples, root_values = self.imitation_learning(info, player_observation[1])
+            actions, policy, string_samples, root_values = self.imitation_learning(info,
+                                                                                   player_observation["action_mask"])
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)
@@ -481,6 +486,7 @@ class DataWorker(object):
     def split_live_past_observations(self, player_observation):
         live_agent_observations = {
             "scalars": [],
+            "emb_scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
@@ -489,6 +495,7 @@ class DataWorker(object):
         }
         past_agent_observations = {
             "scalars": [],
+            "emb_scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
@@ -523,6 +530,7 @@ class DataWorker(object):
     def live_agent_to_input(self, live_player_observation, live_agent_masks):
         live_agent_observations = {
             "scalars": [],
+            "emb_scalars": [],
             "shop": [],
             "board": [],
             "bench": [],

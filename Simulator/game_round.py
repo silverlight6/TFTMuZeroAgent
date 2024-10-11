@@ -33,6 +33,7 @@ class Game_Round:
 
         log_to_file_start()
 
+        # TODO: Verify that the carousel rounds are in the correct locations
         self.game_rounds = [
             [self.round_1],
             [self.minion_round],
@@ -341,9 +342,9 @@ class Game_Round:
     def carousel_round(self):
         carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-                if player:
-                    log_to_file(player)
-                    player.refill_item_pool()
+            if player:
+                log_to_file(player)
+                player.refill_item_pool()
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")

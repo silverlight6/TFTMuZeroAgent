@@ -37,8 +37,8 @@ def carousel(players, r, pool_obj):
                 current = champ
         player.add_to_bench(current)
         champions.remove(current)
-    # pool updating should be handled upon a player choosing a champion
-    # much easier this way
+        # pool updating should be handled upon a player choosing a champion
+        # much easier this way
         pool_obj.update_pool(current, -1)
 
 # this will handle champion generation based on the current round

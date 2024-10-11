@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 import config
+import time
 
 from Simulator.observation.util import Util
 from Simulator.observation.normalization import Normalizer, safe_normalize
@@ -48,6 +49,9 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         # --- Private Scalars --- #
         self.private_scalars = self.create_private_scalars(player)
 
+        # --- Embedding Scalars --- #
+        self.embedding_scalars = self.create_embedding_scalars(player)
+
         # --- Public Vectors --- #
         self.board_vector = self.create_board_vector(player)
         self.bench_vector = self.create_bench_vector(player)
@@ -73,8 +77,9 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             "scalars": np.concatenate([
                 self.game_scalars,
                 self.public_scalars,
-                self.private_scalars
+                self.private_scalars,
             ]),
+            "emb_scalars": self.embedding_scalars,
             "board": self.board_vector,
             "bench": self.bench_vector,
             "shop": self.shop_vector,
@@ -188,6 +193,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
         self.board_vector = self.create_board_vector(self.player)
         self.bench_vector = self.create_bench_vector(self.player)
@@ -205,6 +211,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
     def update_refresh_action(self, action):
         """Update vectors and masks related to the refresh action.
@@ -215,6 +222,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
         self.shop_vector = self.create_shop_vector(self.player)
 
@@ -227,6 +235,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
         self.board_vector = self.create_board_vector(self.player)
         self.bench_vector = self.create_bench_vector(self.player)
@@ -242,6 +251,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
         self.board_vector = self.create_board_vector(self.player)
         self.bench_vector = self.create_bench_vector(self.player)
@@ -257,6 +267,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         self.game_scalars = self.create_game_scalars(self.player)
         self.private_scalars = self.create_private_scalars(self.player)
         self.public_scalars = self.create_public_scalars(self.player)
+        self.embedding_scalars = self.create_embedding_scalars(self.player)
 
         self.board_vector = self.create_board_vector(self.player)
         self.bench_vector = self.create_bench_vector(self.player)
@@ -283,8 +294,8 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
                 count += 1
 
         return np.array([
-            player.round,
-            player.actions_remaining,
+            player.round / 30,
+            player.actions_remaining / 30,
             *opponentIDs,
             # TODO: Action History
         ])
@@ -294,13 +305,13 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         """Create public scalars for a player
 
         Public Scalars:
-            - health: int
-            - level: int
-            - win streak: int
-            - loss streak: int
-            - max units: int
-            - available units: int
-            - economy: int
+            - health: float
+            - level: float
+            - win streak: float
+            - loss streak: float
+            - max units: float
+            - available units: float
+            - economy: float
         """
 
         streak_lvl = 0
@@ -344,15 +355,46 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
                 opponent_options[x] = -1
 
         return_array = np.array([
-            min(player.gold, 100) / 100,
             player.exp / 100,
             player.round / 30,
-            exp_to_level,
             max(player.win_streak, player.loss_streak) / 30,
             player.actions_remaining / config.ACTIONS_PER_TURN
         ])
 
-        return np.concatenate([return_array, match_history, opponent_options], axis=-1)
+        return np.concatenate([return_array, match_history], axis=-1)
+
+    def create_embedding_scalars(self, player):
+        # 60 on this patch, probably higher on a future patch
+        gold = player.gold if player.gold < 60 else 60
+        # 101 on this patch, probably higher on a future patch, 0 is never used but this is more human friendly
+        health = player.health
+        # lets be safe and go with 100
+        exp_to_level = 0
+        if player.level < player.max_level:
+            exp_to_level = (player.level_costs[player.level] - player.exp) / player.level_costs[player.level]
+        # no more than 40
+        game_round = player.round
+        opponent_options = np.zeros(8)
+        for x in range(8):
+            if ("player_" + str(x)) in player.opponent_options:
+                opponent_options[x] = 1 if player.opponent_options["player_" + str(x)] > 0 else 0
+            else:
+                opponent_options[x] = 0
+        # 64 values
+        next_fight_scalar = 0
+        for i, x in enumerate(opponent_options):
+            if i != player.player_num:
+                next_fight_scalar *= 2
+                next_fight_scalar += x
+        # 10 values
+        level = player.level
+        assert gold <= 60
+        assert health <= 100
+        assert exp_to_level <= 100
+        assert game_round < 40
+        assert next_fight_scalar < 256
+        assert level < 10
+        return np.array([gold, health, exp_to_level, game_round, next_fight_scalar, level], dtype=np.int16)
 
     # -- Champion -- #
     def create_champion_vector(self, champion):
@@ -417,6 +459,9 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
         board_vector = np.zeros((28, self.champion_vector_length), dtype=np.float32)
 
+        player.team_champion_labels[:, 0] = 1
+        player.team_champion_labels[:, 1] = 0
+
         for x in range(len(player.board)):
             for y in range(len(player.board[x])):
                 if champion := player.board[x][y]:
@@ -424,6 +469,12 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
                     loc = x_y_to_1d_coord(x, y)
                     board_vector[loc] = champion_vector
+
+                    c_index = list(COST.keys()).index(player.board[x][y].name)
+                    # create the label for the champion to help with training
+                    if c_index < len(config.CHAMPION_ACTION_DIM):
+                        player.team_champion_labels[c_index - 1, 0] = 0
+                        player.team_champion_labels[c_index - 1, 1] = 1
 
         return board_vector
 
@@ -559,6 +610,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             "shop": observation["player"]["shop"],
             "scalars": np.concatenate([np.expand_dims(observation["player"]["scalars"], axis=0),
                                       other_players["scalars"]], axis=1, dtype=np.float32),
+            "emb_scalars": observation["player"]["emb_scalars"],
         }
 
     @staticmethod
