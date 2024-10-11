@@ -345,7 +345,7 @@ class Default_Agent:
                 while len(item_idx) > 0:
                     item, idx = item_idx.pop()
                     if mask[37 + idx][coord]:
-                        return "6_" + str(idx) + "_" + str(coord)
+                        return "6_" + str(coord) + "_" + str(idx)
         
             self.round_3_10_checks[5] = False
 

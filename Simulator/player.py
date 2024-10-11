@@ -193,7 +193,7 @@ class Player:
         # Can't buy exp if you are max level or don't have enough gold
         if self.gold < self.exp_cost or self.level == self.max_level:
             if DEBUG:
-                print(f"Did not have gold to buy_exp, gold {self.gold} with level {self.level}")
+                print(f"Did not have gold to buy_exp, gold {self.gold} with level {self.level} and shop {self.shop}")
             return False
 
         self.gold -= self.exp_cost

@@ -246,14 +246,21 @@ class RepEmbeddingNetwork(torch.nn.Module):
         # Technically have the other players item bench as well as their champion bench, not including for space reasons
         self.item_bench_embeddings = torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 2).to(config.DEVICE)
 
-        self.shop_champion_encoder = \
+        self.shop_champion_embedding = \
             torch.nn.Embedding(221, model_config.CHAMPION_EMBEDDING_DIM * 3 // 4).to(config.DEVICE)
 
         # Technically have the shop_item availability but shops never have items so I am not including it.
-        self.shop_trait_encoder = torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 4).to(config.DEVICE)
+        self.shop_trait_embedding = torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 4).to(config.DEVICE)
 
         self.scalar_encoder = AlternateFeatureEncoder(config.SCALAR_INPUT_SIZE, layer_sizes,
                                                       model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
+
+        self.gold_embedding = torch.nn.Embedding(61, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.health_embedding = torch.nn.Embedding(101, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.exp_embedding = torch.nn.Embedding(101, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.game_round_embedding = torch.nn.Embedding(40, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.oppo_options_embedding = torch.nn.Embedding(128, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.level_embedding = torch.nn.Embedding(10, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
 
         # Main processing unit
         self.full_encoder = TransformerEncoder(
@@ -313,14 +320,24 @@ class RepEmbeddingNetwork(torch.nn.Module):
         bench_embeddings = torch.cat([bench_emb, bench_item_emb, bench_trait_emb], dim=-1)
         bench_embeddings = torch.reshape(bench_embeddings, (batch_size, -1, self.champion_embedding_dim))
 
-        shop_champion_emb = self.shop_champion_encoder(x['shop'][..., 0].long())
-        shop_champion_trait_emb = self.shop_trait_encoder(x['shop'][..., 4].long())
+        shop_champion_emb = self.shop_champion_embedding(x['shop'][..., 0].long())
+        shop_champion_trait_emb = self.shop_trait_embedding(x['shop'][..., 4].long())
         shop_embeddings = torch.cat([shop_champion_emb, shop_champion_trait_emb], dim=-1)
         shop_embeddings = torch.reshape(shop_embeddings, (batch_size, -1, self.champion_embedding_dim))
         scalar_encoding = self.scalar_encoder(x['scalars'])
 
+        gold_embedding = self.gold_embedding(x['emb_scalars'][..., 0].long())
+        health_embedding = self.health_embedding(x['emb_scalars'][..., 1].long())
+        exp_embedding = self.exp_embedding(x['emb_scalars'][..., 2].long())
+        game_round_embedding = self.game_round_embedding(x['emb_scalars'][..., 3].long())
+        opponent_options_embedding = self.oppo_options_embedding(x['emb_scalars'][..., 4].long())
+        level_embedding = self.level_embedding(x['emb_scalars'][..., 5].long())
+        scalar_embeddings = torch.cat([gold_embedding, health_embedding, exp_embedding, game_round_embedding,
+                                       opponent_options_embedding, level_embedding], dim=-1)
+        scalar_embeddings = torch.reshape(scalar_embeddings, (batch_size, -1, self.champion_embedding_dim))
+
         full_embeddings = torch.cat([champion_embeddings, trait_encoding, item_bench_embeddings, bench_embeddings,
-                                     shop_embeddings, scalar_encoding], dim=1)
+                                     shop_embeddings, scalar_encoding, scalar_embeddings], dim=1)
 
         # Add positional embeddings to full_embeddings
         position_ids = torch.arange(full_embeddings.shape[1], dtype=torch.long, device=config.DEVICE).unsqueeze(0)
