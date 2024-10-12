@@ -37,16 +37,26 @@ def create_default_mapping():
     for a in range(38):
         if a == 0:
             mappings.append(f"0")
-            mappings.append(f"1")
-            mappings.append(f"2")
-            for _ in range(3):
-                mask.append(1)
+            mask.append(1)
         else:
             mappings.append(f"0_{a}")
+            mask.append(0)
+
+    for a in range(38):
+        if a == 0:
+            mappings.append(f"1")
+            mask.append(1)
+        else:
             mappings.append(f"1_{a}")
+            mask.append(0)
+
+    for a in range(38):
+        if a == 0:
+            mappings.append(f"2")
+            mask.append(1)
+        else:
             mappings.append(f"2_{a}")
-            for _ in range(3):
-                mask.append(0)
+            mask.append(0)
 
     mappings = [mappings] * config.NUM_PLAYERS
 

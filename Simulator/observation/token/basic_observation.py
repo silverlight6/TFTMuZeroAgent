@@ -339,20 +339,10 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             - exp to next level: int
             - gold: int
         """
-        exp_to_level = 0
-        if player.level < player.max_level:
-            exp_to_level = (player.level_costs[player.level] - player.exp) / player.level_costs[player.level]
         match_history = np.zeros(3)
         if len(player.match_history) > 2:
             match_history = player.match_history[-3::]
         # Who we can play against in the next round. / 20 to keep numbers between 0 and 1.
-        # TODO: FIX THIS
-        opponent_options = np.zeros(8)
-        for x in range(8):
-            if ("player_" + str(x)) in player.opponent_options:
-                opponent_options[x] = player.opponent_options["player_" + str(x)] / 20
-            else:
-                opponent_options[x] = -1
 
         return_array = np.array([
             player.exp / 100,
@@ -371,7 +361,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         # lets be safe and go with 100
         exp_to_level = 0
         if player.level < player.max_level:
-            exp_to_level = (player.level_costs[player.level] - player.exp) / player.level_costs[player.level]
+            exp_to_level = (player.level_costs[player.level] - player.exp)
         # no more than 40
         game_round = player.round
         opponent_options = np.zeros(8)

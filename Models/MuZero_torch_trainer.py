@@ -69,6 +69,7 @@ class Trainer(object):
     def compute_forward(self, observation, action_history):
         self.network.train()
         grad_scale = 0.5
+        print(observation["emb_scalars"])
         output = self.network.initial_inference(observation, training=True)
 
         predictions = [

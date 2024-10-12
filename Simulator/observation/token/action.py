@@ -192,7 +192,6 @@ class ActionToken(ActionBase, ActionVectorBase):
         """Update vectors and masks after game round.
 
         After a battle, your hp, gold, exp, and shop changes
-        `refresh_all_shops` calls `update_refresh_action`, so no use calling those twice
         Round might be a carousel/minion round, so just update everything just in case
         """
         self.move_sell_board_mask, self.move_sell_bench_mask = self.create_move_and_sell_action_mask(self.player)
@@ -263,11 +262,12 @@ class ActionToken(ActionBase, ActionVectorBase):
         Exp Action Vector: (1)
         """
 
-        exp_action_mask = 1
+        exp_action_mask = 0
 
-        if player.gold < player.exp_cost or player.level == player.max_level:
-            exp_action_mask = 0
+        if player.gold >= player.exp_cost and player.level != player.max_level:
+            exp_action_mask = 1
 
+        # print(f"player.gold --> {player.gold} and exp_mask --> {exp_action_mask}")
         return exp_action_mask
 
     def create_refresh_action_mask(self, player):
