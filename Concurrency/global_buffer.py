@@ -133,7 +133,7 @@ class GlobalBuffer(object):
             - True if there is enough data and the trainer is free, false otherwise.
         """
         queue_length = self.gameplay_experiences.size
-        if queue_length >= self.batch_size and not await self.storage_ptr.get_trainer_busy.remote():
+        if queue_length > self.batch_size and not await self.storage_ptr.get_trainer_busy.remote():
             print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
             await self.storage_ptr.set_trainer_busy.remote(True)
             return True
