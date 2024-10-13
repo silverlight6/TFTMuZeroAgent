@@ -72,6 +72,7 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
+
     """
     I'll write in here what I want to do with this.
     I need to start by creating an environment where I can get random positions. 

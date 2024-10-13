@@ -84,7 +84,7 @@ class ActionToken(ActionBase, ActionVectorBase):
         elif col < 47:
             from_loc = col - 37
             to_loc = index
-            action = [6, from_loc, to_loc]
+            action = [6, to_loc, from_loc]
             
         # Shop Slots
         elif col < 52:

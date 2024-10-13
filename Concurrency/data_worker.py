@@ -9,6 +9,7 @@ from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Models.GumbelModels.gumbel_MCTS import GumbelMuZero
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from config import GPU_SIZE_PER_WORKER
@@ -29,6 +30,11 @@ class DataWorker(object):
             self.temp_model = DefaultNetwork(model_config)
             self.agent_network = Default_MCTS(self.temp_model, model_config)
             self.past_network = Default_MCTS(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        elif config.GUMBEL:
+            self.temp_model = TFTNetwork(model_config)
+            self.agent_network = GumbelMuZero(self.temp_model, model_config)
+            self.past_network = GumbelMuZero(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork(model_config)
@@ -93,7 +99,10 @@ class DataWorker(object):
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
                 actions, policy, string_samples, root_values = self.model_call(player_observation, info)
-                storage_actions = utils.decode_action(actions)
+                if config.GUMBEL:
+                    storage_actions = actions
+                else:
+                    storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -107,11 +116,16 @@ class DataWorker(object):
                                 current_comp[key] = info[key]["player"].get_tier_labels()
                                 current_champs[key] = info[key]["player"].get_champion_labels()
                             # Store the information in a buffer to train on later.
-                            buffers.store_replay_buffer.remote(key,
-                                                               self.get_obs_idx(player_observation["observations"], i),
-                                                               storage_actions[i], reward[key], policy[i],
-                                                               string_samples[i], root_values[i], current_comp[key],
-                                                               current_champs[key])
+                            # print(f"root_values {root_values} len(root_values) {len(root_values)}, {root_values[0]}")
+                            if config.GUMBEL:
+                                buffers.store_gumbel_buffer.remote(key, self.get_obs_idx(
+                                    player_observation["observations"], i), storage_actions[i], reward[key], policy[i],
+                                                                   root_values[i])
+                            else:
+                                buffers.store_replay_buffer.remote(key, self.get_obs_idx(
+                                    player_observation["observations"], i), storage_actions[i], reward[key], policy[i],
+                                                                   string_samples[i], root_values[i], current_comp[key],
+                                                                   current_champs[key])
 
                 offset = 0
                 for i, [key, terminate] in enumerate(terminated.items()):
@@ -143,7 +157,10 @@ class DataWorker(object):
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
                 [past_weights, self.past_episode, self.prob] = ray.get(storage.sample_past_model.remote())
-                self.past_network = MCTS(self.temp_model, self.model_config)
+                if config.GUMBEL:
+                    self.past_network = GumbelMuZero(self.temp_model, self.model_config)
+                else:
+                    self.past_network = MCTS(self.temp_model, self.model_config)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
@@ -165,7 +182,10 @@ class DataWorker(object):
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = MCTS(self.temp_model, self.model_config)
+            if config.GUMBEL:
+                self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
+            else:
+                self.agent_network = MCTS(self.temp_model, self.model_config)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -329,7 +349,10 @@ class DataWorker(object):
                 step_actions[player_id] = actions[i]
             elif not terminate and i >= len(actions):
                 # Some bug here but I'm not sure the source so sending a passing action. Happens once every 100 games
-                step_actions[player_id] = np.asarray([0, 0, 0])
+                if config.GUMBEL:
+                    step_actions[player_id] = np.asarray([1976])
+                else:
+                    step_actions[player_id] = np.asarray([0, 0, 0])
             i += 1
         return step_actions
 
@@ -434,6 +457,9 @@ class DataWorker(object):
         if config.IMITATION:
             actions, policy, string_samples, root_values = self.imitation_learning(info,
                                                                                    player_observation["action_mask"])
+        elif config.GUMBEL:
+            actions, policy, root_values = self.agent_network.policy(player_observation)
+            string_samples = []
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
             actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)

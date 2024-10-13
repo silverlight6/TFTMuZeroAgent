@@ -42,6 +42,14 @@ class ReplayBuffer:
         self.team_tiers.append(team_tiers)
         self.team_champions.append(team_champions)
 
+    def store_gumbel_buffer(self, observation, action, reward, policy, root_value):
+        self.gameplay_experiences.append(observation)
+        self.action_history.append(action)
+        np.clip(reward, config.MINIMUM_REWARD, config.MAXIMUM_REWARD)
+        self.rewards.append(reward)
+        self.policy_distributions.append(policy)
+        self.root_values.append(root_value)
+
     def get_prev_action(self):
         if self.action_history:
             return self.action_history[-1]
@@ -61,7 +69,6 @@ class ReplayBuffer:
         self.ending_position = ending_position
 
     def store_global_buffer(self, global_buffer):
-
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
         samples_per_player = config.SAMPLES_PER_PLAYER \
@@ -113,7 +120,10 @@ class ReplayBuffer:
                     
                     priority = 0.001
                     if current_index < num_steps:
-                        priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
+                        if config.GUMBEL:
+                            priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
+                        else:
+                            priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
                     priority_set.append(priority)
 
                     reward_mask = 1.0 if current_index > sample else 0.0
@@ -124,28 +134,35 @@ class ReplayBuffer:
                             if config.CHAMP_DECIDER:
                                 action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                             else:
-                                # To weed this out later when sampling the global buffer
-                                action_set.append([0, 0, 0])
-                        value_mask_set.append(1.0)
-                        reward_mask_set.append(reward_mask)
+                                if config.GUMBEL:
+                                    action_set.append([1976])
+                                else:
+                                    # To weed this out later when sampling the global buffer
+                                    action_set.append([0, 0, 0])
+
                         policy_mask_set.append(1.0)
                         value_set.append(value)
                         # This is current_index - 1 in the Google's code but in my version
                         # This is simply current_index since I store the reward with the same time stamp
                         reward_set.append(reward_correction[current_index])
                         policy_set.append(self.policy_distributions[current_index])
-                        sample_set.append(self.string_samples[current_index])
-                        tier_set.append(self.team_tiers[current_index])
-                        final_tier_set.append(self.team_tiers[-1])
-                        champion_set.append(self.team_champions[current_index])
+                        if not config.GUMBEL:
+                            value_mask_set.append(1.0)
+                            reward_mask_set.append(reward_mask)
+                            sample_set.append(self.string_samples[current_index])
+                            tier_set.append(self.team_tiers[current_index])
+                            final_tier_set.append(self.team_tiers[-1])
+                            champion_set.append(self.team_champions[current_index])
                     elif current_index == num_steps - 1:
                         if config.CHAMP_DECIDER:
                             action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
-                            # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0])
-                        value_mask_set.append(0.0)
-                        reward_mask_set.append(reward_mask)
+                            if config.GUMBEL:
+                                action_set.append([1976])
+                            else:
+                                # To weed this out later when sampling the global buffer
+                                action_set.append([0, 0, 0])
+
                         policy_mask_set.append(0.0)
                         # This is 0.0 in Google's code but thinking this should be the same as the reward?
                         # The value of the terminal state should equal
@@ -154,28 +171,36 @@ class ReplayBuffer:
                         reward_set.append(reward_correction[current_index])
                         # 0 is ok here because this get masked out anyway
                         policy_set.append(self.policy_distributions[0])
-                        sample_set.append(self.string_samples[0])
-                        tier_set.append(self.team_tiers[-1])
-                        final_tier_set.append(self.team_tiers[-1])
-                        champion_set.append(self.team_champions[-1])
+                        if not config.GUMBEL:
+                            value_mask_set.append(0.0)
+                            reward_mask_set.append(reward_mask)
+                            sample_set.append(self.string_samples[0])
+                            tier_set.append(self.team_tiers[-1])
+                            final_tier_set.append(self.team_tiers[-1])
+                            champion_set.append(self.team_champions[-1])
                     else:
                         # States past the end of games is treated as absorbing states.
                         if config.CHAMP_DECIDER:
                             action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
-                            # To weed this out later when sampling the global buffer
-                            action_set.append([0, 0, 0])
+                            if config.GUMBEL:
+                                action_set.append([1976])
+                            else:
+                                # To weed this out later when sampling the global buffer
+                                action_set.append([0, 0, 0])
                         # I'm pretty sure this should be 0 and not 1.
-                        value_mask_set.append(0.0)
-                        reward_mask_set.append(0.0)
+
                         policy_mask_set.append(0.0)
                         value_set.append(0.0)
                         reward_set.append(0.0)
                         policy_set.append(self.policy_distributions[0])
-                        sample_set.append(self.string_samples[0])
-                        tier_set.append(self.team_tiers[-1])
-                        final_tier_set.append(self.team_tiers[-1])
-                        champion_set.append(self.team_champions[-1])
+                        if not config.GUMBEL:
+                            value_mask_set.append(0.0)
+                            reward_mask_set.append(0.0)
+                            sample_set.append(self.string_samples[0])
+                            tier_set.append(self.team_tiers[-1])
+                            final_tier_set.append(self.team_tiers[-1])
+                            champion_set.append(self.team_champions[-1])
 
                 if config.CHAMP_DECIDER:
                     for i in range(len(sample_set)):
@@ -193,7 +218,11 @@ class ReplayBuffer:
                 priority = 1 / (priority / div) + np.random.rand() * 0.00001
 
                 # priority = 1 / priority because priority queue stores in ascending order.
-                output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
-                                                     reward_mask_set, policy_mask_set, value_set, reward_set,
-                                                     policy_set, sample_set, tier_set, final_tier_set, champion_set]])
+                if config.GUMBEL:
+                    output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, policy_mask_set,
+                                                         value_set, reward_set, policy_set]])
+                else:
+                    output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, policy_mask_set,
+                                                         value_set, reward_set, policy_set, sample_set, tier_set,
+                                                         final_tier_set, champion_set]])
             global_buffer.store_replay_sequence([output_sample_set, self.ending_position])

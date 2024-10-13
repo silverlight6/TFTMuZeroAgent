@@ -376,8 +376,13 @@ class DynNetwork(torch.nn.Module):
                 Normalize()
             ).to(config.DEVICE)
 
-        self.action_encodings = AlternateFeatureEncoder(config.ACTION_CONCAT_SIZE, [
-            model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+        self.action_embeddings = torch.nn.Embedding(config.POLICY_HEAD_SIZE, 128).to(config.DEVICE)
+        if config.GUMBEL:
+            self.action_encodings = AlternateFeatureEncoder(128, [
+                model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+        else:
+            self.action_encodings = AlternateFeatureEncoder(config.ACTION_CONCAT_SIZE, [
+                model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
 
         self.dynamics_memory = memory()
 
@@ -387,15 +392,17 @@ class DynNetwork(torch.nn.Module):
 
     def forward(self, hidden_state, action):
         action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
-        one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
-        one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
-        one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+        if not config.GUMBEL:
+            one_hot_action = torch.nn.functional.one_hot(action[:, 0], config.ACTION_DIM[0])
+            one_hot_target_a = torch.nn.functional.one_hot(action[:, 1], config.ACTION_DIM[1])
+            one_hot_target_b = torch.nn.functional.one_hot(action[:, 2], config.ACTION_DIM[1])
+            action = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+        else:
+            action = self.action_embeddings(action)
 
-        action_one_hot = torch.cat([one_hot_action, one_hot_target_a, one_hot_target_b], dim=-1).float()
+        action_encoding = self.action_encodings(action)
 
-        action_encoding = self.action_encodings(action_one_hot)
-
-        inputs = action_encoding
+        inputs = action_encoding.to(torch.float32)
         inputs = inputs[:, None, :]
 
         new_hidden_state = self.dynamics_memory((inputs, hidden_state))

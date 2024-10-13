@@ -43,41 +43,53 @@ class GlobalBuffer(object):
             # the number of multiprocessing errors that could occur by having them too far apart.
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
-            [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
-             sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
+            if not config.GUMBEL:
+                [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
+                 sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
+            else:
+                [observation, action_history, policy_mask, value, reward, policy], \
+                    priority = self.gameplay_experiences.extractMax()
             position, _ = self.average_position.extractMax()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history[1:])
-            value_mask_batch.append(value_mask)
-            reward_mask_batch.append(reward_mask)
             policy_mask_batch.append(policy_mask)
             target_value_batch.append(value)
             target_reward_batch.append(reward)
             target_policy_batch.append(policy)
-            sample_set_batch.append(sample_set)
-            tier_batch.append(tier_set)
-            final_tier_batch.append(final_tier_set)
-            champion_batch.append(champion_set)
+            if not config.GUMBEL:
+                value_mask_batch.append(value_mask)
+                reward_mask_batch.append(reward_mask)
+                sample_set_batch.append(sample_set)
+                tier_batch.append(tier_set)
+                final_tier_batch.append(final_tier_set)
+                champion_batch.append(champion_set)
             importance_weights.append(1 / self.batch_size / priority)
 
         observation_batch = self.reshape_observation(obs_tensor_batch)
         action_history_batch = np.asarray(action_history_batch)
         target_value_batch = np.asarray(target_value_batch).astype('float32')
         target_reward_batch = np.asarray(target_reward_batch).astype('float32')
-        value_mask_batch = np.asarray(value_mask_batch).astype('float32')
-        reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
+        if not config.GUMBEL:
+            value_mask_batch = np.asarray(value_mask_batch).astype('float32')
+            reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
         importance_weights_batch = np.asarray(importance_weights).astype('float32')
         importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
         position_batch = np.asarray(position_batch)
         position_batch = np.mean(position_batch)
 
-        data_list = [
-            observation_batch, action_history_batch, value_mask_batch, reward_mask_batch,
-            policy_mask_batch, target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch,
-            importance_weights_batch, tier_batch, final_tier_batch, champion_batch, np.array(position_batch)
-        ]
+        if not config.GUMBEL:
+            data_list = [
+                observation_batch, action_history_batch, value_mask_batch, reward_mask_batch,
+                policy_mask_batch, target_value_batch, target_reward_batch, target_policy_batch, sample_set_batch,
+                importance_weights_batch, tier_batch, final_tier_batch, champion_batch, np.array(position_batch)
+            ]
+        else:
+            data_list = [
+                observation_batch, action_history_batch, policy_mask_batch, target_value_batch, target_reward_batch,
+                target_policy_batch, importance_weights_batch, np.array(position_batch)
+            ]
         return np.array(data_list, dtype=object)
 
     def reshape_observation(self, obs_batch):

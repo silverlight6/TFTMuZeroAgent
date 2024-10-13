@@ -39,8 +39,8 @@ class MCTS:
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
             policy_logits = network_output["policy_logits"]
-            # Mask illegal actions
 
+            # Mask illegal actions
             # is it quicker to do this as a tensor or as a numpy array?
             flat_mask = torch.tensor(np.reshape(observation["action_mask"], (self.NUM_ALIVE, -1))).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)

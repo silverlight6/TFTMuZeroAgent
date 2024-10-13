@@ -58,6 +58,7 @@ IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 REP_TRAINER = get_bool_env("REP_TRAINER")
 MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
+GUMBEL = get_bool_env("GUMBEL")
 
 PATH = path.dirname(path.realpath(__file__))
 
@@ -120,12 +121,13 @@ UNROLL_STEPS = get_int_env("UNROLL_STEPS", 5)
 BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
 INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
-WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-5)
+WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-4)  # Sometimes set to 1e-5
 DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
-REWARD_LOSS_SCALING = get_int_env("REWARD_LOSS_SCALING", 1)
-POLICY_LOSS_SCALING = get_int_env("POLICY_LOSS_SCALING", 1)
-VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
+REWARD_LOSS_SCALING = get_float_env("REWARD_LOSS_SCALING", 1)
+POLICY_LOSS_SCALING = get_float_env("POLICY_LOSS_SCALING", 1)
+VALUE_LOSS_SCALING = get_float_env("VALUE_LOSS_SCALING", 0.25)  # Sometimes set to 1
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
+MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
 
 # Input dimensions for different parts of the observation space
 SCALAR_INPUT_SIZE = 76
@@ -156,7 +158,7 @@ class ModelConfig:
     LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
-    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
+    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 0.3)  # Sometimes set to 1.0
     ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
 
@@ -168,7 +170,7 @@ class ModelConfig:
     SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
     if isinstance(SELECTED_SAMPLES, str):
         SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
-    MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
+
 
     N_HEAD_HIDDEN_LAYERS = 2
     N_HEADS = 4
