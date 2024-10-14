@@ -116,7 +116,6 @@ class DataWorker(object):
                                 current_comp[key] = info[key]["player"].get_tier_labels()
                                 current_champs[key] = info[key]["player"].get_champion_labels()
                             # Store the information in a buffer to train on later.
-                            # print(f"root_values {root_values} len(root_values) {len(root_values)}, {root_values[0]}")
                             if config.GUMBEL:
                                 buffers.store_gumbel_buffer.remote(key, self.get_obs_idx(
                                     player_observation["observations"], i), storage_actions[i], reward[key], policy[i],
@@ -180,7 +179,7 @@ class DataWorker(object):
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
-            temp_weights = ray.get(storage.get_model.remote())
+            temp_weights = ray.get(storage.get_target_model.remote())
             weights = copy.deepcopy(temp_weights)
             if config.GUMBEL:
                 self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
@@ -350,7 +349,7 @@ class DataWorker(object):
             elif not terminate and i >= len(actions):
                 # Some bug here but I'm not sure the source so sending a passing action. Happens once every 100 games
                 if config.GUMBEL:
-                    step_actions[player_id] = np.asarray([1976])
+                    step_actions[player_id] = np.asarray(1976)
                 else:
                     step_actions[player_id] = np.asarray([0, 0, 0])
             i += 1

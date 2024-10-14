@@ -21,18 +21,7 @@ class GumbelMuZeroMCTSCtree(object):
         The benefit of searching for a batch of nodes at the same time is that \
         it can be parallelized during model inference, thus saving time.
     """
-    local_config = dict(
-        # (int) The max limitation of simluation times during the simulation.
-        num_simulations=50,
-        # (float) The alpha value used in the Dirichlet distribution for exploration at the root node of the search tree.
-        root_dirichlet_alpha=0.3,
-        # (float) The noise weight at the root node of the search tree.
-        root_noise_weight=0.25,
-        # (float) The maximum change in value allowed during the backup step of the search tree update.
-        value_delta_max=0.01,
-    )
-
-    def __init__(self, cfg: None) -> None:
+    def __init__(self, model_config: None) -> None:
         """
         Overview:
             Use the default configuration mechanism. If a user passes in a cfg with a key that matches an existing key \
@@ -42,8 +31,8 @@ class GumbelMuZeroMCTSCtree(object):
             - cfg (:obj:`EasyDict`): The configuration passed in by the user.
         """
         # Get the default configuration.
-        self.config = cfg
-        self.discount_factor = 0.997
+        self.model_config = model_config
+        self.discount_factor = config.DISCOUNT
 
     @classmethod
     def roots(cls: int, active_collect_env_num: int, legal_actions: List[Any]) -> "gmz_ctree":
@@ -86,9 +75,9 @@ class GumbelMuZeroMCTSCtree(object):
 
             # minimax value storage
             min_max_stats_lst = tree_gumbel_muzero.MinMaxStatsList(batch_size)
-            min_max_stats_lst.set_delta(0.01)  # value_delta_max
+            min_max_stats_lst.set_delta(config.VALUE_MAX_DELTA)
 
-            for simulation_index in range(50):  # number of simulations
+            for simulation_index in range(self.model_config.NUM_SIMULATIONS):  # number of simulations
                 # In each simulation, we expanded a new node, so in one search,
                 # we have ``num_simulations`` num of nodes at most.
 
@@ -109,7 +98,9 @@ class GumbelMuZeroMCTSCtree(object):
                     50 - number of simulations, 4 - max_num_considered_actions
                 """
                 latent_state_index_in_search_path, latent_state_index_in_batch, last_actions, virtual_to_play_batch = \
-                    tree_gumbel_muzero.batch_traverse(roots, 50, 4, discount_factor, results, to_play_batch)
+                    tree_gumbel_muzero.batch_traverse(roots, self.model_config.NUM_SIMULATIONS,
+                                                      self.model_config.NUM_CONSIDERED_ACTIONS, discount_factor,
+                                                      results, to_play_batch)
 
                 # obtain the states for leaf nodes
                 for ix, iy in zip(latent_state_index_in_search_path, latent_state_index_in_batch):

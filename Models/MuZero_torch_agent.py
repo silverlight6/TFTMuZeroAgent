@@ -376,9 +376,10 @@ class DynNetwork(torch.nn.Module):
                 Normalize()
             ).to(config.DEVICE)
 
-        self.action_embeddings = torch.nn.Embedding(config.POLICY_HEAD_SIZE, 128).to(config.DEVICE)
+        self.action_embeddings = torch.nn.Embedding(config.POLICY_HEAD_SIZE,
+                                                    model_config.ACTION_EMBEDDING_DIM).to(config.DEVICE)
         if config.GUMBEL:
-            self.action_encodings = AlternateFeatureEncoder(128, [
+            self.action_encodings = AlternateFeatureEncoder(model_config.ACTION_EMBEDDING_DIM, [
                 model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
         else:
             self.action_encodings = AlternateFeatureEncoder(config.ACTION_CONCAT_SIZE, [

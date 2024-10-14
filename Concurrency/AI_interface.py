@@ -53,7 +53,7 @@ class AIInterface:
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            tftConfig = TFTConfig(observation_class=ObservationToken)
+            tftConfig = TFTConfig(observation_class=ObservationToken, max_actions_per_round=config.ACTIONS_PER_TURN)
             env = parallel_env(tftConfig)
 
             buffers = [BufferWrapper.remote()
@@ -147,7 +147,7 @@ class AIInterface:
     #         # Keeping this line commented because this tells us the number of parameters that our current model has.
     #         # total_params = sum(p.numel() for p in global_agent.parameters())
     #
-    #         tftConfig = TFTConfig(observation_class=ObservationVector)
+    #         tftConfig = TFTConfig(observation_class=ObservationVector, max_actions_per_round=config.ACTIONS_PER_TURN)
     #         env = parallel_env(tftConfig)
     #
     #         buffers = [BufferWrapper.remote()

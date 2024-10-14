@@ -130,8 +130,7 @@ class GumbelMuZero:
         """
         self._eval_model.eval()
         active_eval_env_num = data.shape[0]
-        if ready_env_id is None:
-            ready_env_id = np.arange(active_eval_env_num)
+        ready_env_id = np.arange(active_eval_env_num)
         with torch.no_grad():
             # data shape [B, S x C, W, H], e.g. {Tensor:(B, 12, 96, 96)}
             network_output = self._collect_model.initial_inference(data)
@@ -167,13 +166,6 @@ class GumbelMuZero:
                 # the index within the legal action set, rather than the index in the entire action set.
                 # Setting deterministic=True implies choosing the action with the highest value (argmax) rather than
                 # sampling during the evaluation phase.
-                action_index_in_legal_action_set, visit_count_distribution_entropy = self.select_action(
-                    distributions, temperature=1, deterministic=True
-                )
-                # NOTE: Convert the ``action_index_in_legal_action_set`` to the corresponding ``action`` in the
-                # entire action set.
-                # action = np.where(action_mask[i] == 1.0)[0][action_index_in_legal_action_set]
-
                 valid_value = np.where(action_mask[i] == 1.0, improved_policy_probs, 0.0)
                 action = np.argmax([v for v in valid_value])
                 actions.append(action)

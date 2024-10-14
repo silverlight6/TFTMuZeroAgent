@@ -52,7 +52,7 @@ class GlobalBuffer(object):
             position, _ = self.average_position.extractMax()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
-            action_history_batch.append(action_history[1:])
+            action_history_batch.append(action_history)
             policy_mask_batch.append(policy_mask)
             target_value_batch.append(value)
             target_reward_batch.append(reward)
@@ -73,6 +73,8 @@ class GlobalBuffer(object):
         if not config.GUMBEL:
             value_mask_batch = np.asarray(value_mask_batch).astype('float32')
             reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
+        else:
+            target_policy_batch = np.asarray(target_policy_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
         importance_weights_batch = np.asarray(importance_weights).astype('float32')
         importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
@@ -133,7 +135,7 @@ class GlobalBuffer(object):
             - True if there is enough data and the trainer is free, false otherwise.
         """
         queue_length = self.gameplay_experiences.size
-        if queue_length > self.batch_size and not await self.storage_ptr.get_trainer_busy.remote():
+        if queue_length > self.batch_size + 1 and not await self.storage_ptr.get_trainer_busy.remote():
             print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
             await self.storage_ptr.set_trainer_busy.remote(True)
             return True

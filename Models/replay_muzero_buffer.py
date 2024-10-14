@@ -128,18 +128,10 @@ class ReplayBuffer:
 
                     reward_mask = 1.0 if current_index > sample else 0.0
                     if current_index < num_steps - 1:
-                        if current_index != sample:
-                            action_set.append(np.asarray(self.action_history[current_index]))
+                        if config.GUMBEL:
+                            action_set.append(self.action_history[current_index])
                         else:
-                            if config.CHAMP_DECIDER:
-                                action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
-                            else:
-                                if config.GUMBEL:
-                                    action_set.append([1976])
-                                else:
-                                    # To weed this out later when sampling the global buffer
-                                    action_set.append([0, 0, 0])
-
+                            action_set.append(np.asarray(self.action_history[current_index]))
                         policy_mask_set.append(1.0)
                         value_set.append(value)
                         # This is current_index - 1 in the Google's code but in my version
@@ -158,7 +150,7 @@ class ReplayBuffer:
                             action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             if config.GUMBEL:
-                                action_set.append([1976])
+                                action_set.append(1976)
                             else:
                                 # To weed this out later when sampling the global buffer
                                 action_set.append([0, 0, 0])
@@ -184,7 +176,7 @@ class ReplayBuffer:
                             action_set.append([0 for _ in range(len(config.CHAMP_DECIDER_ACTION_DIM))])
                         else:
                             if config.GUMBEL:
-                                action_set.append([1976])
+                                action_set.append(1976)
                             else:
                                 # To weed this out later when sampling the global buffer
                                 action_set.append([0, 0, 0])
@@ -215,14 +207,15 @@ class ReplayBuffer:
                 div = -priority
                 for i in priority_set:
                     div += i
-                priority = 1 / (priority / div) + np.random.rand() * 0.00001
+                priority = (1 / (priority / div)) + np.random.rand() * 0.00001
 
                 # priority = 1 / priority because priority queue stores in ascending order.
                 if config.GUMBEL:
                     output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, policy_mask_set,
                                                          value_set, reward_set, policy_set]])
                 else:
-                    output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, policy_mask_set,
-                                                         value_set, reward_set, policy_set, sample_set, tier_set,
-                                                         final_tier_set, champion_set]])
+                    output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
+                                                         reward_mask_set, policy_mask_set, value_set, reward_set,
+                                                         policy_set, sample_set, tier_set, final_tier_set,
+                                                         champion_set]])
             global_buffer.store_replay_sequence([output_sample_set, self.ending_position])

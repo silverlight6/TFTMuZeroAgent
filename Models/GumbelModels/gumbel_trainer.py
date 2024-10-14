@@ -3,8 +3,9 @@ import time
 import config
 import collections
 import torch
+import numpy as np
 from typing import Dict, Any
-from torch.nn import L1Loss, KLDivLoss
+from torch.nn import KLDivLoss
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -21,11 +22,11 @@ class Trainer(object):
         self.network = global_agent
         self.decay_steps = config.WEIGHT_DECAY
         self.alpha = config.LR_DECAY_FUNCTION
+        self.lr_scheduler = None
         self.optimizer = self.create_optimizer()
         self.summary_writer = summary_writer
         self.model_ckpt_time = time.time_ns()
         self.loss_ckpt_time = time.time_ns()
-        self.lr_scheduler = None
         self.target_model = copy.deepcopy(self.network)
         self.learn_model = self.network
         self.kl_loss = KLDivLoss(reduction='none')
@@ -50,8 +51,10 @@ class Trainer(object):
         # disabling this for the moment while I get the rest working, will add back later.
         self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
 
-        self.compute_loss(observation, action_batch, target_value, target_reward, target_policy,
-                          policy_mask, importance_weights)
+        summaries = self.compute_loss(observation, action_batch, target_value, target_reward, target_policy,
+                                      policy_mask, importance_weights)
+
+        self.write_summaries(train_step, summaries)
 
     def compute_loss(self, observation, action_batch, target_value, target_reward, target_policy,
                      policy_mask, importance_weights):
@@ -60,27 +63,30 @@ class Trainer(object):
         policy_mask = torch.from_numpy(policy_mask).to(config.DEVICE)
         weights = torch.from_numpy(importance_weights).to(config.DEVICE)
 
-        target_value = self.encode_target(
-            target_value, self.network.value_encoder).to(config.DEVICE)
-        target_reward = self.encode_target(
-            target_reward, self.network.reward_encoder).to(config.DEVICE)
+        # I can add the transformed values to tensorboard later if needed
+        target_encoded_value = self.encode_target(
+            scalar_transform(target_value), self.network.value_encoder).to(config.DEVICE)
+        target_encoded_reward = self.encode_target(
+            scalar_transform(target_reward), self.network.reward_encoder).to(config.DEVICE)
 
         output = self.network.initial_inference(observation, training=True)
 
         original_value = output["value"]
-        value_priority = L1Loss(reduction='none')(original_value.squeeze(-1), target_value[:, 0])
-        value_priority = value_priority.cpu().numpy() + 1e-6
+
+        # Use this if need to readjust priorities to reuse sample data.
+        # value_priority = L1Loss(reduction='none')(original_value, target_value[:, 0])
+        # value_priority = value_priority.data.cpu().numpy() + 1e-6
 
         policy_logits = output["policy_logits"]
+        print(f"initial policy_logits {policy_logits}")
         policy_loss = self.kl_loss(torch.log(torch.softmax(policy_logits, dim=1)),
                                    torch.from_numpy(target_policy[:, 0]).to(config.DEVICE).detach().float())
         policy_loss = policy_loss.mean(dim=-1) * policy_mask[:, 0]
         # Output the entropy for experimental observation.
 
-        prob = torch.softmax(policy_logits, dim=-1)
-        policy_entropy = -(prob * prob.log()).sum(-1)
+        policy_entropy = -(torch.softmax(policy_logits, dim=-1) * torch.log_softmax(policy_logits, dim=-1)).sum(-1)
 
-        value_loss = cross_entropy_loss(output["value_logits"], target_value[:, 0])
+        value_loss = cross_entropy_loss(output["value_logits"], target_encoded_value[:, 0])
 
         reward_loss = torch.zeros(self.batch_size, device=config.DEVICE)
 
@@ -88,7 +94,8 @@ class Trainer(object):
             # unroll with the dynamics function: predict the next ``latent_state``, ``reward``,
             # given current ``latent_state`` and ``action``.
             # And then predict policy_logits and value with the prediction function.
-            network_output = self.learn_model.recurrent_inference(output["hidden_state"], action_batch[:, step_k])
+            output = self.learn_model.recurrent_inference(output["hidden_state"], action_batch[:, step_k])
+            print(f"recursive {step_k} policy_logits {output['policy_logits']}")
 
             # NOTE: the target policy, target_value_categorical, target_reward_categorical is calculated in
             # game buffer now.
@@ -96,14 +103,14 @@ class Trainer(object):
             # calculate policy loss for the next ``num_unroll_steps`` unroll steps.
             # NOTE: the +=.
             # ==============================================================
-            policy_loss += self.kl_loss(torch.log(torch.softmax(policy_logits, dim=1)),
+            policy_loss += self.kl_loss(torch.log(torch.softmax(output["policy_logits"], dim=1)),
                                         torch.from_numpy(target_policy[:, step_k + 1]).to(
                                             config.DEVICE).detach().float()).mean(dim=-1) * policy_mask[:, step_k + 1]
-            value_loss += cross_entropy_loss(output["value_logits"], target_value[:, step_k + 1])
-            reward_loss += cross_entropy_loss(output["reward_logits"], target_reward[:, step_k])
+            value_loss += cross_entropy_loss(output["value_logits"], target_encoded_value[:, step_k + 1])
+            reward_loss += cross_entropy_loss(output["reward_logits"], target_encoded_reward[:, step_k])
 
-            prob = torch.softmax(policy_logits, dim=-1)
-            policy_entropy += (prob * prob.log()).sum(-1)
+            policy_entropy += -(torch.softmax(output["policy_logits"], dim=-1) *
+                                torch.log_softmax(output["policy_logits"], dim=-1)).sum(-1)
 
         # ==============================================================
         # the core learn model update step.
@@ -114,23 +121,20 @@ class Trainer(object):
                 config.POLICY_LOSS_SCALING * policy_loss + config.VALUE_LOSS_SCALING * value_loss +
                 config.REWARD_LOSS_SCALING * reward_loss
         )
+
         weighted_total_loss = (weights * loss).mean()
 
         gradient_scale = 1 / config.UNROLL_STEPS
         weighted_total_loss.register_hook(lambda grad: grad * gradient_scale)
         self.optimizer.zero_grad()
         weighted_total_loss.backward()
-        total_grad_norm_before_clip = torch.nn.utils.clip_grad_norm_(
-            self.learn_model.parameters(), config.MAX_GRAD_NORM
-        )
+        torch.nn.utils.clip_grad_norm_(self.learn_model.parameters(), config.MAX_GRAD_NORM)
         self.optimizer.step()
         self.lr_scheduler.step()
 
         # ==============================================================
         # the core target model update step.
         # ==============================================================
-        self.target_model.update(self.learn_model.state_dict())
-
         return {
             'cur_lr': self.optimizer.param_groups[0]['lr'],
             'weighted_total_loss': weighted_total_loss.item(),
@@ -143,15 +147,15 @@ class Trainer(object):
             # ==============================================================
             # priority related
             # ==============================================================
-            'value_priority_orig': value_priority,
-            'value_priority': value_priority.mean().item(),
-            'target_reward': target_reward.detach().cpu().numpy().mean().item(),
-            'target_value': target_value.detach().cpu().numpy().mean().item(),
-            # 'transformed_target_reward': transformed_target_reward.detach().cpu().numpy().mean().item(),
-            # 'transformed_target_value': transformed_target_value.detach().cpu().numpy().mean().item(),
-            # 'predicted_rewards': predicted_rewards.detach().cpu().numpy().mean().item(),
-            # 'predicted_values': predicted_values.detach().cpu().numpy().mean().item(),
-            'total_grad_norm_before_clip': total_grad_norm_before_clip.item()
+            # 'value_priority_orig': value_priority,
+            # 'value_priority': value_priority.mean().item(),
+            # 'target_reward': target_reward.detach().cpu().numpy().mean().item(),
+            # 'target_value': target_value.detach().cpu().numpy().mean().item(),
+            'predicted_value': original_value.mean().item(),
+            'predicted_policy': torch.softmax(policy_logits, dim=-1),
+            'target_policy': target_policy,
+            'policy': policy_logits,
+            # 'total_grad_norm_before_clip': total_grad_norm_before_clip.item()
         }
 
     # Convert target from
@@ -165,15 +169,6 @@ class Trainer(object):
         target_reshaped = torch.reshape(
             target_encoded,
             (-1, target.shape[-1], int(encoder.num_steps))
-        )
-        return target_reshaped
-
-    def decode_target(self, target, decoder):
-        target_flattened = torch.reshape(target, (target.shape[0], -1))
-        target_encoded = decoder.decode(target_flattened)
-        target_reshaped = torch.reshape(
-            target_encoded,
-            (-1, 1)
         )
         return target_reshaped
 
@@ -200,6 +195,47 @@ class Trainer(object):
         self.learn_model.load_state_dict(state_dict['model'])
         self.target_model.load_state_dict(state_dict['target_model'])
         self.optimizer.load_state_dict(state_dict['optimizer'])
+
+    def write_summaries(self, train_step, summaries):
+        self.summary_writer.add_scalar('losses/weighted_total', summaries["weighted_total_loss"], train_step)
+        self.summary_writer.add_scalar('losses/total', summaries["total_loss"], train_step)
+
+        self.summary_writer.add_scalar(
+            'losses/value', summaries["value_loss"], train_step)
+        self.summary_writer.add_scalar(
+            'losses/reward', summaries["reward_loss"], train_step)
+        self.summary_writer.add_scalar(
+            'losses/policy', summaries["policy_loss"], train_step)
+        self.summary_writer.add_scalar(
+            'losses/policy_entropy', summaries["policy_entropy"], train_step)
+
+        self.summary_writer.add_scalar(
+            'episode_info/value_diff',
+            torch.max(torch.max(summaries["policy"], 1).values -
+                      torch.min(summaries["policy"], 1).values), train_step)
+        self.summary_writer.add_image('policy_scale', torch.sum(torch.reshape(torch.tensor(
+            summaries["target_policy"]).to(config.DEVICE), (-1, 55, 38)), dim=0)[None, :, :], global_step=train_step)
+        self.summary_writer.add_image('policy_preference', torch.mul(torch.mean(torch.reshape(
+            summaries["predicted_policy"], (-1, 55, 38)), dim=0), 100)[None, :, :], global_step=train_step)
+
+        self.summary_writer.flush()
+
+def scalar_transform(x: np.array, epsilon: float = 0.001, delta: float = 1.) -> np.array:
+    """
+    Overview:
+        Transform the original value to the scaled value, i.e. the h(.) function
+        in paper https://arxiv.org/pdf/1805.11593.pdf.
+    Reference:
+        - MuZero: Appendix F: Network Architecture
+        - https://arxiv.org/pdf/1805.11593.pdf (Page-11) Appendix A : Proposition A.2
+    """
+    # h(.) function
+    if delta == 1:  # for speed up
+        output = np.sign(x) * (np.sqrt(np.abs(x) + 1) - 1) + epsilon * x
+    else:
+        # delta != 1
+        output = np.sign(x) * (np.sqrt(np.abs(x / delta) + 1) - 1) + epsilon * x / delta
+    return output
 
 
 """

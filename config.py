@@ -152,6 +152,8 @@ NEEDS_2ND_DIM = [1, 2, 3, 4]
 MINIMUM_REWARD = get_float_env("MINIMUM_REWARD", -300.0)
 MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 
+VALUE_MAX_DELTA = get_float_env("VALUE_MAX_DELTA", 0.01)
+
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
@@ -179,10 +181,12 @@ class ModelConfig:
     N_LAYERS = 4
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
+    NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 4)
 
     ITEM_EMBEDDING_DIM = get_int_env("ITEM_EMBEDDING_DIM", 60)
     CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)
     SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
+    ACTION_EMBEDDING_DIM = get_int_env("ACTION_EMBEDDING_DIM", 128)
 
 class PPOConfig:
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
