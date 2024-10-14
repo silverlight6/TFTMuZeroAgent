@@ -12,7 +12,7 @@ from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
-from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR
+from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, ALLOW_SPILL
 
 from Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
 from Simulator.default_agent import Default_Agent
@@ -1614,9 +1614,10 @@ class Player:
         Args:
             damage (int): amount of damage taken
         """
-        self.reward += self.damage_reward * damage
-        self.print("Spill reward of {} received".format(
-            self.damage_reward * damage))
+        if ALLOW_SPILL:
+            self.reward += self.damage_reward * damage
+            self.print("Spill reward of {} received".format(
+                self.damage_reward * damage))
 
     def start_round(self, t_round):
         """Does all operations that happen at the start of the round.

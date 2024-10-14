@@ -129,6 +129,8 @@ VALUE_LOSS_SCALING = get_float_env("VALUE_LOSS_SCALING", 0.25)  # Sometimes set 
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
 MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
 
+ALLOW_SPILL = get_bool_env("ALLOW_SPILL_REWARD")
+
 # Input dimensions for different parts of the observation space
 SCALAR_INPUT_SIZE = 76
 SHOP_INPUT_SIZE = 45
