@@ -199,7 +199,7 @@ class TorchPositionPolicyModel(torch.nn.Module):
         print(self.action_space)
         print(masked_logits.shape)
         time.sleep(2)
-        split_logits = torch.split(masked_logits, self.action_space, dim=2)
+        split_logits = torch.split(masked_logits, 1, dim=1)
         multi_categoricals = [Categorical(logits=logits) for logits in split_logits]
         if action is None:
             action = torch.stack([categorical.sample() for categorical in multi_categoricals])
