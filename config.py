@@ -208,6 +208,7 @@ class PPOConfig:
     VF_COEF = get_float_env("PPO_VF_COEF", 1)
     KL_COEF = get_float_env("PPO_KL_COEF", 0.3)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
+    REMOTE = get_bool_env("PPO_REMOTE", "True")
     TARGET_KL = 0.05
     KL_ADJUSTER = 0.5
     MAX_KL_COEF = 1

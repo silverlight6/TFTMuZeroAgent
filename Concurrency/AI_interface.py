@@ -179,7 +179,7 @@ class AIInterface:
             # # ray.get(storage)
             # ray.get(workers)
 
-    def position_ppo_testing(self, remote_env=True):
+    def position_ppo_testing(self):
         import torch.nn as nn
         import torch.optim as optim
         import numpy as np
@@ -209,7 +209,7 @@ class AIInterface:
         device = torch.device(config.DEVICE)
 
         # env setup
-        if remote_env:
+        if ppo_config.REMOTE:
             envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
         else:
             envs = [TFT_Local_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
@@ -224,7 +224,7 @@ class AIInterface:
         start_time = time.time()
         reset_env = []
         for env in envs:
-            if remote_env:
+            if ppo_config.REMOTE:
                 reset_env.append(ray.get(env.vector_reset.remote())[0])
             else:
                 reset_env.append(env.vector_reset()[0])
@@ -250,7 +250,7 @@ class AIInterface:
 
             workers = []
             for j in range(ppo_config.NUM_STEPS * ppo_config.NUM_ENVS):
-                if remote_env:
+                if ppo_config.REMOTE:
                     workers.append(
                         envs[j].vector_reset_step.remote(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
                     )
@@ -261,7 +261,7 @@ class AIInterface:
 
             obs, reward, done = [], [], []
             for worker in workers:
-                if remote_env:
+                if ppo_config.REMOTE:
                     local_worker = ray.get(worker)
                 else:
                     local_worker = worker
@@ -396,10 +396,3 @@ class AIInterface:
             time.sleep(1)
 
         ray.get(workers)
-
-
-if __name__ == '__main__':
-    # comment out @ray.remote in Simulator/tft_vector_simulator.py
-    # if you want to run this
-    interface = AIInterface()
-    interface.position_ppo_testing(remote_env=False)
