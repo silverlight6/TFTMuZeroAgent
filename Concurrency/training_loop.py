@@ -2,7 +2,8 @@ import time
 import datetime
 import config
 from torch.utils.tensorboard import SummaryWriter
-from Models.MuZero_torch_trainer import Trainer
+from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
+from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
 
 
 """
@@ -19,7 +20,10 @@ class TrainingLoop:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         self.summary_writer = SummaryWriter(train_log_dir)
-        self.trainer = Trainer(global_agent, self.summary_writer)
+        if config.GUMBEL:
+            self.trainer = Gumbel_Trainer(global_agent, self.summary_writer)
+        else:
+            self.trainer = MuZero_Trainer(global_agent, self.summary_writer)
         self.batch_size = config.BATCH_SIZE
         self.global_buffer = global_buffer
         self.ckpt_time = time.time_ns()

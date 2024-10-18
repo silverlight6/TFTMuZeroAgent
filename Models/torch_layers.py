@@ -196,7 +196,7 @@ class TransformerEncoder(nn.Module):
         super(TransformerEncoder, self).__init__()
 
         self.encoder_layers = nn.ModuleList([
-            nn.TransformerEncoderLayer(d_model, n_heads, d_hidden, dropout, batch_first=True)
+            nn.TransformerEncoderLayer(d_model, n_heads, d_hidden, dropout, batch_first=True).to(config.DEVICE)
             for _ in range(n_layers)
         ])
 
@@ -215,3 +215,34 @@ class TransformerEncoder(nn.Module):
         for encoder_layer in self.encoder_layers:
             x = encoder_layer(x, src_key_padding_mask=src_key_padding_mask)
         return x
+
+class AlternateFeatureEncoder(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, device, dropout_rate=0.1, use_layer_norm=True):
+        super(AlternateFeatureEncoder, self).__init__()
+
+        layers = []
+        current_size = input_size
+
+        # Add hidden layers
+        for size in layer_sizes:
+            layers.append(torch.nn.Linear(current_size, size))
+            layers.append(torch.nn.ReLU())
+
+            # Optionally add layer normalization
+            if use_layer_norm:
+                layers.append(torch.nn.LayerNorm(size))
+
+            # Optionally add dropout
+            layers.append(torch.nn.Dropout(dropout_rate))
+
+            current_size = size
+
+        # Final layer
+        layers.append(torch.nn.Linear(current_size, output_size))
+
+        self.network = torch.nn.Sequential(*layers).to(device)
+        self.device = device
+
+    def forward(self, x):
+        x = x.to(self.device)  # Ensure the input is on the correct device
+        return self.network(x)

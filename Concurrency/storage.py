@@ -1,3 +1,5 @@
+import copy
+
 import ray
 import glob
 import config
@@ -75,7 +77,7 @@ class Storage:
             Pytorch Model Weights:
                 Weights of the target model.
         """
-        return self.target_model.set_weights(weights)
+        return self.target_model.set_weights(copy.deepcopy(weights))
 
     """
     Description - 

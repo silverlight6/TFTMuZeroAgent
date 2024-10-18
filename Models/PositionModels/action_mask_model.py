@@ -1,217 +1,24 @@
-import gymnasium as gym
 import numpy as np
 import config
 import time
+import torch
 
 from config import ModelConfig
-from Models.torch_layers import ResidualBlock, TransformerEncoder, mlp, Normalize, ppo_mlp
+from Models.torch_layers import TransformerEncoder
 from torch.distributions.categorical import Categorical
-
-from ray.rllib.core.models.base import ENCODER_OUT, CRITIC, ACTOR
-from ray.rllib.models.modelv2 import ModelV2
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from ray.rllib.utils.annotations import override
-from ray.rllib.utils.framework import try_import_torch
-from ray.rllib.utils.typing import ModelConfigDict
-from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
-
-
-
-torch, nn = try_import_torch()
+from gymnasium.spaces import MultiDiscrete
 
 
 """
 Description - Custom model so I can use a nested dict observation space. 
                 Split into encoder, policy, vf for PPO purposes.
 """
-class TorchActionMaskModel(TorchModelV2, nn.Module):
-    """PyTorch version of above ActionMaskingModel."""
-
-    def __init__(self,
-                 obs_space: gym.spaces.Space,
-                 action_space: gym.spaces.Space,
-                 num_outputs: int,
-                 model_config: ModelConfigDict,
-                 name: str,
-                 **kwargs):
-        super().__init__(obs_space, action_space, num_outputs, model_config, name)
-        nn.Module.__init__(self)
-
-        self.encoder = TorchActionMaskEncoderModel(obs_space, action_space, num_outputs, model_config,
-                                                   "ActionMaskEncoderModel", **kwargs)
-
-        self.pf = TorchActionMaskPolicyModel(obs_space, action_space, num_outputs, model_config,
-                                             "ActionMaskPolicyModel", **kwargs)
-
-        self.vf = TorchActionMaskValueModel(obs_space, action_space, num_outputs, model_config,
-                                            "ActionMaskVFModel", **kwargs)
-
-        self._features = None
-        self.policy_id = DEFAULT_POLICY_ID
-
-    def _forward(self, input_dict, state, seq_lens):
-        hidden_state, _ = self.encoder.forward(input_dict, state, seq_lens)
-        self._features = {"obs": hidden_state[ENCODER_OUT][CRITIC]}
-
-        # Compute the unmasked logits.
-        logits, _ = self.pf.forward({"obs": hidden_state[ENCODER_OUT][ACTOR]}, state, seq_lens)
-
-        return logits, state
-
-    @override(ModelV2)
-    def forward(self, input_dict, state, seq_lens):
-        return self._forward(input_dict, state, seq_lens)
-
-    def value_function(self):
-        return self.vf.forward(self._features, [], [])[0]
-
-
-class TorchActionMaskEncoderModel(TorchModelV2, nn.Module):
-    """PyTorch version of above ActionMaskingModel."""
-
-    def __init__(self,
-                 obs_space: gym.spaces.Space,
-                 action_space: gym.spaces.Space,
-                 num_outputs: int,
-                 model_config: ModelConfigDict,
-                 name: str,
-                 **kwargs):
-        TorchModelV2.__init__(self,
-                              obs_space,
-                              action_space,
-                              num_outputs,
-                              model_config,
-                              name)
-        nn.Module.__init__(self)
-
-        hidden_layer_size = model_config["custom_model_config"]["hidden_state_size"]
-        num_hidden_layers = model_config["custom_model_config"]["num_hidden_layers"]
-        self.device = model_config["device"] if model_config["device"] else 'cuda'
-
-        layer_sizes = [hidden_layer_size // 2] * num_hidden_layers
-
-        output_size = hidden_layer_size
-
-        obs_space_local = obs_space["observations"]["player"]
-
-        self.board_encoder = feature_encoder(obs_space_local["board"].shape[0],
-                                             layer_sizes, output_size, self.device)
-        self.traits_encoder = feature_encoder(obs_space_local["traits"].shape[0],
-                                              layer_sizes, output_size, self.device)
-
-        self.feature_to_hidden = feature_encoder(hidden_layer_size * 2,
-                                                 layer_sizes, output_size, self.device)
-
-        self._features = None
-
-    def _forward(self, input_dict, state, seq_lens):
-        x = input_dict["obs"]["observations"]
-
-        board = self.board_encoder(x["player"]["board"])
-        traits = self.traits_encoder(x["player"]["traits"])
-
-        full_state = torch.cat((board, traits), -1)
-
-        hidden_state = self.feature_to_hidden(full_state)
-        return {ENCODER_OUT: {CRITIC: hidden_state, ACTOR: hidden_state}}
-
-    @override(ModelV2)
-    def forward(self, input_dict, state, seq_lens):
-        return self._forward(input_dict, state, seq_lens), state
-
-
-class TorchActionMaskValueModel(TorchModelV2, nn.Module):
-    """PyTorch version of above ActionMaskingModel."""
-
-    def __init__(self,
-                 obs_space: gym.spaces.Space,
-                 action_space: gym.spaces.Space,
-                 num_outputs: int,
-                 model_config: ModelConfigDict,
-                 name: str,
-                 **kwargs):
-        TorchModelV2.__init__(self,
-                              obs_space,
-                              action_space,
-                              num_outputs,
-                              model_config,
-                              name)
-        nn.Module.__init__(self)
-
-        hidden_layer_size = model_config["custom_model_config"]["hidden_state_size"]
-        num_hidden_layers = model_config["custom_model_config"]["num_hidden_layers"]
-        self.device = model_config["device"] if model_config["device"] else 'cuda'
-
-        layer_sizes = [hidden_layer_size // 2] * num_hidden_layers
-        self.prediction_value_network = feature_encoder(hidden_layer_size, layer_sizes, 1,
-                                                        self.device, do_normalize=False)
-
-        self._features = None
-
-    def _forward(self, input_dict, state, seq_lens):
-        x = input_dict["obs"]
-        return self.prediction_value_network(x).squeeze(1), state
-
-    # The input_dict here is actually just a tensor but typically this calls for a dictionary so I'm calling it a dict
-    @override(ModelV2)
-    def forward(self, input_dict, state, seq_lens):
-        return self._forward(input_dict, state, seq_lens)
-
-
-class TorchActionMaskPolicyModel(TorchModelV2, nn.Module):
-    """PyTorch version of above ActionMaskingModel."""
-
-    def __init__(self,
-                 obs_space: gym.spaces.Space,
-                 action_space: gym.spaces.Space,
-                 num_outputs: int,
-                 model_config: ModelConfigDict,
-                 name: str,
-                 **kwargs):
-        TorchModelV2.__init__(self,
-                              obs_space,
-                              action_space,
-                              num_outputs,
-                              model_config,
-                              name)
-        nn.Module.__init__(self)
-
-        hidden_layer_size = model_config["custom_model_config"]["hidden_state_size"]
-        num_hidden_layers = model_config["custom_model_config"]["num_hidden_layers"]
-        self.device = model_config["device"] if model_config["device"] else 'cuda'
-
-        layer_sizes = [hidden_layer_size // 2] * num_hidden_layers
-
-        self.policy_network = feature_encoder(hidden_layer_size, layer_sizes,
-                                              action_space.shape[0] * action_space[0].n,
-                                              self.device, do_normalize=False)
-
-    def _forward(self, input_dict, state, seq_lens):
-        # Compute the unmasked logits.
-        x = input_dict["obs"]
-        logits = self.policy_network(x)
-
-        # logits = torch.cat([mean, self.log_std.unsqueeze(0).repeat([len(mean), 1])], axis=1)
-        return logits
-
-    @override(ModelV2)
-    def forward(self, input_dict, state, seq_lens):
-        return self._forward(input_dict, state, seq_lens), state
-
-
-def feature_encoder(input_size, feature_layer_sizes, feature_output_sizes, device, do_normalize=True):
-    return torch.nn.Sequential(
-        mlp(input_size, feature_layer_sizes, feature_output_sizes),
-        Normalize() if do_normalize else torch.nn.Identity()
-    ).to(device)
-
-
-class TorchPositionModel(nn.Module):
+class TorchPositionModel(torch.nn.Module):
     """PyTorch version of above ActionMaskingModel."""
 
     def __init__(self, model_config: ModelConfig):
         super().__init__()
-        nn.Module.__init__(self)
+        torch.nn.Module.__init__(self)
 
         self.encoder = TorchPositionEncoderModel(model_config)
 
@@ -220,15 +27,15 @@ class TorchPositionModel(nn.Module):
         self.vf = TorchPositionValueModel(model_config)
 
         self._features = None
-        self.policy_id = DEFAULT_POLICY_ID
+        self.policy_id = "policy"
 
     def _forward(self, observation, action=None):
-        hidden_state = self.encoder.forward(observation)
+        hidden_critic, hidden_actor = self.encoder.forward(observation)
 
         # Compute the unmasked logits.
-        action, log_prob, entropy = self.pf.forward({"observations": hidden_state[ENCODER_OUT][ACTOR],
+        action, log_prob, entropy = self.pf.forward({"observations": hidden_actor,
                                                      "action_mask": observation["action_mask"]}, action)
-        value = self.vf.forward(hidden_state[ENCODER_OUT][CRITIC])
+        value = self.vf.forward(hidden_critic)
 
         return action, log_prob, entropy, value
 
@@ -236,10 +43,10 @@ class TorchPositionModel(nn.Module):
         return self._forward(input_dict, action=None)
 
     def get_value(self, observation):
-        return self.vf.forward(self.encoder.forward(observation)[ENCODER_OUT][CRITIC])
+        return self.vf.forward(self.encoder.forward(observation)["Encoder_Out"]["Critic"])
 
 
-class TorchPositionEncoderModel(nn.Module):
+class TorchPositionEncoderModel(torch.nn.Module):
     """PyTorch version of above ActionMaskingModel."""
 
     def __init__(self, model_config: ModelConfig):
@@ -253,20 +60,6 @@ class TorchPositionEncoderModel(nn.Module):
 
         self.champion_trait_embedding = torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 8)
 
-        self.board_encoder = TransformerEncoder(
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.N_HEADS,
-            model_config.N_LAYERS
-        )
-
-        self.other_player_encoder = TransformerEncoder(
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.CHAMPION_EMBEDDING_DIM,
-            model_config.N_HEADS,
-            model_config.N_LAYERS
-        )
-
         self.full_encoder = TransformerEncoder(
             model_config.CHAMPION_EMBEDDING_DIM,
             model_config.CHAMPION_EMBEDDING_DIM,
@@ -275,20 +68,11 @@ class TorchPositionEncoderModel(nn.Module):
         )
 
         layer_sizes = [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS
-        self.trait_encoder = ppo_feature_encoder(config.TRAIT_INPUT_SIZE, layer_sizes,
-                                                 model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
 
-        # Combine encoded features from all components
-        self.feature_combiner = ppo_feature_encoder(model_config.CHAMPION_EMBEDDING_DIM * 30, layer_sizes,
-                                                    model_config.HIDDEN_STATE_SIZE, config.DEVICE)
-
-        self.feature_processor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
+        self.feature_processor = ppo_feature_encoder(model_config.CHAMPION_EMBEDDING_DIM, layer_sizes,
                                                      model_config.HIDDEN_STATE_SIZE, config.DEVICE)
 
         # Optional: Add residual connections around encoders and combiner for better gradient flow
-        self.board_residual = ResidualBlock(self.board_encoder, 28)
-        self.full_residual = ResidualBlock(self.full_encoder, 30)
-        self.combiner_residual = ResidualBlock(self.feature_processor, model_config.HIDDEN_STATE_SIZE, local_norm=False)
         self.model_config = model_config
 
         self.hidden_to_actor = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
@@ -296,6 +80,10 @@ class TorchPositionEncoderModel(nn.Module):
 
         self.hidden_to_critic = ppo_feature_encoder(model_config.HIDDEN_STATE_SIZE, layer_sizes,
                                                     model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        self.positional_embedding = torch.nn.Embedding(224, model_config.CHAMPION_EMBEDDING_DIM)
+
+        self.cls_token = torch.nn.Parameter(torch.zeros(1, 1, model_config.CHAMPION_EMBEDDING_DIM))
 
         self._features = None
 
@@ -312,42 +100,48 @@ class TorchPositionEncoderModel(nn.Module):
         cie_shape = champion_item_emb.shape
         champion_item_emb = torch.reshape(champion_item_emb, (cie_shape[0], cie_shape[1], cie_shape[2], -1))
 
-        board_emb = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
+        full_embeddings = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
+        full_embeddings = torch.reshape(full_embeddings, (cie_shape[0], cie_shape[1] * cie_shape[2], -1))
 
-        board_residual_input = torch.reshape(board_emb[:, 0], [cie_shape[0], cie_shape[2],
-                                                               self.model_config.CHAMPION_EMBEDDING_DIM])
+        # Create a position index [0, 1, 2, ..., 223] repeated for each sample in the batch
+        positions = torch.arange(full_embeddings.shape[1], dtype=torch.long, device=config.DEVICE).unsqueeze(0)
+        print(positions.shape)
 
-        trait_enc = self.trait_encoder(x['traits'])
+        # Get the positional encodings and add them to the full embeddings
+        positional_enc = self.positional_embedding(positions)
+        print(positional_enc.shape)
+        # print(f"positional_enc {positional_enc}")
+        full_embeddings = full_embeddings + positional_enc
+        print(full_embeddings.shape)
 
-        board_enc = self.board_residual(board_residual_input)
+        # Expand the classification token to match the batch size
+        cls_tokens = self.cls_token.expand(cie_shape[0], -1, -1)
 
-        other_player_enc = torch.cat([torch.reshape(board_emb[:, 1:],
-                                                    (cie_shape[0], -1, self.model_config.CHAMPION_EMBEDDING_DIM)),
-                                      trait_enc[:, 1:]], dim=1)
+        # Concatenate the cls token to the full_embeddings
+        full_embeddings = torch.cat([cls_tokens, full_embeddings], dim=1)
+        # print(f"hidden_state full_embeddings + position {full_embeddings}")
 
-        other_player_enc = self.other_player_encoder(other_player_enc)
-        other_player_enc = torch.sum(other_player_enc, dim=1)
-        other_player_enc = other_player_enc[:, None, :]
-        player_trait_enc = trait_enc[:, 0]
-        player_trait_enc = player_trait_enc[:, None, :]
+        # Note to future self, if I want to separate current board for some processing. Do it here but use two
+        # Position encodings.
 
-        cat_encode = torch.cat([board_enc, other_player_enc, player_trait_enc], dim=1)
+        full_enc = self.full_encoder(full_embeddings)
 
-        full_enc = self.full_encoder(cat_encode)
-        full_enc = torch.reshape(full_enc, [cie_shape[0], -1])
+        cls_hidden_state = full_enc[:, 0, :]
+        # print(f"cls_hidden_state {cls_hidden_state}")
 
         # Pass through final combiner network
-        hidden_state = self.feature_combiner(full_enc)
-        hidden_state = self.combiner_residual(hidden_state)
+        hidden_state = self.feature_processor(cls_hidden_state)
+        # print(f"hidden_state {hidden_state}")
         hidden_critic = self.hidden_to_critic(hidden_state)
         hidden_actor = self.hidden_to_actor(hidden_state)
-        return {ENCODER_OUT: {CRITIC: hidden_critic, ACTOR: hidden_actor}}
+
+        return hidden_critic, hidden_actor
 
     def forward(self, input_dict):
         return self._forward(input_dict)
 
 
-class TorchPositionValueModel(nn.Module):
+class TorchPositionValueModel(torch.nn.Module):
     """PyTorch version of above ActionMaskingModel."""
 
     def __init__(self, model_config: ModelConfig):
@@ -358,19 +152,22 @@ class TorchPositionValueModel(nn.Module):
         self.device = config.DEVICE
 
         self.prediction_value_network = ppo_feature_encoder(hidden_layer_size, layer_sizes, 1,
-                                                            self.device, do_normalize=False)
+                                                            self.device)
 
         self._features = None
 
     def _forward(self, hidden_state):
-        return self.prediction_value_network(hidden_state).squeeze(1)
+        # print(f"hidden_state critic {hidden_state}")
+        pred_output = self.prediction_value_network(hidden_state).squeeze(1)
+        # print(f"initial_value {pred_output}")
+        return pred_output
 
     # The input_dict here is actually just a tensor but typically this calls for a dictionary so I'm calling it a dict
     def forward(self, hidden_state):
         return self._forward(hidden_state)
 
 
-class TorchPositionPolicyModel(nn.Module):
+class TorchPositionPolicyModel(torch.nn.Module):
     """PyTorch version of above ActionMaskingModel."""
 
     def __init__(self, model_config: ModelConfig):
@@ -382,7 +179,9 @@ class TorchPositionPolicyModel(nn.Module):
         self.device = config.DEVICE
 
         self.policy_network = ppo_feature_encoder(hidden_layer_size, layer_sizes, 29 * 12,
-                                                  self.device, do_normalize=False)
+                                                  self.device)
+
+        self.action_space = MultiDiscrete(np.ones(12) * 29).nvec.tolist()
 
     def _forward(self, input_dict, action=None):
         # Compute the unmasked logits.
@@ -397,17 +196,45 @@ class TorchPositionPolicyModel(nn.Module):
         masked_logits = logits + inf_mask
         masked_logits = torch.reshape(masked_logits, (action_mask_shape[0], action_mask_shape[1], action_mask_shape[2]))
 
-        probs = Categorical(logits=masked_logits)
+        split_logits = torch.split(masked_logits, 1, dim=1)
+        multi_categoricals = [Categorical(logits=logits) for logits in split_logits]
         if action is None:
-            action = probs.sample()
-
-        return action, probs.log_prob(action), probs.entropy()
+            action = torch.stack([categorical.sample() for categorical in multi_categoricals])
+        logprob = torch.stack([categorical.log_prob(a) for a, categorical in zip(action, multi_categoricals)])
+        entropy = torch.stack([categorical.entropy() for categorical in multi_categoricals])
+        return action.T, logprob.sum(0), entropy.sum(0)
 
     def forward(self, input_dict, action):
         return self._forward(input_dict, action)
 
-def ppo_feature_encoder(input_size, feature_layer_sizes, feature_output_sizes, device, do_normalize=True):
-    return torch.nn.Sequential(
-        ppo_mlp(input_size, feature_layer_sizes, feature_output_sizes),
-        Normalize() if do_normalize else torch.nn.Identity()
-    ).to(device)
+
+class ppo_feature_encoder(torch.nn.Module):
+    def __init__(self, input_size, layer_sizes, output_size, device, dropout_rate=0.1, use_layer_norm=True):
+        super(ppo_feature_encoder, self).__init__()
+
+        layers = []
+        current_size = input_size
+
+        # Add hidden layers
+        for size in layer_sizes:
+            layers.append(torch.nn.Linear(current_size, size))
+            layers.append(torch.nn.ReLU())
+
+            # Optionally add layer normalization
+            if use_layer_norm:
+                layers.append(torch.nn.LayerNorm(size))
+
+            # Optionally add dropout
+            layers.append(torch.nn.Dropout(dropout_rate))
+
+            current_size = size
+
+        # Final layer
+        layers.append(torch.nn.Linear(current_size, output_size))
+
+        self.network = torch.nn.Sequential(*layers)
+        self.device = device
+
+    def forward(self, x):
+        x = x.to(self.device)  # Ensure the input is on the correct device
+        return self.network(x)

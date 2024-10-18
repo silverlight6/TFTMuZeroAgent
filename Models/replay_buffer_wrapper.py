@@ -13,6 +13,9 @@ class BufferWrapper:
     def store_replay_buffer(self, key, *args):
         self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
 
+    def store_gumbel_buffer(self, key, *args):
+        self.buffers[key].store_gumbel_buffer(args[0], args[1], args[2], args[3], args[4])
+
     def get_prev_action(self, key):
         self.buffers[key].get_prev_action()
     

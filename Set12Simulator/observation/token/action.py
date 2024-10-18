@@ -263,10 +263,10 @@ class ActionToken(ActionBase, ActionVectorBase):
         Exp Action Vector: (1)
         """
 
-        exp_action_mask = 1
+        exp_action_mask = 0
 
-        if player.gold < player.exp_cost or player.level == player.max_level:
-            exp_action_mask = 0
+        if player.gold >= player.exp_cost and player.level != player.max_level:
+            exp_action_mask = 1
 
         return exp_action_mask
 

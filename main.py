@@ -31,7 +31,10 @@ def main():
         # interface.ppo_checkpoint_test()
         # interface.position_ppo_tune()
         # interface.train_guide_model()
-        interface.position_ppo_testing()
+        if config.MULTI_STEP_POSITION:
+            interface.position_muzero_testing()
+        else:
+            interface.position_ppo_testing()
     elif config.REP_TRAINER:
         interface.representation_testing()
         # interface.representation_evauation()

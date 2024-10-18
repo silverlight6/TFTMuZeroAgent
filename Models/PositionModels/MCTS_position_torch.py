@@ -21,17 +21,17 @@ class MCTS:
     def __init__(self, network, model_config):
         self.network = network
         self.times = [0] * 6
-        self.NUM_ALIVE = config.NUM_PLAYERS
+        self.batch_size = config.NUM_PLAYERS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
-        self.default_string_mapping, self.default_mask = util.create_default_mapping()
+        self.default_string_mapping, self.default_mask = util.create_position_default_mapping()
         self.max_depth_search = 0
         self.model_config = model_config
         self.default_mask = torch.tensor(self.default_mask).to(config.DEVICE)
 
     def policy(self, observation):
         with torch.no_grad():
-            self.NUM_ALIVE = observation["observations"]["shop"].shape[0]
+            self.batch_size = observation["observations"]["board"].shape[0]
 
             # 0.013 seconds
             network_output = self.network.initial_inference(observation["observations"])
@@ -39,10 +39,10 @@ class MCTS:
             reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
 
             policy_logits = network_output["policy_logits"]
-
             # Mask illegal actions
+
             # is it quicker to do this as a tensor or as a numpy array?
-            flat_mask = torch.tensor(np.reshape(observation["action_mask"], (self.NUM_ALIVE, -1))).to(config.DEVICE)
+            flat_mask = torch.tensor(np.reshape(observation["action_mask"], (self.batch_size, -1))).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
             masked_policy_logits = policy_logits.cpu().numpy()
@@ -50,19 +50,20 @@ class MCTS:
             noises = [
                     np.random.dirichlet([self.model_config.ROOT_DIRICHLET_ALPHA] * len(masked_policy_logits[j])
                                         ).astype(np.float32).tolist()
-                    for j in range(self.NUM_ALIVE)
+                    for j in range(self.batch_size)
                 ]
 
             policy_logits_pool = self.add_exploration_noise(masked_policy_logits, noises)
 
+            default_mapping = self.default_string_mapping * self.batch_size
             # 0.001 seconds
-            policy_logits_pool, string_mapping, mappings, policy_sizes = \
-                self.sample(policy_logits_pool, self.default_string_mapping, self.model_config.NUM_SAMPLES)
+            policy_logits_pool, string_mapping, mappings, policy_sizes = self.sample(policy_logits_pool,
+                                                                                     default_mapping)
 
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
             # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.NUM_ALIVE, self.model_config.NUM_SIMULATIONS, self.model_config.NUM_SAMPLES)
+            roots_cpp = tree.Roots(self.batch_size, self.model_config.NUM_SIMULATIONS, self.model_config.NUM_SAMPLES)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
@@ -82,7 +83,7 @@ class MCTS:
             target_policy = []
             temp = self.visit_softmax_temperature()  # controls the way actions are chosen
             deterministic = False  # False = sample distribution, True = argmax
-            for i in range(self.NUM_ALIVE):
+            for i in range(self.batch_size):
                 distributions = roots_distributions[i]
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
                 actions.append(string_mapping[i][action])
@@ -136,14 +137,14 @@ class MCTS:
             policy_logits = network_output["policy_logits"]
             # Mask illegal actions
 
-            default_mask = self.default_mask.repeat(self.NUM_ALIVE, 1)
+            default_mask = self.default_mask.repeat(self.batch_size, 1)
             inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
             masked_policy_logits = policy_logits.cpu().numpy()
 
             # 0.003 to 0.01 seconds
-            policy_logits, _, mappings, policy_sizes = \
-                self.sample(masked_policy_logits, self.default_string_mapping, self.model_config.NUM_SAMPLES)
+            default_mapping = self.default_string_mapping * self.batch_size
+            policy_logits, _, mappings, policy_sizes = self.sample(masked_policy_logits, default_mapping)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -194,18 +195,12 @@ class MCTS:
 
 
     """
-    Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
-                  total number of actions based off of the current policy to expand on each turn. There are two options
-                  as to how the samples are chosen. You can either set num_pass_shop_actions and refresh_level_actions
-                  to 0 and comment out the following for loops or keep those variables at 6 and 2 and leave the for
-                  loops in. The first option is a pure sample with no specific core actions. The second option gives 
-                  you a set of core options to use. 
+    Description - Position model doesn't need to sample actions so we keep the same policy logits and map them to 
+                    0 through batch size.
     Inputs      - policy_logits - List
                       Output to either initial_inference or recurrent_inference for policy
                   string_mapping - List
                       A map that is equal to policy_logits.shape[-1] in size to map to the specified action
-                  byte_mapping - List
-                      Same as string mapping but used on the c++ side of the code
                   num_samples - Int
                       Typically set to config.NUM_SAMPLES. Number of samples to use per expansion of the tree
     Outputs     - output_logits - List
@@ -217,38 +212,23 @@ class MCTS:
                   policy_sizes - List
                       Number of samples per player, can change if legal actions < num_samples
     """
-    def sample(self, policy_logits, string_mapping, num_samples):
-        batch_size = len(policy_logits)  # 8
+    def sample(self, policy_logits, string_mapping):
+        batch_size = len(policy_logits)
 
-        output_logits = []
-        output_string_mapping = []
         output_byte_mapping = []
         policy_sizes = []
 
         for idx in range(batch_size):
-            local_logits = []
-            local_string = []
             local_byte = []
 
-            probs = self.softmax_stable(policy_logits[idx])
-            policy_range = np.arange(stop=len(policy_logits[idx]))
+            for i in range(len(string_mapping[idx])):
+                dim_base_string = string_mapping[idx][i]
+                local_byte.append(bytes(dim_base_string, "utf-8"))
 
-            samples = np.random.choice(a=policy_range, p=probs, size=num_samples)  # size 25
-            counts = np.bincount(samples, minlength=len(policy_logits[idx]))
-
-            for i, count in enumerate(counts):
-                if count > 0:
-                    dim_base_string = string_mapping[idx][i]
-                    local_logits.append(((1 / num_samples) * count))
-                    local_string.append(dim_base_string)
-                    local_byte.append(bytes(dim_base_string, "utf-8"))
-
-            output_logits.append(local_logits)
-            output_string_mapping.append(local_string)
             output_byte_mapping.append(local_byte)
-            policy_sizes.append(len(local_logits))
+            policy_sizes.append(29)
 
-        return output_logits, output_string_mapping, output_byte_mapping, policy_sizes
+        return policy_logits.aslist(), string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
     def softmax_stable(x):

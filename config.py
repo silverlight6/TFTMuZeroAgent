@@ -57,6 +57,8 @@ DEVICE = "cuda"
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 REP_TRAINER = get_bool_env("REP_TRAINER")
+MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
+GUMBEL = get_bool_env("GUMBEL")
 
 PATH = path.dirname(path.realpath(__file__))
 
@@ -64,7 +66,7 @@ PATH = path.dirname(path.realpath(__file__))
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
 STORAGE_GPU_SIZE = get_float_env("STORAGE_GPU_SIZE", 0.1) if DEVICE == "cuda" else 0
 BUFFER_GPU_SIZE = get_float_env("BUFFER_GPU_SIZE", 0.02) if DEVICE == "cuda" else 0
-TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.2) if DEVICE == "cuda" else 0
+TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.5) if DEVICE == "cuda" else 0
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = get_int_env("ACTIONS_PER_TURN", 15)
@@ -119,15 +121,18 @@ UNROLL_STEPS = get_int_env("UNROLL_STEPS", 5)
 BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
 INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
-WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-5)
+WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-4)  # Sometimes set to 1e-5
 DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
-REWARD_LOSS_SCALING = get_int_env("REWARD_LOSS_SCALING", 1)
-POLICY_LOSS_SCALING = get_int_env("POLICY_LOSS_SCALING", 1)
-VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
+REWARD_LOSS_SCALING = get_float_env("REWARD_LOSS_SCALING", 1)
+POLICY_LOSS_SCALING = get_float_env("POLICY_LOSS_SCALING", 1)
+VALUE_LOSS_SCALING = get_float_env("VALUE_LOSS_SCALING", 0.25)  # Sometimes set to 1
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
+MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
+
+ALLOW_SPILL = get_bool_env("ALLOW_SPILL_REWARD")
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = 25
+SCALAR_INPUT_SIZE = 76
 SHOP_INPUT_SIZE = 45
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234
@@ -147,6 +152,8 @@ NEEDS_2ND_DIM = [1, 2, 3, 4]
 MINIMUM_REWARD = get_float_env("MINIMUM_REWARD", -300.0)
 MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 
+VALUE_MAX_DELTA = get_float_env("VALUE_MAX_DELTA", 0.01)
+
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
@@ -155,7 +162,7 @@ class ModelConfig:
     LSTM_SIZE = int(HIDDEN_STATE_SIZE / (NUM_RNN_CELLS * 2))
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
-    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
+    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 0.3)  # Sometimes set to 1.0
     ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
 
@@ -167,22 +174,24 @@ class ModelConfig:
     SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
     if isinstance(SELECTED_SAMPLES, str):
         SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
-    MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
+
 
     N_HEAD_HIDDEN_LAYERS = 2
     N_HEADS = 4
     N_LAYERS = 4
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
+    NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 4)
 
     ITEM_EMBEDDING_DIM = get_int_env("ITEM_EMBEDDING_DIM", 60)
     CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)
     SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
+    ACTION_EMBEDDING_DIM = get_int_env("ACTION_EMBEDDING_DIM", 128)
 
 class PPOConfig:
     EXP_NAME = environ.get("PPO_EXP_NAME", path.basename(__file__).rstrip(".py"))
-    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-4)
-    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 64)
+    LEARNING_RATE = get_float_env("PPO_LEARNING_RATE", 2.5e-3)
+    NUM_ENVS = get_int_env("PPO_NUM_ENVS", 32)
     NUM_STEPS = get_int_env("PPO_NUM_STEPS", 16)
     ANNEAL_LR = get_bool_env("PPO_ANNEAL_LR", "True")
     TOTAL_TIMESTEPS = get_int_env("PPO_TOTAL_TIME_STEPS", 1000000)
@@ -195,11 +204,14 @@ class PPOConfig:
     UPDATE_EPOCHS = get_int_env("PPO_UPDATE_EPOCHS", 1)
     CLIP_COEF = get_float_env("PPO_CLIP_COEF", 0.2)
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.005)
-    VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
-    KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
+    VF_COEF = get_float_env("PPO_VF_COEF", 1)
+    KL_COEF = get_float_env("PPO_KL_COEF", 0.3)
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
-    TARGET_KL = 0.1
-    KL_ADJUSTER = 1.5
+    REMOTE = get_bool_env("PPO_REMOTE", "True")
+    TARGET_KL = 0.05
+    KL_ADJUSTER = 0.5
+    MAX_KL_COEF = 1
+    MIN_KL_COEF = 0.01
 
 

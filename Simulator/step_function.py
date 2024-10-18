@@ -5,6 +5,7 @@ from Simulator.utils import coord_to_x_y
 class Step_Function:
     def __init__(self, player_manager):
         self.player_manager = player_manager
+        self.position_list = []
 
     # --- Main Action Function ---
     def perform_action(self, player_id, action):
@@ -67,7 +68,7 @@ class Step_Function:
 
         # Item action
         elif action_type == 6:
-            player.move_item_action(x1, x2)
+            player.move_item_action(x2, x1)
 
         else:
             player.print(f"Action Type is invalid: {action}")
@@ -89,14 +90,14 @@ class Step_Function:
         to move by the future command.
         All actions where the model requests the unit to move to the square where it already is will be treated
         the same as 28 or pass. This means if there is a swap to the square early, the unit will be moved.
-                                               Top
+                                        Top
                 | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
           Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
                 | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
                 | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
                                         Bottom
 
-                                                                              Top
+                                        Top
                 | (0)  (1)  (2)  (3)  (4)  (5)  (6)  |
           Left  | (7)  (8)  (9)  (10) (11) (12) (13) |
                 | (14) (15) (16) (17) (18) (19) (20) |  Right
@@ -117,40 +118,37 @@ class Step_Function:
             x1, y1 = coord_to_x_y(int(x))
             destination_coords.append([x1, y1])
 
-        starting_square = []
-        starting_square_names = []
-        for coord in range(len(player.board) * len(player.board[0])):
-            x, y = coord_to_x_y(coord)
-            if player.board[x][y]:
-                starting_square.append([x, y])
-                starting_square_names.append(player.board[x][y].name)
-        # print(f"destination_coords {destination_coords} for player {player.player_num}")
-        # print(f"starting_square {starting_square}")
-        # print(f"starting_square_names {starting_square_names}")
         for i, coord in enumerate(destination_coords):
             # 28 pass rule.
             if coord[0] != 7:
-                temp_square = starting_square[i]
+                temp_square = self.position_list[i]
                 player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
                 # Make note that this square was already used
-                starting_square[i] = [-1, -1]
+                self.position_list[i] = [-1, -1]
                 # Adjust starting points to keep track of where units are moving.
-                for j, square in enumerate(starting_square):
+                for j, square in enumerate(self.position_list):
                     if coord == square:
-                        starting_square[j] = temp_square
+                        self.position_list[j] = temp_square
+
+    def multi_step_position_controller(self, action, player, step):
+        x, y = coord_to_x_y(action)
+        coord = [x, y]
+        if coord[0] != 7 and step < len(self.position_list):
+            temp_square = self.position_list[step]
+            player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
 
     def item_controller(self, action, player, item_guide):
         """
         Takes an action which is 10 by 28. If 28, the action is considered a pass.
         All items will be placed according to the commands. If the item command is not possible, nothing will happen.
-                                               Top
+                                        Top
                 | (0, 3) (1, 3) (2, 3) (3, 3) (4, 3) (5, 3) (6, 3) |
           Left  | (0, 2) (1, 2) (2, 2) (3, 2) (4, 2) (5, 2) (6, 2) |
                 | (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) |  Right
                 | (0, 0) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) |
                                         Bottom
 
-                                                                              Top
+                                        Top
                 | (0)  (1)  (2)  (3)  (4)  (5)  (6)  |
           Left  | (7)  (8)  (9)  (10) (11) (12) (13) |
                 | (14) (15) (16) (17) (18) (19) (20) |  Right
@@ -166,14 +164,15 @@ class Step_Function:
             if not use_item[0] or player.item_bench[i] is None:
                 destination_coords[i] = [7, 0]
 
-        starting_square = []
-        for y in range(len(player.board[0])):
-            for x in range(len(player.board) - 1, -1, -1):
-                if player.board[x][y]:
-                    starting_square.append([x, y])
-
         for i, coord in enumerate(destination_coords):
             # 28 pass rule.
             if coord[0] != 7:
-                if coord in starting_square:
+                if coord in self.position_list:
                     player.move_item(i, coord[0], coord[1])
+
+    def create_unit_list(self, player):
+        self.position_list = []
+        for coord in range(len(player.board) * len(player.board[0])):
+            x, y = coord_to_x_y(coord)
+            if player.board[x][y]:
+                self.position_list.append([x, y])

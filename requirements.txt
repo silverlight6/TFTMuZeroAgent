@@ -1,8 +1,8 @@
 numpy~=1.23.5
-pandas
+pandas==2.0.3
 dm-tree
 tabulate
-scikit-image
+scikit-image==0.21.0
 scikit-learn~=1.2.0
 ray==2.10.0
 PettingZoo==1.24.3
@@ -13,7 +13,7 @@ pytest==7.4.3
 setuptools~=66.1.1
 scipy~=1.10.1
 torch~=1.13.1
-tensorboard
+tensorboard==2.13.0
 
 python-dotenv~=1.0.0
 jax~=0.4.13
