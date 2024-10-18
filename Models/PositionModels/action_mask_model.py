@@ -196,9 +196,6 @@ class TorchPositionPolicyModel(torch.nn.Module):
         masked_logits = logits + inf_mask
         masked_logits = torch.reshape(masked_logits, (action_mask_shape[0], action_mask_shape[1], action_mask_shape[2]))
 
-        print(self.action_space)
-        print(masked_logits.shape)
-        time.sleep(2)
         split_logits = torch.split(masked_logits, 1, dim=1)
         multi_categoricals = [Categorical(logits=logits) for logits in split_logits]
         if action is None:
