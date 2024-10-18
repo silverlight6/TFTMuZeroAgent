@@ -1,4 +1,4 @@
-from Simulator.pool_stats import cost_star_values
+from Set12Simulator.pool_stats import cost_star_values
 import numpy as np
 
 def alt_auto_battle(player_1, player_2, round_damage=0):

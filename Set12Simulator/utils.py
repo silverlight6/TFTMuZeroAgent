@@ -1,4 +1,4 @@
-import Simulator.config as config
+import Set12Simulator.config as config
 import numpy as np
 from functools import wraps
 from time import time

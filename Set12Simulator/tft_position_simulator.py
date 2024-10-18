@@ -4,15 +4,15 @@ import numpy as np
 
 from gymnasium.envs.registration import EnvSpec
 from gymnasium.spaces import MultiDiscrete, Dict, Box
-from Simulator import pool
-from Simulator.position_leveling_system import PositionLevelingSystem
-from Simulator.game_round import Game_Round, log_to_file, log_to_file_start
-from Simulator.observation.vector.observation import ObservationVector
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.player_manager import PlayerManager
-from Simulator.step_function import Step_Function
-from Simulator.tft_simulator import TFTConfig
-from Simulator.utils import coord_to_x_y
+from Set12Simulator import pool
+from Set12Simulator.position_leveling_system import PositionLevelingSystem
+from Set12Simulator.game_round import Game_Round, log_to_file, log_to_file_start
+from Set12Simulator.observation.vector.observation import ObservationVector
+from Set12Simulator.observation.token.basic_observation import ObservationToken
+from Set12Simulator.player_manager import PlayerManager
+from Set12Simulator.step_function import Step_Function
+from Set12Simulator.tft_simulator import TFTConfig
+from Set12Simulator.utils import coord_to_x_y
 
 
 class TFT_Position_Simulator(gym.Env):

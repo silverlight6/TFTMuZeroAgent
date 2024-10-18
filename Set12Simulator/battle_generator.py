@@ -1,13 +1,13 @@
 import numpy as np
 import config
 import random
-from Simulator.pool import pool
-from Simulator.player import Player
-from Simulator.utils import coord_to_x_y, x_y_to_1d_coord
-from Simulator.item_stats import item_builds
-from Simulator.champion import champion
-from Simulator.observation.token.action import ActionToken
-from Simulator.default_agent_stats import ONE_COST_UNITS, TWO_COST_UNITS, THREE_COST_UNITS, FOUR_COST_UNITS, FIVE_COST_UNITS
+from Set12Simulator.pool import pool
+from Set12Simulator.player import Player
+from Set12Simulator.utils import coord_to_x_y, x_y_to_1d_coord
+from Set12Simulator.item_stats import item_builds
+from Set12Simulator.champion import champion
+from Set12Simulator.observation.token.action import ActionToken
+from Set12Simulator.default_agent_stats import ONE_COST_UNITS, TWO_COST_UNITS, THREE_COST_UNITS, FOUR_COST_UNITS, FIVE_COST_UNITS
 
 
 """
