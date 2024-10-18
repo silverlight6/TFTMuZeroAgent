@@ -186,6 +186,7 @@ class AIInterface:
         from torch.utils.tensorboard import SummaryWriter
 
         from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator, list_to_dict
+        from Simulator.tft_local_vector_simulator import TFT_Local_Vector_Pos_Simulator
         from Models.PositionModels.action_mask_model import TorchPositionModel
         from Models.utils import convert_to_torch_tensor
 
@@ -211,7 +212,7 @@ class AIInterface:
         if remote_env:
             envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
         else:
-            envs = [TFT_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+            envs = [TFT_Local_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
 
         model_config = config.ModelConfig()
         agent = TorchPositionModel(model_config).to(device)
