@@ -6,7 +6,6 @@ import time
 import numpy as np
 import torch
 
-import core.gumbelctree.gmz_tree as tree_gumbel_muzero
 
 class GumbelMuZeroMCTSCtree(object):
     """
@@ -33,6 +32,7 @@ class GumbelMuZeroMCTSCtree(object):
         # Get the default configuration.
         self.model_config = model_config
         self.discount_factor = config.DISCOUNT
+        import core.gumbelctree.gmz_tree as tree_gumbel_muzero
 
     @classmethod
     def roots(cls: int, active_collect_env_num: int, legal_actions: List[Any]) -> "gmz_ctree":

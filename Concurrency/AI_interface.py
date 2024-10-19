@@ -226,6 +226,7 @@ class AIInterface:
         from torch.utils.tensorboard import SummaryWriter
 
         from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator, list_to_dict
+        from Simulator.tft_local_vector_simulator import TFT_Local_Vector_Pos_Simulator
         from Models.PositionModels.action_mask_model import TorchPositionModel
         from Models.utils import convert_to_torch_tensor
 
@@ -248,7 +249,10 @@ class AIInterface:
         device = torch.device(config.DEVICE)
 
         # env setup
-        envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+        if ppo_config.REMOTE:
+            envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+        else:
+            envs = [TFT_Local_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
 
         model_config = config.ModelConfig()
         agent = TorchPositionModel(model_config).to(device)
@@ -260,7 +264,10 @@ class AIInterface:
         start_time = time.time()
         reset_env = []
         for env in envs:
-            reset_env.append(ray.get(env.vector_reset.remote())[0])
+            if ppo_config.REMOTE:
+                reset_env.append(ray.get(env.vector_reset.remote())[0])
+            else:
+                reset_env.append(env.vector_reset()[0])
 
         obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
         num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
@@ -282,13 +289,22 @@ class AIInterface:
             actions = action.cpu().numpy()
 
             workers = []
-            for j in range(ppo_config.NUM_STEPS):
-                workers.append(
-                    envs[j].vector_reset_step.remote(actions[j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS]))
+            for j in range(ppo_config.NUM_STEPS * ppo_config.NUM_ENVS):
+                if ppo_config.REMOTE:
+                    workers.append(
+                        envs[j].vector_reset_step.remote(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
+                    )
+                else:
+                    workers.append(
+                        envs[j].vector_reset_step(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
+                    )
 
             obs, reward, done = [], [], []
             for worker in workers:
-                local_worker = ray.get(worker)
+                if ppo_config.REMOTE:
+                    local_worker = ray.get(worker)
+                else:
+                    local_worker = worker
                 obs.append(local_worker[0])
                 reward.append(local_worker[1])
             obs = list_to_dict(obs)
