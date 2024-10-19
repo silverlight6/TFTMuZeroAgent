@@ -78,7 +78,6 @@ class Trainer(object):
         # value_priority = value_priority.data.cpu().numpy() + 1e-6
 
         policy_logits = output["policy_logits"]
-        print(f"initial policy_logits {policy_logits}")
         policy_loss = self.kl_loss(torch.log(torch.softmax(policy_logits, dim=1)),
                                    torch.from_numpy(target_policy[:, 0]).to(config.DEVICE).detach().float())
         policy_loss = policy_loss.mean(dim=-1) * policy_mask[:, 0]
@@ -95,7 +94,6 @@ class Trainer(object):
             # given current ``latent_state`` and ``action``.
             # And then predict policy_logits and value with the prediction function.
             output = self.learn_model.recurrent_inference(output["hidden_state"], action_batch[:, step_k])
-            print(f"recursive {step_k} policy_logits {output['policy_logits']}")
 
             # NOTE: the target policy, target_value_categorical, target_reward_categorical is calculated in
             # game buffer now.

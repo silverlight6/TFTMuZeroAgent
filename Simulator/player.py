@@ -1423,7 +1423,7 @@ class Player:
     Outputs     -
     """
 
-    def printComp(self, log=True):
+    def printComp(self, log=True, to_console=False):
         keys = list(self.team_composition.keys())
         values = list(self.team_composition.values())
         tier_values = list(self.team_tiers.values())
@@ -1439,9 +1439,17 @@ class Player:
                     self.print("at ({}, {}), champion {}, with level = {}, items = {}, and chosen = {}".format(x, y,
                                self.board[x][y].name, self.board[x][y].stars,
                                self.board[x][y].items, self.board[x][y].chosen))
+                    if to_console:
+                        print("at ({}, {}), champion {}, with level = {}, items = {}, and chosen = {}".format(x, y,
+                               self.board[x][y].name, self.board[x][y].stars,
+                               self.board[x][y].items, self.board[x][y].chosen))
         self.print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
                    "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
                    "default {}".format(self.default_player))
+        if to_console:
+            print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
+                  "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
+                  "default {}".format(self.default_player))
 
     """
     Description -

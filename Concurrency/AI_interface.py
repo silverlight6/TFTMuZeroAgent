@@ -7,6 +7,7 @@ import config
 
 from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
 from Simulator.observation.token.basic_observation import ObservationToken
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
@@ -72,6 +73,45 @@ class AIInterface:
             # ray.get(storage)
             ray.get(workers)
 
+    def train_single_player_model(self) -> None:
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = config.STARTING_EPISODE
+
+            workers = []
+            model_config = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, model_config) for rank in range(config.CONCURRENT_GAMES)]
+            storage = Storage.remote(train_step)
+            global_agent = TFTNetwork(model_config)
+
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            training_manager = TrainingManager(global_agent, storage)
+
+            # Keeping this line commented because this tells us the number of parameters that our current model has.
+            # total_params = sum(p.numel() for p in global_agent.parameters())
+
+            tftConfig = TFTConfig(observation_class=ObservationToken, max_actions_per_round=config.ACTIONS_PER_TURN,
+                                  num_players=1)
+            env = TFT_Single_Player_Vector_Simulator(tftConfig, num_envs=config.NUM_ENVS)
+
+            buffers = [BufferWrapper.remote()
+                       for _ in range(config.CONCURRENT_GAMES)]
+
+            weights = ray.get(storage.get_target_model.remote())
+
+            for i, worker in enumerate(data_workers):
+                workers.append(worker.collect_single_player_experience.remote(env, buffers[i], training_manager,
+                                                                              storage, weights))
+                time.sleep(0.5)
+
+            training_manager.loop(storage, train_step)
+
+            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # ray.get(storage)
+            ray.get(workers)
 
     """
     I'll write in here what I want to do with this.
@@ -338,9 +378,6 @@ class AIInterface:
 
         envs.close()
         writer.close()
-
-    def position_muzero_testing(self):
-        return
 
     def collect_dummy_data(self) -> None:
         """

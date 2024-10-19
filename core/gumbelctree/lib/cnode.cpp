@@ -123,7 +123,7 @@ namespace tree{
         float policy_sum = 0.0;
 
         #ifdef _WIN32
-        // 创建动态数组
+        // Create dynamic array
         float* policy = new float[action_num];
         #else
         float policy[action_num];
@@ -150,7 +150,7 @@ namespace tree{
         }
 
         #ifdef _WIN32
-        // 释放数组内存
+        // free the memory
         delete[] policy;
         #else
         #endif
@@ -1013,7 +1013,6 @@ namespace tree{
         child_prior_tmp.assign(child_prior.begin(), child_prior.end());
         qvalues = root->get_q(discount_factor);
         csoftmax(child_prior_tmp, child_prior_tmp.size());
-        // TODO: should be raw_value here
         float value = compute_mixed_value(root->raw_value, qvalues, child_visit, child_prior_tmp);
         std::vector<float> completed_qvalue;
 

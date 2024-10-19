@@ -35,6 +35,9 @@ def main():
             interface.position_muzero_testing()
         else:
             interface.position_ppo_testing()
+    elif config.SINGLE_PLAYER:
+        config.GUMBEL = True
+        interface.train_single_player_model()
     elif config.REP_TRAINER:
         interface.representation_testing()
         # interface.representation_evauation()

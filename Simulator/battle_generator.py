@@ -102,9 +102,12 @@ class BattleGenerator:
             self.add_items_to_item_bench(player)
             if self.generator_config["fill_bench"]:
                 self.add_champions_to_bench(player, base_pool)
-        player_returns = random.sample(range(0, 8), 2)
-        return [player_list[player_returns[0]], player_list[player_returns[1]],
-                {f"player_{player.player_num}": player for player in player_list}]
+        if config.NUM_PLAYERS > 1:
+            player_returns = random.sample(range(0, config.NUM_PLAYERS), 2)
+            return [player_list[player_returns[0]], player_list[player_returns[1]],
+                    {f"player_{player.player_num}": player for player in player_list}]
+        else:
+            return [player_list[0], None, None]
 
     def add_champions(self, player, action_mask, base_pool):
         if not self.sample_from_pool:

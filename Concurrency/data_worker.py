@@ -326,6 +326,60 @@ class DataWorker(object):
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
+    def collect_single_player_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.vector_reset()
+            player_observation = self.single_player_observation_to_input(player_observation)
+
+            # Used to know when players die and which agent is currently acting
+            terminated = [False for _ in range(env.num_envs)]
+            storage_terminated = [False for _ in range(env.num_envs)]
+
+            # While the game is still going on.
+            while not all(terminated):
+                # Ask our model for an action and policy. Use on normal case or if we only have current versions left
+                actions, policy, string_samples, root_values = self.model_call(player_observation, info)
+                storage_actions = actions
+                step_actions = self.getStepActions(terminated, storage_actions)
+
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.vector_step(step_actions, terminated)
+                # store the action for MuZero
+                # Using i for all possible players and alive_i for all alive players
+                alive_i = 0
+                for i in range(len(terminated)):
+                    if not storage_terminated[i] and not info[alive_i]["state_empty"]:
+                        # Store the information in a buffer to train on later.
+                        buffers.store_gumbel_buffer.remote(f"player_{i}", self.get_obs_idx(
+                            player_observation["observations"], alive_i), storage_actions[alive_i], reward[alive_i],
+                                                           policy[alive_i], root_values[alive_i])
+                        if terminated[i]:
+                            storage_terminated[i] = True
+                        alive_i += 1
+
+                # Set up the observation for the next action
+                player_observation = self.single_player_observation_to_input(next_observation)
+
+            buffers.store_global_buffer.remote(global_buffer)
+
+            buffers.reset_buffers.remote()
+
+            # This is just to try to give the buffer some time to train on the data we have and not slow down our
+            # buffers by sending thousands of store commands when the buffer is already full.
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
+                time.sleep(5)
+
+            # So if I do not have a live game, I need to sample a past model
+            # Which means I need to create a list within the storage and sample from that.
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_target_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
     '''
     Description -
         Turns the actions from a format that is sent back from the model to a format that is usable by the environment.
@@ -341,18 +395,30 @@ class DataWorker(object):
     '''
 
     def getStepActions(self, terminated, actions):
-        step_actions = {}
-        i = 0
-        for player_id, terminate in terminated.items():
-            if not terminate and i < len(actions):
-                step_actions[player_id] = actions[i]
-            elif not terminate and i >= len(actions):
-                # Some bug here but I'm not sure the source so sending a passing action. Happens once every 100 games
-                if config.GUMBEL:
-                    step_actions[player_id] = np.asarray(1976)
-                else:
-                    step_actions[player_id] = np.asarray([0, 0, 0])
-            i += 1
+        if not config.SINGLE_PLAYER:
+            step_actions = {}
+            i = 0
+            for player_id, terminate in terminated.items():
+                if not terminate and i < len(actions):
+                    step_actions[player_id] = actions[i]
+                elif not terminate and i >= len(actions):
+                    # Some bug here but I'm not sure the source so sending a passing action.
+                    # Happens once every 100 games
+                    if config.GUMBEL:
+                        step_actions[player_id] = np.asarray(1976)
+                    else:
+                        step_actions[player_id] = np.asarray([0, 0, 0])
+                i += 1
+        else:
+            step_actions = []
+            i = 0
+            for i, terminate in enumerate(terminated):
+                if not terminate and i < len(actions):
+                    step_actions.append(actions[i])
+                elif not terminate and i >= len(actions):
+                    step_actions.append(np.asarray(1976))
+                i += 1
+
         return step_actions
 
     '''
@@ -386,6 +452,39 @@ class DataWorker(object):
             "bench": np.array(bench),
             "items": np.array(items),
             "traits": np.array(traits),
+        }
+        return {"observations": tensors,
+                "action_mask": np.array(masks)}
+
+    # These two methods should be one but with the single_player environment, the returning array does not have keys
+    # and is in the list format, maybe I'll get around to combining the methods later but for now, I'm keeping them
+    # separate
+    def single_player_observation_to_input(self, observation):
+        scalars = []
+        emb_scalars = []
+        shop = []
+        board = []
+        bench = []
+        items = []
+        traits = []
+        masks = []
+        for obs in observation:
+            scalars.append(obs["observations"]["scalars"])
+            emb_scalars.append(obs["observations"]["emb_scalars"])
+            shop.append(obs["observations"]["shop"])
+            board.append(obs["observations"]["board"])
+            bench.append(obs["observations"]["bench"])
+            items.append(obs["observations"]["items"])
+            traits.append(obs["observations"]["traits"])
+            masks.append(obs["action_mask"])
+        tensors = {
+            "scalars": np.float32(np.expand_dims(np.array(scalars), 1)),
+            "emb_scalars": np.array(emb_scalars),
+            "shop": np.array(shop),
+            "board": np.expand_dims(np.array(board), 1),
+            "bench": np.expand_dims(np.array(bench), 1),
+            "items": np.expand_dims(np.array(items), 1),
+            "traits": np.expand_dims(np.array(traits), 1),
         }
         return {"observations": tensors,
                 "action_mask": np.array(masks)}

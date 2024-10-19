@@ -299,6 +299,7 @@ class RepEmbeddingNetwork(torch.nn.Module):
         champion_item_emb = torch.cat([champion_item_emb_1, champion_item_emb_2, champion_item_emb_3], dim=-1)
         cie_shape = champion_item_emb.shape
         champion_item_emb = torch.reshape(champion_item_emb, (batch_size, cie_shape[1], cie_shape[2], -1))
+
         champion_embeddings = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
         champion_embeddings = torch.reshape(champion_embeddings, (batch_size, -1, self.champion_embedding_dim))
 
@@ -324,6 +325,7 @@ class RepEmbeddingNetwork(torch.nn.Module):
         shop_champion_trait_emb = self.shop_trait_embedding(x['shop'][..., 4].long())
         shop_embeddings = torch.cat([shop_champion_emb, shop_champion_trait_emb], dim=-1)
         shop_embeddings = torch.reshape(shop_embeddings, (batch_size, -1, self.champion_embedding_dim))
+
         scalar_encoding = self.scalar_encoder(x['scalars'])
 
         gold_embedding = self.gold_embedding(x['emb_scalars'][..., 0].long())

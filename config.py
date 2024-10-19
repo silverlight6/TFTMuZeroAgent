@@ -59,6 +59,7 @@ CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 REP_TRAINER = get_bool_env("REP_TRAINER")
 MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
 GUMBEL = get_bool_env("GUMBEL")
+SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
 
 PATH = path.dirname(path.realpath(__file__))
 
@@ -71,6 +72,7 @@ TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.5) if DEVICE == "cuda" el
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = get_int_env("ACTIONS_PER_TURN", 15)
 CONCURRENT_GAMES = get_int_env("CONCURRENT_GAMES", 1)
+NUM_ENVS = get_int_env("NUM_ENVS", 1)
 NUM_PLAYERS = get_int_env("NUM_PLAYERS", 8)
 AUTO_BATTLER_PERCENTAGE = get_int_env("AUTO_BATTLER_PERCENTAGE", 0)
 DEBUG = get_bool_env("DEBUG", "True")
@@ -132,8 +134,8 @@ MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
 ALLOW_SPILL = get_bool_env("ALLOW_SPILL_REWARD")
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = 76
-SHOP_INPUT_SIZE = 45
+SCALAR_INPUT_SIZE = get_int_env("SCALAR_INPUT_SIZE", 76)  # Change this to 20 if doing single player
+SHOP_INPUT_SIZE = get_int_env("SHOP_INPUT_SIZE", 45)
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234
 ITEMS_INPUT_SIZE = 60
@@ -175,13 +177,12 @@ class ModelConfig:
     if isinstance(SELECTED_SAMPLES, str):
         SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
 
-
     N_HEAD_HIDDEN_LAYERS = 2
     N_HEADS = 4
     N_LAYERS = 4
     NUM_SAMPLES = get_int_env("NUM_SAMPLES", 30)
     NUM_SIMULATIONS = get_int_env("NUM_SIMULATIONS", 50)
-    NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 4)
+    NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 4)  # Normal is 4
 
     ITEM_EMBEDDING_DIM = get_int_env("ITEM_EMBEDDING_DIM", 60)
     CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)

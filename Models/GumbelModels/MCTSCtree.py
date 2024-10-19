@@ -58,7 +58,7 @@ class GumbelMuZeroMCTSCtree(object):
             - roots (:obj:`Any`): a batch of expanded root nodes.
             - latent_state_roots (:obj:`list`): the hidden states of the roots.
             - model (:obj:`torch.nn.Module`): The model used for inference.
-            - to_play (:obj:`list`): the to_play list used in in self-play-mode board games.
+            - to_play (:obj:`list`): the to_play list used in self-play-mode board games.
 
         .. note::
             The core functions ``batch_traverse`` and ``batch_backpropagate`` are implemented in C++.

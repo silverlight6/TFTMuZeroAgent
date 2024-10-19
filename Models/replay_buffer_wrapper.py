@@ -8,8 +8,8 @@ from sklearn import preprocessing
 @ray.remote(num_gpus=config.BUFFER_GPU_SIZE, num_cpus=0.2)
 class BufferWrapper:
     def __init__(self):
-        self.buffers = {"player_" + str(i): ReplayBuffer() for i in range(config.NUM_PLAYERS)}
-    
+        self.buffers = {"player_" + str(i): ReplayBuffer() for i in range(config.NUM_PLAYERS * config.NUM_ENVS)}
+
     def store_replay_buffer(self, key, *args):
         self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
 
@@ -60,6 +60,6 @@ class BufferWrapper:
             b.store_global_buffer(global_buffer)
 
     def reset_buffers(self):
-        self.buffers = {"player_" + str(i): ReplayBuffer() for i in range(config.NUM_PLAYERS)}
+        self.buffers = {"player_" + str(i): ReplayBuffer() for i in range(config.NUM_PLAYERS * config.NUM_ENVS)}
         return True
     
