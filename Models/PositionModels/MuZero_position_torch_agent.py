@@ -3,8 +3,8 @@ import torch
 import Models.MCTS_Util as utils
 import config
 from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import AlternateFeatureEncoder, TransformerEncoder
-from Models.MuZero_torch_agent import DynNetwork
+from Models.torch_layers import Normalize, MemoryLayer, AlternateFeatureEncoder, TransformerEncoder
+
 from config import ModelConfig
 
 class MuZero_Position_Network(AbstractNetwork):
@@ -14,9 +14,9 @@ class MuZero_Position_Network(AbstractNetwork):
 
         self.representation_network = RepPositionEmbeddingNetwork(model_config)
 
-        self.dynamics_network = DynNetwork(input_size=model_config.HIDDEN_STATE_SIZE,
-                                           num_layers=model_config.NUM_RNN_CELLS,
-                                           hidden_size=model_config.LSTM_SIZE, model_config=model_config)
+        self.dynamics_network = PositionDynNetwork(input_size=model_config.HIDDEN_STATE_SIZE,
+                                                   num_layers=model_config.NUM_RNN_CELLS,
+                                                   hidden_size=model_config.LSTM_SIZE, model_config=model_config)
 
         self.prediction_network = PredPositionNetwork(model_config)
 
@@ -29,13 +29,9 @@ class MuZero_Position_Network(AbstractNetwork):
 
         self.model_config = model_config
 
-    def prediction(self, encoded_state, training=False):
-        if training:
-            policy_logits, value, comp, final_comp, champ = self.prediction_network(encoded_state, training)
-            return policy_logits, value, comp, final_comp, champ
-        else:
-            policy_logits, value = self.prediction_network(encoded_state, training)
-            return policy_logits, value
+    def prediction(self, encoded_state):
+        policy_logits, value = self.prediction_network(encoded_state)
+        return policy_logits, value
 
     def representation(self, observation):
         observation = {label: torch.from_numpy(value).to(config.DEVICE) for label, value in observation.items()}
@@ -46,42 +42,16 @@ class MuZero_Position_Network(AbstractNetwork):
 
     def initial_inference(self, observation, training=False):
         hidden_state = self.representation(observation)
-        if training:
-            policy_logits, value_logits, comp, final_comp, champ = self.prediction(hidden_state, training)
+        policy_logits, value_logits = self.prediction(hidden_state)
 
-            value = self.value_encoder.decode_softmax(value_logits)
+        value = self.value_encoder.decode_softmax(value_logits)
 
-            reward = torch.zeros(observation["shop"].shape[0])
-            reward_logits = self.reward_encoder.encode(reward)
-
-            outputs = {
-                "value": value,
-                "value_logits": value_logits,
-                "reward": reward,
-                "reward_logits": reward_logits,
-                "policy_logits": policy_logits,
-                "hidden_state": hidden_state,
-                "comp": comp,
-                "final_comp": final_comp,
-                "champ": champ
-            }
-
-        else:
-            policy_logits, value_logits = self.prediction(hidden_state)
-
-            value = self.value_encoder.decode_softmax(value_logits)
-
-            reward = torch.zeros(observation["shop"].shape[0])
-            reward_logits = self.reward_encoder.encode(reward)
-
-            outputs = {
-                "value": value,
-                "value_logits": value_logits,
-                "reward": reward,
-                "reward_logits": reward_logits,
-                "policy_logits": policy_logits,
-                "hidden_state": hidden_state
-            }
+        outputs = {
+            "value": value,
+            "value_logits": value_logits,
+            "policy_logits": policy_logits,
+            "hidden_state": hidden_state,
+        }
         return outputs
 
     @staticmethod
@@ -105,35 +75,17 @@ class MuZero_Position_Network(AbstractNetwork):
         # assert cur_idx == state.shape[-1]
         return tensors
 
-    def recurrent_inference(self, hidden_state, action, training=False):
-        next_hidden_state, reward_logits = self.dynamics(hidden_state, action)
-        if training:
-            policy_logits, value_logits, comp, final_comp, champ = self.prediction(next_hidden_state, training)
-            value = self.value_encoder.decode_softmax(value_logits)
-            reward = self.reward_encoder.decode_softmax(reward_logits)
-            outputs = {
-                "value": value,
-                "value_logits": value_logits,
-                "reward": reward,
-                "reward_logits": reward_logits,
-                "policy_logits": policy_logits,
-                "hidden_state": next_hidden_state,
-                "comp": comp,
-                "final_comp": final_comp,
-                "champ": champ
-            }
-        else:
-            policy_logits, value_logits = self.prediction(next_hidden_state)
-            value = self.value_encoder.decode_softmax(value_logits)
-            reward = self.reward_encoder.decode_softmax(reward_logits)
-            outputs = {
-                "value": value,
-                "value_logits": value_logits,
-                "reward": reward,
-                "reward_logits": reward_logits,
-                "policy_logits": policy_logits,
-                "hidden_state": next_hidden_state
-            }
+    def recurrent_inference(self, hidden_state, action):
+        next_hidden_state = self.dynamics(hidden_state, action)
+
+        policy_logits, value_logits = self.prediction(next_hidden_state)
+        value = self.value_encoder.decode_softmax(value_logits)
+        outputs = {
+            "value": value,
+            "value_logits": value_logits,
+            "policy_logits": policy_logits,
+            "hidden_state": next_hidden_state
+        }
         return outputs
 
 
@@ -252,3 +204,38 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
 
     def forward(self, x):
         return self._forward(x)
+
+class PositionDynNetwork(torch.nn.Module):
+    def __init__(self, input_size, num_layers, hidden_size, model_config) -> torch.nn.Module:
+        super().__init__()
+
+        def memory():
+            return torch.nn.Sequential(
+                MemoryLayer(input_size, num_layers, hidden_size, model_config),
+                Normalize()
+            ).to(config.DEVICE)
+
+        self.action_embeddings = torch.nn.Embedding(29, model_config.ACTION_EMBEDDING_DIM).to(config.DEVICE)
+        self.action_encodings = AlternateFeatureEncoder(model_config.ACTION_EMBEDDING_DIM, [
+                model_config.LAYER_HIDDEN_SIZE] * 0, model_config.HIDDEN_STATE_SIZE, config.DEVICE)
+
+        self.dynamics_memory = memory()
+
+        # self.dynamics_reward_network = AlternateFeatureEncoder(input_size, [model_config.LAYER_HIDDEN_SIZE] * 1,
+        #                                                        model_config.ENCODER_NUM_STEPS, config.DEVICE)
+        self.model_config = model_config
+
+    def forward(self, hidden_state, action):
+        action = torch.from_numpy(action).to(config.DEVICE).to(torch.int64)
+        action = self.action_embeddings(action)
+
+        action_encoding = self.action_encodings(action)
+
+        inputs = action_encoding.to(torch.float32)
+        inputs = inputs[:, None, :]
+
+        new_hidden_state = self.dynamics_memory((inputs, hidden_state))
+
+        # reward = self.dynamics_reward_network(new_hidden_state)
+
+        return new_hidden_state

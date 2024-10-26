@@ -94,6 +94,51 @@ class GlobalBuffer(object):
             ]
         return np.array(data_list, dtype=object)
 
+    async def sample_position_batch(self):
+        """
+        Prepares a batch for training. All preprocessing done here to avoid problems with data transfer between CPU
+        and GPU causing slowdowns.
+
+        Conditions:
+            - There is enough data in the buffer to train on.
+
+        Returns:
+            A prepared batch ready for training.
+        """
+        obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
+        target_policy_batch, value_mask_batch, position_batch, importance_weights = [], [], [], []
+        for batch_num in range(self.batch_size):
+            # Setting the position gameplay_experiences get and position get next to each other to minimize
+            # the number of multiprocessing errors that could occur by having them too far apart.
+            # If these two commands become out of sync, it would cause the position logging to not match the rest
+            # of the training logs, but it would not break training.
+            [observation, action_history, value_mask, policy_mask, value, policy], priority = \
+                self.gameplay_experiences.extractMax()
+            position, _ = self.average_position.extractMax()
+            position_batch.append(position)
+            obs_tensor_batch.append(observation)
+            action_history_batch.append(action_history)
+            policy_mask_batch.append(policy_mask)
+            target_value_batch.append(value)
+            target_policy_batch.append(policy)
+            value_mask_batch.append(value_mask)
+            importance_weights.append(1 / self.batch_size / priority)
+
+        observation_batch = self.reshape_observation(obs_tensor_batch)
+        action_history_batch = np.asarray(action_history_batch)
+        target_value_batch = np.asarray(target_value_batch).astype('float32')
+        value_mask_batch = np.asarray(value_mask_batch).astype('float32')
+        target_policy_batch = np.asarray(target_policy_batch).astype('float32')
+        policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
+        importance_weights_batch = np.asarray(importance_weights).astype('float32')
+        importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
+
+        data_list = [
+            observation_batch, action_history_batch, value_mask_batch, policy_mask_batch, target_value_batch,
+            target_policy_batch, importance_weights_batch
+        ]
+        return np.array(data_list, dtype=object)
+
     def reshape_observation(self, obs_batch):
         """
         Description:

@@ -1,6 +1,6 @@
 import time
 import numpy as np
-import core.ctree.cytree as tree
+import core.muzero_ctree.cytree as tree
 import torch
 import Models.MCTS_Util as util
 import config
@@ -17,6 +17,7 @@ EXPLANATION OF MCTS:
 """
 
 
+# TODO: Implement the simulator section for AlphaZero
 class MCTS:
     def __init__(self, network, model_config):
         self.network = network
@@ -24,25 +25,24 @@ class MCTS:
         self.batch_size = config.NUM_PLAYERS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
-        self.default_string_mapping, self.default_mask = util.create_position_default_mapping()
         self.max_depth_search = 0
         self.model_config = model_config
-        self.default_mask = torch.tensor(self.default_mask).to(config.DEVICE)
 
-    def policy(self, observation):
+    def policy(self, observation, simulators, action_count):
         with torch.no_grad():
             self.batch_size = observation["observations"]["board"].shape[0]
 
             # 0.013 seconds
             network_output = self.network.initial_inference(observation["observations"])
 
-            reward_pool = np.array(network_output["reward"]).reshape(-1).tolist()
+            reward_pool = [0] * self.batch_size
 
             policy_logits = network_output["policy_logits"]
             # Mask illegal actions
 
             # is it quicker to do this as a tensor or as a numpy array?
-            flat_mask = torch.tensor(np.reshape(observation["action_mask"], (self.batch_size, -1))).to(config.DEVICE)
+            flat_mask = torch.tensor(observation["action_mask"][np.arange(4),
+                                     np.array(action_count).flatten(), :]).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
             masked_policy_logits = policy_logits.cpu().numpy()
@@ -55,26 +55,21 @@ class MCTS:
 
             policy_logits_pool = self.add_exploration_noise(masked_policy_logits, noises)
 
-            default_mapping = self.default_string_mapping * self.batch_size
-            # 0.001 seconds
-            policy_logits_pool, string_mapping, mappings, policy_sizes = self.sample(policy_logits_pool,
-                                                                                     default_mapping)
-
             # less than 0.0001 seconds
             # Setup specialised roots datastructures, format: env_nums, action_space_size, num_simulations
-            # Number of agents, previous action, number of simulations for memory purposes
-            roots_cpp = tree.Roots(self.batch_size, self.model_config.NUM_SIMULATIONS, self.model_config.NUM_SAMPLES)
+            # Number of agents, previous action, number of simulations for memory purposes, keep above number of actions
+            roots_cpp = tree.Roots(self.batch_size, self.model_config.NUM_SIMULATIONS, 30)
 
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
             # for statement to deal with different lengths due to masking.
-            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool, mappings, policy_sizes)
+            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool.tolist(), [29] * self.batch_size, action_count)
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
 
             # set up nodes to be able to find and select actions
-            self.run_batch_mcts(roots_cpp, hidden_state_pool)
+            self.run_batch_mcts(roots_cpp, hidden_state_pool, observation["action_mask"], simulators, action_count)
             roots_distributions = roots_cpp.get_distributions()
 
             root_values = roots_cpp.get_values()
@@ -86,13 +81,18 @@ class MCTS:
             for i in range(self.batch_size):
                 distributions = roots_distributions[i]
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)
-                actions.append(string_mapping[i][action])
-                target_policy.append([x / self.model_config.NUM_SIMULATIONS for x in distributions])
+                actions.append(action)
+                # sum(x) since x might add up to a number different from the number of simulations
+                # due to terminal states.
+                # This can be less than the number of actions which is a bit concerning but I think it's fine
+                dist_sum = sum(distributions)
+                # print(f"dist_sum -> {dist_sum}")
+                target_policy.append([x / dist_sum for x in distributions])
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
-            return actions, target_policy, string_mapping, root_values
+            return actions, target_policy, root_values
 
-    def run_batch_mcts(self, roots_cpp, hidden_state_pool):
+    def run_batch_mcts(self, roots_cpp, hidden_state_pool, action_mask, simulators, action_count):
         # preparation
         num = roots_cpp.num
         # config variables
@@ -110,7 +110,7 @@ class MCTS:
             results = tree.ResultsWrapper(num)
             # basically 0 seconds (3e-5)
             # evaluation for leaf nodes, traversing across the tree and updating values
-            hidden_state_index_x_lst, hidden_state_index_y_lst, last_action = \
+            hidden_state_index_x_lst, hidden_state_index_y_lst, last_action, search_lens = \
                 tree.batch_traverse(roots_cpp, pb_c_base, pb_c_init, discount, min_max_stats_lst, results)
 
             self.max_depth_search = sum(results.get_search_len()) / len(results.get_search_len())
@@ -123,28 +123,35 @@ class MCTS:
 
             # Inside the search tree we use the dynamics function to obtain the next
             # hidden state given an action and the previous hidden state.
-            last_action = np.asarray(last_action)
+            # TODO: Turn last_action into an array. The previous action goes to the recurrent_inference,
+            #  rest for simulator
+            last_action_input = []
+            for action in last_action:
+                last_action_input.append(action[-1])
 
             # 0.005 to 0.01 seconds
-            network_output = self.network.recurrent_inference(tensors_states, last_action)
+            network_output = self.network.recurrent_inference(tensors_states, np.array(last_action_input))
 
-            reward_pool = network_output["reward"].reshape(-1).tolist()
+            reward_pool = []
+            step_action_counts = []
+            for i, simulator in enumerate(simulators):
+                # - 1 for the indexing for the mask
+                step_action_counts.append(action_count[i] + search_lens[i] - 1)
+                if step_action_counts[i] == 11:
+                    reward_pool.append(simulator.fake_step(last_action[i], action_count[i]))
+                else:
+                    reward_pool.append(0)
+
             value_pool = network_output["value"].reshape(-1).tolist()
-            diff = max(value_pool) - min(value_pool)
-            if diff > 150.:
-                print(f"EUREKA, VALUES MAX: {max(value_pool)}, AND MIN: {min(value_pool)}, RANGE {diff}")
 
             policy_logits = network_output["policy_logits"]
-            # Mask illegal actions
 
-            default_mask = self.default_mask.repeat(self.batch_size, 1)
-            inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
+            # Mask illegal actions
+            flat_mask = torch.tensor(action_mask[np.arange(4),
+                                     np.array(step_action_counts).flatten(), :]).to(config.DEVICE)
+            inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
             masked_policy_logits = policy_logits.cpu().numpy()
-
-            # 0.003 to 0.01 seconds
-            default_mapping = self.default_string_mapping * self.batch_size
-            policy_logits, _, mappings, policy_sizes = self.sample(masked_policy_logits, default_mapping)
 
             # These assignments take 0.0001 > time
             # add nodes to the pool after each search
@@ -155,8 +162,9 @@ class MCTS:
 
             # 0.001 seconds
             # backpropagation along the search path to update the attributes
-            tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool, policy_logits,
-                                      min_max_stats_lst, results, mappings, policy_sizes)
+            tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool,
+                                      masked_policy_logits.tolist(), min_max_stats_lst, results,
+                                      [29] * self.batch_size, step_action_counts)
 
     def add_exploration_noise(self, policy_logits, noises):
         exploration_fraction = self.model_config.ROOT_EXPLORATION_FRACTION
@@ -192,43 +200,6 @@ class MCTS:
             action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
         return action_pos
-
-
-    """
-    Description - Position model doesn't need to sample actions so we keep the same policy logits and map them to 
-                    0 through batch size.
-    Inputs      - policy_logits - List
-                      Output to either initial_inference or recurrent_inference for policy
-                  string_mapping - List
-                      A map that is equal to policy_logits.shape[-1] in size to map to the specified action
-                  num_samples - Int
-                      Typically set to config.NUM_SAMPLES. Number of samples to use per expansion of the tree
-    Outputs     - output_logits - List
-                      The sampled policy logits 
-                  output_string_mapping - List
-                      The sampled string mapping. Size = output.logits.shape
-                  output_byte_mapping - List
-                      Same as output_string_mapping but for c++ side
-                  policy_sizes - List
-                      Number of samples per player, can change if legal actions < num_samples
-    """
-    def sample(self, policy_logits, string_mapping):
-        batch_size = len(policy_logits)
-
-        output_byte_mapping = []
-        policy_sizes = []
-
-        for idx in range(batch_size):
-            local_byte = []
-
-            for i in range(len(string_mapping[idx])):
-                dim_base_string = string_mapping[idx][i]
-                local_byte.append(bytes(dim_base_string, "utf-8"))
-
-            output_byte_mapping.append(local_byte)
-            policy_sizes.append(29)
-
-        return policy_logits.aslist(), string_mapping, output_byte_mapping, policy_sizes
 
     @staticmethod
     def softmax_stable(x):

@@ -1026,7 +1026,7 @@ namespace tree{
         }
 
         if (rescale_values){
-            rescale_qvalues(completed_qvalue, epsilon);
+                rescale_qvalues(completed_qvalue, epsilon);
         }
 
         float max_visit = *max_element(child_visit.begin(), child_visit.end());

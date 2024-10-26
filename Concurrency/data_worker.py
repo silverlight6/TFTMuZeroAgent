@@ -9,6 +9,8 @@ from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Models.PositionModels.MCTS_position_torch import MCTS as Position_MCTS
 from Models.GumbelModels.gumbel_MCTS import GumbelMuZero
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
@@ -26,6 +28,8 @@ Description -
 @ray.remote(num_gpus=GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank, model_config):
+        # TODO: Move these to the individual methods so we don't need to build the project to run it.
+        # Unless you are running these specific methods.
         if config.CHAMP_DECIDER:
             self.temp_model = DefaultNetwork(model_config)
             self.agent_network = Default_MCTS(self.temp_model, model_config)
@@ -35,6 +39,11 @@ class DataWorker(object):
             self.temp_model = TFTNetwork(model_config)
             self.agent_network = GumbelMuZero(self.temp_model, model_config)
             self.past_network = GumbelMuZero(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        elif config.MUZERO_POSITION:
+            self.temp_model = PositionNetwork(model_config)
+            self.agent_network = Position_MCTS(self.temp_model, model_config)
+            self.past_network = Position_MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork(model_config)
@@ -380,6 +389,63 @@ class DataWorker(object):
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
+    def collect_position_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.vector_reset()
+            player_observation = env.list_to_dict([player_observation])
+
+            # Used to know when players die and which agent is currently acting
+            terminated = [False for _ in range(env.num_envs)]
+            storage_terminated = [False for _ in range(env.num_envs)]
+            action_count = [0 for _ in range(env.num_envs)]
+
+            # While the game is still going on.
+            while not all(terminated):
+                simulator_envs = copy.deepcopy(env.envs)
+                # Ask our model for an action and policy. Use on normal case or if we only have current versions left
+                actions, policy, root_values = self.agent_network.policy(player_observation, simulator_envs,
+                                                                         action_count)
+                step_actions = np.array(actions)
+
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.vector_step(step_actions)
+                # store the action for MuZero
+                # Using i for all possible players and alive_i for all alive players
+                alive_i = 0
+                for i in range(len(terminated)):
+                    if not storage_terminated[i]:
+                        # Store the information in a buffer to train on later.
+                        buffers.store_gumbel_buffer.remote(f"player_{i}", self.get_position_obs_idx(
+                            player_observation["observations"], alive_i), step_actions[alive_i], reward[alive_i],
+                                                           policy[alive_i], root_values[alive_i])
+                        if terminated[i]:
+                            storage_terminated[i] = True
+                        alive_i += 1
+                        action_count[i] += 1
+
+                # Set up the observation for the next action
+                player_observation = env.list_to_dict([next_observation])
+
+            buffers.store_global_position_buffer.remote(global_buffer)
+
+            buffers.reset_buffers.remote()
+
+            # This is just to try to give the buffer some time to train on the data we have and not slow down our
+            # buffers by sending thousands of store commands when the buffer is already full.
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
+                time.sleep(5)
+
+            # So if I do not have a live game, I need to sample a past model
+            # Which means I need to create a list within the storage and sample from that.
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_target_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = Position_MCTS(self.temp_model, self.model_config)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
     '''
     Description -
         Turns the actions from a format that is sent back from the model to a format that is usable by the environment.
@@ -507,6 +573,12 @@ class DataWorker(object):
             "board": observation["board"][idx],
             "bench": observation["bench"][idx],
             "items": observation["items"][idx],
+            "traits": observation["traits"][idx],
+        }
+
+    def get_position_obs_idx(self, observation, idx):
+        return {
+            "board": observation["board"][idx],
             "traits": observation["traits"][idx],
         }
 

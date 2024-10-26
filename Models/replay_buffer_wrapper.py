@@ -59,6 +59,10 @@ class BufferWrapper:
         for b in self.buffers.values():
             b.store_global_buffer(global_buffer)
 
+    def store_global_position_buffer(self, global_buffer):
+        for b in self.buffers.values():
+            b.store_global_position_buffer(global_buffer)
+
     def reset_buffers(self):
         self.buffers = {"player_" + str(i): ReplayBuffer() for i in range(config.NUM_PLAYERS * config.NUM_ENVS)}
         return True

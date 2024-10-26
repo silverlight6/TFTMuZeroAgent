@@ -7,15 +7,15 @@ import config
 
 from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env, TFTConfig
-from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
+from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator, TFT_Vector_Pos_Simulator
 from Simulator.observation.token.basic_observation import ObservationToken
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
-
 
 
 """
@@ -64,6 +64,49 @@ class AIInterface:
 
             for i, worker in enumerate(data_workers):
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], training_manager,
+                                                                         storage, weights))
+                time.sleep(0.5)
+
+            training_manager.loop(storage, train_step)
+
+            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # ray.get(storage)
+            ray.get(workers)
+
+    def train_position_model(self) -> None:
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = config.STARTING_EPISODE
+
+            workers = []
+            model_config = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, model_config) for rank in range(config.CONCURRENT_GAMES)]
+            storage = Storage.remote(train_step)
+            global_agent = PositionNetwork(model_config)
+
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            training_manager = TrainingManager(global_agent, storage)
+
+            # Keeping this line commented because this tells us the number of parameters that our current model has.
+            # total_params = sum(p.numel() for p in global_agent.parameters())
+
+            # These are the lines that are going to take a bit of thought of how I want to do this.
+            # I am not just sending one environment in and calling it good.
+            # Lets step back for a second, use a pen and paper and try to figure out a good idea on how to build this
+            env = TFT_Vector_Pos_Simulator(num_envs=config.NUM_ENVS)
+
+            # Same thing here, I want to improve on the design on this as well. The problem is I'm starting to run
+            # A bit low on time so I might not do too much here.
+            buffers = [BufferWrapper.remote()
+                       for _ in range(config.CONCURRENT_GAMES)]
+
+            weights = ray.get(storage.get_target_model.remote())
+
+            for i, worker in enumerate(data_workers):
+                workers.append(worker.collect_position_experience.remote(env, buffers[i], training_manager,
                                                                          storage, weights))
                 time.sleep(0.5)
 
@@ -225,7 +268,7 @@ class AIInterface:
         import numpy as np
         from torch.utils.tensorboard import SummaryWriter
 
-        from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator, list_to_dict
+        from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator
         from Simulator.tft_local_vector_simulator import TFT_Local_Vector_Pos_Simulator
         from Models.PositionModels.action_mask_model import TorchPositionModel
         from Models.utils import convert_to_torch_tensor
@@ -269,7 +312,7 @@ class AIInterface:
             else:
                 reset_env.append(env.vector_reset()[0])
 
-        obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
+        obs = convert_to_torch_tensor(x=TFT_Vector_Pos_Simulator.list_to_dict(reset_env), device=config.DEVICE)
         num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
         kl_coef = ppo_config.KL_COEF
 
@@ -307,7 +350,7 @@ class AIInterface:
                     local_worker = worker
                 obs.append(local_worker[0])
                 reward.append(local_worker[1])
-            obs = list_to_dict(obs)
+            obs = TFT_Vector_Pos_Simulator.list_to_dict(obs)
             reward = torch.tensor(reward)
 
             # TRY NOT TO MODIFY: execute the game and log data.

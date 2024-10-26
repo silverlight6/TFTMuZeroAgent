@@ -936,9 +936,17 @@ class Player:
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(
                     self.board[x2][y2].name, x1, y1, x2, y2))
                 return True
+            # if called in wrong order
+            elif self.board[x2][y2]:
+                return self.move_board_to_board(x2, y2, x1, y1)
         self.reward += self.mistake_reward
         if DEBUG:
             print(f"Outside board limits -> ({x1}, {y1}) to ({x2}, {y2})")
+            if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
+                if self.board[x1][y1]:
+                    print(f"At board {x1}, {y1} -> {self.board[x1][y1].name}")
+                if self.board[x2][y2]:
+                    print(f"At board {x2}, {y2} -> {self.board[x2][y2].name}")
         return False
 
     # --- Item Action --- #

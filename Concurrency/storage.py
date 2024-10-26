@@ -5,6 +5,7 @@ import glob
 import config
 import numpy as np
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Models.Representations.representation_model import RepresentationTesting as RepNetwork
 from Concurrency.checkpoint import Checkpoint
@@ -56,6 +57,8 @@ class Storage:
             return DefaultNetwork(config.ModelConfig())
         elif config.REP_TRAINER:
             return RepNetwork(config.ModelConfig())
+        elif config.MUZERO_POSITION:
+            return PositionNetwork(config.ModelConfig())
         else:
             return TFTNetwork(config.ModelConfig())
 

@@ -4,6 +4,7 @@ import config
 from torch.utils.tensorboard import SummaryWriter
 from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
 from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
+from Models.PositionModels.MuZero_position_trainer import Trainer as Position_Trainer
 
 
 """
@@ -22,6 +23,8 @@ class TrainingLoop:
         self.summary_writer = SummaryWriter(train_log_dir)
         if config.GUMBEL:
             self.trainer = Gumbel_Trainer(global_agent, self.summary_writer)
+        elif config.MUZERO_POSITION:
+            self.trainer = Position_Trainer(global_agent, self.summary_writer)
         else:
             self.trainer = MuZero_Trainer(global_agent, self.summary_writer)
         self.batch_size = config.BATCH_SIZE
@@ -43,7 +46,10 @@ class TrainingLoop:
     async def loop(self, global_agent, storage, train_step):
         while True:
             if await self.global_buffer.available_batch():
-                gameplay_experience_batch = await self.global_buffer.sample_batch()
+                if config.MUZERO_POSITION:
+                    gameplay_experience_batch = await self.global_buffer.sample_position_batch()
+                else:
+                    gameplay_experience_batch = await self.global_buffer.sample_batch()
 
                 self.trainer.train_network(gameplay_experience_batch, train_step)
                 # Leaving these comments here because they are benchmarking times for debugging.

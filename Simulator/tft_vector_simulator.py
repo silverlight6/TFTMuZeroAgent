@@ -1,7 +1,8 @@
 import logging
 import time
 import numpy as np
-import ray
+
+import config
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from Simulator.tft_single_player_simulator import TFT_Single_Player_Simulator
 from Simulator.tft_simulator import TFTConfig
@@ -10,7 +11,19 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 
-@ray.remote
+if config.MUZERO_POSITION:
+    ray_enabled = False
+else:
+    import ray
+    ray_enabled = True
+
+def optional_ray_remote(cls):
+    """Applies `ray.remote` to a class if Ray is enabled."""
+    if ray_enabled:
+        return ray.remote(cls)
+    return cls
+
+@optional_ray_remote
 class TFT_Vector_Pos_Simulator:
     """Internal wrapper to translate the position simulator into a VectorEnv object."""
 
@@ -124,7 +137,7 @@ class TFT_Vector_Pos_Simulator:
             truncated_batch.append(truncated)
             info_batch.append(info)
 
-        return self.list_to_dict(obs_batch), reward_batch, terminated_batch, truncated_batch, info_batch
+        return obs_batch, reward_batch, terminated_batch, truncated_batch, info_batch
 
     def get_sub_environments(self):
         return self.envs
@@ -195,16 +208,11 @@ class TFT_Vector_Pos_Simulator:
             for env in self.envs:
                 env.level_up()
 
-        # ray.put(resetted_obs)
         return resetted_obs, reward_batch, terminated_batch, truncated_batch, resetted_infos
 
     def check_greater_than_last_five(self):
         """
         Checks if the current value in a list is greater than or equal to the last 5 values.
-
-        Args:
-          data: The list of values.
-          current_index: The index of the current value.
 
         Returns:
           True if the current value is greater than or equal to the last 5 values, False otherwise.
@@ -236,7 +244,6 @@ class TFT_Vector_Pos_Simulator:
             'action_mask': np.array(action_mask)
         }
 
-
 class TFT_Single_Player_Vector_Simulator:
     """Internal wrapper to translate the position simulator into a VectorEnv object."""
 
@@ -244,7 +251,7 @@ class TFT_Single_Player_Vector_Simulator:
         """Initializes a TFT_Vector_Pos_Simulator object.
 
         Args:
-            data_generator: Queue object that data from the simulated games get stored to replay battles from
+            tft_config: config to play the game of TFT
             num_envs: Total number of sub environments in this VectorEnv.
         """
         self.envs = [TFT_Single_Player_Simulator(tft_config)]

@@ -60,6 +60,7 @@ REP_TRAINER = get_bool_env("REP_TRAINER")
 MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
 GUMBEL = get_bool_env("GUMBEL")
 SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
+MUZERO_POSITION = get_bool_env("MUZERO_POSITION")
 
 PATH = path.dirname(path.realpath(__file__))
 
