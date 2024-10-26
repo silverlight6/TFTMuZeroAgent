@@ -143,6 +143,11 @@ class PlayerManager:
                 self.observation_states[player].update_observation([2, 0, 0])
                 self.action_handlers[player].update_action_mask([2, 0, 0])
 
+    def refresh_player_shop(self, player):
+        self.player_states[player].refresh_shop()
+        self.observation_states[player].update_observation([2, 0, 0])
+        self.action_handlers[player].update_action_mask([2, 0, 0])
+
     # - Used so I don't have to change the Game_Round class -
     # TODO: Refactor Game_Round class to use refresh_all_shops
     def generate_shops(self, players):
@@ -185,4 +190,3 @@ class PlayerManager:
             for player in self.players
         }
     # -----
-        

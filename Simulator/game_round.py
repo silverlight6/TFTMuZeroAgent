@@ -33,6 +33,7 @@ class Game_Round:
 
         log_to_file_start()
 
+        # TODO: Verify that the carousel rounds are in the correct locations
         self.game_rounds = [
             [self.round_1],
             [self.minion_round],
@@ -288,7 +289,6 @@ class Game_Round:
 
     def start_round(self):
         self.step_func_obj.generate_shops(self.PLAYERS)
-        self.step_func_obj.generate_shop_vectors(self.PLAYERS)
         self.decide_player_combat()
         for player in self.PLAYERS.values():
             if player:
@@ -297,7 +297,7 @@ class Game_Round:
     def round_1(self):
         carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-                log_to_file(player)
+            log_to_file(player)
 
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
@@ -308,13 +308,10 @@ class Game_Round:
     def minion_round(self):
         for player in self.PLAYERS.values():
             if player:
-                log_to_file(player)
-        log_end_turn(self.current_round)
-
-        for player in self.PLAYERS.values():
-            if player:
                 player.end_turn_actions()
                 player.combat = False
+                log_to_file(player)
+        log_end_turn(self.current_round)
 
         for player in self.PLAYERS.values():
             if player:
@@ -331,9 +328,7 @@ class Game_Round:
         log_end_turn(self.current_round)
 
         self.combat_phase(self.PLAYERS, self.current_round)
-        # Will implement check dead later
-        # if self.check_dead(agent, buffer, game_episode):
-        #     return True
+
         log_to_file_combat()
         return False
 
@@ -341,9 +336,9 @@ class Game_Round:
     def carousel_round(self):
         carousel(list(self.PLAYERS.values()), self.current_round, self.pool_obj)
         for player in self.PLAYERS.values():
-                if player:
-                    log_to_file(player)
-                    player.refill_item_pool()
+            if player:
+                log_to_file(player)
+                player.refill_item_pool()
 
     def terminate_game(self):
         print("Game has gone on way too long. There has to be a bug somewhere")

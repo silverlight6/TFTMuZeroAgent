@@ -209,47 +209,57 @@ class Herald(Minion):
         return loot
 
 
-def minion_round(player, round, others):
+def minion_round(player, current_round, others=None, other_rewards=None):
     # simulate minion round here
     # 2 melee minions - give 1 item component
-    if round == 0:
-        minion_combat(player, FirstMinion(), round, others)
+    if current_round == 0:
+        combat_result = minion_combat(player, FirstMinion(), current_round, others, other_rewards)
+        # print(f"Result against 2 melee minions {combat_result}")
 
     # 2 melee and 1 ranged minion - give 1 item component and 1 3 cost champion
-    elif round == 1:
-        minion_combat(player, SecondMinion(), round, others)
+    elif current_round == 1:
+        combat_result = minion_combat(player, SecondMinion(), current_round, others, other_rewards)
+        # print(f"Result against 2 melee and 1 ranged minion {combat_result}")
 
     # 2 melee minions and 2 ranged minions - give 3 gold and 1 item component
-    elif round == 2:
-        minion_combat(player, ThirdMinion(), round, others)
+    elif current_round == 2:
+        combat_result = minion_combat(player, ThirdMinion(), current_round, others, other_rewards)
+        # print(f"Result against 2 melee and 2 ranged minions {combat_result}")
 
     # 3 Krugs - give 3 gold and 3 item components
-    elif round == 8:
-        minion_combat(player, Krug(), round, others)
+    elif current_round == 8:
+        combat_result = minion_combat(player, Krug(), current_round, others, other_rewards)
+        # print(f"Result against 3 krugs {combat_result}")
 
     # 1 Greater Murk Wolf and 4 Murk Wolves - give 3 gold and 3 item components
-    elif round == 14:
-        minion_combat(player, Wolf(), round, others)
+    elif current_round == 14:
+        combat_result = minion_combat(player, Wolf(), current_round, others, other_rewards)
+        # print(f"Result against 1 greater wolf and 4 murk wolves {combat_result}")
 
     # 1 Crimson Raptor and 4 Raptors - give 6 gold and 4 item components
-    elif round == 20:
-        minion_combat(player, Raptor(), round, others)
+    elif current_round == 20:
+        combat_result = minion_combat(player, Raptor(), current_round, others, other_rewards)
+        # print(f"Result against a crimson raptor and 4 raptors {combat_result}")
 
     # 1 Nexus Minion - give 6 gold and a full item
-    elif round == 26:
-        minion_combat(player, Nexus(), round, others)
+    elif current_round == 26:
+        combat_result = minion_combat(player, Nexus(), current_round, others, other_rewards)
+        # print(f"Result against 1 nexus minion {combat_result}")
 
     # Rift Herald - give 6 gold and a full item
-    elif round >= 33:
-        minion_combat(player, Herald(), round, others)
+    elif current_round >= 33:
+        combat_result = minion_combat(player, Herald(), current_round, others, other_rewards)
+        # print(f"Result against rift herald {combat_result}")
 
     # invalid round! Do nothing
     else:
-        return
+        return False
+
+    return combat_result
 
 
 # modeled after combat_phase from game_round.py, except with a minion "player" versus the player
-def minion_combat(player, enemy, round, others):
+def minion_combat(player, enemy, round, others=None, other_rewards=True):
     ROUND_DAMAGE = [
             [3, 0],
             [9, 2],
@@ -270,28 +280,34 @@ def minion_combat(player, enemy, round, others):
 
     index_won, damage = champion.run(champion.champion, player, enemy, ROUND_DAMAGE[round_index][1])
     # list of currently alive players at the conclusion of combat
-    alive = []
-    for o in others:
-        if o:
-            if o.health > 0 and o is not player:
-                alive.append(o)
-    # tie!
-    if index_won == 0:
-        player.loss_round(damage)
-        for p in alive:
-            if p != player:
-                p.spill_reward(damage / len(alive))
-        player.health -= damage
+    if other_rewards and index_won != 1:
+        alive = []
+        for o in others:
+            if o:
+                if o.health > 0 and o is not player:
+                    alive.append(o)
+        # tie!
+        if index_won == 0:
+            player.loss_round(damage)
+            for p in alive:
+                if p != player:
+                    p.spill_reward(damage / len(alive))
+            player.health -= damage
+        # minions win! (yikes)
+        if index_won == 2:
+            player.loss_round(damage)
+            player.health -= damage
+            if len(alive) > 0:
+                for p in alive:
+                    if p != player:
+                        p.spill_reward(damage / len(alive))
     # player wins!
     if index_won == 1:
         loot = enemy.drop_loot(player.orb_history)
         for reward in loot:
             give_loot(player, reward)
-    # minions win! (yikes)
-    if index_won == 2:
-        player.loss_round(damage)
-        player.health -= damage
-        if len(alive) > 0:
-            for p in alive:
-                if p != player:
-                    p.spill_reward(damage / len(alive))
+
+    if index_won == 0 or index_won == 2:
+        return False
+    else:
+        return True

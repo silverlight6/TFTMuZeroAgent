@@ -9,6 +9,9 @@ from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Models.PositionModels.MCTS_position_torch import MCTS as Position_MCTS
+from Models.GumbelModels.gumbel_MCTS import GumbelMuZero
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from config import GPU_SIZE_PER_WORKER
@@ -25,10 +28,22 @@ Description -
 @ray.remote(num_gpus=GPU_SIZE_PER_WORKER)
 class DataWorker(object):
     def __init__(self, rank, model_config):
+        # TODO: Move these to the individual methods so we don't need to build the project to run it.
+        # Unless you are running these specific methods.
         if config.CHAMP_DECIDER:
             self.temp_model = DefaultNetwork(model_config)
             self.agent_network = Default_MCTS(self.temp_model, model_config)
             self.past_network = Default_MCTS(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        elif config.GUMBEL:
+            self.temp_model = TFTNetwork(model_config)
+            self.agent_network = GumbelMuZero(self.temp_model, model_config)
+            self.past_network = GumbelMuZero(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        elif config.MUZERO_POSITION:
+            self.temp_model = PositionNetwork(model_config)
+            self.agent_network = Position_MCTS(self.temp_model, model_config)
+            self.past_network = Position_MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork(model_config)
@@ -93,7 +108,10 @@ class DataWorker(object):
             while not all(terminated.values()):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
                 actions, policy, string_samples, root_values = self.model_call(player_observation, info)
-                storage_actions = utils.decode_action(actions)
+                if config.GUMBEL:
+                    storage_actions = actions
+                else:
+                    storage_actions = utils.decode_action(actions)
                 step_actions = self.getStepActions(terminated, storage_actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -107,10 +125,15 @@ class DataWorker(object):
                                 current_comp[key] = info[key]["player"].get_tier_labels()
                                 current_champs[key] = info[key]["player"].get_champion_labels()
                             # Store the information in a buffer to train on later.
-                            buffers.store_replay_buffer.remote(key, self.get_obs_idx(player_observation[0], i),
-                                                               storage_actions[i], reward[key], policy[i],
-                                                               string_samples[i], root_values[i], current_comp[key],
-                                                               current_champs[key])
+                            if config.GUMBEL:
+                                buffers.store_gumbel_buffer.remote(key, self.get_obs_idx(
+                                    player_observation["observations"], i), storage_actions[i], reward[key], policy[i],
+                                                                   root_values[i])
+                            else:
+                                buffers.store_replay_buffer.remote(key, self.get_obs_idx(
+                                    player_observation["observations"], i), storage_actions[i], reward[key], policy[i],
+                                                                   string_samples[i], root_values[i], current_comp[key],
+                                                                   current_champs[key])
 
                 offset = 0
                 for i, [key, terminate] in enumerate(terminated.items()):
@@ -142,7 +165,10 @@ class DataWorker(object):
             self.past_version = [False for _ in range(config.NUM_PLAYERS)]
             if not self.live_game:
                 [past_weights, self.past_episode, self.prob] = ray.get(storage.sample_past_model.remote())
-                self.past_network = MCTS(self.temp_model, self.model_config)
+                if config.GUMBEL:
+                    self.past_network = GumbelMuZero(self.temp_model, self.model_config)
+                else:
+                    self.past_network = MCTS(self.temp_model, self.model_config)
                 self.past_network.network.set_weights(past_weights)
                 self.past_version[0:4] = [True, True, True, True]
                 self.past_update = False
@@ -162,9 +188,12 @@ class DataWorker(object):
             # So if I do not have a live game, I need to sample a past model
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
-            temp_weights = ray.get(storage.get_model.remote())
+            temp_weights = ray.get(storage.get_target_model.remote())
             weights = copy.deepcopy(temp_weights)
-            self.agent_network = MCTS(self.temp_model, self.model_config)
+            if config.GUMBEL:
+                self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
+            else:
+                self.agent_network = MCTS(self.temp_model, self.model_config)
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
@@ -220,7 +249,7 @@ class DataWorker(object):
                 if info_values[0]['start_turn']:
                     # Ask our model for an action and policy.
                     # Use on normal case or if we only have current versions left
-                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+                    c_actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)
                     # print("Checkpoint 2")
                     # item_position_observation = self.observation_to_pos_item_input(next_observation)
                     # print("Checkpoint 3")
@@ -306,6 +335,117 @@ class DataWorker(object):
             self.agent_network.network.set_weights(weights)
             self.rank += config.CONCURRENT_GAMES
 
+    def collect_single_player_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.vector_reset()
+            player_observation = self.single_player_observation_to_input(player_observation)
+
+            # Used to know when players die and which agent is currently acting
+            terminated = [False for _ in range(env.num_envs)]
+            storage_terminated = [False for _ in range(env.num_envs)]
+
+            # While the game is still going on.
+            while not all(terminated):
+                # Ask our model for an action and policy. Use on normal case or if we only have current versions left
+                actions, policy, string_samples, root_values = self.model_call(player_observation, info)
+                storage_actions = actions
+                step_actions = self.getStepActions(terminated, storage_actions)
+
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.vector_step(step_actions, terminated)
+                # store the action for MuZero
+                # Using i for all possible players and alive_i for all alive players
+                alive_i = 0
+                for i in range(len(terminated)):
+                    if not storage_terminated[i] and not info[alive_i]["state_empty"]:
+                        # Store the information in a buffer to train on later.
+                        buffers.store_gumbel_buffer.remote(f"player_{i}", self.get_obs_idx(
+                            player_observation["observations"], alive_i), storage_actions[alive_i], reward[alive_i],
+                                                           policy[alive_i], root_values[alive_i])
+                        if terminated[i]:
+                            storage_terminated[i] = True
+                        alive_i += 1
+
+                # Set up the observation for the next action
+                player_observation = self.single_player_observation_to_input(next_observation)
+
+            buffers.store_global_buffer.remote(global_buffer)
+
+            buffers.reset_buffers.remote()
+
+            # This is just to try to give the buffer some time to train on the data we have and not slow down our
+            # buffers by sending thousands of store commands when the buffer is already full.
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
+                time.sleep(5)
+
+            # So if I do not have a live game, I need to sample a past model
+            # Which means I need to create a list within the storage and sample from that.
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_target_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
+    def collect_position_experience(self, env, buffers, global_buffer, storage, weights):
+        self.agent_network.network.set_weights(weights)
+        while True:
+            # Reset the environment
+            player_observation, info = env.vector_reset()
+            player_observation = env.list_to_dict([player_observation])
+
+            # Used to know when players die and which agent is currently acting
+            terminated = [False for _ in range(env.num_envs)]
+            storage_terminated = [False for _ in range(env.num_envs)]
+            action_count = [0 for _ in range(env.num_envs)]
+
+            # While the game is still going on.
+            while not all(terminated):
+                simulator_envs = copy.deepcopy(env.envs)
+                # Ask our model for an action and policy. Use on normal case or if we only have current versions left
+                actions, policy, root_values = self.agent_network.policy(player_observation, simulator_envs,
+                                                                         action_count)
+                step_actions = np.array(actions)
+
+                # Take that action within the environment and return all of our information for the next player
+                next_observation, reward, terminated, _, info = env.vector_step(step_actions)
+                # store the action for MuZero
+                # Using i for all possible players and alive_i for all alive players
+                alive_i = 0
+                for i in range(len(terminated)):
+                    if not storage_terminated[i]:
+                        # Store the information in a buffer to train on later.
+                        buffers.store_gumbel_buffer.remote(f"player_{i}", self.get_position_obs_idx(
+                            player_observation["observations"], alive_i), step_actions[alive_i], reward[alive_i],
+                                                           policy[alive_i], root_values[alive_i])
+                        if terminated[i]:
+                            storage_terminated[i] = True
+                        alive_i += 1
+                        action_count[i] += 1
+
+                # Set up the observation for the next action
+                player_observation = env.list_to_dict([next_observation])
+
+            buffers.store_global_position_buffer.remote(global_buffer)
+
+            buffers.reset_buffers.remote()
+
+            # This is just to try to give the buffer some time to train on the data we have and not slow down our
+            # buffers by sending thousands of store commands when the buffer is already full.
+            while global_buffer.buffer_size() > config.GLOBAL_BUFFER_SIZE * 0.8:
+                time.sleep(5)
+
+            # So if I do not have a live game, I need to sample a past model
+            # Which means I need to create a list within the storage and sample from that.
+            # All the probability distributions will be within the storage class as well.
+            temp_weights = ray.get(storage.get_target_model.remote())
+            weights = copy.deepcopy(temp_weights)
+            self.agent_network = Position_MCTS(self.temp_model, self.model_config)
+            self.agent_network.network.set_weights(weights)
+            self.rank += config.CONCURRENT_GAMES
+
     '''
     Description -
         Turns the actions from a format that is sent back from the model to a format that is usable by the environment.
@@ -321,15 +461,30 @@ class DataWorker(object):
     '''
 
     def getStepActions(self, terminated, actions):
-        step_actions = {}
-        i = 0
-        for player_id, terminate in terminated.items():
-            if not terminate and i < len(actions):
-                step_actions[player_id] = actions[i]
-            elif not terminate and i >= len(actions):
-                # Some bug here but I'm not sure the source so sending a passing action. Happens once every 100 games
-                step_actions[player_id] = np.asarray([0, 0, 0])
-            i += 1
+        if not config.SINGLE_PLAYER:
+            step_actions = {}
+            i = 0
+            for player_id, terminate in terminated.items():
+                if not terminate and i < len(actions):
+                    step_actions[player_id] = actions[i]
+                elif not terminate and i >= len(actions):
+                    # Some bug here but I'm not sure the source so sending a passing action.
+                    # Happens once every 100 games
+                    if config.GUMBEL:
+                        step_actions[player_id] = np.asarray(1976)
+                    else:
+                        step_actions[player_id] = np.asarray([0, 0, 0])
+                i += 1
+        else:
+            step_actions = []
+            i = 0
+            for i, terminate in enumerate(terminated):
+                if not terminate and i < len(actions):
+                    step_actions.append(actions[i])
+                elif not terminate and i >= len(actions):
+                    step_actions.append(np.asarray(1976))
+                i += 1
+
         return step_actions
 
     '''
@@ -337,53 +492,74 @@ class DataWorker(object):
         Turns a dictionary of player observations into a list of list format that the model can use.
         Adding key to the list to ensure the right values are attached in the right places in debugging.
     '''
-
     def observation_to_input(self, observation):
-        masks = []
-        keys = []
         scalars = []
+        emb_scalars = []
         shop = []
         board = []
         bench = []
         items = []
         traits = []
-        other_players = []
+        masks = []
         for key, obs in observation.items():
-            scalars.append(obs["player"]["scalars"])
-            shop.append(obs["player"]["shop"])
-            board.append(obs["player"]["board"])
-            bench.append(obs["player"]["bench"])
-            items.append(obs["player"]["items"])
-            traits.append(obs["player"]["traits"])
-            local_other_players = np.concatenate([obs["opponents"][0]["board"], obs["opponents"][0]["scalars"],
-                                                  obs["opponents"][0]["traits"]], axis=-1)
-            # minus 1 because I filter out that player's observation in the player manager
-            for x in range(1, config.NUM_PLAYERS - 1):
-                local_other_players = np.concatenate(
-                    [local_other_players, (np.concatenate([obs["opponents"][x]["board"],
-                                                           obs["opponents"][x]["scalars"],
-                                                           obs["opponents"][x]["traits"]], axis=-1))], )
-            other_players.append(local_other_players)
+            scalars.append(obs["observations"]["scalars"])
+            emb_scalars.append(obs["observations"]["emb_scalars"])
+            shop.append(obs["observations"]["shop"])
+            board.append(obs["observations"]["board"])
+            bench.append(obs["observations"]["bench"])
+            items.append(obs["observations"]["items"])
+            traits.append(obs["observations"]["traits"])
             masks.append(obs["action_mask"])
-            keys.append(key)
         tensors = {
             "scalars": np.array(scalars),
+            "emb_scalars": np.array(emb_scalars),
             "shop": np.array(shop),
             "board": np.array(board),
             "bench": np.array(bench),
             "items": np.array(items),
             "traits": np.array(traits),
-            "other_players": np.array(other_players)
         }
-        masks = np.array(masks)
-        return [tensors, masks, keys]
+        return {"observations": tensors,
+                "action_mask": np.array(masks)}
+
+    # These two methods should be one but with the single_player environment, the returning array does not have keys
+    # and is in the list format, maybe I'll get around to combining the methods later but for now, I'm keeping them
+    # separate
+    def single_player_observation_to_input(self, observation):
+        scalars = []
+        emb_scalars = []
+        shop = []
+        board = []
+        bench = []
+        items = []
+        traits = []
+        masks = []
+        for obs in observation:
+            scalars.append(obs["observations"]["scalars"])
+            emb_scalars.append(obs["observations"]["emb_scalars"])
+            shop.append(obs["observations"]["shop"])
+            board.append(obs["observations"]["board"])
+            bench.append(obs["observations"]["bench"])
+            items.append(obs["observations"]["items"])
+            traits.append(obs["observations"]["traits"])
+            masks.append(obs["action_mask"])
+        tensors = {
+            "scalars": np.float32(np.expand_dims(np.array(scalars), 1)),
+            "emb_scalars": np.array(emb_scalars),
+            "shop": np.array(shop),
+            "board": np.expand_dims(np.array(board), 1),
+            "bench": np.expand_dims(np.array(bench), 1),
+            "items": np.expand_dims(np.array(items), 1),
+            "traits": np.expand_dims(np.array(traits), 1),
+        }
+        return {"observations": tensors,
+                "action_mask": np.array(masks)}
 
     '''
-        Description -
-            Turns a dictionary of player observations into a list of list format that the model can use.
-            Adding key to the list to ensure the right values are attached in the right places in debugging.
-        '''
-
+    Description -
+        Turns a dictionary of player observations into a list of list format that the model can use.
+        Adding key to the list to ensure the right values are attached in the right places in debugging.
+    '''
     def observation_to_pos_item_input(self, observation):
         observation = {player: {key: observation[player][key] for key in ["player", "opponents"]}
                        for player in range(observation.keys())}
@@ -392,12 +568,18 @@ class DataWorker(object):
     def get_obs_idx(self, observation, idx):
         return {
             "scalars": observation["scalars"][idx],
+            "emb_scalars": observation["emb_scalars"][idx],
             "shop": observation["shop"][idx],
             "board": observation["board"][idx],
             "bench": observation["bench"][idx],
             "items": observation["items"][idx],
             "traits": observation["traits"][idx],
-            "other_players": observation["other_players"][idx]
+        }
+
+    def get_position_obs_idx(self, observation, idx):
+        return {
+            "board": observation["board"][idx],
+            "traits": observation["traits"][idx],
         }
 
     '''
@@ -443,22 +625,26 @@ class DataWorker(object):
 
     def model_call(self, player_observation, info):
         if config.IMITATION:
-            actions, policy, string_samples, root_values = self.imitation_learning(info, player_observation[1])
+            actions, policy, string_samples, root_values = self.imitation_learning(info,
+                                                                                   player_observation["action_mask"])
+        elif config.GUMBEL:
+            actions, policy, root_values = self.agent_network.policy(player_observation)
+            string_samples = []
         # If all of our agents are current versions
         elif (self.live_game or not any(self.past_version)) and not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.agent_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.agent_network.policy(player_observation)
         # Ff all of our agents are past versions. (Should exceedingly rarely come here)
         elif all(self.past_version) and not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.past_network.policy(player_observation[:2])
+            actions, policy, string_samples, root_values = self.past_network.policy(player_observation)
         # If all of our versions are default agents
         elif all(self.default_agent):
             actions, policy, string_samples, root_values = self.default_model_call(info)
         # If there are no default agents but a mix of past and present
         elif not any(self.default_agent):
-            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation[:2])
+            actions, policy, string_samples, root_values = self.mixed_ai_model_call(player_observation)
         # Implement the remaining mixes of agents here.
         elif not any(self.past_version):
-            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation[:2], info)
+            actions, policy, string_samples, root_values = self.live_default_model_call(player_observation, info)
         # If we only have default_agents remaining.
         else:
             actions, policy, string_samples, root_values = self.default_model_call(info)
@@ -496,28 +682,28 @@ class DataWorker(object):
     def split_live_past_observations(self, player_observation):
         live_agent_observations = {
             "scalars": [],
+            "emb_scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
             "items": [],
             "traits": [],
-            "other_players": []
         }
         past_agent_observations = {
             "scalars": [],
+            "emb_scalars": [],
             "shop": [],
             "board": [],
             "bench": [],
             "items": [],
             "traits": [],
-            "other_players": []
         }
         live_agent_masks = []
         past_agent_masks = []
 
         for i, past_version in enumerate(self.past_version):
-            local_obs = self.get_obs_idx(player_observation[0], i)
-            local_mask = player_observation[1][i]
+            local_obs = self.get_obs_idx(player_observation["observations"], i)
+            local_mask = player_observation["action_mask"][i]
             if not past_version:
                 for key in live_agent_observations.keys():
                     live_agent_observations[key].append(local_obs[key])
@@ -533,9 +719,30 @@ class DataWorker(object):
         for key in past_agent_observations.keys():
             past_agent_observations[key] = np.asarray(past_agent_observations[key])
 
-        live_observation = [live_agent_observations, live_agent_masks]
-        past_observation = [past_agent_observations, past_agent_masks]
+        live_observation = {"observations": live_agent_observations, "action_mask": live_agent_masks}
+        past_observation = {"observations": past_agent_observations, "action_mask": past_agent_masks}
         return live_observation, past_observation
+
+    def live_agent_to_input(self, live_player_observation, live_agent_masks):
+        live_agent_observations = {
+            "scalars": [],
+            "emb_scalars": [],
+            "shop": [],
+            "board": [],
+            "bench": [],
+            "items": [],
+            "traits": [],
+        }
+
+        for obs in live_player_observation:
+            for key in obs.keys():
+                live_agent_observations[key].append(np.asarray(obs[key]))
+
+        for key in live_agent_observations.keys():
+            live_agent_observations[key] = np.asarray(live_agent_observations[key])
+
+        return {"observations": live_agent_observations,
+                "action_mask": np.array(live_agent_masks)}
 
     """
     Description - 
@@ -553,13 +760,12 @@ class DataWorker(object):
 
         for i, default_agent in enumerate(self.default_agent):
             if not default_agent:
-                live_agent_observations.append(self.get_obs_idx(player_observation[0], i))
-                live_agent_masks.append(player_observation[1][i])
+                live_agent_observations.append(self.get_obs_idx(player_observation["observations"], i))
+                live_agent_masks.append(player_observation["action_mask"][i])
 
-        live_observation = [live_agent_observations, live_agent_masks]
-        if len(live_observation[0]) != 0:
+        if len(live_agent_observations) != 0:
             live_actions, live_policy, live_string_samples, live_root_values = \
-                self.agent_network.policy(live_observation)
+                self.agent_network.policy(self.live_agent_to_input(live_agent_observations, live_agent_masks))
 
             counter_live, counter_default = 0, 0
             local_info = list(info.values())

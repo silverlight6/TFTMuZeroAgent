@@ -102,6 +102,10 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         """Fetch player position observation"""
         ...
 
+    def fetch_public_position_observation(self):
+        """Fetch public position observation"""
+        ...
+
     def fetch_dead_observation(self):
         """Zero out public observations for all dead players"""
         return {
@@ -112,6 +116,10 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             "items": np.zeros(self.item_bench_vector.shape, dtype=np.float32),
             "traits": np.zeros(self.trait_vector.shape, dtype=np.float32),
         }
+
+    def fetch_dead_position_observation(self):
+        """Fetch dead position observation"""
+        ...
         
     def update_observation(self, action):
         action_type, x1, x2 = action
@@ -555,3 +563,6 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
     
     def create_trait_vector(self, player):
         return self.compute_traits_from_board(self.board_vector)
+
+    def observation_to_input(self, observation):
+        ...

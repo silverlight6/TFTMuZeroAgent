@@ -57,6 +57,10 @@ DEVICE = "cuda"
 IMITATION = get_bool_env("IMITATION")
 CHAMP_DECIDER = get_bool_env("CHAMP_DECIDER")
 REP_TRAINER = get_bool_env("REP_TRAINER")
+MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
+GUMBEL = get_bool_env("GUMBEL")
+SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
+MUZERO_POSITION = get_bool_env("MUZERO_POSITION")
 
 PATH = path.dirname(path.realpath(__file__))
 
@@ -64,11 +68,12 @@ PATH = path.dirname(path.realpath(__file__))
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
 STORAGE_GPU_SIZE = get_float_env("STORAGE_GPU_SIZE", 0.1) if DEVICE == "cuda" else 0
 BUFFER_GPU_SIZE = get_float_env("BUFFER_GPU_SIZE", 0.02) if DEVICE == "cuda" else 0
-TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.2) if DEVICE == "cuda" else 0
+TRAINER_GPU_SIZE = get_float_env("TRAINER_GPU_SIZE", 0.4) if DEVICE == "cuda" else 0
 
 ### TIME RELATED VALUES ###
 ACTIONS_PER_TURN = get_int_env("ACTIONS_PER_TURN", 15)
 CONCURRENT_GAMES = get_int_env("CONCURRENT_GAMES", 1)
+NUM_ENVS = get_int_env("NUM_ENVS", 1)
 NUM_PLAYERS = get_int_env("NUM_PLAYERS", 8)
 AUTO_BATTLER_PERCENTAGE = get_int_env("AUTO_BATTLER_PERCENTAGE", 0)
 DEBUG = get_bool_env("DEBUG", "True")
@@ -119,16 +124,19 @@ UNROLL_STEPS = get_int_env("UNROLL_STEPS", 5)
 BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
 INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
-WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-5)
+WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-4)  # Sometimes set to 1e-5
 DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
-REWARD_LOSS_SCALING = get_int_env("REWARD_LOSS_SCALING", 1)
-POLICY_LOSS_SCALING = get_int_env("POLICY_LOSS_SCALING", 1)
-VALUE_LOSS_SCALING = get_int_env("VALUE_LOSS_SCALING", 1)
+REWARD_LOSS_SCALING = get_float_env("REWARD_LOSS_SCALING", 1)
+POLICY_LOSS_SCALING = get_float_env("POLICY_LOSS_SCALING", 1)
+VALUE_LOSS_SCALING = get_float_env("VALUE_LOSS_SCALING", 0.25)  # Sometimes set to 1
 GAME_METRICS_SCALING = get_float_env("GAME_METRICS_SCALING", 0.2)
+MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
+
+ALLOW_SPILL = get_bool_env("ALLOW_SPILL_REWARD")
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = 25
-SHOP_INPUT_SIZE = 45
+SCALAR_INPUT_SIZE = get_int_env("SCALAR_INPUT_SIZE", 76)  # Change this to 20 if doing single player
+SHOP_INPUT_SIZE = get_int_env("SHOP_INPUT_SIZE", 45)
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234
 ITEMS_INPUT_SIZE = 60
@@ -147,6 +155,8 @@ NEEDS_2ND_DIM = [1, 2, 3, 4]
 MINIMUM_REWARD = get_float_env("MINIMUM_REWARD", -300.0)
 MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 
+VALUE_MAX_DELTA = get_float_env("VALUE_MAX_DELTA", 0.01)
+
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
@@ -158,9 +168,6 @@ class ModelConfig:
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
     # Layer Hidden Size -> Inner layer size for the MLP blocks.
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
-    # Used to create dirichlet noise to allow for exploration in the MCTS tree
-    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 1.0)
-    # Base exploration fraction
     ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
     # How much to expand or contract the policy function. 1.0 means do not touch.
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
@@ -174,6 +181,9 @@ class ModelConfig:
     ENCODER_NUM_STEPS = get_int_env("ENCODER_NUM_STEPS", 601)
     # Maximum norm for the training gradient
     MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 5)
+    SELECTED_SAMPLES = environ.get("SELECTED_SAMPLES", True)
+    if isinstance(SELECTED_SAMPLES, str):
+        SELECTED_SAMPLES = eval(SELECTED_SAMPLES)
 
     # Used in a few experiments but need cleaning up
     N_HEAD_HIDDEN_LAYERS = 2
@@ -226,18 +236,20 @@ class PPOConfig:
     # functions
     CLIP_VLOSS = get_bool_env("PPO_CLIP_VLOSS", "False")
     # Entropy coefficient. Set low to keep the entropy loss less than that of the poilcy and value
-    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.005)
+    ENT_COEF = get_float_env("PPO_ENT_COEF", 0.02)
     # Value Function coefficient. Set at 0.5 to keep in line with the policy loss
-    VF_COEF = get_float_env("PPO_VF_COEF", 0.5)
+    VF_COEF = get_float_env("PPO_VF_COEF", 1)
     # KL_Loss Coefficient. Currently, experimenting with this but when the KL stabilizes around 0.1, keeping this
     # around 0.5 makes it in line with the value and policy loss. In general, large changes to the policy and value
     # network are generally acceptable early in training but have yet to test the results as training gets deeper
-    KL_COEF = get_float_env("PPO_KL_COEF", 0.01)
+    KL_COEF = get_float_env("PPO_KL_COEF", 0.3)
     # Make sure the gradient stays within reason to prevent leaving the function space entirely
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
-    # What we want the KL to hover around
-    TARGET_KL = 0.1
+    REMOTE = get_bool_env("PPO_REMOTE", "True")
+    TARGET_KL = 0.05
     # How much to change the KL_COEF if the target kl is either too high or too low.
-    KL_ADJUSTER = 1.5
+    KL_ADJUSTER = 0.5
+    MAX_KL_COEF = 1
+    MIN_KL_COEF = 0.01
 
 

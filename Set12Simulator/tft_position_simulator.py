@@ -94,7 +94,7 @@ class TFT_Position_Simulator(gym.Env):
         # Single step environment so this fetch will be the observation for the entire step.
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": self.observation_class.observation_to_input(initial_observation),
+            "observations": self.observation_class.observation_to_position_input(initial_observation),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
 
@@ -133,7 +133,7 @@ class TFT_Position_Simulator(gym.Env):
 
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": self.observation_class.observation_to_input(initial_observation),
+            "observations": self.observation_class.observation_to_position_input(initial_observation),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
         }
         self.PLAYER.print("Position Simulator after movement")

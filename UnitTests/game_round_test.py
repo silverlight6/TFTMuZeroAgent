@@ -1,7 +1,7 @@
 import config
 from copy import deepcopy
 from Simulator import pool
-from Simulator.battle_generator import BattleGenerator
+from Simulator.battle_generator import BattleGenerator, base_level_config
 from Simulator.player_manager import PlayerManager
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.game_round import Game_Round
@@ -9,7 +9,7 @@ from Simulator.tft_simulator import TFTConfig
 
 
 def test_single_player_combat():
-    battle_generator = BattleGenerator()
+    battle_generator = BattleGenerator(base_level_config)
     [player, opponent, other_players] = battle_generator.generate_battle()
 
     PLAYER = player

@@ -12,7 +12,7 @@ from Simulator.stats import COST
 from Simulator.pool_stats import cost_star_values
 from Simulator.origin_class_stats import tiers, fortune_returns
 from math import floor
-from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR
+from config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, ALLOW_SPILL
 
 from Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
 from Simulator.default_agent import Default_Agent
@@ -193,7 +193,7 @@ class Player:
         # Can't buy exp if you are max level or don't have enough gold
         if self.gold < self.exp_cost or self.level == self.max_level:
             if DEBUG:
-                print("Did not have gold to buy_exp")
+                print(f"Did not have gold to buy_exp, gold {self.gold} with level {self.level} and shop {self.shop}")
             return False
 
         self.gold -= self.exp_cost
@@ -709,7 +709,7 @@ class Player:
         """
         if (x1 < 0 or x1 > 36) or (x2 < 0 or x2 > 36):
             if DEBUG:
-                print("Invalid move index")
+                print(f"Invalid move index 1 -> [x1, x2] -> [{x1}, {x2}]")
             return False
 
         # I forgot why, but the smaller index needed to be first... maybe not?
@@ -936,9 +936,17 @@ class Player:
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(
                     self.board[x2][y2].name, x1, y1, x2, y2))
                 return True
+            # if called in wrong order
+            elif self.board[x2][y2]:
+                return self.move_board_to_board(x2, y2, x1, y1)
         self.reward += self.mistake_reward
         if DEBUG:
             print(f"Outside board limits -> ({x1}, {y1}) to ({x2}, {y2})")
+            if 0 <= x1 < 7 and 0 <= y1 < 4 and 0 <= x2 < 7 and 0 <= y2 < 4:
+                if self.board[x1][y1]:
+                    print(f"At board {x1}, {y1} -> {self.board[x1][y1].name}")
+                if self.board[x2][y2]:
+                    print(f"At board {x2}, {y2} -> {self.board[x2][y2].name}")
         return False
 
     # --- Item Action --- #
@@ -958,7 +966,7 @@ class Player:
         """
         if (x1 < 0 or x1 > 9) or (x2 < 0 or x2 > 36):
             if DEBUG:
-                print("Invalid move index")
+                print(f"Invalid move index 2 -> [x1, x2] -> [{x1}, {x2}]")
             return False
 
         item_loc = x1
@@ -1423,7 +1431,7 @@ class Player:
     Outputs     -
     """
 
-    def printComp(self, log=True):
+    def printComp(self, log=True, to_console=False):
         keys = list(self.team_composition.keys())
         values = list(self.team_composition.values())
         tier_values = list(self.team_tiers.values())
@@ -1439,9 +1447,17 @@ class Player:
                     self.print("at ({}, {}), champion {}, with level = {}, items = {}, and chosen = {}".format(x, y,
                                self.board[x][y].name, self.board[x][y].stars,
                                self.board[x][y].items, self.board[x][y].chosen))
+                    if to_console:
+                        print("at ({}, {}), champion {}, with level = {}, items = {}, and chosen = {}".format(x, y,
+                               self.board[x][y].name, self.board[x][y].stars,
+                               self.board[x][y].items, self.board[x][y].chosen))
         self.print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
                    "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
                    "default {}".format(self.default_player))
+        if to_console:
+            print("Player level {} with gold {}, max_units = {}, ".format(self.level, self.gold, self.max_units) +
+                  "num_units_in_play = {}, health = {}, ".format(self.num_units_in_play, self.health) +
+                  "default {}".format(self.default_player))
 
     """
     Description -
@@ -1614,9 +1630,10 @@ class Player:
         Args:
             damage (int): amount of damage taken
         """
-        self.reward += self.damage_reward * damage
-        self.print("Spill reward of {} received".format(
-            self.damage_reward * damage))
+        if ALLOW_SPILL:
+            self.reward += self.damage_reward * damage
+            self.print("Spill reward of {} received".format(
+                self.damage_reward * damage))
 
     def start_round(self, t_round):
         """Does all operations that happen at the start of the round.

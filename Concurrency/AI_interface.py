@@ -7,11 +7,12 @@ import config
 
 from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env, TFTConfig
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator, TFT_Vector_Pos_Simulator
+from Simulator.observation.token.basic_observation import ObservationToken
 from Models.replay_buffer_wrapper import BufferWrapper
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.rllib_ppo import PPO_Position_Model, PPO_Item_Model, Base_PPO_Position_Model
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
@@ -54,7 +55,7 @@ class AIInterface:
             # Keeping this line commented because this tells us the number of parameters that our current model has.
             # total_params = sum(p.numel() for p in global_agent.parameters())
 
-            tftConfig = TFTConfig(observation_class=ObservationVector)
+            tftConfig = TFTConfig(observation_class=ObservationToken, max_actions_per_round=config.ACTIONS_PER_TURN)
             env = parallel_env(tftConfig)
 
             buffers = [BufferWrapper.remote()
@@ -65,6 +66,89 @@ class AIInterface:
             for i, worker in enumerate(data_workers):
                 workers.append(worker.collect_gameplay_experience.remote(env, buffers[i], training_manager,
                                                                          storage, weights))
+                time.sleep(0.5)
+
+            training_manager.loop(storage, train_step)
+
+            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # ray.get(storage)
+            ray.get(workers)
+
+    def train_position_model(self) -> None:
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = config.STARTING_EPISODE
+
+            workers = []
+            model_config = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, model_config) for rank in range(config.CONCURRENT_GAMES)]
+            storage = Storage.remote(train_step)
+            global_agent = PositionNetwork(model_config)
+
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            training_manager = TrainingManager(global_agent, storage)
+
+            # Keeping this line commented because this tells us the number of parameters that our current model has.
+            # total_params = sum(p.numel() for p in global_agent.parameters())
+
+            # These are the lines that are going to take a bit of thought of how I want to do this.
+            # I am not just sending one environment in and calling it good.
+            # Lets step back for a second, use a pen and paper and try to figure out a good idea on how to build this
+            env = TFT_Vector_Pos_Simulator(num_envs=config.NUM_ENVS)
+
+            # Same thing here, I want to improve on the design on this as well. The problem is I'm starting to run
+            # A bit low on time so I might not do too much here.
+            buffers = [BufferWrapper.remote()
+                       for _ in range(config.CONCURRENT_GAMES)]
+
+            weights = ray.get(storage.get_target_model.remote())
+
+            for i, worker in enumerate(data_workers):
+                workers.append(worker.collect_position_experience.remote(env, buffers[i], training_manager,
+                                                                         storage, weights))
+                time.sleep(0.5)
+
+            training_manager.loop(storage, train_step)
+
+            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # ray.get(storage)
+            ray.get(workers)
+
+    def train_single_player_model(self) -> None:
+        gpus = torch.cuda.device_count()
+        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+            train_step = config.STARTING_EPISODE
+
+            workers = []
+            model_config = config.ModelConfig()
+            data_workers = [DataWorker.remote(rank, model_config) for rank in range(config.CONCURRENT_GAMES)]
+            storage = Storage.remote(train_step)
+            global_agent = TFTNetwork(model_config)
+
+            global_agent_weights = ray.get(storage.get_target_model.remote())
+            global_agent.set_weights(global_agent_weights)
+            global_agent.to(config.DEVICE)
+
+            training_manager = TrainingManager(global_agent, storage)
+
+            # Keeping this line commented because this tells us the number of parameters that our current model has.
+            # total_params = sum(p.numel() for p in global_agent.parameters())
+
+            tftConfig = TFTConfig(observation_class=ObservationToken, max_actions_per_round=config.ACTIONS_PER_TURN,
+                                  num_players=1)
+            env = TFT_Single_Player_Vector_Simulator(tftConfig, num_envs=config.NUM_ENVS)
+
+            buffers = [BufferWrapper.remote()
+                       for _ in range(config.CONCURRENT_GAMES)]
+
+            weights = ray.get(storage.get_target_model.remote())
+
+            for i, worker in enumerate(data_workers):
+                workers.append(worker.collect_single_player_experience.remote(env, buffers[i], training_manager,
+                                                                              storage, weights))
                 time.sleep(0.5)
 
             training_manager.loop(storage, train_step)
@@ -122,139 +206,62 @@ class AIInterface:
             evaluator.evaluate()
             ray.wait()
 
-    def train_guide_model(self) -> None:
-        gpus = torch.cuda.device_count()
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
-            train_step = config.STARTING_EPISODE
+    # # # Commenting out until the position model is ready to be inserted again.
+    # def train_guide_model(self) -> None:
+    #     gpus = torch.cuda.device_count()
+    #     with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
+    #         train_step = config.STARTING_EPISODE
+    #
+    #         workers = []
+    #         modelConfig = config.ModelConfig()
+    #         data_workers = [DataWorker.remote(rank, modelConfig) for rank in range(config.CONCURRENT_GAMES)]
+    #         storage = Storage.remote(train_step)
+    #
+    #         if config.CHAMP_DECIDER:
+    #             global_agent = DefaultNetwork(modelConfig)
+    #         else:
+    #             global_agent = TFTNetwork(modelConfig)
+    #
+    #         global_agent_weights = ray.get(storage.get_target_model.remote())
+    #         global_agent.set_weights(global_agent_weights)
+    #         global_agent.to(config.DEVICE)
+    #
+    #         training_manager = TrainingManager(global_agent, storage)
+    #
+    #         # Keeping this line commented because this tells us the number of parameters that our current model has.
+    #         # total_params = sum(p.numel() for p in global_agent.parameters())
+    #
+    #         tftConfig = TFTConfig(observation_class=ObservationVector, max_actions_per_round=config.ACTIONS_PER_TURN)
+    #         env = parallel_env(tftConfig)
+    #
+    #         buffers = [BufferWrapper.remote()
+    #                    for _ in range(config.CONCURRENT_GAMES)]
+    #         positioning_storage = QueueStorage(name="position")
+    #         item_storage = QueueStorage(name="item")
 
-            workers = []
-            modelConfig = config.ModelConfig()
-            data_workers = [DataWorker.remote(rank, modelConfig) for rank in range(config.CONCURRENT_GAMES)]
-            storage = Storage.remote(train_step)
+            # ppo_position_model = PPO_Position_Model.remote(positioning_storage)
+            # ppo_item_model = PPO_Item_Model.remote(item_storage)
 
-            if config.CHAMP_DECIDER:
-                global_agent = DefaultNetwork(modelConfig)
-            else:
-                global_agent = TFTNetwork(modelConfig)
-
-            global_agent_weights = ray.get(storage.get_target_model.remote())
-            global_agent.set_weights(global_agent_weights)
-            global_agent.to(config.DEVICE)
-
-            training_manager = TrainingManager(global_agent, storage)
-
-            # Keeping this line commented because this tells us the number of parameters that our current model has.
-            # total_params = sum(p.numel() for p in global_agent.parameters())
-
-            tftConfig = TFTConfig(observation_class=ObservationVector)
-            env = parallel_env(tftConfig)
-
-            buffers = [BufferWrapper.remote()
-                       for _ in range(config.CONCURRENT_GAMES)]
-            positioning_storage = QueueStorage(name="position")
-            item_storage = QueueStorage(name="item")
-
-            ppo_position_model = PPO_Position_Model.remote(positioning_storage)
-            ppo_item_model = PPO_Item_Model.remote(item_storage)
-
-            weights = ray.get(storage.get_target_model.remote())
-
-            for i, worker in enumerate(data_workers):
-                workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager, storage,
-                                                                        weights, item_storage, positioning_storage,
-                                                                        ppo_position_model, ppo_item_model))
-                time.sleep(0.5)
-
-            training_manager.loop(storage, train_step)
-
-            # Tests for the position and item environment
-            # test_envs = DataWorker.remote(0)
-            # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
-
-            ppo_item_model.train_item_model.remote()
-            ppo_position_model.train_position_model.remote()
-
-            # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
-            # ray.get(storage)
-            ray.get(workers)
-
-    def position_ppo_tune(self):
-        from ray import train, tune
-        from ray.tune.search.bohb.bohb_search import TuneBOHB
-        from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
-
-        local_path = config.PATH
-        print(f"PATH file://{local_path}/ray_results")
-
-        positioning_storage = QueueStorage(name="position")
-        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-        model_config = config.ModelConfig()
-
-        search_space = {
-            "lambda": tune.uniform(0.9, 1.0),
-            "lr": tune.choice([1e-4, 5e-5, 1e-5, 5e-6, 1e-6, 5e-7, 1e-7]),
-            "clip_param": tune.uniform(0.05, 0.7),
-            # Focusing on ideas that have higher effect on training.
-            "num_sgd_iter": tune.randint(1, 30),
-            "num_heads": model_config.N_HEADS,
-            "hidden_size": model_config.HIDDEN_STATE_SIZE,
-            # This has an inverse relationship. Want higher values for less exploration.
-            "entropy_coeff": tune.loguniform(1e-3, 2e-1)
-        }
-
-        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-        algo = TuneBOHB()
-        bohb = HyperBandForBOHB(time_attr="training_iteration", max_t=100)
-
-        stopping_criteria = {"training_iteration": 100, "episode_reward_mean": 1}
-
-        tuner = tune.Tuner(
-            ppo_position_config.algo_class,
-            param_space=ppo_position_config,
-            tune_config=tune.TuneConfig(
-                metric="info/learner/default_policy/learner_stats/total_loss",
-                mode="min",
-                num_samples=16,
-                max_concurrent_trials=1,
-                search_alg=algo,
-                scheduler=bohb,
-            ),
-            run_config=train.RunConfig(stop=stopping_criteria, storage_path=f"file://{local_path}/ray_results")
-        )
-
-        results = tuner.fit()
-
-        # algo.save("./my-checkpoint.pkl")
-
-        best_trial = results.get_best_result(metric="episode_reward_mean", mode="max")
-        best_config = best_trial.config
-        print("FINAL CONFIG")
-        print(best_config)
-        time.sleep(5)
-
-    def position_rllib_ppo_testing(self):
-        gpus = torch.cuda.device_count()
-        print(f"gpu_count START = {gpus}")
-        with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, dashboard_host="0.0.0.0"):
-
-            positioning_storage = QueueStorage(name="position")
-            ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-            model_config = config.ModelConfig()
-
-            search_space = {
-                "lambda": 0.95,
-                "lr": 1e-5,
-                "clip_param": 0.1,
-                # Number of times it goes over a batch before moving onto a new batch.
-                "num_sgd_iter": 1,
-                "num_heads": model_config.N_HEADS,
-                "hidden_size": model_config.HIDDEN_STATE_SIZE,
-                # This has an inverse relationship. Want higher values for less exploration.
-                "entropy_coeff": 0.1
-            }
-
-            ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-            ppo_position_model.train_position_model(ppo_position_config)
+            # weights = ray.get(storage.get_target_model.remote())
+            #
+            # for i, worker in enumerate(data_workers):
+            #     workers.append(worker.collect_default_experience.remote(env, buffers[i], training_manager, storage,
+            #                                                             weights, item_storage, positioning_storage,
+            #                                                             ppo_position_model, ppo_item_model))
+            #     time.sleep(0.5)
+            #
+            # training_manager.loop(storage, train_step)
+            #
+            # # Tests for the position and item environment
+            # # test_envs = DataWorker.remote(0)
+            # # workers.append(test_envs.test_position_item_simulators.remote(positioning_storage, item_storage))
+            #
+            # ppo_item_model.train_item_model.remote()
+            # ppo_position_model.train_position_model.remote()
+            #
+            # # This may be able to be ray.wait(workers). Here so we can keep all processes alive.
+            # # ray.get(storage)
+            # ray.get(workers)
 
     def position_ppo_testing(self):
         import torch.nn as nn
@@ -262,7 +269,8 @@ class AIInterface:
         import numpy as np
         from torch.utils.tensorboard import SummaryWriter
 
-        from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator, list_to_dict
+        from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator
+        from Simulator.tft_local_vector_simulator import TFT_Local_Vector_Pos_Simulator
         from Models.PositionModels.action_mask_model import TorchPositionModel
         from Models.utils import convert_to_torch_tensor
 
@@ -285,7 +293,10 @@ class AIInterface:
         device = torch.device(config.DEVICE)
 
         # env setup
-        envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+        if ppo_config.REMOTE:
+            envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+        else:
+            envs = [TFT_Local_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
 
         model_config = config.ModelConfig()
         agent = TorchPositionModel(model_config).to(device)
@@ -297,10 +308,13 @@ class AIInterface:
         start_time = time.time()
         reset_env = []
         for env in envs:
-            reset_env.append(ray.get(env.vector_reset.remote())[0])
+            if ppo_config.REMOTE:
+                reset_env.append(ray.get(env.vector_reset.remote())[0])
+            else:
+                reset_env.append(env.vector_reset()[0])
 
-        obs = convert_to_torch_tensor(x=list_to_dict(reset_env), device=config.DEVICE)
-        num_updates = int(ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE)
+        obs = convert_to_torch_tensor(x=TFT_Vector_Pos_Simulator.list_to_dict(reset_env), device=config.DEVICE)
+        num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
         kl_coef = ppo_config.KL_COEF
 
         for update in range(1, num_updates + 1):
@@ -319,16 +333,25 @@ class AIInterface:
             actions = action.cpu().numpy()
 
             workers = []
-            for j in range(ppo_config.NUM_STEPS):
-                workers.append(
-                    envs[j].vector_reset_step.remote(actions[j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS]))
+            for j in range(ppo_config.NUM_STEPS * ppo_config.NUM_ENVS):
+                if ppo_config.REMOTE:
+                    workers.append(
+                        envs[j].vector_reset_step.remote(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
+                    )
+                else:
+                    workers.append(
+                        envs[j].vector_reset_step(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
+                    )
 
             obs, reward, done = [], [], []
             for worker in workers:
-                local_worker = ray.get(worker)
+                if ppo_config.REMOTE:
+                    local_worker = ray.get(worker)
+                else:
+                    local_worker = worker
                 obs.append(local_worker[0])
                 reward.append(local_worker[1])
-            obs = list_to_dict(obs)
+            obs = TFT_Vector_Pos_Simulator.list_to_dict(obs)
             reward = torch.tensor(reward)
 
             # TRY NOT TO MODIFY: execute the game and log data.
@@ -354,29 +377,32 @@ class AIInterface:
                     clipfracs += [((ratio - 1.0).abs() > ppo_config.CLIP_COEF).float().mean().item()]
 
                 # Policy loss
-                pg_loss1 = -advantages[:, None] * ratio
-                pg_loss2 = -advantages[:, None] * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
+                print(advantages.shape)
+                print(ratio.shape)
+                print(logratio)
+                print(ratio)
+                time.sleep(2)
+                pg_loss1 = -advantages * ratio
+                pg_loss2 = -advantages * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
                 newvalue = newvalue.view(-1)
                 if ppo_config.CLIP_VLOSS:
+                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss_unclipped = (newvalue - rewards) ** 2
-                    v_clipped = values + torch.clamp(
-                        newvalue - values,
-                        -ppo_config.CLIP_COEF,
-                        ppo_config.CLIP_COEF,
-                    )
+                    v_clipped = values + torch.clamp(newvalue - values, -ppo_config.CLIP_COEF, ppo_config.CLIP_COEF)
                     v_loss_clipped = (v_clipped - rewards) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 else:
+                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
-                # if approx_kl > ppo_config.TARGET_KL * ppo_config.KL_ADJUSTER:
-                #     kl_coef /= ppo_config.KL_ADJUSTER
-                # elif approx_kl < ppo_config.TARGET_KL / ppo_config.KL_ADJUSTER:
-                #     kl_coef *= ppo_config.KL_ADJUSTER
+                if approx_kl > ppo_config.TARGET_KL * (1 + ppo_config.KL_ADJUSTER):
+                    kl_coef *= (1 + ppo_config.KL_ADJUSTER)
+                elif approx_kl < ppo_config.TARGET_KL / (1 + ppo_config.KL_ADJUSTER):
+                    kl_coef *= (1 - ppo_config.KL_ADJUSTER)
+                kl_coef = max(min(kl_coef, ppo_config.MAX_KL_COEF), ppo_config.MIN_KL_COEF)
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - ppo_config.ENT_COEF * entropy_loss + ppo_config.VF_COEF * v_loss + kl_coef * approx_kl
@@ -393,11 +419,15 @@ class AIInterface:
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
-            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/value_loss", ppo_config.VF_COEF * v_loss.item(), global_step)
             writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/kl_loss", kl_coef * approx_kl.item(), global_step)
+            writer.add_scalar("losses/kl_coef", kl_coef, global_step)
+            writer.add_scalar("losses/entropy_loss", ppo_config.ENT_COEF * entropy_loss.item(), global_step)
+            writer.add_scalar("losses/total_loss", loss_per_update, global_step)
             writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
             writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
             writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
             writer.add_scalar("losses/explained_variance", explained_var, global_step)
             writer.add_scalar("charts/mean_reward", torch.mean(rewards).detach().cpu(), global_step)
@@ -408,29 +438,6 @@ class AIInterface:
 
         envs.close()
         writer.close()
-
-    def ppo_checkpoint_test(self):
-        save_path = "/home/silver/TFTacticsAI/TFTAI/ray_results"
-
-        positioning_storage = QueueStorage(name="position")
-        ppo_position_model = Base_PPO_Position_Model(positioning_storage)
-
-        search_space = {
-            "lambda": 1.0,
-            "gamma": 1.0,
-            "lr": 1e-3,
-            "clip_param": 0.2,
-            "num_sgd_iter": 5,
-        }
-
-        ppo_position_config = ppo_position_model.PPO_position_algorithm(search_space)
-        PPO_Alg = ppo_position_config.algo_class(config=ppo_position_config)
-        PPO_Alg.save_checkpoint(save_path)
-
-        new_model = PPO_Alg.load_checkpoint(save_path)
-
-        time.sleep(5)
-
 
     def collect_dummy_data(self) -> None:
         """

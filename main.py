@@ -32,9 +32,14 @@ def main():
         # interface.position_ppo_tune()
         # interface.train_guide_model()
         interface.position_ppo_testing()
+    elif config.SINGLE_PLAYER:
+        config.GUMBEL = True
+        interface.train_single_player_model()
     elif config.REP_TRAINER:
         interface.representation_testing()
         # interface.representation_evauation()
+    elif config.MUZERO_POSITION:
+        interface.train_position_model()
     else:
         interface.train_torch_model()
 
