@@ -1,8 +1,8 @@
 from enum import Enum
 import random
 import numpy as np
-from Simulator import champion,  pool_stats
-from Simulator.item_stats import thieves_gloves_items
+from Set12Simulator import champion,  pool_stats
+from Set12Simulator.item_stats import thieves_gloves_items
 
 # Theives gloves items includes all full items except emblems
 item_list = thieves_gloves_items

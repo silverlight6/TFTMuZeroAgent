@@ -1,4 +1,4 @@
-from Simulator.battle_generator import BattleGenerator
+from Set12Simulator.battle_generator import BattleGenerator
 
 class PositionLevelingSystem:
     def __init__(self):

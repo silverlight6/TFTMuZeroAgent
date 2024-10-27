@@ -12,7 +12,7 @@ from ray.rllib.utils.typing import (
 )
 from ray.util import log_once
 
-from Simulator.tft_position_simulator import TFT_Position_Simulator
+from Set12Simulator.tft_position_simulator import TFT_Position_Simulator
 from typing import List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)

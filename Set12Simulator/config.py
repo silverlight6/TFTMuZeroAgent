@@ -1,5 +1,5 @@
 import config
-from Simulator.item_stats import uncraftable_items, items
+from Set12Simulator.item_stats import uncraftable_items, items
 
 CHAMPION_INFORMATION = 12
 BOARD_X = 7

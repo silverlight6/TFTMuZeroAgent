@@ -1,13 +1,13 @@
 import config
 import numpy as np
 
-from Simulator.battle_generator import BattleGenerator
-from Simulator import pool
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.vector.observation import ObservationVector
-from Simulator.observation.vector.gemini_observation import GeminiObservation
-from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
+from Set12Simulator.battle_generator import BattleGenerator
+from Set12Simulator import pool
+from Set12Simulator.observation.token.basic_observation import ObservationToken
+from Set12Simulator.observation.vector.observation import ObservationVector
+from Set12Simulator.observation.vector.gemini_observation import GeminiObservation
+from Set12Simulator.player_manager import PlayerManager
+from Set12Simulator.tft_simulator import TFTConfig
 
 class BatchGenerator:
     def __init__(self):

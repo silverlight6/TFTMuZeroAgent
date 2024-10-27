@@ -1,7 +1,7 @@
 import config
-from Simulator.item_stats import item_builds as item_builds, basic_items, starting_items, offensive_items, defensive_items
-from Simulator.champion import champion
-from Simulator.pool_stats import COST_1, COST_2, COST_3, COST_4, COST_5
+from Set12Simulator.item_stats import item_builds as item_builds, basic_items, starting_items, offensive_items, defensive_items
+from Set12Simulator.champion import champion
+from Set12Simulator.pool_stats import COST_1, COST_2, COST_3, COST_4, COST_5
 import random
 
 # TODO:
