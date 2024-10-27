@@ -29,3 +29,29 @@ Before starting training, you need to build the c++/cython style external packag
 ```
 cd core/ctree
 bash make.sh
+```
+
+If your `core/ctree` directory contains a `build` directory and a `cytree.cpp` file you should be ready to go.
+
+**Run `python main.py` to start training!**
+
+# Potential Issues Running Your First Time
+
+### PyTorch Installation
+You may run into a `AssertionError: Torch not compiled with CUDA enabled`
+If you have a GPU that supports CUDA make sure Torch is configured to work with it. You can download the latest stable version of PyTorch here:
+https://pytorch.org/get-started/locally/
+
+### Out of Memory
+If you run into an issue where CUDA runs out of memory, 
+`torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 512.00 MiB.`
+you may need to lower the batch size of the trainer.
+Find the `BATCH_SIZE` config value in `config.py` and try lowering the default value of 1024 by half until you no longer run into this issue.
+`BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)`
+
+# Understanding Progress
+Currently, while training, the terminal only displays the amount of data in the buffer. You can observe your progress using the tensorboard.
+Run `tensorboard --logdir logs/gradient_tape/` in a 2nd terminal and open `http://localhost:6006/` in a browser.
+
+By default, the trainer will make checkpoints of your progress for every 100 steps.
+You can change how often it saves with the `CHECKPOINT_STEPS` value in `config.py`.
