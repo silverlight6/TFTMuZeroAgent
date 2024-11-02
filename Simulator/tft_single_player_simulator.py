@@ -135,8 +135,8 @@ class TFT_Single_Player_Simulator(gym.Env):
                     # "start_turn": True,
                     # "save_battle": self.game_round.save_current_battle['player_0']
                 }
-        else:
-            self.reward -= 1
+            else:
+                self.reward -= 1
 
         initial_observation = self.player_manager.fetch_observation('player_0')
         observation = {

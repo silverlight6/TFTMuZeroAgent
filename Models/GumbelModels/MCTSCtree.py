@@ -6,6 +6,7 @@ import time
 import numpy as np
 import torch
 import core.gumbelctree.gmz_tree as tree_gumbel_muzero
+from Models.MCTS_Util import create_default_mapping
 
 
 class GumbelMuZeroMCTSCtree(object):
@@ -34,6 +35,8 @@ class GumbelMuZeroMCTSCtree(object):
         # Get the default configuration.
         self.model_config = model_config
         self.discount_factor = config.DISCOUNT
+        _, self.default_mask = create_default_mapping()
+        self.default_mask = torch.tensor(self.default_mask).to(config.DEVICE)
 
 
     @classmethod
@@ -120,11 +123,15 @@ class GumbelMuZeroMCTSCtree(object):
                 """
                 network_output = model.recurrent_inference(latent_states, last_actions)
 
+                # TODO: Mask out impossible actions with default mask here
+                default_mask = self.default_mask.repeat(batch_size, 1)
+                inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
+                policy_logits = network_output["policy_logits"] + inf_mask
                 latent_state_batch_in_search_path.append(network_output["hidden_state"].cpu().tolist())
                 # tolist() is to be compatible with cpp datatype.
                 reward_batch = network_output["reward"].reshape(-1).tolist()
                 value_batch = network_output["value"].reshape(-1).tolist()
-                policy_logits_batch = network_output["policy_logits"].detach().cpu().tolist()
+                policy_logits_batch = policy_logits.detach().cpu().tolist()
 
                 # In ``batch_backpropagate()``, we first expand the leaf node using ``the policy_logits`` and
                 # ``reward`` predicted by the model, then perform backpropagation along the search path to update the

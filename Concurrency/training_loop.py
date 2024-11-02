@@ -1,6 +1,7 @@
 import time
 import datetime
 import config
+import copy
 from torch.utils.tensorboard import SummaryWriter
 from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
 from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
@@ -17,14 +18,14 @@ Inputs      -
             A buffer that all the individual game buffers send their information to.
 """
 class TrainingLoop:
-    def __init__(self, global_agent, global_buffer):
+    def __init__(self, global_agent, global_buffer, optimizer_dict):
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
         self.summary_writer = SummaryWriter(train_log_dir)
         if config.GUMBEL:
             self.trainer = Gumbel_Trainer(global_agent, self.summary_writer)
         elif config.MUZERO_POSITION:
-            self.trainer = Position_Trainer(global_agent, self.summary_writer)
+            self.trainer = Position_Trainer(global_agent, self.summary_writer, optimizer_dict)
         else:
             self.trainer = MuZero_Trainer(global_agent, self.summary_writer)
         self.batch_size = config.BATCH_SIZE
@@ -43,7 +44,7 @@ class TrainingLoop:
         train_step 
             Current episode that is used for logging and labelling the checkpoints.
     """
-    async def loop(self, global_agent, storage, train_step):
+    async def loop(self, storage, train_step):
         while True:
             if await self.global_buffer.available_batch():
                 if config.MUZERO_POSITION:
@@ -56,7 +57,7 @@ class TrainingLoop:
                 # print("One round in the trainer took {} time".format(time.time_ns() - self.ckpt_time))
                 # self.ckpt_time = time.time_ns()
                 storage.set_trainer_busy.remote(False)
-                storage.set_target_model.remote(global_agent.get_weights())
+                storage.set_target_model.remote(self.trainer.network.get_weights())
                 train_step += 1
 
                 # Because the champ decider produces 125 samples per game whereas the standard trainer produces
@@ -64,4 +65,5 @@ class TrainingLoop:
                 if (train_step % self.checkpoint_steps == 0) or \
                         (self.champ_decider and train_step % self.checkpoint_steps % 10 == 0):
                     storage.store_checkpoint.remote(train_step)
-                    global_agent.tft_save_model(train_step)
+                    optimizer = self.trainer.optimizer
+                    storage.save_target_model.remote(train_step, optimizer)

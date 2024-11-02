@@ -37,7 +37,7 @@ class TrainingManager:
             Current episode that is used for logging and labelling the checkpoints.
     """
     def loop(self, storage, train_step):
-        self.training_ray_manager.loop.remote(self.global_agent, storage, train_step)
+        self.training_ray_manager.loop.remote(storage, train_step)
 
     """
     Description - 
@@ -73,7 +73,7 @@ Inputs      -
 class _TrainActor:
     def __init__(self, global_agent, storage):
         self.global_buffer = GlobalBuffer(storage)
-        self.training_loop = TrainingLoop(global_agent, self.global_buffer)
+        self.training_loop = TrainingLoop(global_agent, self.global_buffer, ray.get(storage.get_optimizer_dict.remote()))
 
     """
     Description - 
@@ -84,8 +84,8 @@ class _TrainActor:
         train_step 
             Current episode that is used for logging and labelling the checkpoints.
     """
-    async def loop(self, global_agent, storage, train_step):
-        await self.training_loop.loop(global_agent, storage, train_step)
+    async def loop(self, storage, train_step):
+        await self.training_loop.loop(storage, train_step)
 
     """
     Description - 

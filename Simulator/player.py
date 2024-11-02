@@ -729,7 +729,7 @@ class Player:
                     self.move_board_to_board(x2, y2, x1, y1)
                 else:
                     if DEBUG:
-                        print(f"No champion to move for player {self.player_num}")
+                        print(f"No champion to move for player {self.player_num} in round {self.round}")
                     return False
 
             # Board to Bench
@@ -868,9 +868,9 @@ class Player:
         self.reward += self.mistake_reward
         if DEBUG:
             print(f"Move board to bench outside board limits: {x}, {y}, {x_bench}, {self.bench[x_bench]}, {self.board[x][y]}")
-            action = ActionToken(self)
-            np.set_printoptions(threshold=np.inf)
-            print(f"player # = {self.player_num}")
+            # action = ActionToken(self)
+            # np.set_printoptions(threshold=np.inf)
+            print(f"player # = {self.player_num} with game_round {self.round}")
             # print(self.board)
             # print(action.move_sell_board_mask)
             # print(self.bench)

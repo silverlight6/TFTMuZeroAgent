@@ -149,7 +149,6 @@ class PlayerManager:
         self.action_handlers[player].update_action_mask([2, 0, 0])
 
     # - Used so I don't have to change the Game_Round class -
-    # TODO: Refactor Game_Round class to use refresh_all_shops
     def generate_shops(self, players):
         self.refresh_all_shops()
 

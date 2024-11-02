@@ -244,5 +244,5 @@ class AlternateFeatureEncoder(torch.nn.Module):
         self.device = device
 
     def forward(self, x):
-        x = x.to(self.device)  # Ensure the input is on the correct device
+        # x = x.to(self.device)  # Ensure the input is on the correct device
         return self.network(x)

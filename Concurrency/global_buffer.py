@@ -43,12 +43,20 @@ class GlobalBuffer(object):
             # the number of multiprocessing errors that could occur by having them too far apart.
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
-            if not config.GUMBEL:
-                [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
-                 sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
-            else:
-                [observation, action_history, policy_mask, value, reward, policy], \
-                    priority = self.gameplay_experiences.extractMax()
+            try:
+                if not config.GUMBEL:
+                    [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
+                     sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
+                else:
+                    [observation, action_history, policy_mask, value, reward, policy], \
+                        priority = self.gameplay_experiences.extractMax()
+            except TypeError:
+                if not config.GUMBEL:
+                    [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
+                     sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.extractMax()
+                else:
+                    [observation, action_history, policy_mask, value, reward, policy], \
+                        priority = self.gameplay_experiences.extractMax()
             position, _ = self.average_position.extractMax()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
@@ -112,8 +120,12 @@ class GlobalBuffer(object):
             # the number of multiprocessing errors that could occur by having them too far apart.
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
-            [observation, action_history, value_mask, policy_mask, value, policy], priority = \
-                self.gameplay_experiences.extractMax()
+            try:  # Error that happens every once in a blue moon
+                [observation, action_history, value_mask, policy_mask, value, policy], priority = \
+                    self.gameplay_experiences.extractMax()
+            except TypeError:
+                [observation, action_history, value_mask, policy_mask, value, policy], priority = \
+                    self.gameplay_experiences.extractMax()
             position, _ = self.average_position.extractMax()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
@@ -184,6 +196,6 @@ class GlobalBuffer(object):
             print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
             await self.storage_ptr.set_trainer_busy.remote(True)
             return True
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
         print("QUEUE_LENGTH_SLEEPY {} at time {}".format(queue_length, time.time_ns()))
         return False

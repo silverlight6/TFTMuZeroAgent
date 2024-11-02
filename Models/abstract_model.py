@@ -1,5 +1,7 @@
 import torch
 import os
+
+import config
 from Models.MCTS_Util import dict_to_cpu
 
 class AbstractNetwork(torch.nn.Module):
@@ -21,17 +23,28 @@ class AbstractNetwork(torch.nn.Module):
         self.eval()
 
     # Renaming as to not override built-in functions
-    def tft_save_model(self, episode):
+    def tft_save_model(self, episode, optimizer):
         if not os.path.exists("./Checkpoints"):
             os.makedirs("./Checkpoints")
 
+        checkpoint = {
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'epoch': episode,
+        }
+
         path = f'./Checkpoints/checkpoint_{episode}'
-        torch.save(self.state_dict(), path)
+        torch.save(checkpoint, path)
 
     # Renaming as to not override built-in functions
     def tft_load_model(self, episode):
         path = f'./Checkpoints/checkpoint_{episode}'
         if os.path.isfile(path):
-            self.load_state_dict(torch.load(path))
-            self.eval()
+            checkpoint = torch.load(path)
+            self.load_state_dict(checkpoint['model_state_dict'])
+            if config.TRAIN:
+                self.train()
+            else:
+                self.eval()
+            return checkpoint['optimizer_state_dict']
         # print("loaded model {}".format(episode))

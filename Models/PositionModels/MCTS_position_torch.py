@@ -7,6 +7,7 @@ import config
 from typing import Dict
 
 """
+TODO: Update this
 EXPLANATION OF MCTS:
 1. select leaf node with maximum value using method called UCB1 
 2. expand the leaf node, adding children for each possible action
@@ -17,12 +18,11 @@ EXPLANATION OF MCTS:
 """
 
 
-# TODO: Implement the simulator section for AlphaZero
 class MCTS:
     def __init__(self, network, model_config):
         self.network = network
         self.times = [0] * 6
-        self.batch_size = config.NUM_PLAYERS
+        self.batch_size = config.NUM_ENVS
         self.num_actions = 0
         self.ckpt_time = time.time_ns()
         self.max_depth_search = 0
@@ -41,7 +41,7 @@ class MCTS:
             # Mask illegal actions
 
             # is it quicker to do this as a tensor or as a numpy array?
-            flat_mask = torch.tensor(observation["action_mask"][np.arange(4),
+            flat_mask = torch.tensor(observation["action_mask"][np.arange(self.batch_size),
                                      np.array(action_count).flatten(), :]).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask
@@ -87,6 +87,8 @@ class MCTS:
                 # This can be less than the number of actions which is a bit concerning but I think it's fine
                 dist_sum = sum(distributions)
                 # print(f"dist_sum -> {dist_sum}")
+                if dist_sum > 1000:
+                    print(f"dist_sum -> {dist_sum} with action_count {action_count}")
                 target_policy.append([x / dist_sum for x in distributions])
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
@@ -147,7 +149,7 @@ class MCTS:
             policy_logits = network_output["policy_logits"]
 
             # Mask illegal actions
-            flat_mask = torch.tensor(action_mask[np.arange(4),
+            flat_mask = torch.tensor(action_mask[np.arange(self.batch_size),
                                      np.array(step_action_counts).flatten(), :]).to(config.DEVICE)
             inf_mask = torch.clamp(torch.log(flat_mask), min=-3.4e38)
             policy_logits = policy_logits + inf_mask

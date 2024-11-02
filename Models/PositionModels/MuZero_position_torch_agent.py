@@ -213,7 +213,8 @@ class PositionDynNetwork(torch.nn.Module):
             return torch.nn.Sequential(
                 MemoryLayer(input_size, num_layers, hidden_size, model_config),
                 Normalize()
-            ).to(config.DEVICE)
+            # ).to(config.DEVICE)
+            )
 
         self.action_embeddings = torch.nn.Embedding(29, model_config.ACTION_EMBEDDING_DIM).to(config.DEVICE)
         self.action_encodings = AlternateFeatureEncoder(model_config.ACTION_EMBEDDING_DIM, [

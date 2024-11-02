@@ -1,3 +1,4 @@
+import copy
 import time
 import config
 import collections
@@ -16,19 +17,21 @@ LossOutput = collections.namedtuple(
 
 
 class Trainer(object):
-    def __init__(self, global_agent, summary_writer):
+    def __init__(self, global_agent, summary_writer, optimizer_dict=None):
         self.network = global_agent
         self.init_learning_rate = config.INIT_LEARNING_RATE
         self.decay_steps = config.WEIGHT_DECAY
         self.alpha = config.LR_DECAY_FUNCTION
-        self.optimizer = self.create_optimizer()
+        self.optimizer = self.create_optimizer(optimizer_dict)
         self.summary_writer = summary_writer
         self.model_ckpt_time = time.time_ns()
         self.loss_ckpt_time = time.time_ns()
 
-    def create_optimizer(self):
+    def create_optimizer(self, optimizer_dict=None):
         optimizer = torch.optim.Adam(self.network.parameters(), lr=config.INIT_LEARNING_RATE,
                                      weight_decay=config.WEIGHT_DECAY)
+        if optimizer_dict is not None:
+            optimizer.load_state_dict(optimizer_dict)
         return optimizer
 
     def decayed_learning_rate(self, step):

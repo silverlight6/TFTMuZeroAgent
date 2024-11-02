@@ -16,6 +16,7 @@ from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
 from Concurrency.queue_storage import QueueStorage
+# from torchsummary import summary
 
 
 
@@ -92,7 +93,9 @@ class AIInterface:
             training_manager = TrainingManager(global_agent, storage)
 
             # Keeping this line commented because this tells us the number of parameters that our current model has.
-            # total_params = sum(p.numel() for p in global_agent.parameters())
+            total_params = sum(p.numel() for p in global_agent.parameters())
+            # print(global_agent)
+            print(total_params)
 
             # These are the lines that are going to take a bit of thought of how I want to do this.
             # I am not just sending one environment in and calling it good.

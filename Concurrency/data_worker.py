@@ -189,12 +189,11 @@ class DataWorker(object):
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_target_model.remote())
-            weights = copy.deepcopy(temp_weights)
             if config.GUMBEL:
                 self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
             else:
                 self.agent_network = MCTS(self.temp_model, self.model_config)
-            self.agent_network.network.set_weights(weights)
+            self.agent_network.network.set_weights(temp_weights)
             self.rank += config.CONCURRENT_GAMES
 
     '''
@@ -330,9 +329,8 @@ class DataWorker(object):
 
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_model.remote())
-            weights = copy.deepcopy(temp_weights)
             self.agent_network = Default_MCTS(self.temp_model, self.model_config)
-            self.agent_network.network.set_weights(weights)
+            self.agent_network.network.set_weights(temp_weights)
             self.rank += config.CONCURRENT_GAMES
 
     def collect_single_player_experience(self, env, buffers, global_buffer, storage, weights):
@@ -350,8 +348,10 @@ class DataWorker(object):
             while not all(terminated):
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
                 actions, policy, string_samples, root_values = self.model_call(player_observation, info)
-                storage_actions = actions
-                step_actions = self.getStepActions(terminated, storage_actions)
+                step_actions = self.getStepActions(terminated, actions, storage_terminated)
+                for i, terminate in enumerate(terminated):
+                    if terminate:
+                        storage_terminated[i] = True
 
                 # Take that action within the environment and return all of our information for the next player
                 next_observation, reward, terminated, _, info = env.vector_step(step_actions, terminated)
@@ -362,10 +362,8 @@ class DataWorker(object):
                     if not storage_terminated[i] and not info[alive_i]["state_empty"]:
                         # Store the information in a buffer to train on later.
                         buffers.store_gumbel_buffer.remote(f"player_{i}", self.get_obs_idx(
-                            player_observation["observations"], alive_i), storage_actions[alive_i], reward[alive_i],
+                            player_observation["observations"], alive_i), actions[alive_i], reward[alive_i],
                                                            policy[alive_i], root_values[alive_i])
-                        if terminated[i]:
-                            storage_terminated[i] = True
                         alive_i += 1
 
                 # Set up the observation for the next action
@@ -384,13 +382,13 @@ class DataWorker(object):
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_target_model.remote())
-            weights = copy.deepcopy(temp_weights)
             self.agent_network = GumbelMuZero(self.temp_model, self.model_config)
-            self.agent_network.network.set_weights(weights)
+            self.agent_network.network.set_weights(temp_weights)
             self.rank += config.CONCURRENT_GAMES
 
     def collect_position_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.network.set_weights(weights)
+        episode_rewards = [[0] for _ in range(env.num_envs)]
         while True:
             # Reset the environment
             player_observation, info = env.vector_reset()
@@ -422,6 +420,15 @@ class DataWorker(object):
                                                            policy[alive_i], root_values[alive_i])
                         if terminated[i]:
                             storage_terminated[i] = True
+                            episode_rewards[i].append(reward[alive_i])
+
+                            if self.check_greater_than_last_five(episode_rewards[i]):
+                                episode_rewards[i] = []
+                                env.envs[i].level_up()
+
+                            if len(episode_rewards[i]) > 100:
+                                episode_rewards[i] = episode_rewards[i][-95:]
+
                         alive_i += 1
                         action_count[i] += 1
 
@@ -441,10 +448,29 @@ class DataWorker(object):
             # Which means I need to create a list within the storage and sample from that.
             # All the probability distributions will be within the storage class as well.
             temp_weights = ray.get(storage.get_target_model.remote())
-            weights = copy.deepcopy(temp_weights)
             self.agent_network = Position_MCTS(self.temp_model, self.model_config)
-            self.agent_network.network.set_weights(weights)
+            self.agent_network.network.set_weights(temp_weights)
             self.rank += config.CONCURRENT_GAMES
+
+    def check_greater_than_last_five(self, episode_rewards):
+        """
+        Checks if the current value in a list is greater than or equal to the last 5 values.
+
+        Args:
+          episode_rewards: reward of each of the last up to 100 episodes for that particular environment
+
+        Returns:
+          True if the current value is greater than or equal to the last 5 values, False otherwise.
+        """
+        if len(episode_rewards) < 10:
+            return False  # Not enough previous values to compare
+
+        for i in range(5):
+            if episode_rewards[i - 5] < 1.0:
+                return False
+
+        print(f"LEVELING UP WITH AVERAGE REWARD OF {[episode_rewards[-5:]]}")
+        return True
 
     '''
     Description -
@@ -460,7 +486,7 @@ class DataWorker(object):
             A dictionary of player_ids and actions usable by the environment.
     '''
 
-    def getStepActions(self, terminated, actions):
+    def getStepActions(self, terminated, actions, prev_terminations=None):
         if not config.SINGLE_PLAYER:
             step_actions = {}
             i = 0
@@ -478,12 +504,14 @@ class DataWorker(object):
         else:
             step_actions = []
             i = 0
-            for i, terminate in enumerate(terminated):
+            for j, terminate in enumerate(terminated):
                 if not terminate and i < len(actions):
                     step_actions.append(actions[i])
+                    i += 1
                 elif not terminate and i >= len(actions):
                     step_actions.append(np.asarray(1976))
-                i += 1
+                elif terminate and not prev_terminations[j]:
+                    i += 1
 
         return step_actions
 

@@ -24,6 +24,7 @@ class Game_Round:
 
         self.current_round = 0
 
+        # Always 1 player but leaving it in case I change my mind later.
         self.save_current_battle = {"player_" + str(player_id): False for player_id in range(config.NUM_PLAYERS)}
         self.leveling_system = PositionLevelingSystem()
 
@@ -114,7 +115,7 @@ class Game_Round:
         return result
 
     def start_round(self):
-        self.PLAYER.refresh_shop()
+        self.step_func_obj.refresh_player_shop("player_0")
         self.PLAYER.start_round(self.current_round)
 
     def round_1(self):
@@ -146,7 +147,7 @@ class Game_Round:
         [enemy, _, _] = self.leveling_system.generate_battle()
 
         level_result = self.single_combat_phase(self.PLAYER, enemy)
-        self.leveling_system.level_up()
+        self.leveling_system.single_player_level_up()
 
         log_to_file_combat()
         return level_result

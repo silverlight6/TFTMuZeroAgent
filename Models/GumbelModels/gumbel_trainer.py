@@ -27,7 +27,7 @@ class Trainer(object):
         self.summary_writer = summary_writer
         self.model_ckpt_time = time.time_ns()
         self.loss_ckpt_time = time.time_ns()
-        self.target_model = copy.deepcopy(self.network)
+        self.target_model = self.network
         self.learn_model = self.network
         self.kl_loss = KLDivLoss(reduction='none')
         self.batch_size = config.BATCH_SIZE
@@ -147,8 +147,8 @@ class Trainer(object):
             # ==============================================================
             # 'value_priority_orig': value_priority,
             # 'value_priority': value_priority.mean().item(),
-            # 'target_reward': target_reward.detach().cpu().numpy().mean().item(),
-            # 'target_value': target_value.detach().cpu().numpy().mean().item(),
+            'target_reward': target_reward.mean().item(),
+            'target_value': target_value.mean().item(),
             'predicted_value': original_value.mean().item(),
             'predicted_policy': torch.softmax(policy_logits, dim=-1),
             'target_policy': target_policy,
@@ -206,6 +206,10 @@ class Trainer(object):
             'losses/policy', summaries["policy_loss"], train_step)
         self.summary_writer.add_scalar(
             'losses/policy_entropy', summaries["policy_entropy"], train_step)
+        self.summary_writer.add_scalar(
+            'episode_info/target_reward', summaries["target_reward"], train_step)
+        self.summary_writer.add_scalar(
+            'episode_info/target_value', summaries["target_value"], train_step)
 
         self.summary_writer.add_scalar(
             'episode_info/value_diff',

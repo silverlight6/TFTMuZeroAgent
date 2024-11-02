@@ -24,7 +24,9 @@ class Storage:
     def __init__(self, episode):
         self.target_model = self.load_model()
         if episode > 0:
-            self.target_model.tft_load_model(episode)
+            optimizer_dict = self.target_model.tft_load_model(episode)
+        else:
+            optimizer_dict = None
         self.model = self.target_model
         self.episode_played = 0
         self.placements = {"player_" + str(r): [0 for _ in range(config.NUM_PLAYERS)]
@@ -34,6 +36,7 @@ class Storage:
         self.max_q_value = 1
         self.store_base_checkpoint()
         self.populate_checkpoints()
+        self.optimizer_dict = optimizer_dict
 
     def get_model(self):
         """
@@ -80,7 +83,10 @@ class Storage:
             Pytorch Model Weights:
                 Weights of the target model.
         """
-        return self.target_model.set_weights(copy.deepcopy(weights))
+        return self.target_model.set_weights(weights)
+
+    def save_target_model(self, train_step, optimizer):
+        self.target_model.tft_save_model(train_step, optimizer)
 
     """
     Description - 
@@ -116,6 +122,9 @@ class Storage:
     """
     def get_trainer_busy(self):
         return self.trainer_busy
+
+    def get_optimizer_dict(self):
+        return self.optimizer_dict
 
     """
     Description - 

@@ -99,15 +99,11 @@ class PositionLevelingSystem:
 
     def level_up(self):
         self.level += 1
-        if config.SINGLE_PLAYER:
-            self.battle_generator = BattleGenerator(self.battle_levels[self.level])
-        else:
-            self.battle_generator = BattleGenerator(self.levels[self.level])
-        if self.level > 10:
-            print(f"Leveling to level {self.level}")
+        self.battle_generator = BattleGenerator(self.levels[self.level])
+        print(f"Leveling to level {self.level}")
 
     def single_player_level_up(self):
         self.level += 1
         self.battle_generator = BattleGenerator(self.battle_levels[self.level])
         if self.level > 10:
-            print(f"Leveling to level {self.level}")
+            print(f"Leveling single player to level {self.level}")

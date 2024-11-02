@@ -63,6 +63,7 @@ SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
 MUZERO_POSITION = get_bool_env("MUZERO_POSITION")
 
 PATH = path.dirname(path.realpath(__file__))
+TRAIN = get_bool_env("TRAIN", "true")  # False would be evaluation mode
 
 # GPU Configurations
 GPU_SIZE_PER_WORKER = get_float_env("GPU_SIZE_PER_WORKER", 0.2) if DEVICE == "cuda" else 0
@@ -168,7 +169,9 @@ class ModelConfig:
     RNN_SIZES = [LSTM_SIZE] * NUM_RNN_CELLS
     # Layer Hidden Size -> Inner layer size for the MLP blocks.
     LAYER_HIDDEN_SIZE = get_int_env("LAYER_HIDDEN_SIZE", 1024)
+    ACTION_EMBEDDING_DIM = get_int_env("ACTION_EMBEDDING_DIM", 128)
     ROOT_EXPLORATION_FRACTION = get_float_env("ROOT_EXPLORATION_FRACTION", 0.25)
+    ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 0.3)
     # How much to expand or contract the policy function. 1.0 means do not touch.
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
 
@@ -198,6 +201,7 @@ class ModelConfig:
     CHAMPION_EMBEDDING_DIM = get_int_env("CHAMPION_EMBEDDING_DIM", 512)
     # Size of the shop embeddings
     SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
+    NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 8)
 
 # Commenting in the code for PPO Config.
 class PPOConfig:

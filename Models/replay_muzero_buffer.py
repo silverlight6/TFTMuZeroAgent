@@ -280,7 +280,7 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[current_index])
                         value_mask_set.append(1.0)
                     elif current_index == num_steps - 1:
-                        action_set.append(29)
+                        action_set.append(28)
 
                         policy_mask_set.append(0.0)
                         # This is 0.0 in Google's code but thinking this should be the same as the reward?

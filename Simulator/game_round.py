@@ -329,7 +329,6 @@ class Game_Round:
 
         self.combat_phase(self.PLAYERS, self.current_round)
 
-        log_to_file_combat()
         return False
 
     # executes carousel round for all players

@@ -52,7 +52,7 @@ class GumbelMuZero:
             policy_logits = network_output["policy_logits"].detach().cpu().numpy().tolist()
             action_mask = np.reshape(data["action_mask"], (batch_size, -1))
 
-            legal_actions = [[i for i, x in enumerate(action_mask[j]) if x == 1] for j in range(batch_size)]
+            legal_actions = [[i for i, x in enumerate(action_mask[j]) if x == 1.0] for j in range(batch_size)]
 
             # the only difference between collect and eval is the dirichlet noise
             noises = [
