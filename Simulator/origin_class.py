@@ -150,26 +150,6 @@ def total_origin_class(blue_champion, red_champion):
     calculate_cultist_stars(blue_team, red_team)
 
 
-def team_origin_class(player):
-    team = player.board
-    for trait in game_compositions[player.player_num]:
-        game_compositions[player.player_num][trait] = 0
-    unique_champions = []
-    for x in range(0, 7):
-        for y in range(0, 4):
-            if team[x][y]:
-                if team[x][y].name not in unique_champions:
-                    unique_champions.append(team[x][y].name)
-                    for trait in team[x][y].origin:
-                        game_compositions[player.player_num][trait] += 1
-                for item in team[x][y].items:
-                    if item in item_stats.trait_items.values():
-                        item_index = list(item_stats.trait_items.values()).index(item)
-                        class_trait = list(item_stats.trait_items.keys())[item_index]
-                        game_compositions[player.player_num][class_trait] += 1
-    return game_compositions[player.player_num]
-
-
 def is_trait(champion, trait):
     champion_data = origin_class_stats.origin_class
     if trait in champion_data[champion.name]:

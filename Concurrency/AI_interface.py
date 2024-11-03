@@ -273,7 +273,6 @@ class AIInterface:
         from torch.utils.tensorboard import SummaryWriter
 
         from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator
-        from Simulator.tft_local_vector_simulator import TFT_Local_Vector_Pos_Simulator
         from Models.PositionModels.action_mask_model import TorchPositionModel
         from Models.utils import convert_to_torch_tensor
 
@@ -296,10 +295,7 @@ class AIInterface:
         device = torch.device(config.DEVICE)
 
         # env setup
-        if ppo_config.REMOTE:
-            envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
-        else:
-            envs = [TFT_Local_Vector_Pos_Simulator(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
+        envs = [TFT_Vector_Pos_Simulator.remote(num_envs=ppo_config.NUM_ENVS) for _ in range(ppo_config.NUM_STEPS)]
 
         model_config = config.ModelConfig()
         agent = TorchPositionModel(model_config).to(device)
@@ -311,10 +307,7 @@ class AIInterface:
         start_time = time.time()
         reset_env = []
         for env in envs:
-            if ppo_config.REMOTE:
-                reset_env.append(ray.get(env.vector_reset.remote())[0])
-            else:
-                reset_env.append(env.vector_reset()[0])
+            reset_env.append(ray.get(env.vector_reset.remote())[0])
 
         obs = convert_to_torch_tensor(x=TFT_Vector_Pos_Simulator.list_to_dict(reset_env), device=config.DEVICE)
         num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE

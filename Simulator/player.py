@@ -96,10 +96,10 @@ class Player:
         self.shop_champions = [None for _ in range(config.SHOP_SIZE)]
 
         # List of team compositions
-        self.team_composition = origin_class.game_compositions[self.player_num]
+        self.team_composition = origin_class.game_compositions[self.player_num].copy()
         # List of tiers of each trait.
-        self.team_tiers = origin_class.game_comp_tiers[self.player_num]
-        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
+        self.team_tiers = origin_class.game_comp_tiers[self.player_num].copy()
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32).copy()
         self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
         self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
 
@@ -244,7 +244,7 @@ class Player:
 
         if self.gold < self.refresh_cost:
             if DEBUG:
-                print("Did not have gold to refresh")
+                print(f"Did not have gold to refresh with gold {self.gold} and refresh_cost {self.refresh_cost}")
             return False
 
         self.gold -= self.refresh_cost
@@ -1439,8 +1439,9 @@ class Player:
         for i in range(len(self.team_composition)):
             if values[i] != 0:
                 if log:
-                    self.print("{}: {}, tier: {}".format(
-                        keys[i], values[i], tier_values[i]))
+                    self.print("{}: {}, tier: {}".format(keys[i], values[i], tier_values[i]))
+                if to_console:
+                    print("{}: {}, tier: {}".format(keys[i], values[i], tier_values[i]))
         for x in range(7):
             for y in range(4):
                 if self.board[x][y]:
@@ -1679,6 +1680,24 @@ class Player:
         else:
             return False
 
+    def team_origin_class(self):
+        team = self.board
+        for trait in self.team_composition.keys():
+            self.team_composition[trait] = 0
+        unique_champions = []
+        for x in range(len(self.board)):
+            for y in range(len(self.board[x])):
+                if team[x][y]:
+                    if team[x][y].name not in unique_champions:
+                        unique_champions.append(team[x][y].name)
+                        for trait in team[x][y].origin:
+                            self.team_composition[trait] += 1
+                    for item in team[x][y].items:
+                        if item in trait_items.values():
+                            item_index = list(trait_items.values()).index(item)
+                            class_trait = list(trait_items.keys())[item_index]
+                            self.team_composition[class_trait] += 1
+
     def thieves_gloves(self, x, y) -> bool:
         """Gives new thieves gloves items to a champion in thieves_gloves_loc
 
@@ -1769,10 +1788,10 @@ class Player:
     def update_team_tiers(self):
         """Updates the team_tiers dictionary with the current team composition.
 
-        Connects to the team_origin_class in origin_class.py to update
+        Connects to the team_origin_class to update team composition
         the team_tiers dictionary with the current team composition.
         """
-        self.team_composition = origin_class.team_origin_class(self)
+        self.team_origin_class()
         if self.chosen in self.team_composition.keys():
             self.team_composition[self.chosen] += 1
         for trait in self.team_composition:

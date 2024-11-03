@@ -267,7 +267,6 @@ class ActionToken(ActionBase, ActionVectorBase):
         if player.gold >= player.exp_cost and player.level != player.max_level:
             exp_action_mask = 1
 
-        # print(f"player.gold --> {player.gold} and exp_mask --> {exp_action_mask}")
         return exp_action_mask
 
     def create_refresh_action_mask(self, player):
