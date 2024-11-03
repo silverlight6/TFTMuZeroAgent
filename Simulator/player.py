@@ -331,7 +331,7 @@ class Player:
             - Must have enough gold to buy the champion
 
         Args:
-            a_champion (champion): Champion object to buy and add to the bench.
+            a_champion: Champion object to buy and add to the bench.
 
         Returns:
             bool: True if action was performed successfully, False otherwise.

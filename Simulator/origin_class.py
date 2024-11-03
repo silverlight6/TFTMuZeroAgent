@@ -1,9 +1,9 @@
 import Simulator.config as config
 import Simulator.origin_class_stats as origin_class_stats
-from Simulator import field, item_stats, items, champion_functions
 import Simulator.stats as stats
 import random
 import time
+from Simulator import field, item_stats, items, champion_functions
 
 # ORIGINS AND CLASSES
 # loads of similar functions
@@ -162,6 +162,11 @@ def team_origin_class(player):
                     unique_champions.append(team[x][y].name)
                     for trait in team[x][y].origin:
                         game_compositions[player.player_num][trait] += 1
+                for item in team[x][y].items:
+                    if item in item_stats.trait_items.values():
+                        item_index = list(item_stats.trait_items.values()).index(item)
+                        class_trait = list(item_stats.trait_items.keys())[item_index]
+                        game_compositions[player.player_num][class_trait] += 1
     return game_compositions[player.player_num]
 
 
