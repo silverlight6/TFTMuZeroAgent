@@ -136,7 +136,7 @@ class TFT_Position_Simulator(gym.Env):
     def step(self, action):
         if action is not None:
             if config.MUZERO_POSITION:
-                self.step_function.multi_step_position_controller(action, self.PLAYER, self.action_count)
+                self.step_function.multi_step_position_controller(action, self.action_count)
                 self.action_count += 1
             else:
                 self.step_function.position_controller(action, self.PLAYER)

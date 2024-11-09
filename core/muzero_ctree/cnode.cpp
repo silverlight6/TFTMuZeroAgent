@@ -151,7 +151,7 @@ namespace tree {
 
     float CNode::value() {
         if(this->visit_count == 0) {
-            return 0;
+            return 0.0;
         }
         else {
             return this->value_sum / this->visit_count;
@@ -362,13 +362,19 @@ namespace tree {
         }
         else {
             // ensure that the value_score is between 0 and 1, (normally between -300 and 300)
-            value_score = min_max_stats.normalize(child->qvalue(discount));
+            value_score = child->qvalue(discount);
         }
+
+        value_score = min_max_stats.normalize(value_score);
 
         // Some testing should occur to see if this is helpful, I think I should delete these lines
         if (value_score < 0) value_score = 0;
         if (value_score > 1) value_score = 1;
 
+//        if (child -> visit_count > 100) {
+//            std::cout << "prior score : " << prior_score << " , and value score : " << value_score <<
+//                 " and visit_counts : " << child -> visit_count << std::endl;
+//                 }
         return prior_score + value_score;
     }
 

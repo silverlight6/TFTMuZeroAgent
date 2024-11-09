@@ -1,6 +1,6 @@
 import time
 
-from Simulator.utils import coord_to_x_y
+from Simulator.utils import coord_to_x_y, x_y_to_1d_coord
 
 class Step_Function:
     def __init__(self, player_manager):
@@ -130,12 +130,11 @@ class Step_Function:
                     if coord == square:
                         self.position_list[j] = temp_square
 
-    def multi_step_position_controller(self, action, player, step):
-        x, y = coord_to_x_y(action)
-        coord = [x, y]
-        if coord[0] != 7 and step < len(self.position_list):
+    def multi_step_position_controller(self, action, step):
+        if action != 28 and step < len(self.position_list):
             temp_square = self.position_list[step]
-            player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
+            temp_coord = x_y_to_1d_coord(temp_square[0], temp_square[1])
+            self.perform_action("player_0", [5, temp_coord, action])
 
     def item_controller(self, action, player, item_guide):
         """

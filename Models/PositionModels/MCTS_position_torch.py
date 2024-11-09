@@ -107,6 +107,7 @@ class MCTS:
 
         # minimax value storage data structure
         min_max_stats_lst = tree.MinMaxStatsList(num)
+        min_max_stats_lst.set_delta(config.VALUE_MAX_DELTA)
         hidden_state_pool = [hidden_state_pool]
         # go through the tree NUM_SIMULATIONS times
         for _ in range(self.model_config.NUM_SIMULATIONS):

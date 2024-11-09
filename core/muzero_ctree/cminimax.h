@@ -1,3 +1,6 @@
+
+// C++11
+
 #ifndef CMINIMAX_H
 #define CMINIMAX_H
 
@@ -11,29 +14,27 @@ namespace tools {
 
     class CMinMaxStats {
         public:
-            float maximum, minimum;
+            float maximum, minimum, value_delta_max;
 
             CMinMaxStats();
             ~CMinMaxStats();
 
+            void set_delta(float value_delta_max);
             void update(float value);
+            void clear();
             float normalize(float value);
-
-            float get_max();
-            float get_min();
     };
 
     class CMinMaxStatsList {
         public:
-            int num, index;
+            int num;
             std::vector<CMinMaxStats> stats_lst;
 
             CMinMaxStatsList();
             CMinMaxStatsList(int num);
             ~CMinMaxStatsList();
 
-            float get_max(int index);
-            float get_min(int index);
+            void set_delta(float value_delta_max);
     };
 }
 
