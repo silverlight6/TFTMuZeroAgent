@@ -18,6 +18,7 @@ from Simulator.observation.token.action import ActionToken
 
 import time
 
+# TODO: Move this to its own file
 @dataclass
 class TFTConfig:
     num_players: int = 8

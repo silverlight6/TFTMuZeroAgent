@@ -105,21 +105,16 @@ class TorchPositionEncoderModel(torch.nn.Module):
 
         # Create a position index [0, 1, 2, ..., 223] repeated for each sample in the batch
         positions = torch.arange(full_embeddings.shape[1], dtype=torch.long, device=config.DEVICE).unsqueeze(0)
-        print(positions.shape)
 
         # Get the positional encodings and add them to the full embeddings
         positional_enc = self.positional_embedding(positions)
-        print(positional_enc.shape)
-        # print(f"positional_enc {positional_enc}")
         full_embeddings = full_embeddings + positional_enc
-        print(full_embeddings.shape)
 
         # Expand the classification token to match the batch size
         cls_tokens = self.cls_token.expand(cie_shape[0], -1, -1)
 
         # Concatenate the cls token to the full_embeddings
         full_embeddings = torch.cat([cls_tokens, full_embeddings], dim=1)
-        # print(f"hidden_state full_embeddings + position {full_embeddings}")
 
         # Note to future self, if I want to separate current board for some processing. Do it here but use two
         # Position encodings.
@@ -127,11 +122,9 @@ class TorchPositionEncoderModel(torch.nn.Module):
         full_enc = self.full_encoder(full_embeddings)
 
         cls_hidden_state = full_enc[:, 0, :]
-        # print(f"cls_hidden_state {cls_hidden_state}")
 
         # Pass through final combiner network
         hidden_state = self.feature_processor(cls_hidden_state)
-        # print(f"hidden_state {hidden_state}")
         hidden_critic = self.hidden_to_critic(hidden_state)
         hidden_actor = self.hidden_to_actor(hidden_state)
 

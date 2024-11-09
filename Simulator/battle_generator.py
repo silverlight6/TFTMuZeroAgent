@@ -60,6 +60,20 @@ class BattleGenerator:
                     self.stationary_coords[0] = x_y_to_1d_coord(self.generator_config["test_position"][0],
                                                                 self.generator_config["test_position"][1])
 
+        self.set_composition = [[champion('vi'), champion('katarina'), champion('nunu')],
+                                [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
+                                 champion('nunu'), champion('annie')],
+                                [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
+                                 champion('jinx'), champion('vi'), champion('vayne', chosen='duelist')]
+                                ]
+
+        self.set_oppo_composition = [[champion('sylas'), champion('maokai'), champion('diana', stars=2)],
+                                     [champion('sylas'), champion('vi'), champion('vayne'),
+                                      champion('janna', stars=2)],
+                                     [champion('tahmkench', stars=2), champion('vi', stars=2), champion('elise'),
+                                      champion('vayne', stars=2), champion('twistedfate', stars=2)]
+                                     ]
+
 
     """
     Description - Generates random game state to use for battles.
@@ -208,6 +222,52 @@ class BattleGenerator:
             i += 1
             if i > 10:
                 print(f"ADD_CHAMPIONS_TO_BENCH has an issue {i}")
+
+    def generate_set_battle(self, level=3, set_position=True):
+        base_pool = pool()
+        player_list = [Player(base_pool, player_num) for player_num in range(2)]
+
+        player_team = self.set_composition[level - 3]
+        oppo_team = self.set_oppo_composition[level - 3]
+
+        for num, player in enumerate(player_list):
+            player.level = level
+            player.max_units = level
+            for i in range(player.max_units):
+                if num == 0:
+                    player.add_to_bench(player_team[i])
+                else:
+                    player.add_to_bench(oppo_team[i])
+                # Start with this, change it later.
+                if set_position:
+                    coord = self.stationary_coords[i]
+                else:
+                    coord = np.random.randint(0, 28)
+                coord_x, coord_y = coord_to_x_y(coord)
+                # TODO: Turn the next few lines into a method of it's own so I don't have to copy and paste.
+                action_mask = ActionToken(player)
+                _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
+                if bench_mask[0][coord]:
+                    player.move_bench_to_board(0, coord_x, coord_y)
+                else:
+                    move_failure = 0
+                    while not bench_mask[0][coord]:
+                        coord = np.random.randint(0, 28)
+                        coord_x, coord_y = coord_to_x_y(coord)
+                        if bench_mask[0][coord]:
+                            player.move_bench_to_board(0, coord_x, coord_y)
+                        else:
+                            move_failure += 1
+                            if move_failure > 10:
+                                _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
+                                print(f"crisis (x, y) -> {coord_x, coord_y} with unit {player.bench[0]}")
+                                print(f"full bench {player.bench}")
+                                print(f"player level {player.level}")
+                                break
+
+        return [player_list[0], player_list[1], {f"player_{player.player_num}": player for player in player_list}]
+
+
 
 def sample_with_limit(units, x, seed=None):
     """Samples x units from the list, but returns the whole list if x is larger.

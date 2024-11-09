@@ -47,7 +47,7 @@ namespace tree {
     // or if we do a weighted softmax which is what is done below.
     // The alpha-go paper uses .67 as their weight but we appear to use e instead.
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                       const std::vector<float> &policy_logits, int act_num, int action_count) {
+                       const std::vector<float> &policy_logits, int act_num, int action_count, int action_limit) {
         // Index for finding the hidden state on python side, x is search path location, y is the player
         this->hidden_state_index_x = hidden_state_index_x;
         this->hidden_state_index_y = hidden_state_index_y;
@@ -86,7 +86,7 @@ namespace tree {
             this->children_index.push_back(index);
 
             // Set this to terminal if it a masked action (option 1) or if it is the last action (option 2)
-            bool terminal = (prior < 0.001) || (action_count == 11);
+            bool terminal = (prior < 0.001) || (action_count >= action_limit - 1);
             if (terminal) {
                 this->terminal_children += 1;
             }
@@ -107,6 +107,42 @@ namespace tree {
             prior = child->prior;
             child->prior = prior * (1 - exploration_fraction) + noise * exploration_fraction;
         }
+    }
+
+    float CNode::compute_mean_q(int isRoot, float parent_q, float discount_factor)
+    {
+        /*
+        Overview:
+            Compute the mean q value of the current node.
+        Arguments:
+            - isRoot: whether the current node is a root node.
+            - parent_q: the q value of the parent node.
+            - discount_factor: the discount_factor of reward.
+        */
+        float total_unsigned_q = 0.0;
+        int total_visits = 0;
+        for (int a = 0; a < this->action_num; ++a)
+        {
+            CNode *child = this->get_child(a);
+            if (child->visit_count > 0)
+            {
+                float true_reward = child->reward;
+                float qsa = true_reward + discount_factor * child->value();
+                total_unsigned_q += qsa;
+                total_visits += 1;
+            }
+        }
+
+        float mean_q = 0.0;
+        if (isRoot && total_visits > 0)
+        {
+            mean_q = (total_unsigned_q) / (total_visits);
+        }
+        else
+        {
+            mean_q = (parent_q + total_unsigned_q) / (total_visits + 1);
+        }
+        return mean_q;
     }
 
     int CNode::expanded() {
@@ -176,9 +212,11 @@ namespace tree {
     // Creating the tree so this method does not get called.
     void CRoots::prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &value_prefixs, const std::vector<std::vector<float>> &policies,
-                         const std::vector<int> &action_nums, const std::vector<int> &action_counts) {
+                         const std::vector<int> &action_nums, const std::vector<int> &action_counts,
+                         const std::vector<int> &action_limits) {
         for(int i = 0; i < this->root_num; ++i) {
-            this->roots[i].expand(0, i, value_prefixs[i], policies[i], action_nums[i], action_counts[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], action_nums[i], action_counts[i],
+                action_limits[i]);
             this->roots[i].add_exploration_noise(root_exploration_fraction, noises[i]);
             this->roots[i].visit_count += 1;
         }
@@ -187,9 +225,11 @@ namespace tree {
     void CRoots::prepare_no_noise(const std::vector<float> &value_prefixs,
                                   const std::vector<std::vector<float>> &policies,
                                   const std::vector<int> &action_nums,
-                                  const std::vector<int> &action_counts) {
+                                  const std::vector<int> &action_counts,
+                                  const std::vector<int> &action_limits) {
         for(int i = 0; i < this->root_num; ++i) {
-            this->roots[i].expand(0, i, value_prefixs[i], policies[i], action_nums[i], action_counts[i]);
+            this->roots[i].expand(0, i, value_prefixs[i], policies[i], action_nums[i], action_counts[i],
+                action_limits[i]);
             this->roots[i].visit_count += 1;
         }
     }
@@ -261,7 +301,8 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                            const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                            tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                           const std::vector<int> &action_nums, const std::vector<int> &action_counts) {
+                           const std::vector<int> &action_nums, const std::vector<int> &action_counts,
+                           const std::vector<int> &action_limits) {
         for (int i = 0; i < results.num; ++i) {
             if (results.nodes[i]->terminal) {
                 // Skip backpropagation for terminal roots, as they should not have new nodes
@@ -271,12 +312,13 @@ namespace tree {
             }
 
             // Expand and backpropagate as usual for non-terminal roots
-            results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], action_nums[i], action_counts[i]);
+            results.nodes[i]->expand(hidden_state_index_x, i, rewards[i], policy[i], action_nums[i], action_counts[i],
+                action_limits[i]);
             cback_propagate(results.search_paths[i], min_max_stats_lst->stats_lst[i], values[i], discount);
         }
     }
 
-    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount) {
+    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount, float mean_q) {
         float max_score = FLOAT_MIN;
         const float epsilon = 0.00001;
         std::vector<int> max_index_lst;
@@ -285,7 +327,7 @@ namespace tree {
             CNode* child = root->get_child(a);
 
             // find the usb score
-            float temp_score = cucb_score(child, min_max_stats, root->visit_count - 1, pb_c_base, pb_c_init, discount);
+            float temp_score = cucb_score(child, min_max_stats, mean_q, root->visit_count - 1, pb_c_base, pb_c_init, discount);
             // compare it to the max score and store index if it is the max
             if(max_score < temp_score) {
                 max_score = temp_score;
@@ -307,8 +349,8 @@ namespace tree {
 
     // values are very high at the start of training compared to the priors so at the start
     // it will go down the tree almost equal to the number of simulations.
-    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
-                     float pb_c_base, float pb_c_init, float discount) {
+    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q,
+                     float total_children_visit_counts, float pb_c_base, float pb_c_init, float discount) {
         float pb_c = 0.0, prior_score = 0.0, value_score = 0.0;
         // the usb formula
         pb_c = log((total_children_visit_counts + pb_c_base + 1) / pb_c_base) + pb_c_init;
@@ -316,7 +358,7 @@ namespace tree {
 
         prior_score = pb_c * child->prior;
         if (child->visit_count == 0) {
-            value_score = 0;
+            value_score = parent_mean_q;
         }
         else {
             // ensure that the value_score is between 0 and 1, (normally between -300 and 300)
@@ -334,9 +376,12 @@ namespace tree {
                      tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results) {
         results.search_lens = std::vector<int>();
 
+        float parent_q = 0.0;
+
         for (int i = 0; i < results.num; ++i) {
             std::vector<int> last_action;  // Default last action to maintain consistency
             CNode *node = &(roots->roots[i]);
+            int is_root = 1;
             int search_len = 0;
 
             if (node->terminal) {
@@ -353,7 +398,10 @@ namespace tree {
             // Traverse as usual for non-terminal roots
             results.search_paths[i].push_back(node);
             while (node->expanded()) {
-                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount);
+                float mean_q = node->compute_mean_q(is_root, parent_q, discount);
+                is_root = 0;
+                parent_q = mean_q;
+                int action = cselect_child(node, min_max_stats_lst->stats_lst[i], pb_c_base, pb_c_init, discount, parent_q);
                 node = node->get_child(action);
                 last_action.push_back(action);
                 results.search_paths[i].push_back(node);

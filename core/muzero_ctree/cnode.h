@@ -25,8 +25,10 @@ namespace tree {
             ~CNode();
 
             void expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
-                        const std::vector<float> &policy_logits, int act_num, int action_count);
+                        const std::vector<float> &policy_logits, int act_num, int action_count, int action_limit);
             void add_exploration_noise(float exploration_fraction, const std::vector<float> &noises);
+            float compute_mean_q(int isRoot, float parent_q, float discount_factor);
+
 
             int expanded();
 
@@ -49,9 +51,11 @@ namespace tree {
 
             void prepare(float root_exploration_fraction, const std::vector<std::vector<float>> &noises,
                          const std::vector<float> &rewards, const std::vector<std::vector<float>> &policies,
-                         const std::vector<int> &action_nums, const std::vector<int> &action_counts);
+                         const std::vector<int> &action_nums, const std::vector<int> &action_counts,
+                         const std::vector<int> &action_limits);
             void prepare_no_noise(const std::vector<float> &rewards, const std::vector<std::vector<float>> &policies,
-                                  const std::vector<int> &action_nums, const std::vector<int> &action_counts);
+                                  const std::vector<int> &action_nums, const std::vector<int> &action_counts,
+                                  const std::vector<int> &action_limits);
             std::vector<std::vector<int>> get_distributions();
             std::vector<float> get_values();
 
@@ -79,10 +83,12 @@ namespace tree {
     void cbatch_back_propagate(int hidden_state_index_x, float discount, const std::vector<float> &rewards,
                                const std::vector<float> &values, const std::vector<std::vector<float>> &policy,
                                tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results,
-                               const std::vector<int> &action_nums, const std::vector<int> &action_counts);
-    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount);
-    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float total_children_visit_counts,
-                     float pb_c_base, float pb_c_init, float discount);
+                               const std::vector<int> &action_nums, const std::vector<int> &action_counts,
+                               const std::vector<int> &action_limits);
+    int cselect_child(CNode* root, tools::CMinMaxStats &min_max_stats, int pb_c_base, float pb_c_init, float discount,
+                      float mean_q);
+    float cucb_score(CNode *child, tools::CMinMaxStats &min_max_stats, float parent_mean_q,
+                     float total_children_visit_counts, float pb_c_base, float pb_c_init, float discount);
     void cbatch_traverse(CRoots *roots, int pb_c_base, float pb_c_init, float discount,
                          tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results);
 }

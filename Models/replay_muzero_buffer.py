@@ -225,9 +225,10 @@ class ReplayBuffer:
     def store_global_position_buffer(self, global_buffer):
         # Putting this if case here in case the episode length is less than 72 which is 8 more than the batch size
         # In general, we are having episodes of 200 or so but the minimum possible is close to 20
+
         samples_per_player = config.SAMPLES_PER_PLAYER \
             if (len(self.gameplay_experiences) - config.UNROLL_STEPS) > config.SAMPLES_PER_PLAYER \
-            else len(self.gameplay_experiences) - config.UNROLL_STEPS
+            else len(self.gameplay_experiences) - config.UNROLL_STEPS + 1
         # if samples_per_player > 0 and (self.ending_position > 6 or self.ending_position < 3):
         if samples_per_player > 0:
             # config.UNROLL_STEPS because I don't want to sample the very end of the range
@@ -311,5 +312,5 @@ class ReplayBuffer:
 
                 # priority = 1 / priority because priority queue stores in ascending order.
                 output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
-                                                         policy_mask_set, value_set, policy_set]])
+                                                     policy_mask_set, value_set, policy_set]])
             global_buffer.store_replay_sequence([output_sample_set, self.ending_position])

@@ -73,7 +73,10 @@ class TFT_Position_Simulator(gym.Env):
         if self.data_generator and self.data_generator.q_size() >= config.MINIMUM_POP_AMOUNT:
             [player, opponent, other_players] = self.data_generator.pop()
         else:
-            [player, opponent, other_players] = self.leveling_system.generate_battle()
+            if config.PRESET_BATTLE:
+                [player, opponent, other_players] = self.leveling_system.generate_preset_battle()
+            else:
+                [player, opponent, other_players] = self.leveling_system.generate_battle()
 
         pool_obj = pool.pool()
         # Objects for the player manager
@@ -101,7 +104,7 @@ class TFT_Position_Simulator(gym.Env):
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
         self.step_function.create_unit_list(self.PLAYER)
-        self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
+        # self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
 
         # Single step environment so this fetch will be the observation for the entire step.
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
@@ -110,8 +113,9 @@ class TFT_Position_Simulator(gym.Env):
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
         self.action_count = 0
+        self.max_action_count = self.PLAYER.num_units_in_play
 
-        return observation, {}
+        return observation, {"num_units": self.max_action_count}
 
     def render(self):
         ...
@@ -136,14 +140,15 @@ class TFT_Position_Simulator(gym.Env):
                 self.action_count += 1
             else:
                 self.step_function.position_controller(action, self.PLAYER)
-        if not config.MUZERO_POSITION or self.action_count == self.max_action_count - 1:
-            initial_reward = self.PLAYER.reward
+        if not config.MUZERO_POSITION or self.action_count == self.PLAYER.num_units_in_play:
+            # initial_reward = self.PLAYER.reward
             self.PLAYER.reward = 0
             self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])
-            self.reward = self.PLAYER.reward - initial_reward
-            if np.abs(self.reward) > self.max_reward:
-                self.max_reward = np.abs(self.reward)
-            self.reward = self.reward / self.max_reward + 1
+            # self.reward = self.PLAYER.reward - initial_reward
+            self.reward = self.PLAYER.reward
+            # if np.abs(self.reward) > self.max_reward:
+            #     self.max_reward = np.abs(self.reward)
+            # self.reward = self.reward / self.max_reward + 1
             termination = True
         else:
             self.reward = 0
@@ -154,11 +159,12 @@ class TFT_Position_Simulator(gym.Env):
             "observations": self.observation_class.observation_to_position_input(initial_observation),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
         }
+
         self.PLAYER.print("Position Simulator after movement")
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
 
-        return observation, self.reward, termination, False, {}
+        return observation, self.reward, termination, False, {"num_units": self.max_action_count}
 
     """
     Description - This method is intended to be used in the MCTS Tree when you need to do local simulations but not 
@@ -172,11 +178,11 @@ class TFT_Position_Simulator(gym.Env):
                 self.step_function.multi_step_position_controller(action[action_count], copied_player, unit_number)
                 action_count += 1
                 unit_number += 1
-        initial_reward = copied_player.reward
+        # initial_reward = copied_player.reward
         copied_player.reward = 0
         self.game_round.single_combat_phase([copied_player, copied_player.opponent])
-        reward = copied_player.reward - initial_reward
-        reward = reward / self.max_reward + 1
+        # reward = copied_player.reward - initial_reward
+        reward = copied_player.reward
         # print(f"rewarding reward {reward} for unit number {unit_number} with action {action} on {self.action_count} turn")
         return reward
 

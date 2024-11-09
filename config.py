@@ -1,4 +1,5 @@
 import numpy as np
+import datetime
 from os import environ, path, cpu_count
 from dotenv import load_dotenv
 
@@ -19,6 +20,10 @@ def get_float_env(var_name, default=0.0):
 def get_int_env(var_name, default=0):
     """Fetches an environment variable and converts it to int."""
     return int(environ.get(var_name, default))
+
+def get_string_env(var_name, default=''):
+    """Fetches an environment variable and converts it to int."""
+    return str(environ.get(var_name, default))
 
 def get_num_cpus(percentage=0.8):
     """Calculates the number of CPU cores to use based on a percentage of the total available cores.
@@ -61,6 +66,8 @@ MULTI_STEP_POSITION = get_bool_env("MULTI_STEP_POSITION")
 GUMBEL = get_bool_env("GUMBEL")
 SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
 MUZERO_POSITION = get_bool_env("MUZERO_POSITION")
+EVALUATE = get_bool_env("EVALUATE")
+PRESET_BATTLE = get_bool_env("PRESET_BATTLE")
 
 PATH = path.dirname(path.realpath(__file__))
 TRAIN = get_bool_env("TRAIN", "true")  # False would be evaluation mode
@@ -158,6 +165,9 @@ MAXIMUM_REWARD = get_float_env("MAXIMUM_REWARD", 300.0)
 
 VALUE_MAX_DELTA = get_float_env("VALUE_MAX_DELTA", 0.01)
 
+current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+TRAIN_LOG_DIRECTORY = get_string_env("TRAIN_LOG_DICT", "logs/gradient_tape/" + current_time + "/train")
+
 class ModelConfig:
     # AI RELATED VALUES START HERE
     #### MODEL SET UP ####
@@ -250,7 +260,7 @@ class PPOConfig:
     # Make sure the gradient stays within reason to prevent leaving the function space entirely
     MAX_GRAD_NORM = get_float_env("PPO_MAX_GRAD_NORM", 0.5)
     REMOTE = get_bool_env("PPO_REMOTE", "True")
-    TARGET_KL = 0.05
+    TARGET_KL = 0.2
     # How much to change the KL_COEF if the target kl is either too high or too low.
     KL_ADJUSTER = 0.5
     MAX_KL_COEF = 1

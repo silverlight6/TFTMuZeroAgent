@@ -1,11 +1,9 @@
-import time
-import datetime
 import config
-import copy
-from torch.utils.tensorboard import SummaryWriter
-from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
+import time
 from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
+from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
 from Models.PositionModels.MuZero_position_trainer import Trainer as Position_Trainer
+from torch.utils.tensorboard import SummaryWriter
 
 
 """
@@ -19,9 +17,7 @@ Inputs      -
 """
 class TrainingLoop:
     def __init__(self, global_agent, global_buffer, optimizer_dict):
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-        self.summary_writer = SummaryWriter(train_log_dir)
+        self.summary_writer = SummaryWriter(config.TRAIN_LOG_DIRECTORY)
         if config.GUMBEL:
             self.trainer = Gumbel_Trainer(global_agent, self.summary_writer)
         elif config.MUZERO_POSITION:

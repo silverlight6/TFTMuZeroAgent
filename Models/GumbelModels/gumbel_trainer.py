@@ -46,10 +46,7 @@ class Trainer(object):
 
     def train_network(self, batch, train_step):
         observation, action_batch, policy_mask, target_value, target_reward, target_policy, \
-            importance_weights, position = batch
-
-        # disabling this for the moment while I get the rest working, will add back later.
-        # self.summary_writer.add_scalar('episode_info/average_position', position, train_step)
+            importance_weights = batch
 
         summaries = self.compute_loss(observation, action_batch, target_value, target_reward, target_policy,
                                       policy_mask, importance_weights)

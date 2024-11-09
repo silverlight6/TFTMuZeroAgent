@@ -1,15 +1,15 @@
-import copy
-
-import ray
-import glob
 import config
+import glob
 import numpy as np
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.Representations.representation_model import RepresentationTesting as RepNetwork
+import ray
 from Concurrency.checkpoint import Checkpoint
 from config import STORAGE_GPU_SIZE
+from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Models.Representations.representation_model import RepresentationTesting as RepNetwork
+from torch.utils.tensorboard import SummaryWriter
+from Evaluator.eval_visualizers import GameResultPlotter
 
 
 @ray.remote(num_gpus=STORAGE_GPU_SIZE, num_cpus=0.1)
@@ -29,14 +29,20 @@ class Storage:
             optimizer_dict = None
         self.model = self.target_model
         self.episode_played = 0
-        self.placements = {"player_" + str(r): [0 for _ in range(config.NUM_PLAYERS)]
-                           for r in range(config.NUM_PLAYERS)}
+        # This is used for standard games
         self.trainer_busy = False
         self.checkpoint_list = np.array([], dtype=object)
         self.max_q_value = 1
         self.store_base_checkpoint()
         self.populate_checkpoints()
+        self.placements = {"player_" + str(r): [0 for _ in range(config.NUM_PLAYERS)]
+                           for r in range(config.NUM_PLAYERS)}
+        # This is for single player games
+        self.single_player_placements = {}
         self.optimizer_dict = optimizer_dict
+        self.summary_writer = SummaryWriter(config.TRAIN_LOG_DIRECTORY)
+
+        self.plotter = GameResultPlotter.remote()
 
     def get_model(self):
         """
@@ -126,6 +132,9 @@ class Storage:
     def get_optimizer_dict(self):
         return self.optimizer_dict
 
+    def get_checkpoint_list(self):
+        return self.checkpoint_list
+
     """
     Description - 
     Inputs      - 
@@ -133,7 +142,6 @@ class Storage:
             placement of the agents. Checkpoint_num: position
     """
     def record_placements(self, placement):
-        print(placement)
         for key in self.placements.keys():
             # Increment which position each model got.
             self.placements[key][placement[key]] += 1
@@ -229,3 +237,32 @@ class Storage:
         """Compute softmax values for each sets of scores in x."""
         e_x = np.exp(x - np.max(x))
         return e_x / e_x.sum()
+
+    """
+    Description - takes in an episode number and the recorded length of the episode, saves it and reports to 
+                    tensorboard once there is enough data
+    Inputs      - episode: int
+                    what checkpoint the data is coming from
+                  result: int
+                    how far into the game that particular checkpoint made it at that time.
+    """
+    def record_game_result(self, episode, result):
+        if str(episode) in self.single_player_placements.keys():
+            self.single_player_placements[str(episode)].append(result)
+        else:
+            self.single_player_placements[str(episode)] = [result]
+        if len(self.single_player_placements[str(episode)]) % 50 == 0:
+            average = sum(self.single_player_placements[str(episode)]) / len(self.single_player_placements[str(episode)])
+            max_distance = max(self.single_player_placements[str(episode)])
+            min_distance = min(self.single_player_placements[str(episode)])
+            result_data = {
+                'average_game_length': average,
+                'furthest_reached': max_distance,
+                'worst_result': min_distance,
+                'games_played': len(self.single_player_placements[str(episode)])
+            }
+            self.plotter.update_data.remote(episode, result_data)
+
+
+
+

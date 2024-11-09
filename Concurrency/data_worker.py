@@ -35,15 +35,15 @@ class DataWorker(object):
             self.agent_network = Default_MCTS(self.temp_model, model_config)
             self.past_network = Default_MCTS(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
-        elif config.GUMBEL:
-            self.temp_model = TFTNetwork(model_config)
-            self.agent_network = GumbelMuZero(self.temp_model, model_config)
-            self.past_network = GumbelMuZero(self.temp_model, model_config)
-            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         elif config.MUZERO_POSITION:
             self.temp_model = PositionNetwork(model_config)
             self.agent_network = Position_MCTS(self.temp_model, model_config)
             self.past_network = Position_MCTS(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        elif config.GUMBEL:
+            self.temp_model = TFTNetwork(model_config)
+            self.agent_network = GumbelMuZero(self.temp_model, model_config)
+            self.past_network = GumbelMuZero(self.temp_model, model_config)
             self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork(model_config)
@@ -388,7 +388,7 @@ class DataWorker(object):
 
     def collect_position_experience(self, env, buffers, global_buffer, storage, weights):
         self.agent_network.network.set_weights(weights)
-        episode_rewards = [[0] for _ in range(env.num_envs)]
+        # episode_rewards = [[0] for _ in range(env.num_envs)]
         while True:
             # Reset the environment
             player_observation, info = env.vector_reset()
@@ -398,13 +398,14 @@ class DataWorker(object):
             terminated = [False for _ in range(env.num_envs)]
             storage_terminated = [False for _ in range(env.num_envs)]
             action_count = [0 for _ in range(env.num_envs)]
+            action_limits = [info[i]["num_units"] + 1 for i in range(len(info))]
 
             # While the game is still going on.
             while not all(terminated):
                 simulator_envs = copy.deepcopy(env.envs)
                 # Ask our model for an action and policy. Use on normal case or if we only have current versions left
                 actions, policy, root_values = self.agent_network.policy(player_observation, simulator_envs,
-                                                                         action_count)
+                                                                         action_count, action_limits)
                 step_actions = np.array(actions)
 
                 # Take that action within the environment and return all of our information for the next player
@@ -412,6 +413,7 @@ class DataWorker(object):
                 # store the action for MuZero
                 # Using i for all possible players and alive_i for all alive players
                 alive_i = 0
+                action_limits = []
                 for i in range(len(terminated)):
                     if not storage_terminated[i]:
                         # Store the information in a buffer to train on later.
@@ -420,14 +422,16 @@ class DataWorker(object):
                                                            policy[alive_i], root_values[alive_i])
                         if terminated[i]:
                             storage_terminated[i] = True
-                            episode_rewards[i].append(reward[alive_i])
+                            # episode_rewards[i].append(reward[alive_i])
+                            #
+                            # if self.check_greater_than_last_five(episode_rewards[i]):
+                            #     episode_rewards[i] = []
+                                # env.envs[i].level_up()
+                            #
+                            # if len(episode_rewards[i]) > 100:
+                            #     episode_rewards[i] = episode_rewards[i][-95:]
 
-                            if self.check_greater_than_last_five(episode_rewards[i]):
-                                episode_rewards[i] = []
-                                env.envs[i].level_up()
-
-                            if len(episode_rewards[i]) > 100:
-                                episode_rewards[i] = episode_rewards[i][-95:]
+                        action_limits.append(info[alive_i]["num_units"] + 1)
 
                         alive_i += 1
                         action_count[i] += 1
@@ -462,11 +466,11 @@ class DataWorker(object):
         Returns:
           True if the current value is greater than or equal to the last 5 values, False otherwise.
         """
-        if len(episode_rewards) < 10:
+        if len(episode_rewards) < 5:
             return False  # Not enough previous values to compare
 
         for i in range(5):
-            if episode_rewards[i - 5] < 1.0:
+            if episode_rewards[i - 5] <= 0:
                 return False
 
         print(f"LEVELING UP WITH AVERAGE REWARD OF {[episode_rewards[-5:]]}")

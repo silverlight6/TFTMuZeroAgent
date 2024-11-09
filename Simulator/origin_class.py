@@ -72,11 +72,14 @@ team_traits = {
     'vanguard': 0,
 }
 
+game_compositions_base = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
+game_comp_tiers_base = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
+
 # Number of each class
-game_compositions = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
+game_compositions = game_compositions_base.copy()
 
 # Tier rank
-game_comp_tiers = [team_traits.copy() for _ in range(config.NUM_PLAYERS)]
+game_comp_tiers = game_comp_tiers_base.copy()
 
 
 def chosen(champion, value):

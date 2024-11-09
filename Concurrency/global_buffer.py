@@ -57,8 +57,7 @@ class GlobalBuffer(object):
                 else:
                     [observation, action_history, policy_mask, value, reward, policy], \
                         priority = self.gameplay_experiences.extractMax()
-            position, _ = self.average_position.extractMax()
-            position_batch.append(position)
+
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history)
             policy_mask_batch.append(policy_mask)
@@ -72,6 +71,8 @@ class GlobalBuffer(object):
                 tier_batch.append(tier_set)
                 final_tier_batch.append(final_tier_set)
                 champion_batch.append(champion_set)
+                position, _ = self.average_position.extractMax()
+                position_batch.append(position)
             importance_weights.append(1 / self.batch_size / priority)
 
         observation_batch = self.reshape_observation(obs_tensor_batch)
@@ -81,13 +82,13 @@ class GlobalBuffer(object):
         if not config.GUMBEL:
             value_mask_batch = np.asarray(value_mask_batch).astype('float32')
             reward_mask_batch = np.asarray(reward_mask_batch).astype('float32')
+            position_batch = np.asarray(position_batch)
+            position_batch = np.mean(position_batch)
         else:
             target_policy_batch = np.asarray(target_policy_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
         importance_weights_batch = np.asarray(importance_weights).astype('float32')
         importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
-        position_batch = np.asarray(position_batch)
-        position_batch = np.mean(position_batch)
 
         if not config.GUMBEL:
             data_list = [
@@ -98,7 +99,7 @@ class GlobalBuffer(object):
         else:
             data_list = [
                 observation_batch, action_history_batch, policy_mask_batch, target_value_batch, target_reward_batch,
-                target_policy_batch, importance_weights_batch, np.array(position_batch)
+                target_policy_batch, importance_weights_batch
             ]
         return np.array(data_list, dtype=object)
 

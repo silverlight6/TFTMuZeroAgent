@@ -531,13 +531,13 @@ class champion:
             return True
         return False
 
+# TODO: Check for concurrency errors with this when using multiple threads
 
 global blue
 global red
 
 blue = []
 red = []
-
 
 # I think I am going to redo parts of this function. 
 # Essentially, I am just going to change the first 10 lines so it reads in the data from the two teams.

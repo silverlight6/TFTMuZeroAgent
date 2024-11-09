@@ -5,7 +5,6 @@ import collections
 import torch
 import torch.nn.functional as F
 import numpy as np
-from Models.MCTS_Util import split_batch, sample_set_to_idx, create_target_and_mask
 
 Prediction = collections.namedtuple(
     'Prediction',
@@ -13,7 +12,7 @@ Prediction = collections.namedtuple(
 
 LossOutput = collections.namedtuple(
     'LossOutput',
-    'value_loss policy_loss value policy target_value target_policy l2_loss importance_weights')
+    'value_loss policy_loss value policy policy_entropy target_value target_policy l2_loss importance_weights')
 
 
 class Trainer(object):
@@ -104,6 +103,7 @@ class Trainer(object):
             policy_loss=[],
             value=[],
             policy=[],
+            policy_entropy=[],
             target_value=[],
             target_policy=[],
             l2_loss=[],
@@ -116,9 +116,13 @@ class Trainer(object):
             self.scale_loss(value_loss)
 
             policy_loss = self.policy_loss(prediction.policy_logits, target_policy[:, tstep])
+            policy_entropy = -(torch.softmax(prediction.policy_logits, dim=-1)
+                                * torch.log_softmax(prediction.policy_logits, dim=-1)).sum(-1).mean(-1)
+
             self.scale_loss(policy_loss)
             self.outputs.value_loss.append(value_loss)
             self.outputs.policy_loss.append(policy_loss)
+            self.outputs.policy_entropy.append(policy_entropy)
 
             self.outputs.value.append(prediction.value)
             self.outputs.policy.append(prediction.policy_logits)
@@ -163,8 +167,9 @@ class Trainer(object):
         self.summary_writer.add_scalar(
             'episode_max/value', torch.max(torch.stack(self.outputs.target_value)), train_step)
         self.summary_writer.add_scalar(
-            'episode_info/importance_weights', np.mean(self.outputs.importance_weights), train_step
-        )
+            'episode_info/importance_weights', np.mean(self.outputs.importance_weights), train_step)
+        self.summary_writer.add_scalar(
+            'episode_info/policy_entropy', torch.mean(torch.stack(self.outputs.policy_entropy)), train_step)
 
         self.summary_writer.add_scalar(
             'episode_info/value_diff',

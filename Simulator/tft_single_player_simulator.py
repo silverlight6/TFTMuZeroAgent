@@ -62,7 +62,7 @@ class TFT_Single_Player_Simulator(gym.Env):
                 # "player": self.player_manager.player_states["player_0"],
                 # "shop": self.player_manager.player_states["player_0"].shop,
                 # "start_turn": False,
-                # "game_round": 1,
+                "game_round": 0,
                 # "save_battle": False,
                 # "actions_taken": 0,
             }
@@ -112,7 +112,7 @@ class TFT_Single_Player_Simulator(gym.Env):
             "state_empty": self.player_manager.player_states['player_0'].state_empty(),
             # "player": self.player_manager.player_states['player_0'],
             # "shop": self.player_manager.player_states['player_0'].shop,
-            # "game_round": self.game_round.current_round,
+            "game_round": self.game_round.current_round,
             # "start_turn": False,
             # "actions_taken": self.action_count,
             # "save_battle": self.game_round.save_current_battle['player_0']
@@ -130,7 +130,7 @@ class TFT_Single_Player_Simulator(gym.Env):
                 self.info['player_0'] = {
                     "state_empty": False,
                     # "player": self.player_manager.player_states['player_0'],
-                    # "game_round": self.game_round.current_round,
+                    "game_round": self.game_round.current_round,
                     # "shop": self.player_manager.player_states['player_0'].shop,
                     # "start_turn": True,
                     # "save_battle": self.game_round.save_current_battle['player_0']

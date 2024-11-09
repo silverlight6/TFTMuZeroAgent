@@ -28,7 +28,7 @@ class MCTS:
         self.max_depth_search = 0
         self.model_config = model_config
 
-    def policy(self, observation, simulators, action_count):
+    def policy(self, observation, simulators, action_count, action_limits):
         with torch.no_grad():
             self.batch_size = observation["observations"]["board"].shape[0]
 
@@ -63,13 +63,15 @@ class MCTS:
             # 0.0002 seconds
             # prepare the nodes to feed them into batch_mcts,
             # for statement to deal with different lengths due to masking.
-            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool.tolist(), [29] * self.batch_size, action_count)
+            roots_cpp.prepare_no_noise(reward_pool, policy_logits_pool.tolist(), [29] * self.batch_size, action_count,
+                                       action_limits)
 
             # Output for root node
             hidden_state_pool = network_output["hidden_state"]
 
             # set up nodes to be able to find and select actions
-            self.run_batch_mcts(roots_cpp, hidden_state_pool, observation["action_mask"], simulators, action_count)
+            self.run_batch_mcts(roots_cpp, hidden_state_pool, observation["action_mask"], simulators, action_count,
+                                action_limits)
             roots_distributions = roots_cpp.get_distributions()
 
             root_values = roots_cpp.get_values()
@@ -87,14 +89,14 @@ class MCTS:
                 # This can be less than the number of actions which is a bit concerning but I think it's fine
                 dist_sum = sum(distributions)
                 # print(f"dist_sum -> {dist_sum}")
-                if dist_sum > 1000:
-                    print(f"dist_sum -> {dist_sum} with action_count {action_count}")
+                # if dist_sum > 1000:
+                #     print(f"dist_sum -> {dist_sum} with action_count[0] {action_count[0]} and action_limits[0] {action_limits[0]}")
                 target_policy.append([x / dist_sum for x in distributions])
             # Notes on possibilities for other dimensions at the bottom
             self.num_actions += 1
             return actions, target_policy, root_values
 
-    def run_batch_mcts(self, roots_cpp, hidden_state_pool, action_mask, simulators, action_count):
+    def run_batch_mcts(self, roots_cpp, hidden_state_pool, action_mask, simulators, action_count, action_limits):
         # preparation
         num = roots_cpp.num
         # config variables
@@ -139,7 +141,7 @@ class MCTS:
             for i, simulator in enumerate(simulators):
                 # - 1 for the indexing for the mask
                 step_action_counts.append(action_count[i] + search_lens[i] - 1)
-                if step_action_counts[i] == 11:
+                if step_action_counts[i] == action_limits[i]:
                     reward_pool.append(simulator.fake_step(last_action[i], action_count[i]))
                 else:
                     reward_pool.append(0)
@@ -166,7 +168,7 @@ class MCTS:
             # backpropagation along the search path to update the attributes
             tree.batch_back_propagate(hidden_state_index_x, discount, reward_pool, value_pool,
                                       masked_policy_logits.tolist(), min_max_stats_lst, results,
-                                      [29] * self.batch_size, step_action_counts)
+                                      [29] * self.batch_size, step_action_counts, action_limits)
 
     def add_exploration_noise(self, policy_logits, noises):
         exploration_fraction = self.model_config.ROOT_EXPLORATION_FRACTION

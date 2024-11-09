@@ -19,7 +19,6 @@ from Concurrency.queue_storage import QueueStorage
 # from torchsummary import summary
 
 
-
 """
 Description - Highest level class for concurrent training. Called from main.py
 """
@@ -313,7 +312,7 @@ class AIInterface:
         num_updates = ppo_config.TOTAL_TIMESTEPS // ppo_config.BATCH_SIZE
         kl_coef = ppo_config.KL_COEF
 
-        for update in range(1, num_updates + 1):
+        for update in range(1, int(num_updates + 1)):
             # Annealing the rate if instructed to do so.
             if ppo_config.ANNEAL_LR:
                 frac = 1.0 - (update - 1.0) / num_updates
@@ -329,7 +328,7 @@ class AIInterface:
             actions = action.cpu().numpy()
 
             workers = []
-            for j in range(ppo_config.NUM_STEPS * ppo_config.NUM_ENVS):
+            for j in range(ppo_config.NUM_STEPS):
                 if ppo_config.REMOTE:
                     workers.append(
                         envs[j].vector_reset_step.remote(actions[0][j * ppo_config.NUM_ENVS:(j + 1) * ppo_config.NUM_ENVS])
@@ -373,11 +372,6 @@ class AIInterface:
                     clipfracs += [((ratio - 1.0).abs() > ppo_config.CLIP_COEF).float().mean().item()]
 
                 # Policy loss
-                print(advantages.shape)
-                print(ratio.shape)
-                print(logratio)
-                print(ratio)
-                time.sleep(2)
                 pg_loss1 = -advantages * ratio
                 pg_loss2 = -advantages * torch.clamp(ratio, 1 - ppo_config.CLIP_COEF, 1 + ppo_config.CLIP_COEF)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
@@ -385,13 +379,11 @@ class AIInterface:
                 # Value loss
                 newvalue = newvalue.view(-1)
                 if ppo_config.CLIP_VLOSS:
-                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss_unclipped = (newvalue - rewards) ** 2
                     v_clipped = values + torch.clamp(newvalue - values, -ppo_config.CLIP_COEF, ppo_config.CLIP_COEF)
                     v_loss_clipped = (v_clipped - rewards) ** 2
                     v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 else:
-                    print(f"values {newvalue[:64]}, rewards {rewards[:64]}")
                     v_loss = 0.5 * ((newvalue - rewards) ** 2).mean()
 
                 if approx_kl > ppo_config.TARGET_KL * (1 + ppo_config.KL_ADJUSTER):
@@ -431,6 +423,15 @@ class AIInterface:
                   f"value_loss {ppo_config.VF_COEF * v_loss.item()}, kl_loss {kl_coef * approx_kl.item()}, "
                   f"entropy loss {ppo_config.ENT_COEF * entropy_loss.item()} and total_loss {loss_per_update}")
             writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+            if (global_step // (ppo_config.NUM_STEPS * ppo_config.NUM_ENVS)) % 10 == 0:
+                checkpoint = {
+                    'model_state_dict': agent.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'epoch': global_step // (ppo_config.NUM_STEPS * ppo_config.NUM_ENVS),
+                }
+                path = f'./Checkpoints/checkpoint_{global_step // (ppo_config.NUM_STEPS * ppo_config.NUM_ENVS)}'
+                torch.save(checkpoint, path)
 
         envs.close()
         writer.close()

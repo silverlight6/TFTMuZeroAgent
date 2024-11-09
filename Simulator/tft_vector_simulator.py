@@ -199,14 +199,15 @@ class TFT_Vector_Pos_Simulator:
                     break
             resetted_obs.append(obs)
             resetted_infos.append(infos)
-        self.average_rewards.append(sum(reward_batch) / len(reward_batch))
-        # try to keep the size down
-        if len(self.average_rewards) > 100:
-            self.average_rewards = self.average_rewards[-95:]
-        if self.check_greater_than_last_five():
-            self.average_rewards = []
-            for env in self.envs:
-                env.level_up()
+        if not config.PRESET_BATTLE:
+            self.average_rewards.append(sum(reward_batch) / len(reward_batch))
+            # try to keep the size down
+            if len(self.average_rewards) > 100:
+                self.average_rewards = self.average_rewards[-95:]
+            if self.check_greater_than_last_five():
+                self.average_rewards = []
+                for env in self.envs:
+                    env.level_up()
 
         return resetted_obs, reward_batch, terminated_batch, truncated_batch, resetted_infos
 
@@ -220,15 +221,12 @@ class TFT_Vector_Pos_Simulator:
         if len(self.average_rewards) < 10:
             return False  # Not enough previous values to compare
 
-        overall_average = sum(self.average_rewards) / len(self.average_rewards)
-
         for i in range(5):
-            if self.average_rewards[i - 5] < overall_average:
+            if self.average_rewards[i - 5] <= 0.5:
                 return False
 
         self.current_level += 1
-        print(f"LEVELING UP WITH AVERAGE REWARD OF {[self.average_rewards[-5:]]} "
-              f"with overall average {overall_average} to level {self.current_level}")
+        print(f"LEVELING UP WITH AVERAGE REWARD OF {[self.average_rewards[-5:]]} to level {self.current_level}")
         return True
 
     @staticmethod

@@ -97,10 +97,13 @@ class PositionLevelingSystem:
     def generate_battle(self):
         return self.battle_generator.generate_battle()
 
+    def generate_preset_battle(self):
+        return self.battle_generator.generate_set_battle(self.level + 3,  True)
+
     def level_up(self):
         self.level += 1
         self.battle_generator = BattleGenerator(self.levels[self.level])
-        print(f"Leveling to level {self.level}")
+        # print(f"Leveling to level {self.level}")
 
     def single_player_level_up(self):
         self.level += 1

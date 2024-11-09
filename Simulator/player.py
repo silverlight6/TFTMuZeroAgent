@@ -96,9 +96,9 @@ class Player:
         self.shop_champions = [None for _ in range(config.SHOP_SIZE)]
 
         # List of team compositions
-        self.team_composition = origin_class.game_compositions[self.player_num].copy()
+        self.team_composition = origin_class.game_compositions_base[self.player_num].copy()
         # List of tiers of each trait.
-        self.team_tiers = origin_class.game_comp_tiers[self.player_num].copy()
+        self.team_tiers = origin_class.game_comp_tiers_base[self.player_num].copy()
         self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32).copy()
         self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
         self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
@@ -387,8 +387,8 @@ class Player:
             - Must not be target dummy or azir sandguard
 
         Args:
-            a_champion (champion): Champion object to add to the bench.
-            from_carousel (bool, optional): If the champion is from the carousel. Defaults to False.
+            a_champion: Champion object to add to the bench.
+            from_carousel: If the champion is from the carousel. Defaults to False.
 
         Returns:
             bool: True if action was performed successfully, False otherwise.
@@ -414,7 +414,8 @@ class Player:
             # Not successful if was not added from carousel
             if not from_carousel:
                 if DEBUG:
-                    print("Trying to buy a unit with bench full")
+                    print(f"add_to_bench but full, champion -> {a_champion.name}, round --> {self.round}, "
+                          f"units_in_play {self.num_units_in_play}, max_units {self.max_units}")
                 return False
             else:
                 return True
@@ -1914,9 +1915,9 @@ class Player:
         if not self.combat:
             self.loss_streak += 1
             self.win_streak = 0
-            # self.reward -= self.damage_reward * damage
-            # self.print(str(-self.damage_reward * damage) +
-            #   " reward for losing round against player " + str(self.opponent.player_num))
+            self.reward -= self.damage_reward * damage
+            self.print(str(-self.damage_reward * damage) +
+              " reward for losing round against player " + str(self.opponent.player_num))
             self.match_history.append(0)
 
             if self.team_tiers['fortune'] > 0:
