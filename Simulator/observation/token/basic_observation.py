@@ -553,7 +553,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         return safe_normalize(tiers_vector)
 
     @staticmethod
-    def observation_to_position_input(observation):
+    def observation_to_position_input(observation, action_count):
         other_players = {
             "board":
                 np.array(
@@ -566,11 +566,16 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
                 )
             ,
         }
+        a = np.array([action_count])
+        action_count_one_hot = np.zeros((a.size, 12), dtype=np.float32)
+        action_count_one_hot[np.arange(a.size), a] = 1
+
         return {
             "board": np.concatenate([np.expand_dims(observation["player"]["board"], axis=0),
                                      other_players["board"]], axis=0).astype(np.int16),
             "traits": np.concatenate([np.expand_dims(observation["player"]["traits"], axis=0),
                                       other_players["traits"]], axis=0, dtype=np.float32),
+            "action_count": action_count_one_hot
         }
 
     def observation_to_input(self, observation):

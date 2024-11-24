@@ -90,7 +90,8 @@ class TFT_Position_Simulator(gym.Env):
             player.reinit_numpy_arrays()
 
         self.player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj,
-                                            TFTConfig(observation_class=self.observation_class))
+                                            TFTConfig(observation_class=self.observation_class,
+                                                      num_players=config.NUM_PLAYERS))
         self.player_manager.reinit_player_set([self.PLAYER] + list(other_players.values()))
 
         self.step_function = Step_Function(self.player_manager)
@@ -109,7 +110,7 @@ class TFT_Position_Simulator(gym.Env):
         # Single step environment so this fetch will be the observation for the entire step.
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": self.observation_class.observation_to_position_input(initial_observation),
+            "observations": self.observation_class.observation_to_position_input(initial_observation, self.action_count),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
         self.action_count = 0
@@ -156,7 +157,7 @@ class TFT_Position_Simulator(gym.Env):
 
         initial_observation = self.player_manager.fetch_position_observation(f"player_{self.PLAYER.player_num}")
         observation = {
-            "observations": self.observation_class.observation_to_position_input(initial_observation),
+            "observations": self.observation_class.observation_to_position_input(initial_observation, self.action_count),
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'step')
         }
 
@@ -175,7 +176,7 @@ class TFT_Position_Simulator(gym.Env):
         if action is not None:
             action_count = 0
             while unit_number < self.max_action_count:
-                self.step_function.multi_step_position_controller(action[action_count], copied_player, unit_number)
+                self.step_function.fake_multi_step_position_controller(action[action_count], copied_player, unit_number)
                 action_count += 1
                 unit_number += 1
         # initial_reward = copied_player.reward

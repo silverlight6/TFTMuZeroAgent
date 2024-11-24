@@ -1,12 +1,14 @@
-import time
 import config
+import copy
+import numpy as np
+import time
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Simulator import utils
 from Models.MCTS_torch import MCTS
 from Models.MCTS_default_torch import Default_MCTS
 from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-import numpy as np
-
+from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Models.PositionModels.MCTS_position_torch import MCTS as Position_MCTS
 
 class DataWorker(object):
     def __init__(self, rank, model_config):
@@ -15,6 +17,11 @@ class DataWorker(object):
             self.agent_network = Default_MCTS(self.temp_model, model_config)
             self.past_network = Default_MCTS(self.temp_model, model_config)
             self.default_agent = [True for _ in range(config.NUM_PLAYERS)]
+        elif config.MUZERO_POSITION:
+            self.temp_model = PositionNetwork(model_config)
+            self.agent_network = Position_MCTS(self.temp_model, model_config)
+            self.past_network = Position_MCTS(self.temp_model, model_config)
+            self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
         else:
             self.temp_model = TFTNetwork(model_config)
             self.agent_network = MCTS(self.temp_model, model_config)
@@ -33,6 +40,7 @@ class DataWorker(object):
         self.prob = 1
         self.past_episode = 0
         self.past_update = True
+        self.model_config = model_config
 
     '''
     Description -
@@ -172,6 +180,70 @@ class DataWorker(object):
 
             print("SENDING TO BUFFER AT TIME {}".format(time.time_ns() - self.ckpt_time))
             buffers.store_global_buffer()
+
+    def collect_position_experience(self, env, buffers, weights):
+        self.temp_model = PositionNetwork(self.model_config)
+        self.agent_network = Position_MCTS(self.temp_model, self.model_config)
+        self.past_network = Position_MCTS(self.temp_model, self.model_config)
+        self.default_agent = [False for _ in range(config.NUM_PLAYERS)]
+        self.agent_network.network.set_weights(weights)
+        # episode_rewards = [[0] for _ in range(env.num_envs)]
+        # Reset the environment
+        player_observation, info = env.vector_reset()
+        player_observation = env.list_to_dict([player_observation])
+
+        # Used to know when players die and which agent is currently acting
+        terminated = [False for _ in range(env.num_envs)]
+        storage_terminated = [False for _ in range(env.num_envs)]
+        action_count = [0 for _ in range(env.num_envs)]
+        action_limits = [info[i]["num_units"] + 1 for i in range(len(info))]
+        rewards = []
+
+        # While the game is still going on.
+        while not all(terminated):
+            simulator_envs = copy.deepcopy(env.envs)
+            # Ask our model for an action and policy. Use on normal case or if we only have current versions left
+            actions, policy, root_values = self.agent_network.policy(player_observation, simulator_envs,
+                                                                     action_count, action_limits)
+            step_actions = np.array(actions)
+
+            # Take that action within the environment and return all of our information for the next player
+            next_observation, reward, terminated, _, info = env.vector_step(step_actions)
+            # store the action for MuZero
+            # Using i for all possible players and alive_i for all alive players
+            alive_i = 0
+            action_limits = []
+            for i in range(len(terminated)):
+                if not storage_terminated[i]:
+                    # Store the information in a buffer to train on later.
+                    buffers.store_gumbel_buffer(f"player_{i}", self.get_position_obs_idx(
+                        player_observation["observations"], alive_i), step_actions[alive_i], reward[alive_i],
+                                                       policy[alive_i], root_values[alive_i])
+                    if terminated[i]:
+                        storage_terminated[i] = True
+                        rewards.append(reward[alive_i])
+                        # print(f"game {i} ended with reward {reward[alive_i]}")
+                        # episode_rewards[i].append(reward[alive_i])
+                        #
+                        # if self.check_greater_than_last_five(episode_rewards[i]):
+                        #     episode_rewards[i] = []
+                            # env.envs[i].level_up()
+                        #
+                        # if len(episode_rewards[i]) > 100:
+                        #     episode_rewards[i] = episode_rewards[i][-95:]
+
+                    action_limits.append(info[alive_i]["num_units"] + 1)
+
+                    alive_i += 1
+                    action_count[i] += 1
+
+            # Set up the observation for the next action
+            player_observation = env.list_to_dict([next_observation])
+
+        buffers.store_global_position_buffer()
+
+        return sum(rewards) / len(rewards)
+
     '''
     Description -
         Turns the actions from a format that is sent back from the model to a format that is usable by the environment.
@@ -248,6 +320,13 @@ class DataWorker(object):
             "items": observation["items"][idx],
             "traits": observation["traits"][idx],
             "other_players": observation["other_players"][idx]
+        }
+
+    def get_position_obs_idx(self, observation, idx):
+        return {
+            "board": observation["board"][idx],
+            "traits": observation["traits"][idx],
+            "action_count": observation["action_count"][idx],
         }
 
     '''

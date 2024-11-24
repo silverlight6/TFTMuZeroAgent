@@ -19,6 +19,10 @@ cdef class MinMaxStatsList:
     def __cinit__(self, int num):
         self.cmin_max_stats_lst = new CMinMaxStatsList(num)
 
+    # def set_delta(self, float value_delta_max):
+    #     for i in range(self.cmin_max_stats_lst.num):
+    #         self.cmin_max_stats_lst[i].set_delta(value_delta_max)
+
     def set_delta(self, float value_delta_max):
         self.cmin_max_stats_lst[0].set_delta(value_delta_max)
         
@@ -38,13 +42,12 @@ cdef class ResultsWrapper:
 
 cdef class Roots:
     cdef int root_num
-    cdef int pool_size
     cdef CRoots *roots
 
+    # root_num is batch_size, tree_nodes is simulation_count, and max_size is space per node
     def __cinit__(self, int root_num, int tree_nodes, max_size):
         self.root_num = root_num
-        self.pool_size = max_size * (tree_nodes + 2)
-        self.roots = new CRoots(root_num, self.pool_size)
+        self.roots = new CRoots(root_num, max_size * (tree_nodes + 2))
 
     def prepare(self, float root_exploration_fraction, list noises, list reward_pool, list policy_logits_pool,
                 list action_nums, list action_counts, list action_limits):
@@ -69,36 +72,12 @@ cdef class Roots:
         return self.root_num
 
 
-cdef class Node:
-    cdef CNode cnode
-
-    def __cinit__(self):
-        pass
-
-    def __cinit__(self, float prior, int action_num):
-        # self.cnode = CNode(prior, action_num)
-        pass
-
-    def expand(self, int hidden_state_index_x, int hidden_state_index_y, float value_prefix,
-               list policy_logits, int act_num, int action_count, int action_limit):
-        cdef vector[float] cpolicy = policy_logits
-        self.cnode.expand(hidden_state_index_x, hidden_state_index_y, value_prefix, cpolicy, act_num, action_count,
-                          action_limit)
-
 def batch_back_propagate(int hidden_state_index_x, float discount, list rewards, list values, list policy,
                          MinMaxStatsList min_max_stats_lst, ResultsWrapper results, list action_nums, list action_counts,
                          list action_limits):
-    cdef int i
-    cdef vector[float] crewards = rewards
-    cdef vector[float] cvalues = values
-    cdef vector[vector[float]] cpolicy = policy
-    cdef vector[int] caction_nums = action_nums
-    cdef vector[int] caction_counts = action_counts
-    cdef vector[int] caction_limits = action_limits
-
-    cbatch_back_propagate(hidden_state_index_x, discount, crewards, cvalues, cpolicy,
-                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, caction_nums, caction_counts,
-                          caction_limits)
+    cbatch_back_propagate(hidden_state_index_x, discount, rewards, values, policy,
+                          min_max_stats_lst.cmin_max_stats_lst, results.cresults, action_nums, action_counts,
+                          action_limits)
 
 
 def batch_traverse(Roots roots, int pb_c_base, float pb_c_init, float discount, MinMaxStatsList min_max_stats_lst,

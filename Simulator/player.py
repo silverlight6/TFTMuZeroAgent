@@ -730,6 +730,7 @@ class Player:
                     self.move_board_to_board(x2, y2, x1, y1)
                 else:
                     if DEBUG:
+                        print(f"from {move_loc_from}, to {move_loc_to} with {self.board[x1][y1]} {self.board[x2][y2]}")
                         print(f"No champion to move for player {self.player_num} in round {self.round}")
                     return False
 

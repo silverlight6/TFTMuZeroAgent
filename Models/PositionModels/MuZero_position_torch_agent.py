@@ -134,6 +134,9 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
         self.trait_encoder = AlternateFeatureEncoder(config.TRAIT_INPUT_SIZE, layer_sizes,
                                                      model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
 
+        self.round_encoder = AlternateFeatureEncoder(12, layer_sizes, model_config.CHAMPION_EMBEDDING_DIM,
+                                                     config.DEVICE)
+
         # Main processing unit
         self.full_encoder = TransformerEncoder(
             model_config.CHAMPION_EMBEDDING_DIM,
@@ -176,7 +179,9 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
 
         trait_encoding = self.trait_encoder(x['traits'])
 
-        full_embeddings = torch.cat([champion_embeddings, trait_encoding], dim=1)
+        round_encoding = self.round_encoder(x['action_count'])
+
+        full_embeddings = torch.cat([champion_embeddings, trait_encoding, round_encoding], dim=1)
 
         # Add positional embeddings to full_embeddings
         position_ids = torch.arange(full_embeddings.shape[1], dtype=torch.long, device=config.DEVICE).unsqueeze(0)

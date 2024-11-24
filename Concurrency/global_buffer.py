@@ -2,7 +2,8 @@ import time
 import numpy as np
 import asyncio
 import config
-from Concurrency.priority_queue import PriorityBuffer
+# from Concurrency.priority_queue import PriorityBuffer
+from collections import deque
 
 
 class GlobalBuffer(object):
@@ -15,10 +16,12 @@ class GlobalBuffer(object):
     """
 
     def __init__(self, storage_ptr):
-        self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
+        self.gameplay_experiences = deque(maxlen=config.GLOBAL_BUFFER_SIZE)
+        # self.gameplay_experiences = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.batch_size = config.BATCH_SIZE
         self.storage_ptr = storage_ptr
-        self.average_position = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
+        self.average_position = deque(maxlen=config.GLOBAL_BUFFER_SIZE)
+        # self.average_position = PriorityBuffer(config.GLOBAL_BUFFER_SIZE)
         self.current_batch = []
         self.batch_full = False
         self.ckpt_time = time.time_ns()
@@ -43,6 +46,7 @@ class GlobalBuffer(object):
             # the number of multiprocessing errors that could occur by having them too far apart.
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
+            '''
             try:
                 if not config.GUMBEL:
                     [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
@@ -57,7 +61,13 @@ class GlobalBuffer(object):
                 else:
                     [observation, action_history, policy_mask, value, reward, policy], \
                         priority = self.gameplay_experiences.extractMax()
-
+            '''
+            if not config.GUMBEL:
+                [observation, action_history, value_mask, reward_mask, policy_mask, value, reward, policy,
+                 sample_set, tier_set, final_tier_set, champion_set], priority = self.gameplay_experiences.pop()
+            else:
+                [observation, action_history, policy_mask, value, reward, policy], \
+                    priority = self.gameplay_experiences.pop()
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history)
             policy_mask_batch.append(policy_mask)
@@ -115,12 +125,14 @@ class GlobalBuffer(object):
             A prepared batch ready for training.
         """
         obs_tensor_batch, action_history_batch, target_value_batch, policy_mask_batch = [], [], [], []
-        target_policy_batch, value_mask_batch, position_batch, importance_weights = [], [], [], []
+        target_policy_batch, value_mask_batch, position_batch = [], [], []
         for batch_num in range(self.batch_size):
             # Setting the position gameplay_experiences get and position get next to each other to minimize
             # the number of multiprocessing errors that could occur by having them too far apart.
             # If these two commands become out of sync, it would cause the position logging to not match the rest
             # of the training logs, but it would not break training.
+            '''
+            
             try:  # Error that happens every once in a blue moon
                 [observation, action_history, value_mask, policy_mask, value, policy], priority = \
                     self.gameplay_experiences.extractMax()
@@ -128,6 +140,9 @@ class GlobalBuffer(object):
                 [observation, action_history, value_mask, policy_mask, value, policy], priority = \
                     self.gameplay_experiences.extractMax()
             position, _ = self.average_position.extractMax()
+            '''
+            [observation, action_history, value_mask, policy_mask, value, policy] = self.gameplay_experiences.pop()
+            position, _ = self.average_position.pop()
             position_batch.append(position)
             obs_tensor_batch.append(observation)
             action_history_batch.append(action_history)
@@ -135,7 +150,6 @@ class GlobalBuffer(object):
             target_value_batch.append(value)
             target_policy_batch.append(policy)
             value_mask_batch.append(value_mask)
-            importance_weights.append(1 / self.batch_size / priority)
 
         observation_batch = self.reshape_observation(obs_tensor_batch)
         action_history_batch = np.asarray(action_history_batch)
@@ -143,12 +157,10 @@ class GlobalBuffer(object):
         value_mask_batch = np.asarray(value_mask_batch).astype('float32')
         target_policy_batch = np.asarray(target_policy_batch).astype('float32')
         policy_mask_batch = np.asarray(policy_mask_batch).astype('float32')
-        importance_weights_batch = np.asarray(importance_weights).astype('float32')
-        importance_weights_batch = importance_weights_batch / np.max(importance_weights_batch)
 
         data_list = [
             observation_batch, action_history_batch, value_mask_batch, policy_mask_batch, target_value_batch,
-            target_policy_batch, importance_weights_batch
+            target_policy_batch
         ]
         return np.array(data_list, dtype=object)
 
@@ -180,9 +192,8 @@ class GlobalBuffer(object):
             samples (list): All samples from one game from one agent.
         """
         for sample in samples[0]:
-            if sample[0] > 1:
-                self.gameplay_experiences.insert(sample[0], sample[1])
-                self.average_position.insert(sample[0], samples[1])
+            self.gameplay_experiences.append(sample)
+            self.average_position.append(samples)
 
     async def available_batch(self):
         """
@@ -192,7 +203,8 @@ class GlobalBuffer(object):
         Outputs:
             - True if there is enough data and the trainer is free, false otherwise.
         """
-        queue_length = self.gameplay_experiences.size
+        queue_length = len(self.gameplay_experiences)
+        # queue_length = self.gameplay_experiences.size
         if queue_length > self.batch_size + 1 and not await self.storage_ptr.get_trainer_busy.remote():
             print("QUEUE_LENGTH {} at time {}".format(queue_length, time.time_ns()))
             await self.storage_ptr.set_trainer_busy.remote(True)

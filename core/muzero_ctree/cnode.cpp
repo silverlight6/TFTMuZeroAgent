@@ -46,6 +46,10 @@ namespace tree {
     // I am not able to find a definite answer to we use the sampled policy as the base for the prior
     // or if we do a weighted softmax which is what is done below.
     // The alpha-go paper uses .67 as their weight but we appear to use e instead.
+    // hidden_state_index x, y is where the hidden state is stored in the large array
+    // reward, policy is output of the prediction and dynamics network respectively
+    // act_num is the number of actions available, action_count is the current action number in the environment
+    // action_limit is the total number of actions I can take.
     void CNode::expand(int hidden_state_index_x, int hidden_state_index_y, float reward,
                        const std::vector<float> &policy_logits, int act_num, int action_count, int action_limit) {
         // Index for finding the hidden state on python side, x is search path location, y is the player
@@ -56,10 +60,6 @@ namespace tree {
         // number of unique actions this node contains. Changes based on number of unique samples
         this->action_num = act_num;
 
-        float temp_policy;
-        // sum is a float instead of a tensor since we handle 1 player at a time
-        float policy_sum = 0.0;
-        std::vector<float> policy(action_num);
         float policy_max = FLOAT_MIN;
         // Find the maximum
         for(int a = 0; a < act_num; ++a){
@@ -67,6 +67,11 @@ namespace tree {
                 policy_max = policy_logits[a];
             }
         }
+
+        // sum is a float instead of a tensor since we handle 1 player at a time
+        float temp_policy;
+        float policy_sum = 0.0;
+        std::vector<float> policy(action_num);
 
         // Calculate the sum and create a temp policy with the exp of each
         for(int a = 0; a < act_num; ++a) {
@@ -89,6 +94,9 @@ namespace tree {
             bool terminal = (prior < 0.001) || (action_count >= action_limit - 1);
             if (terminal) {
                 this->terminal_children += 1;
+            }
+            if (this->terminal_children == this->action_num) {
+                this->terminal = true;
             }
             // Add all of the nodes children to the ptr_node_pool
             ptr_node_pool->push_back(CNode(prior, ptr_node_pool, terminal));
@@ -326,17 +334,19 @@ namespace tree {
         for(int a = 0; a < root->action_num; ++a) {
             CNode* child = root->get_child(a);
 
-            // find the usb score
-            float temp_score = cucb_score(child, min_max_stats, mean_q, root->visit_count - 1, pb_c_base, pb_c_init, discount);
-            // compare it to the max score and store index if it is the max
-            if(max_score < temp_score) {
-                max_score = temp_score;
+            if (!((child->visit_count >= 100) && (child->terminal == true))) {
+                // find the usb score
+                float temp_score = cucb_score(child, min_max_stats, mean_q, root->visit_count - 1, pb_c_base, pb_c_init, discount);
+                // compare it to the max score and store index if it is the max
+                if(max_score < temp_score) {
+                    max_score = temp_score;
 
-                max_index_lst.clear();
-                max_index_lst.push_back(a);
-            }
-            else if(temp_score >= max_score - epsilon) {
-                max_index_lst.push_back(a);
+                    max_index_lst.clear();
+                    max_index_lst.push_back(a);
+                }
+                else if(temp_score >= max_score - epsilon) {
+                    max_index_lst.push_back(a);
+                }
             }
         }
         int action = 0;
@@ -365,16 +375,18 @@ namespace tree {
             value_score = child->qvalue(discount);
         }
 
+//        if (child -> visit_count > 100) {
+//            std::cout << "prior score : " << prior_score << " , value score : " << value_score <<
+//                 ", visit_counts : " << child->visit_count << " and terminal " << child->terminal << std::endl;
+//                 }
+
         value_score = min_max_stats.normalize(value_score);
 
         // Some testing should occur to see if this is helpful, I think I should delete these lines
         if (value_score < 0) value_score = 0;
         if (value_score > 1) value_score = 1;
 
-//        if (child -> visit_count > 100) {
-//            std::cout << "prior score : " << prior_score << " , and value score : " << value_score <<
-//                 " and visit_counts : " << child -> visit_count << std::endl;
-//                 }
+
         return prior_score + value_score;
     }
 
@@ -390,7 +402,7 @@ namespace tree {
             int is_root = 1;
             int search_len = 0;
 
-            if (node->terminal) {
+            if (node->terminal || node->visit_count > 500) {
                 // If root is terminal, skip adding to search path but keep consistent outputs
                 last_action.push_back(28);
                 results.last_actions.push_back(last_action);
@@ -420,6 +432,8 @@ namespace tree {
                     node = &(roots->roots[i]);
                     results.search_paths[i].push_back(node);
                     search_len = 0;
+                    is_root = 1;
+                    parent_q = 0.0;
                     continue;
                 }
             }

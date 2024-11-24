@@ -24,6 +24,8 @@ def main():
 
     if args.test:
         test_interface = TestInterface.AIInterface()
+        if config.MUZERO_POSITION:
+            test_interface.train_position_model(starting_train_step=args.starting_episode)
         test_interface.train_model(starting_train_step=args.starting_episode)
         return
 

@@ -73,7 +73,8 @@ Inputs      -
 class _TrainActor:
     def __init__(self, global_agent, storage):
         self.global_buffer = GlobalBuffer(storage)
-        self.training_loop = TrainingLoop(global_agent, self.global_buffer, ray.get(storage.get_optimizer_dict.remote()))
+        self.training_loop = TrainingLoop(global_agent, self.global_buffer,
+                                          ray.get(storage.get_optimizer_dict.remote()))
 
     """
     Description - 
@@ -107,4 +108,5 @@ class _TrainActor:
         Buffer size - int
     """
     def buffer_size(self):
-        return self.global_buffer.gameplay_experiences.size
+        return len(self.global_buffer.gameplay_experiences)
+        # return self.global_buffer.gameplay_experiences.size

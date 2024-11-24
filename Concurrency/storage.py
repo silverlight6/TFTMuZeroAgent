@@ -8,7 +8,6 @@ from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
 from Models.Representations.representation_model import RepresentationTesting as RepNetwork
-from torch.utils.tensorboard import SummaryWriter
 from Evaluator.eval_visualizers import GameResultPlotter
 
 
@@ -39,8 +38,9 @@ class Storage:
                            for r in range(config.NUM_PLAYERS)}
         # This is for single player games
         self.single_player_placements = {}
+        # This is for placement
+        self.reward_buffer = []
         self.optimizer_dict = optimizer_dict
-        self.summary_writer = SummaryWriter(config.TRAIN_LOG_DIRECTORY)
 
         self.plotter = GameResultPlotter.remote()
 
@@ -81,7 +81,7 @@ class Storage:
         """
         return self.target_model.get_weights()
 
-    def set_target_model(self, weights):
+    def set_target_model(self, state_dict):
         """
         Sets new weights for the target model. Called after every gradiant update round.
 
@@ -89,7 +89,7 @@ class Storage:
             Pytorch Model Weights:
                 Weights of the target model.
         """
-        return self.target_model.set_weights(weights)
+        return self.target_model.load_state_dict(state_dict)
 
     def save_target_model(self, train_step, optimizer):
         self.target_model.tft_save_model(train_step, optimizer)
@@ -263,6 +263,14 @@ class Storage:
             }
             self.plotter.update_data.remote(episode, result_data)
 
+    def reward_append(self, reward):
+        self.reward_buffer.append(reward)
+        if len(self.reward_buffer) > 500:
+            self.reward_buffer = self.reward_buffer[200:]
+
+    def return_reward(self):
+        if len(self.reward_buffer) > 0:
+            return sum(self.reward_buffer) / len(self.reward_buffer)
 
 
 

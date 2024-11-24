@@ -85,7 +85,7 @@ NUM_ENVS = get_int_env("NUM_ENVS", 1)
 NUM_PLAYERS = get_int_env("NUM_PLAYERS", 8)
 AUTO_BATTLER_PERCENTAGE = get_int_env("AUTO_BATTLER_PERCENTAGE", 0)
 DEBUG = get_bool_env("DEBUG", "True")
-CHECKPOINT_STEPS = get_int_env("CHECKPOINT_STEPS", 100)
+CHECKPOINT_STEPS = get_int_env("CHECKPOINT_STEPS", 25)  # normally 100
 STARTING_EPISODE = get_int_env("STARTING_EPISODE", 0)
 
 # Champion and Item Dimensions
@@ -130,7 +130,7 @@ UNROLL_STEPS = get_int_env("UNROLL_STEPS", 5)
 
 ### TRAINING CONFIGURATIONS ###
 BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
-INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)
+INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)  # Normally 0.01
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
 WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-4)  # Sometimes set to 1e-5
 DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
@@ -184,6 +184,7 @@ class ModelConfig:
     ROOT_DIRICHLET_ALPHA = get_float_env("ROOT_DIRICHLET_ALPHA", 0.3)
     # How much to expand or contract the policy function. 1.0 means do not touch.
     VISIT_TEMPERATURE = get_float_env("VISIT_TEMPERATURE", 1.0)
+    DETERMINISTIC = get_bool_env("DETERMINISTIC")
 
     # Base values from the MuZero paper for base and init
     PB_C_BASE = get_int_env("PB_C_BASE", 19652)

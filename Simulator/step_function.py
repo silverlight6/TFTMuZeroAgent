@@ -136,6 +136,13 @@ class Step_Function:
             temp_coord = x_y_to_1d_coord(temp_square[0], temp_square[1])
             self.perform_action("player_0", [5, temp_coord, action])
 
+    def fake_multi_step_position_controller(self, action, player, step):
+        x, y = coord_to_x_y(action)
+        coord = [x, y]
+        if coord[0] != 7 and step < len(self.position_list):
+            temp_square = self.position_list[step]
+            player.move_board_to_board(temp_square[0], temp_square[1], coord[0], coord[1])
+
     def item_controller(self, action, player, item_guide):
         """
         Takes an action which is 10 by 28. If 28, the action is considered a pass.

@@ -19,12 +19,12 @@ class PlayerManager:
         self.player_ids = sorted(list(self.players))
 
         self.terminations = {player: False for player in self.players}
-        
+
         self.player_states = {
             player: player_class(self.pool_obj, player_id)
             for player_id, player in enumerate(self.players)
         }
-        
+
         self.observation_states = {
             player: tft_config.observation_class(self.player_states[player])
             for player in self.players

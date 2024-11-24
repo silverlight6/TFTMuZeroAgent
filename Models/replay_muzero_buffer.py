@@ -252,7 +252,6 @@ class ReplayBuffer:
                 policy_mask_set = []
                 value_set = []
                 policy_set = []
-                priority_set = []
 
                 for current_index in range(sample, sample + config.UNROLL_STEPS + 1):
                     if config.TD_STEPS > 0:
@@ -266,11 +265,6 @@ class ReplayBuffer:
                     # bootstrapping value back from rewards
                     for i, reward_corrected in enumerate(reward_correction[current_index:bootstrap_index]):
                         value += reward_corrected * config.DISCOUNT ** i
-
-                    priority = 0.001
-                    if current_index < num_steps:
-                        priority = np.maximum(priority, np.abs(self.root_values[current_index] - value))
-                    priority_set.append(priority)
 
                     if current_index < num_steps - 1:
                         action_set.append(self.action_history[current_index])
@@ -301,16 +295,6 @@ class ReplayBuffer:
                         policy_set.append(self.policy_distributions[0])
                         value_mask_set.append(0.0)
 
-                # formula for priority over unroll steps,
-                # adding small randomness to get around a priority queue error where it crashes if you add two items
-                # with identical priorities
-                priority = priority_set[0]
-                div = -priority
-                for i in priority_set:
-                    div += i
-                priority = (1 / (priority / div)) + np.random.rand() * 0.00001
-
-                # priority = 1 / priority because priority queue stores in ascending order.
-                output_sample_set.append([priority, [self.gameplay_experiences[sample], action_set, value_mask_set,
-                                                     policy_mask_set, value_set, policy_set]])
+                output_sample_set.append([self.gameplay_experiences[sample], action_set, value_mask_set,
+                                                     policy_mask_set, value_set, policy_set])
             global_buffer.store_replay_sequence([output_sample_set, self.ending_position])

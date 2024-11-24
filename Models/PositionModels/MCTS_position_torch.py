@@ -2,7 +2,6 @@ import time
 import numpy as np
 import core.muzero_ctree.cytree as tree
 import torch
-import Models.MCTS_Util as util
 import config
 from typing import Dict
 
@@ -79,7 +78,7 @@ class MCTS:
             actions = []
             target_policy = []
             temp = self.visit_softmax_temperature()  # controls the way actions are chosen
-            deterministic = False  # False = sample distribution, True = argmax
+            deterministic = self.model_config.DETERMINISTIC  # False = sample distribution, True = argmax
             for i in range(self.batch_size):
                 distributions = roots_distributions[i]
                 action = self.select_action(distributions, temperature=temp, deterministic=deterministic)

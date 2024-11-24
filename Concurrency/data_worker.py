@@ -422,6 +422,7 @@ class DataWorker(object):
                                                            policy[alive_i], root_values[alive_i])
                         if terminated[i]:
                             storage_terminated[i] = True
+                            storage.reward_append.remote(reward[alive_i])
                             # episode_rewards[i].append(reward[alive_i])
                             #
                             # if self.check_greater_than_last_five(episode_rewards[i]):
@@ -612,6 +613,7 @@ class DataWorker(object):
         return {
             "board": observation["board"][idx],
             "traits": observation["traits"][idx],
+            "action_count": observation["action_count"][idx],
         }
 
     '''

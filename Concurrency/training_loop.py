@@ -1,5 +1,6 @@
 import config
 import time
+import ray
 from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
 from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
 from Models.PositionModels.MuZero_position_trainer import Trainer as Position_Trainer
@@ -44,6 +45,9 @@ class TrainingLoop:
         while True:
             if await self.global_buffer.available_batch():
                 if config.MUZERO_POSITION:
+                    if train_step != 0:
+                        average_reward = ray.get(storage.return_reward.remote())
+                        self.summary_writer.add_scalar("target/reward", average_reward, train_step)
                     gameplay_experience_batch = await self.global_buffer.sample_position_batch()
                 else:
                     gameplay_experience_batch = await self.global_buffer.sample_batch()
@@ -53,13 +57,13 @@ class TrainingLoop:
                 # print("One round in the trainer took {} time".format(time.time_ns() - self.ckpt_time))
                 # self.ckpt_time = time.time_ns()
                 storage.set_trainer_busy.remote(False)
-                storage.set_target_model.remote(self.trainer.network.get_weights())
                 train_step += 1
 
                 # Because the champ decider produces 125 samples per game whereas the standard trainer produces
                 # closer to 3000, setting the checkpoints to be produced more rapidly.
                 if (train_step % self.checkpoint_steps == 0) or \
                         (self.champ_decider and train_step % self.checkpoint_steps % 10 == 0):
+                    storage.set_target_model.remote(self.trainer.network.state_dict())
                     storage.store_checkpoint.remote(train_step)
                     optimizer = self.trainer.optimizer
                     storage.save_target_model.remote(train_step, optimizer)

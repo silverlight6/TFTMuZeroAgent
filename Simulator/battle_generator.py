@@ -117,9 +117,7 @@ class BattleGenerator:
             if self.generator_config["fill_bench"]:
                 self.add_champions_to_bench(player, base_pool)
         if config.NUM_PLAYERS > 1:
-            player_returns = random.sample(range(0, config.NUM_PLAYERS), 2)
-            return [player_list[player_returns[0]], player_list[player_returns[1]],
-                    {f"player_{player.player_num}": player for player in player_list}]
+            return [player_list[0], player_list[1], {f"player_{player.player_num}": player for player in player_list}]
         else:
             return [player_list[0], None, None]
 
@@ -239,10 +237,11 @@ class BattleGenerator:
                 else:
                     player.add_to_bench(oppo_team[i])
                 # Start with this, change it later.
-                if set_position:
-                    coord = self.stationary_coords[i]
-                else:
-                    coord = np.random.randint(0, 28)
+                # if set_position:
+                #     coord = self.stationary_coords[i]
+                # else:
+                #     coord = np.random.randint(0, 28)
+                coord = self.stationary_coords[i]
                 coord_x, coord_y = coord_to_x_y(coord)
                 # TODO: Turn the next few lines into a method of it's own so I don't have to copy and paste.
                 action_mask = ActionToken(player)
