@@ -1,10 +1,10 @@
 import config
 import datetime
 
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.MuZero_torch_trainer import Trainer
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.PositionModels.MuZero_position_trainer import Trainer as Position_Trainer
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.Trainers.MuZero_torch_trainer import Trainer
+from Core.TorchModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Core.Trainers.MuZero_position_trainer import Trainer as Position_Trainer
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.tft_simulator import parallel_env, TFTConfig
 from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator

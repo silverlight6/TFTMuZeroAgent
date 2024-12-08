@@ -1,7 +1,6 @@
 import config
 import numpy as np
-import time
-from Models import MCTS_Util as utils
+from Core.MCTS_Trees import MCTS_Util as utils
 from Simulator.player_manager import PlayerManager
 from Simulator import pool
 from Simulator.tft_simulator import TFTConfig

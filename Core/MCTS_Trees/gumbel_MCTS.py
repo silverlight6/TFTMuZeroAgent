@@ -3,7 +3,7 @@ import time
 from typing import List, Dict, Tuple
 import numpy as np
 import torch
-from Models.GumbelModels.MCTSCtree import GumbelMuZeroMCTSCtree as MCTSCtree
+from Core.MCTS_Trees.gumbel_MCTSCtree import GumbelMuZeroMCTSCtree as MCTSCtree
 from scipy.stats import entropy
 
 class GumbelMuZero:
@@ -11,7 +11,7 @@ class GumbelMuZero:
         self.network = network
         self.model_config = model_config
         self.discount_factor = config.DISCOUNT
-        self.action_space_size = config.POLICY_HEAD_SIZE
+        self.action_space_size = model_config.POLICY_HEAD_SIZE
         self._collect_model = self.network
         self._mcts_collect = MCTSCtree(self.model_config)
         self._collect_mcts_temperature = 1
@@ -62,9 +62,6 @@ class GumbelMuZero:
                                     ).astype(np.float32).tolist() for j in range(batch_size)
             ]
             roots = MCTSCtree.roots(batch_size, legal_actions)
-            print(f"noises {noises}, reward {list(reward)}, values {list(pred_values)}, policy_logits {policy_logits}, "
-                  f"to_play {to_play}")
-            time.sleep(2)
             roots.prepare(self.model_config.ROOT_EXPLORATION_FRACTION, noises, list(reward), list(pred_values),
                           policy_logits, to_play)
             self._mcts_collect.search(roots, self._collect_model, latent_state_roots, to_play)
@@ -74,7 +71,7 @@ class GumbelMuZero:
             roots_values = roots.get_values()  # shape: {list: batch_size}
 
             # ==============================================================
-            # The core difference between GumbelMuZero and MuZero
+            # The CplusplusTrees difference between GumbelMuZero and MuZero
             # ==============================================================
             # Gumbel MuZero selects the action according to the improved policy
             # new policy constructed with completed Q in gumbel muzero
@@ -155,7 +152,7 @@ class GumbelMuZero:
             roots_values = roots.get_values()  # shape: {list: batch_size}
 
             # ==============================================================
-            # The core difference between GumbelMuZero and MuZero
+            # The CplusplusTrees difference between GumbelMuZero and MuZero
             # ==============================================================
             # Gumbel MuZero selects the action according to the improved policy
             roots_improved_policy_probs = roots.get_policies(self.discount_factor, self.action_space_size)

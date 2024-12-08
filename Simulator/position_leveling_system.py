@@ -98,7 +98,7 @@ class PositionLevelingSystem:
         return self.battle_generator.generate_battle()
 
     def generate_preset_battle(self):
-        return self.battle_generator.generate_set_battle(self.level + 3,  True)
+        return self.battle_generator.generate_set_battle(self.level + 3)
 
     def level_up(self):
         self.level += 1

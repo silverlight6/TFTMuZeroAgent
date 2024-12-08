@@ -6,7 +6,7 @@ UnitTests/.pytest_cache
 suggestions.py
 /__pycache__
 /Simulator/__pycache__
-/Models/__pycache__
+/Core/__pycache__
 /interface/__pycache__
 /UnitTests/__pycache__
 /logs
@@ -15,15 +15,15 @@ log.txt
 /SavedModels
 libdevice.10.bc
 /Checkpoints
-/core/build
-/core/ctree/cytree.cpython-38-x86_64-linux-gnu.so
-/core/ctree/cytree.cpython-310-x86_64-linux-gnu.so
-/core/ctree/cytree.cpp
-/core/ctree/build
+/Core/CplusplusTrees/build
+/Core/CplusplusTrees/ctree/cytree.cpython-38-x86_64-linux-gnu.so
+/Core/CplusplusTrees/ctree/cytree.cpython-310-x86_64-linux-gnu.so
+/Core/CplusplusTrees/ctree/cytree.cpp
+/Core/CplusplusTrees/ctree/build
 .vscode/
-core/ctree/cytree.cpython-39-x86_64-linux-gnu.so
-core/ctree/cytree.cpython-39-darwin.so
-core/ctree/cytree.cp39-win_amd64.pyd
+Core/CplusplusTrees/ctree/cytree.cpython-39-x86_64-linux-gnu.so
+Core/CplusplusTrees/ctree/cytree.cpython-39-darwin.so
+Core/CplusplusTrees/ctree/cytree.cp39-win_amd64.pyd
 
 # UI
 Games/

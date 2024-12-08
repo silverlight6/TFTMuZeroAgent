@@ -9,13 +9,12 @@ from Concurrency.storage import Storage
 from Simulator.tft_simulator import parallel_env, TFTConfig
 from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator, TFT_Vector_Pos_Simulator
 from Simulator.observation.token.basic_observation import ObservationToken
-from Models.replay_buffer_wrapper import BufferWrapper
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Core.ReplayBuffers.replay_buffer_wrapper import BufferWrapper
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.TorchModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Core.TorchModels.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
 from Concurrency.data_worker import DataWorker
 from Concurrency.training_manager import TrainingManager
-from Concurrency.queue_storage import QueueStorage
 
 # from torchsummary import summary
 
@@ -166,8 +165,8 @@ class AIInterface:
     """
     def representation_testing(self):
         import datetime
-        from Models.Representations.representation_model import RepresentationTesting
-        from Models.Representations.representation_trainer import RepresentationTrainer
+        from Core.TorchModels.Representations.rep_testing_model import RepresentationTesting
+        from Core.Trainers.representation_trainer import RepresentationTrainer
         from torch.utils.tensorboard import SummaryWriter
         train_step = config.STARTING_EPISODE
 
@@ -190,7 +189,7 @@ class AIInterface:
         # total_params = sum(p.numel() for p in global_agent.parameters())
 
     def representation_evauation(self):
-        from Models.Representations.representation_model import RepresentationTesting
+        from Core.TorchModels.Representations.rep_testing_model import RepresentationTesting
         from Evaluator.representation_evaluator import RepresentationEvaluator
         gpus = torch.cuda.device_count()
         with ray.init(num_gpus=gpus, num_cpus=config.NUM_CPUS, namespace="TFT_AI"):
@@ -207,7 +206,7 @@ class AIInterface:
 
             evaluator = RepresentationEvaluator(global_agent)
             evaluator.evaluate()
-            ray.wait()
+            ray.wait(evaluator)
 
     # # # Commenting out until the position model is ready to be inserted again.
     # def train_guide_model(self) -> None:
@@ -273,8 +272,8 @@ class AIInterface:
         from torch.utils.tensorboard import SummaryWriter
 
         from Simulator.tft_vector_simulator import TFT_Vector_Pos_Simulator
-        from Models.PositionModels.action_mask_model import TorchPositionModel
-        from Models.utils import convert_to_torch_tensor
+        from Core.TorchModels.action_mask_model import TorchPositionModel
+        from Core.TorchComponents.utils import convert_to_torch_tensor
 
         ppo_config = config.PPOConfig()
 

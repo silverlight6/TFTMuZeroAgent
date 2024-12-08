@@ -6,6 +6,7 @@ You must implement your agent around these interfaces for the environment to wor
 import abc
 
 class ObservationBase(abc.ABC):
+    # TODO: Add observation space to here and define it for each observation space.
     @abc.abstractmethod
     def fetch_public_observation(self):
         """Fetch public observation."""

@@ -1,7 +1,7 @@
 import numpy as np
 import config
 import ray
-from Models.replay_muzero_buffer import ReplayBuffer
+from Core.ReplayBuffers.replay_muzero_buffer import ReplayBuffer
 from sklearn import preprocessing
 
 

@@ -1,6 +1,7 @@
 import TestInterface.test_ai_interface as TestInterface
 import argparse
 import config
+from TestInterface.test_atari import Atari_Tests
 from Concurrency.AI_interface import AIInterface
 from Evaluator.evaluator import Evaluator
 
@@ -32,6 +33,9 @@ def main():
     if config.EVALUATE:
         evaluator = Evaluator()
         evaluator.evaluate_single_player()
+    elif config.ATARI:
+        atari = Atari_Tests()
+        atari.breakout()
     else:
         interface = AIInterface()
         if config.CHAMP_DECIDER:
@@ -43,8 +47,8 @@ def main():
             config.GUMBEL = True
             interface.train_single_player_model()
         elif config.REP_TRAINER:
-            interface.representation_testing()
-            # interface.representation_evauation()
+            # interface.representation_testing()
+            interface.representation_evauation()
         elif config.MUZERO_POSITION:
             interface.train_position_model()
         else:

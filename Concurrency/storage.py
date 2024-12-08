@@ -4,10 +4,10 @@ import numpy as np
 import ray
 from Concurrency.checkpoint import Checkpoint
 from config import STORAGE_GPU_SIZE
-from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.Representations.representation_model import RepresentationTesting as RepNetwork
+from Core.TorchModels.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.TorchModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Core.TorchModels.Representations.rep_testing_model import RepresentationTesting as RepNetwork
 from Evaluator.eval_visualizers import GameResultPlotter
 
 

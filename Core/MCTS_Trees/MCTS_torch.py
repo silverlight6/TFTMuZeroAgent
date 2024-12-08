@@ -1,8 +1,8 @@
 import time
 import numpy as np
-import core.ctree.cytree as tree
+import Core.CplusplusTrees.ctree.cytree as tree
 import torch
-import Models.MCTS_Util as util
+import Core.MCTS_Trees.MCTS_Util as util
 import config
 from typing import Dict
 
@@ -194,12 +194,12 @@ class MCTS:
 
 
     """
-    Description - This is the core to the Complex Action Spaces paper. We take a set number of sample actions from the 
+    Description - This is the CplusplusTrees to the Complex Action Spaces paper. We take a set number of sample actions from the 
                   total number of actions based off of the current policy to expand on each turn. There are two options
                   as to how the samples are chosen. You can either set num_pass_shop_actions and refresh_level_actions
                   to 0 and comment out the following for loops or keep those variables at 6 and 2 and leave the for
-                  loops in. The first option is a pure sample with no specific core actions. The second option gives 
-                  you a set of core options to use. 
+                  loops in. The first option is a pure sample with no specific CplusplusTrees actions. The second option gives 
+                  you a set of CplusplusTrees options to use. 
     Inputs      - policy_logits - List
                       Output to either initial_inference or recurrent_inference for policy
                   string_mapping - List

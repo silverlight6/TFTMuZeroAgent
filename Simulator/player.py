@@ -1162,6 +1162,7 @@ class Player:
         return neighbors
 
     def get_champion_labels(self):
+        self.update_comp_labels()
         return self.team_champion_labels
 
     def get_item_labels(self):
@@ -1201,6 +1202,7 @@ class Player:
         return shop_labels
 
     def get_tier_labels(self):
+        self.generate_tier_vector()
         return self.team_tier_labels
 
     """
@@ -1786,6 +1788,19 @@ class Player:
             if self.bench[x]:
                 if self.bench[x].name == 'kayn':
                     self.bench[x].kaynform = kayn_item
+
+    def update_comp_labels(self):
+        self.team_champion_labels[:, 0] = 1
+        self.team_champion_labels[:, 1] = 0
+
+        for x in range(len(self.board)):
+            for y in range(len(self.board[x])):
+                if self.board[x][y]:
+                    c_index = list(COST.keys()).index(self.board[x][y].name)
+                    # create the label for the champion to help with training
+                    if c_index <= len(CHAMPION_ACTION_DIM):
+                        self.team_champion_labels[c_index - 1, 0] = 0
+                        self.team_champion_labels[c_index - 1, 1] = 1
 
     def update_team_tiers(self):
         """Updates the team_tiers dictionary with the current team composition.

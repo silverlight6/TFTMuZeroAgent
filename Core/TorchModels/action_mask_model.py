@@ -1,10 +1,9 @@
 import numpy as np
 import config
-import time
 import torch
 
 from config import ModelConfig
-from Models.torch_layers import TransformerEncoder
+from Core.TorchComponents.torch_layers import TransformerEncoder
 from torch.distributions.categorical import Categorical
 from gymnasium.spaces import MultiDiscrete
 

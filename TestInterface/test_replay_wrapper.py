@@ -10,10 +10,7 @@ class BufferWrapper:
                         for i in range(config.NUM_PLAYERS * config.NUM_ENVS)}
 
     def store_replay_buffer(self, key, *args):
-        self.buffers[key].store_replay_buffer(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
-
-    def store_gumbel_buffer(self, key, *args):
-        self.buffers[key].store_gumbel_buffer(args[0], args[1], args[2], args[3], args[4])
+        self.buffers[key].store_buffer(args[0], args[1], args[2], args[3], args[4], *args)
 
     def store_observation(self, key, *args):
         self.buffers[key].store_observation(args[0])
@@ -66,7 +63,3 @@ class BufferWrapper:
     def store_global_buffer(self):
         for b in self.buffers.values():
             b.store_global_buffer()
-
-    def store_global_position_buffer(self):
-        for b in self.buffers.values():
-            b.store_global_position_buffer()

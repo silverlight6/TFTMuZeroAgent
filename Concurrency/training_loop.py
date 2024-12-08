@@ -1,9 +1,9 @@
 import config
 import time
 import ray
-from Models.GumbelModels.gumbel_trainer import Trainer as Gumbel_Trainer
-from Models.MuZero_torch_trainer import Trainer as MuZero_Trainer
-from Models.PositionModels.MuZero_position_trainer import Trainer as Position_Trainer
+from Core.Trainers.gumbel_trainer import Trainer as Gumbel_Trainer
+from Core.Trainers.MuZero_torch_trainer import Trainer as MuZero_Trainer
+from Core.Trainers.MuZero_position_trainer import Trainer as Position_Trainer
 from torch.utils.tensorboard import SummaryWriter
 
 

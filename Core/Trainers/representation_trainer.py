@@ -12,7 +12,7 @@ Prediction = collections.namedtuple(
 
 LossOutput = collections.namedtuple(
     'LossOutput',
-    'comp_loss  champ_loss shop_loss item_loss scalar_loss l2_loss')
+    'comp_loss  champ_loss shop_loss item_loss scalar_loss l2_loss, loss')
 
 
 class RepresentationTrainer(object):
@@ -21,22 +21,40 @@ class RepresentationTrainer(object):
         self.init_learning_rate = config.INIT_LEARNING_RATE
         self.decay_steps = config.DECAY_STEPS
         self.alpha = config.LR_DECAY_FUNCTION
-        self.optimizer = self.create_optimizer()
         self.summary_writer = summary_writer
         self.model_ckpt_time = time.time_ns()
         self.loss_ckpt_time = time.time_ns()
         self.batch_generator = BatchGenerator()
+        # self.harmony_comp = torch.nn.Parameter(-torch.log(torch.tensor(1.0)))
+        # self.harmony_champ = torch.nn.Parameter(-torch.log(torch.tensor(1.0)))
+        # self.harmony_shop = torch.nn.Parameter(-torch.log(torch.tensor(1.0)))
+        # self.harmony_item = torch.nn.Parameter(-torch.log(torch.tensor(1.0)))
+        # self.harmony_scalar = torch.nn.Parameter(-torch.log(torch.tensor(1.0)))
+        self.optimizer = self.create_optimizer()
+        self.softmax = torch.nn.Softmax()
 
     def create_optimizer(self):
-        optimizer = torch.optim.Adam(self.network.parameters(), lr=config.INIT_LEARNING_RATE,
-                                     weight_decay=config.WEIGHT_DECAY)
+        # parameters = list(self.network.parameters()) + [
+        #     self.harmony_comp,
+        #     self.harmony_champ,
+        #     self.harmony_shop,
+        #     self.harmony_item,
+        #     self.harmony_scalar
+        # ]
+        parameters = list(self.network.parameters())
+
+        optimizer = torch.optim.Adam(parameters, lr=config.INIT_LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
         return optimizer
 
     def decayed_learning_rate(self, step):
-        step = min(step, self.decay_steps)
-        cosine_decay = 0.5 * (1 + np.cos(np.pi * step / self.decay_steps))
-        decayed = (1 - self.alpha) * cosine_decay + self.alpha
-        return self.init_learning_rate * decayed
+        # Calculate the decay factor as 10^n where n is the number of thresholds crossed
+        decay_factor = 10 ** (step / 300)  # 10x at 1000, 100x at 10000, etc.
+
+        # Apply decay to the initial learning rate
+        decayed_learning_rate = self.init_learning_rate / decay_factor
+
+        # Return the decayed learning rate
+        return decayed_learning_rate
 
     # Same as muzero-general
     def adjust_lr(self, train_step):
@@ -54,8 +72,6 @@ class RepresentationTrainer(object):
         predictions = self.compute_forward(observation)
 
         self.compute_loss(predictions, labels)
-
-        self.backpropagate()
 
         self.write_summaries(train_step)
 
@@ -81,87 +97,127 @@ class RepresentationTrainer(object):
             item_loss=[],
             scalar_loss=[],
             l2_loss=[],
+            loss=[]
         )
 
         # TODO: Figure out how to speed up the tier, final_tier, and champion losses
         comp_target = [label[0] for label in labels]
-        comp_target = [list(b) for b in zip(*comp_target)]
+        comp_target = np.array([list(b) for b in zip(*comp_target)][1])
         comp_loss = self.supervised_loss(predictions.comp, comp_target)
 
-        champion_target = [label[1] for label in labels]
-        champion_target = [list(b) for b in zip(*champion_target)]
-        champ_loss = self.supervised_loss(predictions.champ, champion_target)
-
-        shop_target = [label[2] for label in labels]
-        shop_target = [list(b) for b in zip(*shop_target)]
-        shop_loss = self.supervised_loss(predictions.shop, shop_target)
-
-        item_target = [label[3] for label in labels]
-        item_target = [list(b) for b in zip(*item_target)]
-        item_loss = self.supervised_loss(predictions.item, item_target)
-
-        scalar_target = [label[4] for label in labels]
-        scalar_target = [list(b) for b in zip(*scalar_target)]
-        scalar_loss = self.supervised_loss(predictions.scalar, scalar_target)
-
-        # print("Losses tier {} final tier {} champion {}".format(tier_loss, final_tier_loss, champ_loss))
+        # champion_target = [label[1] for label in labels]
+        # champion_target = [list(b) for b in zip(*champion_target)]
+        # champ_loss = self.supervised_loss(predictions.champ, champion_target)
+        #
+        # shop_target = [label[2] for label in labels]
+        # shop_target = [list(b) for b in zip(*shop_target)]
+        # shop_loss = self.supervised_loss(predictions.shop, shop_target)
+        #
+        # item_target = [label[3] for label in labels]
+        # item_target = [list(b) for b in zip(*item_target)]
+        # item_loss = self.supervised_loss(predictions.item, item_target)
+        #
+        # scalar_target = [label[4] for label in labels]
+        # scalar_target = [list(b) for b in zip(*scalar_target)]
+        # scalar_loss = self.supervised_loss(predictions.scalar, scalar_target)
 
         l2_loss = self.l2_regularization()
         self.outputs.l2_loss.append(l2_loss)
 
         self.outputs.comp_loss.append(comp_loss)
-        self.outputs.champ_loss.append(champ_loss)
-        self.outputs.shop_loss.append(shop_loss)
-        self.outputs.item_loss.append(item_loss)
-        self.outputs.scalar_loss.append(scalar_loss)
+        # self.outputs.champ_loss.append(champ_loss)
+        # self.outputs.shop_loss.append(shop_loss)
+        # self.outputs.item_loss.append(item_loss)
+        # self.outputs.scalar_loss.append(scalar_loss)
 
         tier_loss = torch.stack(self.outputs.comp_loss, -1)
-        champ_loss = torch.stack(self.outputs.champ_loss, -1)
-        shop_loss = torch.stack(self.outputs.shop_loss, -1)
-        item_loss = torch.stack(self.outputs.item_loss, -1)
-        scalar_loss = torch.stack(self.outputs.scalar_loss, -1)
+        # champ_loss = torch.stack(self.outputs.champ_loss, -1)
+        # shop_loss = torch.stack(self.outputs.shop_loss, -1)
+        # item_loss = torch.stack(self.outputs.item_loss, -1)
+        # scalar_loss = torch.stack(self.outputs.scalar_loss, -1)
 
-        self.loss = torch.sum(tier_loss + champ_loss + shop_loss + item_loss + scalar_loss, -1).to(config.DEVICE)
+        # loss = (
+        #         (tier_loss.mean() / torch.exp(self.harmony_comp))
+        #         + (champ_loss.mean() / torch.exp(self.harmony_champ))
+        #         + (shop_loss.mean() / torch.exp(self.harmony_shop))
+        #         + (item_loss.mean() / torch.exp(self.harmony_item))
+        #         + (scalar_loss.mean() / torch.exp(self.harmony_scalar))
+        # )
+        # weighted_total_loss = loss.mean()
+        # weighted_total_loss += (
+        #         torch.log(torch.exp(self.harmony_comp) + 1) +
+        #         torch.log(torch.exp(self.harmony_champ) + 1) +
+        #         torch.log(torch.exp(self.harmony_shop) + 1) +
+        #         torch.log(torch.exp(self.harmony_item) + 1) +
+        #         torch.log(torch.exp(self.harmony_scalar) + 1)
+        # )
+        # weighted_total_loss = tier_loss.mean() + champ_loss.mean() + shop_loss.mean() + item_loss.mean() + scalar_loss.mean()
+        weighted_total_loss = tier_loss.mean()
+        weighted_total_loss = weighted_total_loss.mean()
+        weighted_total_loss += l2_loss
 
-        self.loss = self.loss.mean()
-        self.loss += l2_loss
-
-    def backpropagate(self):
-        self.loss.backward()
+        weighted_total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
         self.optimizer.step()
         self.optimizer.zero_grad()
+        self.outputs.loss.append(weighted_total_loss)
 
     def write_summaries(self, train_step):
         print(f"tier_loss is {self.outputs.comp_loss}, champ_loss is {self.outputs.champ_loss}, "
               f"shop_loss is {self.outputs.shop_loss}, item_loss is {self.outputs.item_loss}, "
               f"scalar_loss is {self.outputs.scalar_loss}, learning rate {self.optimizer.param_groups[0]['lr']}, "
-              f"total loss is {self.loss} at time step {train_step}")
-        self.summary_writer.add_scalar('losses/total', self.loss, train_step)
-
+              f"total loss is {self.outputs.loss} at time step {train_step}")
+        self.summary_writer.add_scalar(
+            'losses/total', torch.mean(torch.stack(self.outputs.loss)), train_step)
         self.summary_writer.add_scalar(
             'losses/tier_loss', torch.mean(torch.stack(self.outputs.comp_loss)), train_step)
-        self.summary_writer.add_scalar(
-            'losses/champ_loss', torch.mean(torch.stack(self.outputs.champ_loss)), train_step)
-        self.summary_writer.add_scalar(
-            'losses/shop_loss', torch.mean(torch.stack(self.outputs.shop_loss)), train_step)
-        self.summary_writer.add_scalar(
-            'losses/item_loss', torch.mean(torch.stack(self.outputs.item_loss)), train_step)
-        self.summary_writer.add_scalar(
-            'losses/scalar_loss', torch.mean(torch.stack(self.outputs.scalar_loss)), train_step)
+        # self.summary_writer.add_scalar(
+        #     'losses/champ_loss', torch.mean(torch.stack(self.outputs.champ_loss)), train_step)
+        # self.summary_writer.add_scalar(
+        #     'losses/shop_loss', torch.mean(torch.stack(self.outputs.shop_loss)), train_step)
+        # self.summary_writer.add_scalar(
+        #     'losses/item_loss', torch.mean(torch.stack(self.outputs.item_loss)), train_step)
+        # self.summary_writer.add_scalar(
+        #     'losses/scalar_loss', torch.mean(torch.stack(self.outputs.scalar_loss)), train_step)
         self.summary_writer.add_scalar(
             'losses/l2', torch.mean(torch.stack(self.outputs.l2_loss)), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_comp', self.harmony_comp.item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_comp_exp_recip', (1 / torch.exp(self.harmony_comp)).item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_champ', self.harmony_champ.item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_champ_exp_recip', (1 / torch.exp(self.harmony_champ)).item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_shop', self.harmony_shop.item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_shop_exp_recip', (1 / torch.exp(self.harmony_shop)).item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_item', self.harmony_item.item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_item_exp_recip', (1 / torch.exp(self.harmony_item)).item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_scalar', self.harmony_scalar.item(), train_step)
+        # self.summary_writer.add_scalar(
+        #     'weights/harmony_scalar_exp_recip', (1 / torch.exp(self.harmony_scalar)).item(), train_step)
+        self.summary_writer.add_scalar(
+            'training_values/learning_rate', self.optimizer.param_groups[0]['lr'], train_step)
 
         self.summary_writer.flush()
 
-        if train_step % 10 == 0:
-            self.network.tft_save_model(train_step)
+        if train_step % config.CHECKPOINT_STEPS == 0:
+            self.network.tft_save_model(train_step, self.optimizer)
 
     def supervised_loss(self, prediction, target):
         loss = 0.0
-        for pred_dim, target_dim in zip(prediction, target):
-            loss += torch.nn.functional.cross_entropy(pred_dim, torch.tensor(np.asarray(target_dim, dtype=np.int8),
-                                                      dtype=torch.float32).to(config.DEVICE))
+        # for pred_dim, target_dim in zip(prediction, target):
+        #     tensor_target = torch.tensor(np.asarray(target_dim, dtype=np.int8),
+        #                                               dtype=torch.float32).to(config.DEVICE)
+        #     loss += torch.nn.functional.cross_entropy(pred_dim, tensor_target)
+        tensor_target = torch.tensor(np.asarray(target, dtype=np.int8),
+                                                      dtype=torch.float32).to(config.DEVICE)
+        loss += torch.nn.functional.cross_entropy(prediction, tensor_target)
         return loss
 
     def l2_regularization(self):

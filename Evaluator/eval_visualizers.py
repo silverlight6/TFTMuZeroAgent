@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import ray
 from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import Tk, Canvas, Frame, Scrollbar
 
 
 def show_confustion_matrix(cm):
@@ -14,6 +16,53 @@ def show_confustion_matrix(cm):
     plt.ylabel('Actuals', fontsize=16)
     plt.title('Confusion Matrix', fontsize=16)
     plt.show()
+
+
+def display_confusion_matrices(confusion_matrices, titles):
+    """
+    Display confusion matrices horizontally with a scrollbar using Tkinter.
+    """
+    root = Tk()
+    root.title("Confusion Matrices Viewer")
+
+    # Set the initial size of the window
+    root.geometry("1200x500")  # Width x Height in pixels (adjust as needed
+
+    # Function to handle window closure
+    def on_close():
+        root.destroy()  # Close the Tkinter window
+        root.quit()  # Exit the event loop
+
+    # Bind the custom close function to the window's close button
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    canvas = Canvas(root)
+    scroll_x = Scrollbar(root, orient="horizontal", command=canvas.xview)
+    frame = Frame(canvas)
+
+    canvas.create_window((0, 0), window=frame, anchor="nw")
+    canvas.configure(xscrollcommand=scroll_x.set)
+
+    # Generate each confusion matrix plot and add it to the frame
+    for i, cm in enumerate(confusion_matrices):
+        fig, ax = plt.subplots(figsize=(5, 5))
+        ax.matshow(cm, cmap=plt.cm.Blues, alpha=0.3)
+        for row in range(cm.shape[0]):
+            for col in range(cm.shape[1]):
+                ax.text(x=col, y=row, s=cm[row, col], va='center', ha='center', size='xx-large')
+        ax.set_xlabel("Predictions", fontsize=12)
+        ax.set_ylabel("Actuals", fontsize=12)
+        ax.set_title(f"Confusion Matrix for {titles[i]}", fontsize=14)
+
+        canvas_fig = FigureCanvasTkAgg(fig, master=frame)
+        canvas_fig.get_tk_widget().grid(row=0, column=i)
+
+    frame.update_idletasks()
+    canvas.config(scrollregion=canvas.bbox("all"))
+    canvas.pack(fill="both", expand=True, side="top")
+    scroll_x.pack(fill="x", side="bottom")
+
+    root.mainloop()
 
 @ray.remote(num_gpus=0.01, num_cpus=0.5)
 class GameResultPlotter:

@@ -26,7 +26,7 @@ test_multiple = {'blue': 0, 'red': 0, 'bugged out': 0, 'draw': 0}
 
 # I am going to have to add cost information but that should be about it.
 # When updating to the new patch,
-# there are going to be different edge cases but the core of the game should remain the same.
+# there are going to be different edge cases but the CplusplusTrees of the game should remain the same.
 
 
 class champion:

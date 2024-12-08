@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import config
-from Models.MCTS_Util import split_sample_decide
+from Core.MCTS_Trees.MCTS_Util import split_sample_decide
 
 class ReplayBuffer:
     def __init__(self):

@@ -1,12 +1,10 @@
-import copy
 import config
 from typing import List, Any, Union
-import time
 
 import numpy as np
 import torch
-import core.gumbelctree.gmz_tree as tree_gumbel_muzero
-from Models.MCTS_Util import create_default_mapping
+import Core.CplusplusTrees.gumbelctree.gmz_tree as tree_gumbel_muzero
+from Core.MCTS_Trees.MCTS_Util import create_default_mapping
 
 
 class GumbelMuZeroMCTSCtree(object):
@@ -66,7 +64,7 @@ class GumbelMuZeroMCTSCtree(object):
             - to_play (:obj:`list`): the to_play list used in self-play-mode board games.
 
         .. note::
-            The core functions ``batch_traverse`` and ``batch_backpropagate`` are implemented in C++.
+            The CplusplusTrees functions ``batch_traverse`` and ``batch_backpropagate`` are implemented in C++.
         """
         with torch.no_grad():
             model.eval()
@@ -124,9 +122,12 @@ class GumbelMuZeroMCTSCtree(object):
                 network_output = model.recurrent_inference(latent_states, last_actions)
 
                 # TODO: Mask out impossible actions with default mask here
-                default_mask = self.default_mask.repeat(batch_size, 1)
-                inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
-                policy_logits = network_output["policy_logits"] + inf_mask
+                if self.model_config.DEFAULT_MASK:
+                    default_mask = self.default_mask.repeat(batch_size, 1)
+                    inf_mask = torch.clamp(torch.log(default_mask), min=-3.4e38)
+                    policy_logits = network_output["policy_logits"] + inf_mask
+                else:
+                    policy_logits = network_output["policy_logits"]
                 latent_state_batch_in_search_path.append(network_output["hidden_state"].cpu().tolist())
                 # tolist() is to be compatible with cpp datatype.
                 reward_batch = network_output["reward"].reshape(-1).tolist()

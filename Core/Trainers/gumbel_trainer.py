@@ -1,4 +1,3 @@
-import copy
 import time
 import config
 import collections
@@ -86,7 +85,7 @@ class Trainer(object):
 
         reward_loss = torch.zeros(self.batch_size, device=config.DEVICE)
 
-        for step_k in range(5):  # Number of unroll steps
+        for step_k in range(config.UNROLL_STEPS):  # Number of unroll steps
             # unroll with the dynamics function: predict the next ``latent_state``, ``reward``,
             # given current ``latent_state`` and ``action``.
             # And then predict policy_logits and value with the prediction function.
@@ -108,7 +107,7 @@ class Trainer(object):
                                 torch.log_softmax(output["policy_logits"], dim=-1)).sum(-1)
 
         # ==============================================================
-        # the core learn model update step.
+        # the CplusplusTrees learn model update step.
         # ==============================================================
         # weighted loss with masks (some invalid states which are out of trajectory.)
         # policy_loss_weight --> 1, value_loss_weight --> 0.25, reward_loss-weight --> 1
@@ -128,7 +127,7 @@ class Trainer(object):
         self.lr_scheduler.step()
 
         # ==============================================================
-        # the core target model update step.
+        # the CplusplusTrees target model update step.
         # ==============================================================
         return {
             'cur_lr': self.optimizer.param_groups[0]['lr'],
@@ -212,10 +211,10 @@ class Trainer(object):
             'episode_info/value_diff',
             torch.max(torch.max(summaries["policy"], 1).values -
                       torch.min(summaries["policy"], 1).values), train_step)
-        self.summary_writer.add_image('policy_scale', torch.sum(torch.reshape(torch.tensor(
-            summaries["target_policy"]).to(config.DEVICE), (-1, 55, 38)), dim=0)[None, :, :], global_step=train_step)
-        self.summary_writer.add_image('policy_preference', torch.mul(torch.mean(torch.reshape(
-            summaries["predicted_policy"], (-1, 55, 38)), dim=0), 100)[None, :, :], global_step=train_step)
+        # self.summary_writer.add_image('policy_scale', torch.sum(torch.reshape(torch.tensor(
+        #     summaries["target_policy"]).to(config.DEVICE), (-1, 55, 38)), dim=0)[None, :, :], global_step=train_step)
+        # self.summary_writer.add_image('policy_preference', torch.mul(torch.mean(torch.reshape(
+        #     summaries["predicted_policy"], (-1, 55, 38)), dim=0), 100)[None, :, :], global_step=train_step)
 
         self.summary_writer.flush()
 

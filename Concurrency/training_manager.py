@@ -61,7 +61,7 @@ class TrainingManager:
 
 """
 Description - 
-    Wrapper object for the core training methods. Initialize the global buffer and the TrainingLoop here.
+    Wrapper object for the CplusplusTrees training methods. Initialize the global buffer and the TrainingLoop here.
     Takes num_gpus = 1 because the training loop requires some gpu usage to run the trainer. 
 Inputs      - 
     global_agent

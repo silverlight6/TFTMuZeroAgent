@@ -2,8 +2,8 @@ import config
 import torch
 import torch.nn
 
-from Core.TorchComponents.representation_models import RepPositionEmbeddingNetwork
-from Core.TorchComponents.torch_layers import MultiMlp
+from Core.TorchComponents.representation_models import RepEmbeddingNetwork
+from Core.TorchComponents.torch_layers import MultiMlp, AlternateFeatureEncoder
 from Core.TorchModels.abstract_model import AbstractNetwork
 
 
@@ -12,7 +12,7 @@ class RepresentationTesting(AbstractNetwork):
         super().__init__()
         self.full_support_size = model_config.ENCODER_NUM_STEPS
 
-        self.representation_network = RepPositionEmbeddingNetwork(model_config)
+        self.representation_network = RepEmbeddingNetwork(model_config)
         # self.representation_network = GeminiRepresentation(model_config)
 
         self.prediction_network = PredNetwork(model_config)
@@ -20,9 +20,7 @@ class RepresentationTesting(AbstractNetwork):
         self.model_config = model_config
 
     def representation(self, observation):
-        observation = {"board": torch.from_numpy(observation["board"]).int().to(config.DEVICE),
-                       "traits": torch.from_numpy(observation["traits"]).to(config.DEVICE),
-                       "action_count": torch.from_numpy(observation["action_count"]).int().to(config.DEVICE)}
+        observation = {label: torch.from_numpy(value).to(config.DEVICE) for label, value in observation.items()}
         return self.representation_network(observation)
 
     def prediction(self, encoded_state):
@@ -47,9 +45,11 @@ class RepresentationTesting(AbstractNetwork):
 class PredNetwork(torch.nn.Module):
     def __init__(self, model_config) -> torch.nn.Module:
         super().__init__()
-        self.comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
-                                               [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
-                                               config.TEAM_TIERS_VECTOR)
+        # self.comp_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
+        #                                        [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,
+        #                                        config.TEAM_TIERS_VECTOR)
+        self.comp_predictor_network = AlternateFeatureEncoder(model_config.HIDDEN_STATE_SIZE,
+            [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS, 5, 'cuda')
 
         self.champ_predictor_network = MultiMlp(model_config.HIDDEN_STATE_SIZE,
                                                 [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS,

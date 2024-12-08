@@ -64,16 +64,51 @@ class BattleGenerator:
                                 [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
                                  champion('nunu'), champion('annie')],
                                 [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
-                                 champion('jinx'), champion('vi'), champion('vayne', chosen='duelist')]
+                                 champion('jinx'), champion('vi'), champion('vayne', chosen='duelist')],
+                                [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                                 champion('tahmkench', stars=2), champion('akali'), champion('morgana'),
+                                 champion('lulu'), champion('hecarim')],
+                                [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                                 champion('tahmkench', stars=2), champion('sylas'), champion('morgana'),
+                                 champion('lulu'), champion('nunu'), champion('riven', chosen='dusk')],
+                                [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                                 champion('yone', itemlist=['warmogs_armor', 'shroud_of_stillness']),
+                                 champion('ashe', stars=2), champion('ezreal'), champion('zilean'),
+                                 champion('lulu', stars=2), champion('nunu', stars=2), champion('veigar')],
+                                [champion('lillia', stars=2), champion('lulu', stars=2), champion('janna'),
+                                 champion('ezreal', itemlist=['morellonomicon', 'chalice_of_power']),
+                                 champion('shen', itemlist=['redemption']), champion('azir'),
+                                 champion('morgana', stars=2, itemlist=['redemption']),
+                                 champion('sett', stars=2, itemlist=['sunfire_cape', 'shroud_of_stillness']),
+                                 champion('yone', stars=2, itemlist=['warmogs_armor', 'quicksilver',
+                                                                     'gargoyle_stoneplate'])]
                                 ]
 
         self.set_oppo_composition = [[champion('sylas'), champion('maokai'), champion('diana', stars=2)],
                                      [champion('sylas'), champion('vi'), champion('vayne'),
                                       champion('janna', stars=2)],
                                      [champion('tahmkench', stars=2), champion('vi', stars=2), champion('elise'),
-                                      champion('vayne', stars=2), champion('twistedfate', stars=2)]
+                                      champion('vayne', stars=2), champion('twistedfate', stars=2)],
+                                     [champion('maokai'), champion('nunu'), champion('vi'), champion('sylas'),
+                                      champion('aphelios', stars=2,
+                                               itemlist=['blue_buff', 'last_whisper', 'infinity_edge']),
+                                      champion('sylas', stars=2, itemlist=['morellonomicon'])],
+                                     [champion('annie', chosen='fortune'), champion('shen'), champion('kennen'),
+                                      champion('zed', stars=2, itemlist=['youmuus_ghostblade']),
+                                      champion('thresh', stars=2), champion('sejuani', itemlist=['guardian_angel']),
+                                      champion('akali', itemlist=['infinity_edge', 'rabadons_deathcap'])],
+                                     [champion('thresh'), champion('kayn', stars=2, itemlist=['thieves_gloves']),
+                                      champion('sejuani', stars=2, itemlist=['zzrot_portal', 'gargoyle_stoneplate']),
+                                      champion('aatrox', stars=2), champion('wukong', stars=2), champion('lulu'),
+                                      champion('lillia', itemlist=['rapid_firecannon']),
+                                      champion('ahri', stars=2, itemlist=['morellonomicon', 'spear_of_shojin'])],
+                                     [champion('lux', stars=2), champion('ezreal'), champion('leesin'),
+                                      champion('maokai', stars=2, itemlist=['shroud_of_stillness']),
+                                      champion('jax', stars=2), champion('nunu', stars=2, itemlist=['frozen_heart']),
+                                      champion('shen', itemlist=['chalice_of_power', 'locket_of_the_iron_solari']),
+                                      champion('ashe', itemlist=['last_whisper', 'giant_slayer']),
+                                      champion('warwick', stars=3)]
                                      ]
-
 
     """
     Description - Generates random game state to use for battles.
@@ -152,29 +187,7 @@ class BattleGenerator:
                     player.add_to_bench(champion(list_of_champs[i], stars=3))
                 else:
                     player.add_to_bench(champion(list_of_champs[i]))
-            _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
-            if self.generator_config["stationary"]:
-                coord = self.stationary_coords[i]
-            else:
-                coord = np.random.randint(0, 28)
-            coord_x, coord_y = coord_to_x_y(coord)
-            if bench_mask[0][coord]:
-                player.move_bench_to_board(0, coord_x, coord_y)
-            else:
-                move_failure = 0
-                while not bench_mask[0][coord]:
-                    coord = np.random.randint(0, 28)
-                    coord_x, coord_y = coord_to_x_y(coord)
-                    if bench_mask[0][coord]:
-                        player.move_bench_to_board(0, coord_x, coord_y)
-                    else:
-                        move_failure += 1
-                        if move_failure > 10:
-                            _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
-                            print(f"crisis (x, y) -> {coord_x, coord_y} with unit {player.bench[0]}")
-                            print(f"full bench {player.bench}")
-                            print(f"player level {player.level}")
-                            break
+            self.move_bench_to_board(player, i)
 
     def add_items_to_champions(self, player, action_mask, item_count):
         move_failures = 0
@@ -221,7 +234,7 @@ class BattleGenerator:
             if i > 10:
                 print(f"ADD_CHAMPIONS_TO_BENCH has an issue {i}")
 
-    def generate_set_battle(self, level=3, set_position=True):
+    def generate_set_battle(self, level=3):
         base_pool = pool()
         player_list = [Player(base_pool, player_num) for player_num in range(2)]
 
@@ -236,37 +249,36 @@ class BattleGenerator:
                     player.add_to_bench(player_team[i])
                 else:
                     player.add_to_bench(oppo_team[i])
-                # Start with this, change it later.
-                # if set_position:
-                #     coord = self.stationary_coords[i]
-                # else:
-                #     coord = np.random.randint(0, 28)
-                coord = self.stationary_coords[i]
-                coord_x, coord_y = coord_to_x_y(coord)
-                # TODO: Turn the next few lines into a method of it's own so I don't have to copy and paste.
-                action_mask = ActionToken(player)
-                _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
-                if bench_mask[0][coord]:
-                    player.move_bench_to_board(0, coord_x, coord_y)
-                else:
-                    move_failure = 0
-                    while not bench_mask[0][coord]:
-                        coord = np.random.randint(0, 28)
-                        coord_x, coord_y = coord_to_x_y(coord)
-                        if bench_mask[0][coord]:
-                            player.move_bench_to_board(0, coord_x, coord_y)
-                        else:
-                            move_failure += 1
-                            if move_failure > 10:
-                                _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
-                                print(f"crisis (x, y) -> {coord_x, coord_y} with unit {player.bench[0]}")
-                                print(f"full bench {player.bench}")
-                                print(f"player level {player.level}")
-                                break
+                self.move_bench_to_board(player, i)
 
         return [player_list[0], player_list[1], {f"player_{player.player_num}": player for player in player_list}]
 
-
+    def move_bench_to_board(self, player, unit_number=0):
+        if self.generator_config["stationary"]:
+            coord = self.stationary_coords[unit_number]
+        else:
+            coord = np.random.randint(0, 28)
+        coord_x, coord_y = coord_to_x_y(coord)
+        # TODO: Turn the next few lines into a method of it's own so I don't have to copy and paste.
+        action_mask = ActionToken(player)
+        _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
+        if bench_mask[0][coord]:
+            player.move_bench_to_board(0, coord_x, coord_y)
+        else:
+            move_failure = 0
+            while not bench_mask[0][coord]:
+                coord = np.random.randint(0, 28)
+                coord_x, coord_y = coord_to_x_y(coord)
+                if bench_mask[0][coord]:
+                    player.move_bench_to_board(0, coord_x, coord_y)
+                else:
+                    move_failure += 1
+                    if move_failure > 10:
+                        _, bench_mask = action_mask.create_move_and_sell_action_mask(player)
+                        print(f"crisis (x, y) -> {coord_x, coord_y} with unit {player.bench[0]}")
+                        print(f"full bench {player.bench}")
+                        print(f"player level {player.level}")
+                        break
 
 def sample_with_limit(units, x, seed=None):
     """Samples x units from the list, but returns the whole list if x is larger.

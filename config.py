@@ -34,7 +34,7 @@ def get_num_cpus(percentage=0.8):
     Returns:
         int: The calculated number of cores to use, or the value from NUM_CPUS environment variable if set.
     """
-    max_cpus = cpu_count() or 1  # Use at least 1 core if os.cpu_count() returns None
+    max_cpus = cpu_count() or 1  # Use at least 1 CplusplusTrees if os.cpu_count() returns None
     default_cores = max(1, int(max_cpus * percentage))  # Calculate default, ensure at least 1
     
     # Fetch NUM_CPUS from env, falling back to calculated default_cores if not specified
@@ -68,6 +68,7 @@ SINGLE_PLAYER = get_bool_env("SINGLE_PLAYER")
 MUZERO_POSITION = get_bool_env("MUZERO_POSITION")
 EVALUATE = get_bool_env("EVALUATE")
 PRESET_BATTLE = get_bool_env("PRESET_BATTLE")
+ATARI = get_bool_env("ATARI")
 
 PATH = path.dirname(path.realpath(__file__))
 TRAIN = get_bool_env("TRAIN", "true")  # False would be evaluation mode
@@ -85,7 +86,7 @@ NUM_ENVS = get_int_env("NUM_ENVS", 1)
 NUM_PLAYERS = get_int_env("NUM_PLAYERS", 8)
 AUTO_BATTLER_PERCENTAGE = get_int_env("AUTO_BATTLER_PERCENTAGE", 0)
 DEBUG = get_bool_env("DEBUG", "True")
-CHECKPOINT_STEPS = get_int_env("CHECKPOINT_STEPS", 25)  # normally 100
+CHECKPOINT_STEPS = get_int_env("CHECKPOINT_STEPS", 100)  # normally 100
 STARTING_EPISODE = get_int_env("STARTING_EPISODE", 0)
 
 # Champion and Item Dimensions
@@ -132,7 +133,7 @@ UNROLL_STEPS = get_int_env("UNROLL_STEPS", 5)
 BATCH_SIZE = get_int_env("BATCH_SIZE", 1024)
 INIT_LEARNING_RATE = get_float_env("INIT_LEARNING_RATE", 0.01)  # Normally 0.01
 LR_DECAY_FUNCTION = get_float_env("LR_DECAY_FUNCTION", 0.1)
-WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-4)  # Sometimes set to 1e-5
+WEIGHT_DECAY = get_float_env("WEIGHT_DECAY", 1e-5)  # Sometimes set to 1e-5
 DECAY_STEPS = get_int_env("DECAY_STEPS", 100)
 REWARD_LOSS_SCALING = get_float_env("REWARD_LOSS_SCALING", 1)
 POLICY_LOSS_SCALING = get_float_env("POLICY_LOSS_SCALING", 1)
@@ -156,7 +157,6 @@ OTHER_PLAYER_SCALAR_SIZE = 8
 
 # Observation labels and dimensions
 OBSERVATION_LABELS = ["shop", "board", "bench", "states", "game_comp", "other_players"]
-POLICY_HEAD_SIZE = 2090
 NEEDS_2ND_DIM = [1, 2, 3, 4]
 
 # Reward boundaries
@@ -213,6 +213,10 @@ class ModelConfig:
     # Size of the shop embeddings
     SHOP_EMBEDDING_DIM = get_int_env("SHOP_EMBEDDING_DIM", 64)
     NUM_CONSIDERED_ACTIONS = get_int_env("NUM_CONSIDERED_ACTIONS", 8)
+    DEFAULT_MASK = get_bool_env("DEFAULT_MASK", "True")
+
+    POLICY_HEAD_SIZE = get_int_env("POLICY_HEAD_SIZE", 2090)
+
 
 # Commenting in the code for PPO Config.
 class PPOConfig:

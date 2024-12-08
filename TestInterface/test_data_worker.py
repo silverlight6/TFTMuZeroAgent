@@ -2,13 +2,13 @@ import config
 import copy
 import numpy as np
 import time
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Simulator import utils
-from Models.MCTS_torch import MCTS
-from Models.MCTS_default_torch import Default_MCTS
-from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.PositionModels.MCTS_position_torch import MCTS as Position_MCTS
+from Core.MCTS_Trees.MCTS_torch import MCTS
+from Core.MCTS_Trees.MCTS_default_torch import Default_MCTS
+from Core.TorchModels.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Core.TorchModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Core.MCTS_Trees.MCTS_position_torch import MCTS as Position_MCTS
 
 class DataWorker(object):
     def __init__(self, rank, model_config):
@@ -97,10 +97,10 @@ class DataWorker(object):
                             current_comp[key] = info[key]["player"].get_tier_labels()
                             current_champs[key] = info[key]["player"].get_champion_labels()
                         # Store the information in a buffer to train on later.
-                        buffers.store_replay_buffer(key, self.get_obs_idx(player_observation[0], i),
-                                                    storage_actions[i], reward[key], policy[i],
-                                                    string_samples[i], root_values[i], current_comp[key],
-                                                    current_champs[key])
+                        buffers.store_replay_buffer(key, self.get_obs_idx(player_observation[0], i), storage_actions[i],
+                                                    reward[key], policy[i], root_values[i],
+                                                    string_samples=string_samples[i], team_tiers=current_comp[key],
+                                                    team_champions=current_champs[key])
 
             offset = 0
             for i, [key, terminate] in enumerate(terminated.items()):
@@ -150,8 +150,8 @@ class DataWorker(object):
                     # store the action for MuZero
                     for i, key in enumerate(terminated.keys()):
                         # Store the information in a buffer to train on later.
-                        buffers.store_replay_buffer(key, player_observation[0][i], storage_actions[i],
-                                                    reward[key], policy[i], string_samples[i], root_values[i])
+                        buffers.store_replay_buffer(key, player_observation[0][i], storage_actions[i], reward[key],
+                                                    policy[i], root_values[i], string_samples=string_samples[i])
 
                 actions = ["0"] * len(self.default_agent)
                 for i, default_agent in enumerate(self.default_agent):
@@ -216,7 +216,7 @@ class DataWorker(object):
             for i in range(len(terminated)):
                 if not storage_terminated[i]:
                     # Store the information in a buffer to train on later.
-                    buffers.store_gumbel_buffer(f"player_{i}", self.get_position_obs_idx(
+                    buffers.store_replay_buffer(f"player_{i}", self.get_position_obs_idx(
                         player_observation["observations"], alive_i), step_actions[alive_i], reward[alive_i],
                                                        policy[alive_i], root_values[alive_i])
                     if terminated[i]:
@@ -240,7 +240,7 @@ class DataWorker(object):
             # Set up the observation for the next action
             player_observation = env.list_to_dict([next_observation])
 
-        buffers.store_global_position_buffer()
+        buffers.store_global_buffer()
 
         return sum(rewards) / len(rewards)
 

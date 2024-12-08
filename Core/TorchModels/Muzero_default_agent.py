@@ -1,8 +1,8 @@
 import torch
 import config
-import Models.MCTS_Util as utils
-from Models.abstract_model import AbstractNetwork
-from Models.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer
+import Core.MCTS_Trees.MCTS_Util as utils
+from Core.TorchModels.abstract_model import AbstractNetwork
+from Core.TorchComponents.torch_layers import mlp, MultiMlp, Normalize, MemoryLayer
 
 
 class MuZeroDefaultNetwork(AbstractNetwork):

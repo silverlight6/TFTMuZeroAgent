@@ -1,4 +1,3 @@
-import abc
 import numpy as np
 import config
 import time
@@ -6,7 +5,6 @@ import time
 from Simulator.observation.util import Util
 from Simulator.observation.normalization import Normalizer, safe_normalize
 from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
-from Simulator.config import MAX_CHAMPION_IN_SET, MAX_ITEMS_IN_SET
 from Simulator.item_stats import items
 from Simulator.stats import COST
 from Simulator.origin_class_stats import tiers, origin_class
@@ -449,9 +447,6 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
         board_vector = np.zeros((28, self.champion_vector_length), dtype=np.float32)
 
-        player.team_champion_labels[:, 0] = 1
-        player.team_champion_labels[:, 1] = 0
-
         for x in range(len(player.board)):
             for y in range(len(player.board[x])):
                 if champion := player.board[x][y]:
@@ -459,12 +454,6 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
                     loc = x_y_to_1d_coord(x, y)
                     board_vector[loc] = champion_vector
-
-                    c_index = list(COST.keys()).index(player.board[x][y].name)
-                    # create the label for the champion to help with training
-                    if c_index < len(config.CHAMPION_ACTION_DIM):
-                        player.team_champion_labels[c_index - 1, 0] = 0
-                        player.team_champion_labels[c_index - 1, 1] = 1
 
         return board_vector
 

@@ -1,7 +1,7 @@
 import config
 import torch
 import numpy as np
-import CplusplusTrees.ctree.cytree as tree
+import Core.CplusplusTrees.ctree.cytree as tree
 from Core.MCTS_Trees.MCTS_torch import MCTS
 
 class Default_MCTS(MCTS):

@@ -2,7 +2,7 @@ import torch
 import os
 
 import config
-from Models.MCTS_Util import dict_to_cpu
+from Core.MCTS_Trees.MCTS_Util import dict_to_cpu
 
 class AbstractNetwork(torch.nn.Module):
     def __init__(self):

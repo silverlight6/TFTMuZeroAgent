@@ -5,13 +5,13 @@ import numpy as np
 import config
 
 from Simulator import utils
-from Models.MCTS_torch import MCTS
-from Models.MCTS_default_torch import Default_MCTS
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
-from Models.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
-from Models.PositionModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
-from Models.PositionModels.MCTS_position_torch import MCTS as Position_MCTS
-from Models.GumbelModels.gumbel_MCTS import GumbelMuZero
+from Core.MCTS_Trees.MCTS_torch import MCTS
+from Core.MCTS_Trees.MCTS_default_torch import Default_MCTS
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.TorchModels.Muzero_default_agent import MuZeroDefaultNetwork as DefaultNetwork
+from Core.TorchModels.MuZero_position_torch_agent import MuZero_Position_Network as PositionNetwork
+from Core.MCTS_Trees.MCTS_position_torch import MCTS as Position_MCTS
+from Core.MCTS_Trees.gumbel_MCTS import GumbelMuZero
 from Simulator.tft_item_simulator import TFT_Item_Simulator
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from config import GPU_SIZE_PER_WORKER

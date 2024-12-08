@@ -1,8 +1,8 @@
-import torch
 import config
-import torch.nn as nn
 import numpy as np
-import time
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 def mlp(
         input_size,
@@ -50,24 +50,36 @@ class MultiMlp(nn.Module):
                  layer_sizes,
                  output_sizes,
                  output_activation=nn.Identity,
-                 activation=nn.LeakyReLU):
+                 activation=nn.LeakyReLU,
+                 dropout_rate=0.1):
         super().__init__()
+
+        # Validate activation functions
+        assert callable(activation), "activation must be callable"
+        assert callable(output_activation), "output_activation must be callable"
 
         sizes = [input_size] + layer_sizes
 
         layers = []
         for i in range(len(sizes) - 1):
-            layers += [torch.nn.Linear(sizes[i], sizes[i + 1]), activation()]
+            layers += [
+                nn.Linear(sizes[i], sizes[i + 1]),
+                nn.LayerNorm(sizes[i + 1]),  # Add LayerNorm
+                activation(),
+                nn.Dropout(dropout_rate)  # Add Dropout
+            ]
 
         # Encodes the observation to a shared hidden state between all heads
-        self.encoding_layer = nn.Sequential(*layers).to(config.DEVICE)
+        self.encoding_layer = nn.Sequential(*layers)
 
         self.output_heads = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(sizes[-1], size),
                 output_activation(),
             ) for size in output_sizes
-        ]).to(config.DEVICE)
+        ])
+
+        self.to(config.DEVICE)
 
     def forward(self, x):
         # Encode the hidden state
@@ -246,3 +258,44 @@ class AlternateFeatureEncoder(torch.nn.Module):
     def forward(self, x):
         # x = x.to(self.device)  # Ensure the input is on the correct device
         return self.network(x)
+
+
+class ResidualCNNBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        padding: int | str = "same",
+        device: str = "cpu",
+    ):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=padding,
+            device=device,
+        )
+        self.ln1 = nn.InstanceNorm2d(out_channels, device=device)
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=padding,
+            device=device,
+        )
+        self.ln2 = nn.InstanceNorm2d(out_channels, device=device)
+
+    def forward(self, x: torch.Tensor):
+        y = self.conv1(x)
+        y = self.ln1(x)
+        y = F.relu(y)
+        y = self.conv2(y)
+        y = self.ln2(x)
+        y = y + x
+        y = F.relu(y)
+        return y

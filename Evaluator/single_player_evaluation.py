@@ -2,8 +2,8 @@ import config
 import numpy as np
 import ray
 import time
-from Models.GumbelModels.gumbel_MCTS import GumbelMuZero
-from Models.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
+from Core.MCTS_Trees.gumbel_MCTS import GumbelMuZero
+from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 
 
 @ray.remote(num_gpus=config.GPU_SIZE_PER_WORKER)

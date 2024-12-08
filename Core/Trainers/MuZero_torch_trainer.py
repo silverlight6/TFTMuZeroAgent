@@ -4,7 +4,7 @@ import collections
 import torch
 import torch.nn.functional as F
 import numpy as np
-from Models.MCTS_Util import split_batch, sample_set_to_idx, create_target_and_mask
+from Core.MCTS_Trees.MCTS_Util import split_batch, sample_set_to_idx, create_target_and_mask
 
 Prediction = collections.namedtuple(
     'Prediction',
