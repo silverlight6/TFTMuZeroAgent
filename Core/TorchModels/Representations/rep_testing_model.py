@@ -1,19 +1,18 @@
+import config
 import torch
 import torch.nn
 
-import config
+from Core.TorchComponents.representation_models import RepPositionEmbeddingNetwork
+from Core.TorchComponents.torch_layers import MultiMlp
+from Core.TorchModels.abstract_model import AbstractNetwork
 
-from Models.abstract_model import AbstractNetwork
-from Models.Representations.basic_token_rep_model import BasicTokenRepModel as RepNetwork
-from Models.torch_layers import MultiMlp
 
 class RepresentationTesting(AbstractNetwork):
     def __init__(self, model_config):
         super().__init__()
         self.full_support_size = model_config.ENCODER_NUM_STEPS
 
-        self.representation_network = RepNetwork(model_config)
-
+        self.representation_network = RepPositionEmbeddingNetwork(model_config)
         # self.representation_network = GeminiRepresentation(model_config)
 
         self.prediction_network = PredNetwork(model_config)
@@ -22,7 +21,8 @@ class RepresentationTesting(AbstractNetwork):
 
     def representation(self, observation):
         observation = {"board": torch.from_numpy(observation["board"]).int().to(config.DEVICE),
-                       "traits": torch.from_numpy(observation["traits"]).to(config.DEVICE)}
+                       "traits": torch.from_numpy(observation["traits"]).to(config.DEVICE),
+                       "action_count": torch.from_numpy(observation["action_count"]).int().to(config.DEVICE)}
         return self.representation_network(observation)
 
     def prediction(self, encoded_state):

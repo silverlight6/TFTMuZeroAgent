@@ -1,4 +1,5 @@
 import config
+import time
 from typing import List, Dict, Tuple
 import numpy as np
 import torch
@@ -39,7 +40,8 @@ class GumbelMuZero:
         """
         self._collect_model.eval()
         self._collect_mcts_temperature = temperature
-        batch_size = data["observations"]["shop"].shape[0]
+        # batch_size = data["observations"]["shop"].shape[0]
+        batch_size = data["action_mask"].shape[0]
         ready_env_id = np.arange(batch_size)
 
         with torch.no_grad():
@@ -60,7 +62,9 @@ class GumbelMuZero:
                                     ).astype(np.float32).tolist() for j in range(batch_size)
             ]
             roots = MCTSCtree.roots(batch_size, legal_actions)
-
+            print(f"noises {noises}, reward {list(reward)}, values {list(pred_values)}, policy_logits {policy_logits}, "
+                  f"to_play {to_play}")
+            time.sleep(2)
             roots.prepare(self.model_config.ROOT_EXPLORATION_FRACTION, noises, list(reward), list(pred_values),
                           policy_logits, to_play)
             self._mcts_collect.search(roots, self._collect_model, latent_state_roots, to_play)

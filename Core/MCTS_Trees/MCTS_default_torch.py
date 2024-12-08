@@ -1,9 +1,8 @@
 import config
 import torch
-import time
 import numpy as np
-import core.ctree.cytree as tree
-from Models.MCTS_torch import MCTS
+import CplusplusTrees.ctree.cytree as tree
+from Core.MCTS_Trees.MCTS_torch import MCTS
 
 class Default_MCTS(MCTS):
     def __init__(self, network, model_config):
