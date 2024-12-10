@@ -208,9 +208,11 @@ class TransformerEncoder(nn.Module):
         super(TransformerEncoder, self).__init__()
 
         self.encoder_layers = nn.ModuleList([
-            nn.TransformerEncoderLayer(d_model, n_heads, d_hidden, dropout, batch_first=True).to(config.DEVICE)
+            nn.TransformerEncoderLayer(d_model, n_heads, d_hidden, dropout, batch_first=True)
             for _ in range(n_layers)
         ])
+
+        self.to(config.DEVICE)
 
     def forward(self, x, src_key_padding_mask=None):
         """

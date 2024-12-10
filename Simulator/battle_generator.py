@@ -30,6 +30,8 @@ base_level_config = {
     "fill_bench": False,
     "test_mode": False,
     "allow_trait_items": False,
+    "sample_one_trait": False,
+    "sample_trait": ''
 }
 
 """
@@ -144,9 +146,10 @@ class BattleGenerator:
                     player.round = np.random.randint(0, 100) % (level * 3)
                 player.exp = np.random.randint(0, player.level_costs[level])
                 player.health = np.random.randint(1, 101)
-            action_mask = ActionToken(player)
-            self.add_champions(player, action_mask, base_pool)
+
+            self.add_champions(player, base_pool)
             # Add these back in later after I see proof of learning
+            action_mask = ActionToken(player)
             self.add_items_to_champions(player, action_mask, item_count)
             self.add_items_to_item_bench(player)
             if self.generator_config["fill_bench"]:
@@ -156,21 +159,32 @@ class BattleGenerator:
         else:
             return [player_list[0], None, None]
 
-    def add_champions(self, player, action_mask, base_pool):
+    def add_champions(self, player, base_pool):
         if not self.sample_from_pool:
             list_of_champs = sample_with_limit(self.list_of_units, player.max_units)
         else:
             list_of_champs = []
         for i in range(player.max_units):
             if self.sample_from_pool:
-                random_champ = base_pool.sample(player, 1, allow_chosen=False)
+                if self.generator_config["sample_one_trait"]:
+                    random_champ = base_pool.trait_sample(player, 1, 'divine',
+                                                          allow_chosen=self.generator_config["chosen"])
+                else:
+                    random_champ = base_pool.sample(player, 1, allow_chosen=self.generator_config["chosen"])
                 if i == 0 and (self.generator_config["azir"] or self.generator_config["kayn"]):
                     if self.generator_config["azir"]:
                         success = player.add_to_bench(champion('azir'))
                     else:
                         success = player.add_to_bench(champion('kayn'))
                 else:
-                    success = player.add_to_bench(champion(random_champ[0]))
+                    if random_champ[0].endswith("_c"):
+                        champion_name = random_champ[0][:-2]
+                        # Chosen champions are defined as `<name>_<trait>_c`
+                        champion_name, chosen_trait = champion_name.split("_")
+                        a_champion = champion(champion_name, chosen=chosen_trait)
+                    else:
+                        a_champion = champion(random_champ[0])
+                    success = player.add_to_bench(a_champion)
                 if not success:
                     print("I was not successful")
                     continue

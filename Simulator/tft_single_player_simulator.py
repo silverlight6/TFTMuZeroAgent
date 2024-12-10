@@ -8,7 +8,7 @@ from Simulator.single_player_game_round import Game_Round
 from Simulator.observation.token.basic_observation import ObservationToken
 from Simulator.player_manager import PlayerManager
 from Simulator.step_function import Step_Function
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 
 
 class TFT_Single_Player_Simulator(gym.Env):

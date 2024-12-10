@@ -202,7 +202,8 @@ def sample_set_to_idx(sample_set):
 def create_target_and_mask(target, idx_set):
     batch_size = config.BATCH_SIZE
 
-    target_filled = np.zeros((batch_size, config.POLICY_HEAD_SIZE), dtype=np.float32)
+    # TODO: If you see this code again, find a way to bring the config into this section of the code
+    target_filled = np.zeros((batch_size, 2070), dtype=np.float32)
 
     # TODO: Find a native numpy function to do this
     for batch_idx, batch in enumerate(idx_set):  # [batch_size, dim]

@@ -9,11 +9,10 @@ from gymnasium.spaces import MultiDiscrete, Dict, Box
 from Simulator import pool
 from Simulator.position_leveling_system import PositionLevelingSystem
 from Simulator.game_round import Game_Round, log_to_file, log_to_file_start
-from Simulator.observation.vector.observation import ObservationVector
 from Simulator.observation.token.basic_observation import ObservationToken
 from Simulator.player_manager import PlayerManager
 from Simulator.step_function import Step_Function
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from Simulator.utils import coord_to_x_y
 
 

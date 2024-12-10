@@ -296,7 +296,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             player.actions_remaining / 30,
             *opponentIDs,
             # TODO: Action History
-        ])
+        ], dtype=np.float32)
 
     # TODO: Turn health and gold into embeddable numbers.
     def create_public_scalars(self, player):
@@ -327,7 +327,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             player.loss_streak / 20,
             streak_lvl,
             min(player.gold // 10, 5) / 5
-        ])
+        ], dtype=np.float32)
 
     def create_private_scalars(self, player):
         """Create private scalars for a player
@@ -349,7 +349,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             player.actions_remaining / config.ACTIONS_PER_TURN
         ])
 
-        return np.concatenate([return_array, match_history], axis=-1)
+        return np.concatenate([return_array, match_history], axis=-1, dtype=np.float32)
 
     def create_embedding_scalars(self, player):
         # 60 on this patch, probably higher on a future patch
@@ -567,33 +567,43 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             "action_count": action_count_one_hot
         }
 
+    # Currently in single player mode, can adjust back later.
     def observation_to_input(self, observation):
-        other_players = {
-            "board":
-                np.array(
-                    [observation["opponents"][x]["board"] for x in range(config.NUM_PLAYERS - 1)], dtype=np.int16
-                )
-            ,
-            "traits":
-                np.array(
-                    [observation["opponents"][x]["traits"] for x in range(config.NUM_PLAYERS - 1)],
-                )
-            ,
-            "scalars":
-                np.reshape(np.array(
-                    [observation["opponents"][x]["scalars"] for x in range(config.NUM_PLAYERS - 1)]
-                ), (1, -1)),
-        }
+        # other_players = {
+        #     "board":
+        #         np.array(
+        #             [observation["opponents"][x]["board"] for x in range(config.NUM_PLAYERS - 1)], dtype=np.int16
+        #         )
+        #     ,
+        #     "traits":
+        #         np.array(
+        #             [observation["opponents"][x]["traits"] for x in range(config.NUM_PLAYERS - 1)],
+        #         )
+        #     ,
+        #     "scalars":
+        #         np.reshape(np.array(
+        #             [observation["opponents"][x]["scalars"] for x in range(config.NUM_PLAYERS - 1)]
+        #         ), (1, -1)),
+        # }
+        # return {
+        #     "board": np.concatenate([np.expand_dims(observation["player"]["board"], axis=0),
+        #                              other_players["board"]], axis=0).astype(np.int16),
+        #     "traits": np.concatenate([np.expand_dims(observation["player"]["traits"], axis=0),
+        #                               other_players["traits"]], axis=0, dtype=np.float32),
+        #     "bench": np.expand_dims(observation["player"]["bench"], axis=0),
+        #     "items": np.expand_dims(observation["player"]["items"], axis=0),
+        #     "shop": observation["player"]["shop"],
+        #     "scalars": np.concatenate([np.expand_dims(observation["player"]["scalars"], axis=0),
+        #                               other_players["scalars"]], axis=1, dtype=np.float32),
+        #     "emb_scalars": observation["player"]["emb_scalars"],
+        # }
         return {
-            "board": np.concatenate([np.expand_dims(observation["player"]["board"], axis=0),
-                                     other_players["board"]], axis=0).astype(np.int16),
-            "traits": np.concatenate([np.expand_dims(observation["player"]["traits"], axis=0),
-                                      other_players["traits"]], axis=0, dtype=np.float32),
+            "board": np.expand_dims(observation["player"]["board"], axis=0).astype(np.int16),
+            "traits": np.expand_dims(observation["player"]["traits"], axis=0),
             "bench": np.expand_dims(observation["player"]["bench"], axis=0),
             "items": np.expand_dims(observation["player"]["items"], axis=0),
             "shop": observation["player"]["shop"],
-            "scalars": np.concatenate([np.expand_dims(observation["player"]["scalars"], axis=0),
-                                      other_players["scalars"]], axis=1, dtype=np.float32),
+            "scalars": np.expand_dims(observation["player"]["scalars"], axis=0),
             "emb_scalars": observation["player"]["emb_scalars"],
         }
 

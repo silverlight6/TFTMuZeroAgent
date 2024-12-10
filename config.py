@@ -144,13 +144,13 @@ MAX_GRAD_NORM = get_int_env("MAX_GRAD_NORM", 10)  # Sometimes set to 5
 ALLOW_SPILL = get_bool_env("ALLOW_SPILL_REWARD")
 
 # Input dimensions for different parts of the observation space
-SCALAR_INPUT_SIZE = get_int_env("SCALAR_INPUT_SIZE", 76)  # Change this to 20 if doing single player
+SCALAR_INPUT_SIZE = get_int_env("SCALAR_INPUT_SIZE", 76)  # Change this to 20 if doing single player, 25 for vector
 SHOP_INPUT_SIZE = get_int_env("SHOP_INPUT_SIZE", 45)
 BOARD_INPUT_SIZE = 728
 BENCH_INPUT_SIZE = 234
 ITEMS_INPUT_SIZE = 60
 TRAIT_INPUT_SIZE = 102
-OTHER_PLAYER_INPUT_SIZE = 5866
+OTHER_PLAYER_INPUT_SIZE = 838  # Sometimes 5866
 OTHER_PLAYER_POS_INPUT_SIZE = 5810
 OTHER_PLAYER_ITEM_POS_SIZE = 5920
 OTHER_PLAYER_SCALAR_SIZE = 8

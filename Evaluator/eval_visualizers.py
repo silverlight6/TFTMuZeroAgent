@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import os
 import ray
 from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -18,7 +19,7 @@ def show_confustion_matrix(cm):
     plt.show()
 
 
-def display_confusion_matrices(confusion_matrices, titles):
+def display_confusion_matrices(confusion_matrices, titles, save_directory="confusion_matrices"):
     """
     Display confusion matrices horizontally with a scrollbar using Tkinter.
     """
@@ -53,6 +54,11 @@ def display_confusion_matrices(confusion_matrices, titles):
         ax.set_xlabel("Predictions", fontsize=12)
         ax.set_ylabel("Actuals", fontsize=12)
         ax.set_title(f"Confusion Matrix for {titles[i]}", fontsize=14)
+
+        # Save the confusion matrix to the specified directory
+        save_path = os.path.join(save_directory, f"confusion_matrix_{titles[i]}.png")
+        fig.savefig(save_path)
+        print(f"Saved: {save_path}")
 
         canvas_fig = FigureCanvasTkAgg(fig, master=frame)
         canvas_fig.get_tk_widget().grid(row=0, column=i)

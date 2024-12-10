@@ -4,13 +4,11 @@ import numpy as np
 from Simulator.battle_generator import BattleGenerator, base_level_config
 from Simulator import pool
 from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.vector.observation import ObservationVector
-from Simulator.observation.vector.gemini_observation import GeminiObservation
 from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 
 class BatchGenerator:
-    def __init__(self):
+    def __init__(self, tftConfig: TFTConfig):
         # TODO: Find the bug with 5 costs that is causing instability in the add to bench, most likely kayn
         # TODO: Another bug if you add items.. Don't have the energy to find it today.
 
@@ -27,11 +25,13 @@ class BatchGenerator:
             "scenario_info": True,
             "extra_randomness": True,
             "stationary": False,
+            "sample_one_trait": False,
+            # "sample_trait": 'divine'
         }
 
         self.battle_generator = BattleGenerator(self.base_level_config)
         self.observation_class = ObservationToken
-        # self.observation_class = GeminiObservation
+        self.tftConfig = tftConfig
 
     # So this needs to take in a batch size then generate the necessary number of positions
     # It will need to create the observations as the x and the y as the labels
@@ -52,8 +52,7 @@ class BatchGenerator:
             player.exp = np.random.randint(0, player.level_costs[player.level])
             player.health = np.random.randint(1, 101)
 
-            player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj,
-                                           TFTConfig(observation_class=self.observation_class))
+            player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj, self.tftConfig)
             player_manager.reinit_player_set([player] + list(other_players.values()))
 
             initial_observation = player_manager.fetch_observation(f"player_{player.player_num}")
@@ -63,7 +62,6 @@ class BatchGenerator:
 
             input_batch.append(observation)
 
-            # TODO: Unit test these
             comp = player.get_tier_labels()
             champ = player.get_champion_labels()
             shop = player.get_shop_labels()

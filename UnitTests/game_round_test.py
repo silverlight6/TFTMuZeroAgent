@@ -5,7 +5,7 @@ from Simulator.battle_generator import BattleGenerator, base_level_config
 from Simulator.player_manager import PlayerManager
 from Simulator.observation.vector.observation import ObservationVector
 from Simulator.game_round import Game_Round
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 
 
 def test_single_player_combat():

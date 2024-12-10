@@ -1,5 +1,4 @@
 import functools
-from dataclasses import dataclass
 
 from pettingzoo.utils import wrappers, agent_selector
 from pettingzoo.utils.env import AECEnv
@@ -10,24 +9,10 @@ from Simulator.game_round import Game_Round
 
 from Simulator.player_manager import PlayerManager
 from Simulator.step_function import Step_Function
+from Simulator.tft_config import TFTConfig
 from Simulator.ui import GameState
 
-from Simulator.observation.interface import ObservationBase, ActionBase
-from Simulator.observation.token.observation import ObservationToken
-from Simulator.observation.token.action import ActionToken
-
 import time
-
-# TODO: Move this to its own file
-@dataclass
-class TFTConfig:
-    num_players: int = 8
-    max_actions_per_round: int = 15
-    reward_type: str = "winloss"
-    render_mode: str = None  # "json" or None
-    render_path: str = "Games"
-    observation_class: ObservationBase = ObservationToken
-    action_class: ActionBase = ActionToken
 
 def env(config: TFTConfig = TFTConfig()):
     """

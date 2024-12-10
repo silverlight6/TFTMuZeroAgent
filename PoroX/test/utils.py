@@ -6,7 +6,8 @@ import numpy as np
 
 from pettingzoo.utils.env import ActionType, AgentID, ObsType, ParallelEnv
 
-from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_config import TFTConfig
+from Simulator.tft_simulator import parallel_env
 
 from PoroX.modules.observation import PoroXObservation
 

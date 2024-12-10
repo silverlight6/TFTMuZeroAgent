@@ -8,7 +8,7 @@ from Evaluator.single_player_evaluation import SinglePlayerEvaluator
 from Core.MCTS_Trees.MCTS_torch import MCTS
 from Core.TorchModels.MuZero_torch_agent import MuZeroNetwork as TFTNetwork
 from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
 
 

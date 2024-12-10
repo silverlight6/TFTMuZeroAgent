@@ -565,4 +565,7 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
         return self.compute_traits_from_board(self.board_vector)
 
     def observation_to_input(self, observation):
-        ...
+        return observation
+
+    def observation_to_dictionary(self, observation):
+        return observation

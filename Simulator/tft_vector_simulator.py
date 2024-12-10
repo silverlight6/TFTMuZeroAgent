@@ -5,7 +5,7 @@ import numpy as np
 import config
 from Simulator.tft_position_simulator import TFT_Position_Simulator
 from Simulator.tft_single_player_simulator import TFT_Single_Player_Simulator
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ import numpy as np
 from Core.MCTS_Trees import MCTS_Util as utils
 from Simulator.player_manager import PlayerManager
 from Simulator import pool
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from Simulator.battle_generator import base_level_config, BattleGenerator
 from Simulator.utils import coord_to_x_y
 
@@ -23,10 +23,6 @@ def generate_battle(battle_config):
                                    TFTConfig())
     player_manager.reinit_player_set([player] + list(other_players.values()))
     return player_manager, player
-
-def generate_policy_logits():
-    return np.random.uniform(low=-2, high=2, size=(1, config.POLICY_HEAD_SIZE))
-
 
 # Test default mapping to ensure that it includes all possible in game actions
 def default_mapping_test():

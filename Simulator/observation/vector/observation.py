@@ -506,8 +506,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
         tiers_vector = np.concatenate([tiers_vector, chosen_vector], axis=-1)
         return safe_normalize(tiers_vector)
 
-    @staticmethod
-    def observation_to_input(observation):
+    def observation_to_input(self, observation):
         other_players = np.concatenate(
             [
                 np.concatenate(
@@ -518,19 +517,18 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                     ],
                     axis=-1,
                 )
-                for x in range(config.NUM_PLAYERS)
+                for x in range(config.NUM_PLAYERS - 1)
             ],
             axis=0,  # Concatenate opponent data along axis 0
         )
-
         return {
-            "scalars": np.array(observation["player"]["scalars"]),
-            "shop": np.array(observation["player"]["shop"]),
-            "board": np.array(observation["player"]["board"]),
-            "bench": np.array(observation["player"]["bench"]),
-            "items": np.array(observation["player"]["items"]),
-            "traits": np.array(observation["player"]["traits"]),
-            "other_players": np.array(other_players)
+            "scalars": np.array(observation["player"]["scalars"], dtype=np.float32),
+            "shop": np.array(observation["player"]["shop"], dtype=np.float32),
+            "board": np.array(observation["player"]["board"], dtype=np.float32),
+            "bench": np.array(observation["player"]["bench"], dtype=np.float32),
+            "items": np.array(observation["player"]["items"], dtype=np.float32),
+            "traits": np.array(observation["player"]["traits"], dtype=np.float32),
+            "other_players": np.array(other_players, dtype=np.float32)
         }
 
     @staticmethod

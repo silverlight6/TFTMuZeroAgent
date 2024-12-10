@@ -6,7 +6,7 @@ from Simulator.player import Player
 from Simulator.pool import pool
 from Simulator.champion import champion
 from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from Simulator.step_function import Step_Function
 from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
 from Simulator.game_round import log_to_file, log_to_file_start

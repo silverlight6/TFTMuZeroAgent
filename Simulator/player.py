@@ -100,8 +100,8 @@ class Player:
         # List of tiers of each trait.
         self.team_tiers = origin_class.game_comp_tiers_base[self.player_num].copy()
         self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32).copy()
-        self.team_tier_labels = [np.zeros(tier_size, dtype=np.float32) for tier_size in TEAM_TIERS_VECTOR]
-        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
+        self.team_tier_labels = [np.zeros(tier_size, dtype=np.int8) for tier_size in TEAM_TIERS_VECTOR]
+        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.int8)
 
         # --- Game Related Variables ---
         self.round = 0
@@ -525,13 +525,13 @@ class Player:
     def generate_tier_vector(self):
         # Create a vector where there is a 1 for the tier of the specific trait.
         current_position = 0
-        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.float32)
+        self.tiers_vector = np.zeros(TIERS_FLATTEN_LENGTH, dtype=np.int8)
         base_tier_values = list(tiers.values())
         player_tier_values = list(self.team_tiers.values())
         for i in range(len(base_tier_values)):
             try:
                 self.tiers_vector[current_position + player_tier_values[i]] = 1
-                self.team_tier_labels[i] = np.zeros(TEAM_TIERS_VECTOR[i], dtype=np.float32)
+                self.team_tier_labels[i] = np.zeros(TEAM_TIERS_VECTOR[i], dtype=np.int8)
                 self.team_tier_labels[i][player_tier_values[i]] = 1
                 current_position += len(base_tier_values[i]) + 1
             except IndexError:
@@ -1166,7 +1166,7 @@ class Player:
         return self.team_champion_labels
 
     def get_item_labels(self):
-        item_labels = np.zeros([len(self.item_bench), config.MAX_ITEMS_IN_SET + 1], np.float32)
+        item_labels = np.zeros([len(self.item_bench), config.MAX_ITEMS_IN_SET + 1], np.int8)
         for i, item_name in enumerate(self.item_bench):
             if item_name is None:
                 item_labels[i][-1] = 1
@@ -1176,7 +1176,7 @@ class Player:
         return item_labels
 
     def get_scalar_labels(self):
-        scalar_labels = np.zeros([3, 100], np.float32)
+        scalar_labels = np.zeros([3, 100], np.int8)
         if self.gold < 100:
             scalar_labels[0][self.gold] = 1
         else:
@@ -1186,7 +1186,7 @@ class Player:
         return scalar_labels
 
     def get_shop_labels(self):
-        shop_labels = np.zeros([len(self.shop), config.MAX_CHAMPION_IN_SET + 1], np.float32)
+        shop_labels = np.zeros([len(self.shop), config.MAX_CHAMPION_IN_SET + 1], np.int8)
         for i, champion_name in enumerate(self.shop):
             if champion_name is None:
                 shop_labels[i][-1] = 1
@@ -1521,7 +1521,7 @@ class Player:
         self.item_pool.remove(item)
 
     def reinit_numpy_arrays(self):
-        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.float32)
+        self.team_champion_labels = np.zeros([len(CHAMPION_ACTION_DIM), 2], dtype=np.int8)
 
 
     # TODO: Handle case where item_bench if full

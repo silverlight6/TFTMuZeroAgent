@@ -42,7 +42,8 @@ class ObservationBase(abc.ABC):
     @abc.abstractmethod
     def observation_to_input(self, observation):
         """Turns the observation into the desired input"""
-        
+
+
 class ActionBase(abc.ABC):
     @staticmethod
     @abc.abstractmethod

@@ -6,7 +6,8 @@ import torch
 import config
 
 from Concurrency.storage import Storage
-from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_config import TFTConfig
+from Simulator.tft_simulator import parallel_env
 from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator, TFT_Vector_Pos_Simulator
 from Simulator.observation.token.basic_observation import ObservationToken
 from Core.ReplayBuffers.replay_buffer_wrapper import BufferWrapper

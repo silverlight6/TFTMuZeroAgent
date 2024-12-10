@@ -7,12 +7,16 @@ from Evaluator.eval_visualizers import display_confusion_matrices, show_confusti
 from Simulator.batch_generator import BatchGenerator
 from Simulator.origin_class_stats import tiers
 from Simulator.stats import COST
+from Simulator.tft_config import TFTConfig
 from sklearn.metrics import confusion_matrix
 
 class RepresentationEvaluator:
     def __init__(self, global_agent):
         self.network = global_agent
-        self.batch_generator = BatchGenerator()
+        tftConfig = TFTConfig()
+        from Simulator.observation.token.basic_observation import ObservationToken
+        tftConfig.observation_class = ObservationToken
+        self.batch_generator = BatchGenerator(tftConfig)
         self.softmax = torch.nn.Softmax(dim=-1)
 
     def evaluate(self):
@@ -35,10 +39,10 @@ class RepresentationEvaluator:
         return output
 
     def create_graphs(self, pred, labels):
-        self.temp_create_comp_graph(pred["comp"], [label[0] for label in labels])
+        self.create_comp_graph(pred["comp"], [label[0] for label in labels])
 
-        # self.create_champion_graph(pred["champ"], [label[1] for label in labels])
-        #
+        self.create_champion_graph(pred["champ"], [label[1] for label in labels])
+
         # self.create_shop_graph(pred["shop"], [label[2] for label in labels])
         #
         # self.create_item_graph(pred["item"], [label[3] for label in labels])

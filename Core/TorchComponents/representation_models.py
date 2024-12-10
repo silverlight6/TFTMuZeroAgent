@@ -7,7 +7,7 @@ from Core.TorchComponents.torch_layers import AlternateFeatureEncoder, Normalize
 
 
 class RepMultiVectorNetwork(torch.nn.Module):
-    def __init__(self, layer_sizes, output_size, model_config) -> torch.nn.Module:
+    def __init__(self, model_config):
         super().__init__()
 
         def feature_encoder(input_size, feature_layer_sizes, feature_output_sizes):
@@ -15,6 +15,9 @@ class RepMultiVectorNetwork(torch.nn.Module):
                 AlternateFeatureEncoder(input_size, feature_layer_sizes, feature_output_sizes, config.DEVICE),
                 Normalize()
             ).to(config.DEVICE)
+
+        layer_sizes = [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS
+        output_size = model_config.HIDDEN_STATE_SIZE // 2
 
         self.scalar_encoder = feature_encoder(config.SCALAR_INPUT_SIZE, layer_sizes, output_size)
         self.shop_encoder = feature_encoder(config.SHOP_INPUT_SIZE, layer_sizes, output_size)
@@ -198,22 +201,18 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
         layer_sizes = [model_config.LAYER_HIDDEN_SIZE] * model_config.N_HEAD_HIDDEN_LAYERS
 
         # Embeddings for the unit are separate from item and trait. These double up for champion bench
-        self.champion_embedding = torch.nn.Embedding(221, model_config.CHAMPION_EMBEDDING_DIM // 2).to(config.DEVICE)
+        self.champion_embedding = torch.nn.Embedding(221, model_config.CHAMPION_EMBEDDING_DIM // 2)
         self.champion_item_embedding_1 = \
-            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8).to(config.DEVICE)
+            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
         self.champion_item_embedding_2 = \
-            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8).to(config.DEVICE)
+            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
         self.champion_item_embedding_3 = \
-            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8).to(config.DEVICE)
+            torch.nn.Embedding(58, model_config.CHAMPION_EMBEDDING_DIM // 8)
         self.champion_trait_embedding = \
-            torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 8).to(config.DEVICE)
+            torch.nn.Embedding(145, model_config.CHAMPION_EMBEDDING_DIM // 8)
 
         self.trait_encoder = AlternateFeatureEncoder(config.TRAIT_INPUT_SIZE, layer_sizes,
                                                      model_config.CHAMPION_EMBEDDING_DIM, config.DEVICE)
-
-        if use_round_count:
-            self.round_encoder = AlternateFeatureEncoder(12, layer_sizes, model_config.CHAMPION_EMBEDDING_DIM,
-                                                         config.DEVICE)
 
         # Main processing unit
         self.full_encoder = TransformerEncoder(
@@ -239,24 +238,32 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
         # Learned position embeddings instead of strait sinusoidal because tokens from different parts of the
         # observation are next to each other. It doesn't make sense to say the bench is close to the shop
         # Positional Embedding: Maximum length based on concatenated sequence length
-        self.pos_embedding = torch.nn.Embedding(512, model_config.CHAMPION_EMBEDDING_DIM).to(config.DEVICE)
+        self.pos_embedding = torch.nn.Embedding(512, model_config.CHAMPION_EMBEDDING_DIM)
+
+        self.to(config.DEVICE)
+
+        if use_round_count:
+            self.round_encoder = AlternateFeatureEncoder(12, layer_sizes, model_config.CHAMPION_EMBEDDING_DIM,
+                                                         config.DEVICE)
+
         self.use_round_count = use_round_count
 
     def _forward(self, x):
-        batch_size = x['board'].shape[0]
-        champion_emb = self.champion_embedding(x['board'][..., 0].long())
-        champion_item_emb_1 = self.champion_item_embedding_1(x['board'][..., 1].long())
-        champion_item_emb_2 = self.champion_item_embedding_2(x['board'][..., 2].long())
-        champion_item_emb_3 = self.champion_item_embedding_3(x['board'][..., 3].long())
-        champion_trait_emb = self.champion_trait_embedding(x['board'][..., 4].long())
+        batch_size = x["traits"].shape[0]
+        champion_emb = self.champion_embedding(x["board"][..., 0].long())
+        champion_item_emb_1 = self.champion_item_embedding_1(x["board"][..., 1].long())
+        champion_item_emb_2 = self.champion_item_embedding_2(x["board"][..., 2].long())
+        champion_item_emb_3 = self.champion_item_embedding_3(x["board"][..., 3].long())
+        champion_trait_emb = self.champion_trait_embedding(x["board"][..., 4].long())
 
         champion_item_emb = torch.cat([champion_item_emb_1, champion_item_emb_2, champion_item_emb_3], dim=-1)
         cie_shape = champion_item_emb.shape
         champion_item_emb = torch.reshape(champion_item_emb, (batch_size, cie_shape[1], cie_shape[2], -1))
+
         champion_embeddings = torch.cat([champion_emb, champion_item_emb, champion_trait_emb], dim=-1)
         champion_embeddings = torch.reshape(champion_embeddings, (batch_size, -1, self.champion_embedding_dim))
 
-        trait_encoding = self.trait_encoder(x['traits'])
+        trait_encoding = self.trait_encoder(x["traits"])
 
         if self.use_round_count:
             round_encoding = self.round_encoder(x['action_count'])
@@ -271,7 +278,7 @@ class RepPositionEmbeddingNetwork(torch.nn.Module):
         full_embeddings = full_embeddings + pos_embeddings
 
         # Expand the classification token to match the batch size
-        cls_tokens = self.cls_token.expand(cie_shape[0], -1, -1).to(config.DEVICE)
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1).to(config.DEVICE)
 
         # Concatenate the cls token to the full_embeddings
         full_embeddings = torch.cat([cls_tokens, full_embeddings], dim=1)

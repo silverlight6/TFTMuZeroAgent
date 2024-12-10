@@ -8,7 +8,7 @@ from Simulator.step_function import Step_Function
 from Simulator.game_round import Game_Round, log_to_file
 from Simulator.player import Player as player_class
 from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
+from Simulator.tft_config import TFTConfig
 from Simulator.battle_generator import BattleGenerator
 from gymnasium.spaces import MultiDiscrete, Dict, Box, Tuple
 from gymnasium.envs.registration import EnvSpec

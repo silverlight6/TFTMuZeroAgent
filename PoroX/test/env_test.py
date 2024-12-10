@@ -3,7 +3,8 @@ import pytest
 import time
 from pettingzoo.test import parallel_api_test
 
-from Simulator.tft_simulator import parallel_env, TFTConfig
+from Simulator.tft_config import TFTConfig
+from Simulator.tft_simulator import parallel_env
 from PoroX.test.utils import sample_action
 
 

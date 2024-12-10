@@ -1,9 +1,9 @@
-import Simulator.stats as stats
 import random
+import Simulator.stats as stats
 
-from Simulator.pool_stats import *
-from Simulator.origin_class_stats import origin_class, chosen_exclude
 from Simulator.config import LOGMESSAGES
+from Simulator.origin_class_stats import origin_class, chosen_exclude
+from Simulator.pool_stats import *
 
 
 class pool:
@@ -82,8 +82,6 @@ class pool:
 	# Player is the player that the sample is being picked for
 	# Num is the number of samples to be returned
 	# Index is the level of the champion you want to be sampled, -1 for random or to follow level.
-	# TO DO: Turn the cost arrays into a dictionary of dictionaries.
-	# TO DO: Implement the chosen mechanic and ensure the doubling of the right stat
 	# Chosen is implemented as a string with the class being the possible one.
 	def sample(self, player, num, idx=-1, allow_chosen=True):
 		# If player is None, for example they died, return an empty shop
@@ -188,13 +186,21 @@ class pool:
 			index = idx
 		return championOptions
 
+	def trait_sample(self, player, num, trait, idx=-1, allow_chosen=True):
+		if num > 1 or random.random() < .5:
+			return self.sample(player, num, idx, allow_chosen)
+		else:
+			# TODO: Add chosen capabilities
+			unit_list = [key for key, traits in origin_class.items() if trait in traits]
+			return [random.choice(unit_list)]
+
 	def update_pool(self, u_champion, direction):
-		'''
+		"""
 		:param u_champion: everytime a champion is taken from the pool, update the statistics
 		:param direction: positive for adding and negative for selling from pool.
 		i.e. If a player sells a unit, it's a positive direction for the pool
 		:return: NA
-		'''
+		"""
 		# This line is actually a little faster than combining this line and cost = stats.COST[u_champion.name]
 		# because it does not require loading the array for champion costs to search for the value.
 		cost = u_champion.cost
