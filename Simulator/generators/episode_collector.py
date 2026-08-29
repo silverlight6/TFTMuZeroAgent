@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
-from Simulator.observation.token.action import ActionToken
+from Simulator.encoding.token.action import ActionToken
 
 PolicyFn = Callable[[Any, Dict[str, Any], str, Any], Any]
 
@@ -31,24 +31,29 @@ def _as_mask(observation) -> Optional[np.ndarray]:
     return None
 
 
+def _action_class(env):
+    unwrapped = getattr(env, "unwrapped", env)
+    return getattr(unwrapped, "action_class", None) or ActionToken
+
+
 def random_policy(observation, info, agent, env):
     """Sample a legal action from the action mask, or fall back to the action space."""
+    action_cls = _action_class(env)
     mask = _as_mask(observation)
+    space = env.action_space(agent) if callable(getattr(env, "action_space", None)) else env.action_space
+
     if mask is not None and np.any(mask > 0):
+        if hasattr(space, "nvec") and hasattr(action_cls, "mask_to_sample_mask"):
+            sample = space.sample(mask=action_cls.mask_to_sample_mask(mask))
+            return action_cls.action_space_to_action(sample)
         if mask.ndim == 1:
             legal = np.flatnonzero(mask > 0)
-            return ActionToken.action_space_to_action(int(legal[np.random.randint(len(legal))]))
+            return action_cls.action_space_to_action(int(legal[np.random.randint(len(legal))]))
         legal = np.argwhere(mask > 0)
         row, col = legal[np.random.randint(len(legal))]
-        return ActionToken.action_space_to_action(int(row * mask.shape[1] + col))
+        return action_cls.action_space_to_action(int(row * mask.shape[1] + col))
 
-    space = env.action_space(agent) if callable(getattr(env, "action_space", None)) else env.action_space
-    sample = space.sample()
-    if np.isscalar(sample) or (isinstance(sample, np.ndarray) and sample.ndim == 0):
-        return ActionToken.action_space_to_action(int(sample))
-    if isinstance(sample, np.ndarray) and sample.shape == (2,):
-        return ActionToken.action_space_to_action(int(sample[0] * 38 + sample[1]))
-    return sample
+    return action_cls.decode_env_action(space.sample())
 
 
 def _player_snapshot(agent: str, info: Dict[str, Any], observation) -> Dict[str, Any]:

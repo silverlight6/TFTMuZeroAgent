@@ -3,8 +3,8 @@ from pettingzoo.test import parallel_api_test, api_test
 
 from Simulator import config
 from Simulator.simulators.tft_simulator import parallel_env, env as tft_env, TFTConfig
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.token.basic_observation import ObservationToken
+from Simulator.encoding.vector.observation import ObservationVector
 
 def aec(env):
     return tft_env(env)

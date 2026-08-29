@@ -3,10 +3,10 @@ import numpy as np
 from gymnasium.spaces import Box, Dict
 
 from Simulator import config
-from Simulator.observation.util import Util, TRAITS
-from Simulator.observation.normalization import Normalizer
+from Simulator.encoding.util import Util, TRAITS
+from Simulator.encoding.normalization import Normalizer
 
-from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
+from Simulator.encoding.interface import ObservationBase, ObservationUpdateBase
 
 class ObservationToken(ObservationBase, ObservationUpdateBase):
     """Observation object that stores the observation for a player."""

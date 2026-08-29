@@ -4,8 +4,8 @@ from Simulator import config
 
 from Simulator.config import MAX_BENCH_SPACE, BENCH_SIZE
 from Simulator.battle.item_stats import item_builds, uncraftable_items
-from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
-from Simulator.observation.normalization import safe_normalize
+from Simulator.encoding.interface import ObservationBase, ObservationUpdateBase
+from Simulator.encoding.normalization import safe_normalize
 from Simulator.battle.origin_class import team_traits
 from Simulator.battle.origin_class_stats import tiers
 from Simulator.battle.stats import COST

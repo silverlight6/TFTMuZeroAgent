@@ -3,9 +3,9 @@ import numpy as np
 
 from Simulator.generators.battle_generator import BattleGenerator
 from Simulator.game import pool
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.vector.observation import ObservationVector
-from Simulator.observation.vector.gemini_observation import GeminiObservation
+from Simulator.encoding.token.basic_observation import ObservationToken
+from Simulator.encoding.vector.observation import ObservationVector
+from Simulator.encoding.vector.gemini_observation import GeminiObservation
 from Simulator.game.player_manager import PlayerManager
 from Simulator.simulators.tft_simulator import TFTConfig
 

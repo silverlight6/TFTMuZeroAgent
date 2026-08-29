@@ -17,8 +17,7 @@ pip install -e .[dev]
 ## Quick start
 
 ```python
-from Simulator import TFTConfig, parallel_env
-from Simulator.observation.token.basic_observation import ObservationToken
+from Simulator import TFTConfig, parallel_env, ObservationToken
 
 env = parallel_env(TFTConfig(observation_class=ObservationToken, num_players=8))
 obs, infos = env.reset()
@@ -26,9 +25,9 @@ obs, rewards, terminations, truncations, infos = env.step(actions)
 env.close()
 ```
 
-Every env returns `{"observations": ..., "action_mask": ...}`. The full-game action space is `Discrete(55 * 38)` so PettingZoo can sample with a 1D mask. `step` also accepts a `(from, to)` pair or a length-3 command (`pass` / `level` / `refresh` / `buy` / `sell` / `move` / `item`). Decode a sampled index with `ActionToken.action_space_to_action`.
+Every env returns `{"observations": ..., "action_mask": ...}`. The default full-game action space is `Discrete(55 * 38)` so PettingZoo can sample with a 1D mask. Pass `action_class=ActionVector` (`Discrete(1296)`) or `action_class=ActionMultiDiscrete` (7-D) to use a compact space. `step` also accepts a `(from, to)` pair or a length-3 command (`pass` / `level` / `refresh` / `buy` / `sell` / `move` / `item`). Decode a sampled action with `action_class.action_space_to_action`.
 
-Public imports (`from Simulator import ...`): `TFTConfig`, `env`, `parallel_env`, the Gym envs, `Default_Agent`, and `collect_episode` / `collect_episodes` / `random_policy`.
+Public imports (`from Simulator import ...`): `TFTConfig`, `env`, `parallel_env`, the Gym envs, `ActionToken` / `ActionVector` / `ActionMultiDiscrete`, `ObservationToken` / `ObservationVector`, `Default_Agent`, and `collect_episode` / `collect_episodes` / `random_policy`.
 
 ## Environments
 
@@ -71,7 +70,7 @@ python examples/collect_episodes.py
 | `Simulator/battle/` | Combat, champions, items, traits, field |
 | `Simulator/game/` | Players, pool, rounds, shops, actions |
 | `Simulator/generators/` | Battle generators, default agent, episode collector |
-| `Simulator/observation/` | Observation and action encodings |
+| `Simulator/encoding/` | Observation and action encodings |
 | `Simulator/PoroSight/` | Optional Svelte replay viewer |
 | `markdown/` | Per-env usage docs |
 | `examples/` | Minimal loops for each env |

@@ -19,9 +19,9 @@ from Simulator.game.player_manager import PlayerManager
 from Simulator.game.step_function import Step_Function
 from Simulator.simulators.ui import GameState, is_porosight_render
 
-from Simulator.observation.interface import ObservationBase, ActionBase
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.token.action import ActionToken
+from Simulator.encoding.interface import ObservationBase, ActionBase
+from Simulator.encoding.token.basic_observation import ObservationToken
+from Simulator.encoding.token.action import ActionToken
 from gymnasium.spaces import Box, Dict
 
 import time
@@ -272,13 +272,8 @@ class TFT_Simulator(AECEnv):
         self._cumulative_rewards[agent] = 0
         # Perform action and update observations
         action = np.asarray(action)
-        if action.ndim == 0:
-            self.step_function.perform_1d_action(agent, action)
-        elif action.shape == (2,):
-            decoded = self.action_class.action_space_to_action(int(action[0] * 38 + action[1]))
-            self.step_function.perform_action(agent, decoded)
-        else:
-            self.step_function.perform_action(agent, action)
+        decoded = self.action_class.decode_env_action(action)
+        self.step_function.perform_action(agent, decoded)
 
         self.actions_taken[agent] += 1
         if is_porosight_render(self.render_mode):

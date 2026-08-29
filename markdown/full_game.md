@@ -11,8 +11,7 @@ Other envs in this folder isolate one decision (hexes, items) or drop to a singl
 ## Create the env
 
 ```python
-from Simulator import TFTConfig, parallel_env
-from Simulator.observation.token.basic_observation import ObservationToken
+from Simulator import TFTConfig, parallel_env, ObservationToken
 
 env = parallel_env(TFTConfig(observation_class=ObservationToken, num_players=8))
 ```
@@ -37,9 +36,15 @@ from Simulator.simulators.tft_simulator import TFTConfig, parallel_env, env as t
 
 Observation classes you can pass in:
 
-- `Simulator.observation.token.basic_observation.ObservationToken` (default)
-- `Simulator.observation.vector.observation.ObservationVector`
-- `Simulator.observation.vector.gemini_observation.GeminiObservation`
+- `Simulator.encoding.token.basic_observation.ObservationToken` (default)
+- `Simulator.encoding.vector.observation.ObservationVector`
+- `Simulator.encoding.vector.gemini_observation.GeminiObservation`
+
+Action classes you can pass in:
+
+- `Simulator.encoding.token.action.ActionToken` (default, `Discrete(55 * 38)`)
+- `Simulator.encoding.token.action_vector.ActionVector` (`Discrete(1296)`)
+- `Simulator.encoding.token.action_multi.ActionMultiDiscrete` (7-D `MultiDiscrete`)
 
 ## Parallel loop
 
@@ -74,7 +79,7 @@ Every `observe` / `reset` / `step` payload is:
 {"observations": ..., "action_mask": ...}
 ```
 
-`observations` matches `observation_class.observation_space(num_players)` (token boards, traits, bench, items, shop, scalars, embedding scalars for `ObservationToken`). `action_mask` is a length-`2090` `int8` vector (`55 * 38`), `1` where the action is legal.
+`observations` matches `observation_class.observation_space(num_players)` (token boards, traits, bench, items, shop, scalars, embedding scalars for `ObservationToken`). `action_mask` matches `action_class.action_mask_space()` (`2090` for `ActionToken`, `1296` for `ActionVector`, `62` for `ActionMultiDiscrete`), `1` where the action is legal.
 
 ### Info keys (per agent)
 
@@ -85,7 +90,7 @@ Every `observe` / `reset` / `step` payload is:
 
 ## Actions
 
-`ActionToken.action_space()` is `Discrete(55 * 38)` so PettingZoo can `sample(mask=...)`.
+The default `ActionToken.action_space()` is `Discrete(55 * 38)` so PettingZoo can `sample(mask=...)`.
 
 | From (55) | Meaning |
 |-----------|---------|
@@ -110,6 +115,18 @@ Every `observe` / `reset` / `step` payload is:
 - a length-3 command `[type, x1, x2]` — `0` pass, `1` level, `2` refresh, `3` buy, `4` sell, `5` move, `6` item
 
 Decode a sampled index with `ActionToken.action_space_to_action(index)`.
+
+`ActionVector` is the same commands without sell / board-to-bench / item-to-bench:
+
+| Slice | Size | Meaning |
+|-------|------|---------|
+| `0–251` | `9 * 28` | Bench slot → board hex |
+| `252–1007` | `28 * 27` | Board hex → other board hex |
+| `1008–1287` | `10 * 28` | Item slot → board hex |
+| `1288–1292` | `5` | Shop |
+| `1293–1295` | `3` | Pass, level, refresh |
+
+`ActionMultiDiscrete` is `[pass, level, refresh, shop, board, bench, item]` with a `0` skip on every dimension. The first non-zero entry wins: `[1, *, …]` is pass, `[0, 0, 0, 0, 1, 1, *]` moves bench 0 onto board 0 and ignores item. Sample with `action_space.sample(mask=ActionMultiDiscrete.mask_to_sample_mask(mask))`.
 
 A shop phase is up to `max_actions_per_round` actions. After every living player is done (or truncated), combat runs and the next round starts.
 

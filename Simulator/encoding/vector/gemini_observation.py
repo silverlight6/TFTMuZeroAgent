@@ -3,7 +3,7 @@ from gymnasium.spaces import Box, Dict
 from Simulator import config
 from Simulator.config import MAX_CHAMPION_IN_SET, MAX_ITEMS_IN_SET
 from Simulator.battle.item_stats import items
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.vector.observation import ObservationVector
 from Simulator.battle.origin_class_stats import tiers
 from Simulator.battle.stats import COST
 

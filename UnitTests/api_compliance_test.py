@@ -3,8 +3,8 @@
 from gymnasium.utils.env_checker import check_env
 from pettingzoo.test import api_test, parallel_api_test
 
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.token.basic_observation import ObservationToken
+from Simulator.encoding.vector.observation import ObservationVector
 from Simulator.simulators.tft_item_simulator import TFT_Item_Simulator
 from Simulator.simulators.tft_position_simulator import TFT_Position_Simulator
 from Simulator.simulators.tft_simulator import TFTConfig, env as tft_env, parallel_env

@@ -16,6 +16,13 @@ from Simulator.generators import (
     collect_episodes,
     random_policy,
 )
+from Simulator.encoding import (
+    ActionMultiDiscrete,
+    ActionToken,
+    ActionVector,
+    ObservationToken,
+    ObservationVector,
+)
 
 __all__ = [
     "TFTConfig",
@@ -32,4 +39,9 @@ __all__ = [
     "collect_episode",
     "collect_episodes",
     "random_policy",
+    "ActionMultiDiscrete",
+    "ActionToken",
+    "ActionVector",
+    "ObservationToken",
+    "ObservationVector",
 ]

@@ -14,7 +14,7 @@ from Simulator.battle.origin_class_stats import tiers, fortune_returns
 from math import floor
 from Simulator.config import DEBUG, CHAMPION_ACTION_DIM, TIERS_FLATTEN_LENGTH, TEAM_TIERS_VECTOR, ALLOW_SPILL
 
-from Simulator.observation.token.action import ActionToken  # Here for debugging purposes, will be removed later
+from Simulator.encoding.token.action import ActionToken  # Here for debugging purposes, will be removed later
 from Simulator.generators.default_agent import Default_Agent
 
 

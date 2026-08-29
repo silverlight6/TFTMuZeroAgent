@@ -1,8 +1,8 @@
 import numpy as np
-from gymnasium.spaces import Box, Discrete, MultiDiscrete
+from gymnasium.spaces import Box, Discrete
 
-from Simulator.observation.interface import ActionBase, ActionVectorBase
-from Simulator.observation.util import Util
+from Simulator.encoding.interface import ActionBase, ActionVectorBase
+from Simulator.encoding.util import Util
 
 class ActionToken(ActionBase, ActionVectorBase):
     def __init__(self, player):
@@ -70,7 +70,14 @@ class ActionToken(ActionBase, ActionVectorBase):
         37 -> Sell Slot
         
         """
-        
+        action = np.asarray(action)
+        if action.shape == (3,):
+            return [int(action[0]), int(action[1]), int(action[2])]
+        if action.shape == (2,):
+            action = int(action[0]) * 38 + int(action[1])
+        else:
+            action = int(action)
+
         col, index = action // 38, action % 38
         
         action = []

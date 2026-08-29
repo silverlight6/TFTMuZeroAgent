@@ -1,9 +1,11 @@
-"""Interfaces for Environment observation and action.
+"""Interfaces for environment observation and action encodings.
 
 You must implement your agent around these interfaces for the environment to work.
 """
 
 import abc
+
+import numpy as np
 
 class ObservationBase(abc.ABC):
     @abc.abstractmethod
@@ -70,8 +72,24 @@ class ActionBase(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
+    def action_mask_space():
+        """Gymnasium space matching fetch_action_mask() after the env flattens it."""
+
+    @staticmethod
+    @abc.abstractmethod
     def action_space_to_action(action):
         """Convert sampled action space to action."""
+
+    @classmethod
+    def decode_env_action(cls, action):
+        """Accept a space sample, a (from, to) pair, or a [type, x1, x2] command."""
+        arr = np.asarray(action)
+        if arr.ndim == 0 or arr.size == 1:
+            return cls.action_space_to_action(int(arr.reshape(())))
+        flat = arr.reshape(-1)
+        if flat.size == 3:
+            return [int(flat[0]), int(flat[1]), int(flat[2])]
+        return cls.action_space_to_action(arr)
         
     @abc.abstractmethod
     def fetch_action_mask(self):

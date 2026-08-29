@@ -4,7 +4,7 @@ from Simulator import config
 import numpy as np
 import gymnasium as gym
 from Simulator.game import pool
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.vector.observation import ObservationVector
 from Simulator.game.step_function import Step_Function
 from Simulator.game.game_round import Game_Round, log_to_file
 from Simulator.game.player import Player as player_class

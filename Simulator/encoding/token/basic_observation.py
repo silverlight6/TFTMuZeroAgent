@@ -4,9 +4,9 @@ from gymnasium.spaces import Box, Dict
 from Simulator import config
 import time
 
-from Simulator.observation.util import Util
-from Simulator.observation.normalization import Normalizer, safe_normalize
-from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
+from Simulator.encoding.util import Util
+from Simulator.encoding.normalization import Normalizer, safe_normalize
+from Simulator.encoding.interface import ObservationBase, ObservationUpdateBase
 from Simulator.config import MAX_CHAMPION_IN_SET, MAX_ITEMS_IN_SET
 from Simulator.battle.item_stats import items
 from Simulator.battle.stats import COST

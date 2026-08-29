@@ -5,7 +5,7 @@ import numpy as np
 
 from Simulator.game.player import Player
 from Simulator.game.pool import pool
-from Simulator.observation.token.action import ActionToken
+from Simulator.encoding.token.action import ActionToken
 from Simulator.simulators.tft_item_simulator import TFT_Item_Simulator
 from Simulator.simulators.tft_position_simulator import TFT_Position_Simulator
 from Simulator.simulators.tft_simulator import TFTConfig

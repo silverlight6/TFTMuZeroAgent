@@ -521,24 +521,20 @@ class GameState:
             print("-----END-----")
 
     def decode_action(self, action):
-        """Accept a scalar index, (from, to) pair, or already-decoded [type, x1, x2]."""
+        """Accept a space sample, (from, to) pair, or already-decoded [type, x1, x2]."""
         if action is None:
             return [0, 0, 0]
-        action = np.asarray(action)
-        if action.ndim == 0:
-            if self.action_class is None:
+        if self.action_class is None:
+            action = np.asarray(action)
+            if action.ndim == 0:
                 return [0, 0, 0]
-            return list(self.action_class.action_space_to_action(int(action)))
-        if action.shape == (2,):
-            if self.action_class is None:
+            if action.shape == (2,):
                 return [5, int(action[0]), int(action[1])]
-            return list(self.action_class.action_space_to_action(int(action[0] * 38 + action[1])))
-        flat = action.reshape(-1)
-        if flat.size >= 3:
-            return [int(flat[0]), int(flat[1]), int(flat[2])]
-        if self.action_class is not None:
-            return list(self.action_class.action_space_to_action(int(flat[0])))
-        return [0, 0, 0]
+            flat = action.reshape(-1)
+            if flat.size >= 3:
+                return [int(flat[0]), int(flat[1]), int(flat[2])]
+            return [0, 0, 0]
+        return list(self.action_class.decode_env_action(action))
 
     def store_action(self, agent, action):
         """Called after the action is taken."""

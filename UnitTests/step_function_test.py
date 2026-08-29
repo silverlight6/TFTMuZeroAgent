@@ -4,7 +4,7 @@ import numpy as np
 from Simulator.game import pool
 from Simulator.generators.battle_generator import BattleGenerator
 from Simulator.game.player_manager import PlayerManager
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.vector.observation import ObservationVector
 from Simulator.game.step_function import Step_Function
 from Simulator.simulators.tft_simulator import TFTConfig
 from Simulator.utils import x_y_to_1d_coord

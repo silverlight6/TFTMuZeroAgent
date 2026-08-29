@@ -3,7 +3,7 @@ from copy import deepcopy
 from Simulator.game import pool
 from Simulator.generators.battle_generator import BattleGenerator, base_level_config
 from Simulator.game.player_manager import PlayerManager
-from Simulator.observation.vector.observation import ObservationVector
+from Simulator.encoding.vector.observation import ObservationVector
 from Simulator.game.game_round import Game_Round
 from Simulator.simulators.tft_simulator import TFTConfig
 

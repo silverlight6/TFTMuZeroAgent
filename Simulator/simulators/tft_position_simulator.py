@@ -9,7 +9,7 @@ from gymnasium.spaces import Box, Dict, MultiDiscrete
 from Simulator.game import pool
 from Simulator.generators.position_leveling_system import PositionLevelingSystem
 from Simulator.game.game_round import Game_Round, log_to_file, log_to_file_start
-from Simulator.observation.token.basic_observation import ObservationToken
+from Simulator.encoding.token.basic_observation import ObservationToken
 from Simulator.game.player_manager import PlayerManager
 from Simulator.game.step_function import Step_Function
 from Simulator.simulators.tft_simulator import TFTConfig

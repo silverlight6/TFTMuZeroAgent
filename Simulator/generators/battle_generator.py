@@ -6,7 +6,7 @@ from Simulator.game.player import Player
 from Simulator.utils import coord_to_x_y, x_y_to_1d_coord
 from Simulator.battle.item_stats import item_builds, thieves_gloves_items
 from Simulator.battle.champion import champion
-from Simulator.observation.token.action import ActionToken
+from Simulator.encoding.token.action import ActionToken
 from Simulator.generators.default_agent_stats import ONE_COST_UNITS, TWO_COST_UNITS, THREE_COST_UNITS, FOUR_COST_UNITS, FIVE_COST_UNITS
 
 
@@ -60,19 +60,57 @@ class BattleGenerator:
                     self.stationary_coords[0] = x_y_to_1d_coord(self.generator_config["test_position"][0],
                                                                 self.generator_config["test_position"][1])
 
-        self.set_composition = [[champion('vi'), champion('katarina'), champion('nunu')],
-                                [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
-                                 champion('nunu'), champion('annie')],
-                                [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
-                                 champion('jinx'), champion('vi'), champion('vayne', chosen='duelist')]
-                                ]
+        self.set_composition = [
+            [champion('vi'), champion('katarina'), champion('nunu')],
+            [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
+                champion('nunu'), champion('annie')],
+            [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
+                champion('jinx'), champion('vi'), champion('vayne', chosen='duelist')],
+            [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                champion('tahmkench', stars=2), champion('akali'), champion('morgana'),
+                champion('lulu'), champion('hecarim')],
+            [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                champion('tahmkench', stars=2), champion('sylas'), champion('morgana'),
+                champion('lulu'), champion('nunu'), champion('riven', chosen='dusk')],
+            [champion('maokai', stars=2, itemlist=['sunfire_cape', 'gargoyle_stoneplate']),
+                champion('yone', itemlist=['warmogs_armor', 'shroud_of_stillness']),
+                champion('ashe', stars=2), champion('ezreal'), champion('zilean'),
+                champion('lulu', stars=2), champion('nunu', stars=2), champion('veigar')],
+            [champion('lillia', stars=2), champion('lulu', stars=2), champion('janna'),
+                champion('ezreal', itemlist=['morellonomicon', 'chalice_of_power']),
+                champion('shen', itemlist=['redemption']), champion('azir'),
+                champion('morgana', stars=2, itemlist=['redemption']),
+                champion('sett', stars=2, itemlist=['sunfire_cape', 'shroud_of_stillness']),
+                champion('yone', stars=2, itemlist=['warmogs_armor', 'quicksilver',
+                                                    'gargoyle_stoneplate'])]
+        ]
 
-        self.set_oppo_composition = [[champion('sylas'), champion('maokai'), champion('diana', stars=2)],
-                                     [champion('sylas'), champion('vi'), champion('vayne'),
-                                      champion('janna', stars=2)],
-                                     [champion('tahmkench', stars=2), champion('vi', stars=2), champion('elise'),
-                                      champion('vayne', stars=2), champion('twistedfate', stars=2)]
-                                     ]
+        self.set_oppo_composition = [
+            [champion('sylas'), champion('maokai'), champion('diana', stars=2)],
+            [champion('sylas'), champion('vi'), champion('vayne'),
+                champion('janna', stars=2)],
+            [champion('tahmkench', stars=2), champion('vi', stars=2), champion('elise'),
+                champion('vayne', stars=2), champion('twistedfate', stars=2)],
+            [champion('maokai'), champion('nunu'), champion('vi'), champion('sylas'),
+                champion('aphelios', stars=2,
+                    itemlist=['blue_buff', 'last_whisper', 'infinity_edge']),
+                champion('sylas', stars=2, itemlist=['morellonomicon'])],
+            [champion('annie', chosen='fortune'), champion('shen'), champion('kennen'),
+                champion('zed', stars=2, itemlist=['youmuus_ghostblade']),
+                champion('thresh', stars=2), champion('sejuani', itemlist=['guardian_angel']),
+                champion('akali', itemlist=['infinity_edge', 'rabadons_deathcap'])],
+            [champion('thresh'), champion('kayn', stars=2, itemlist=['thieves_gloves']),
+                champion('sejuani', stars=2, itemlist=['zzrot_portal', 'gargoyle_stoneplate']),
+                champion('aatrox', stars=2), champion('wukong', stars=2), champion('lulu'),
+                champion('lillia', itemlist=['rapid_firecannon']),
+                champion('ahri', stars=2, itemlist=['morellonomicon', 'spear_of_shojin'])],
+            [champion('lux', stars=2), champion('ezreal'), champion('leesin'),
+                champion('maokai', stars=2, itemlist=['shroud_of_stillness']),
+                champion('jax', stars=2), champion('nunu', stars=2, itemlist=['frozen_heart']),
+                champion('shen', itemlist=['chalice_of_power', 'locket_of_the_iron_solari']),
+                champion('ashe', itemlist=['last_whisper', 'giant_slayer']),
+                champion('warwick', stars=3)]
+            ]
 
 
     """
@@ -129,13 +167,18 @@ class BattleGenerator:
         for i in range(player.max_units):
             if self.sample_from_pool:
                 random_champ = base_pool.sample(player, 1, allow_chosen=False)
+                stars = 1
+                if random.random() < self.generator_config["three_star_unit_percentage"]:
+                    stars = 3
+                elif random.random() < self.generator_config["two_star_unit_percentage"]:
+                    stars = 2
                 if i == 0 and (self.generator_config["azir"] or self.generator_config["kayn"]):
                     if self.generator_config["azir"]:
-                        success = player.add_to_bench(champion('azir'))
+                        success = player.add_to_bench(champion('azir', stars=stars))
                     else:
-                        success = player.add_to_bench(champion('kayn'))
+                        success = player.add_to_bench(champion('kayn', stars=stars))
                 else:
-                    success = player.add_to_bench(champion(random_champ[0]))
+                    success = player.add_to_bench(champion(random_champ[0], stars=stars))
                 if not success:
                     print("I was not successful")
                     continue
@@ -146,10 +189,10 @@ class BattleGenerator:
                     i -= 2
                     continue
             else:
-                if random.random() < self.generator_config["two_star_unit_percentage"]:
-                    player.add_to_bench(champion(list_of_champs[i], stars=2))
                 if random.random() < self.generator_config["three_star_unit_percentage"]:
                     player.add_to_bench(champion(list_of_champs[i], stars=3))
+                elif random.random() < self.generator_config["two_star_unit_percentage"]:
+                    player.add_to_bench(champion(list_of_champs[i], stars=2))
                 else:
                     player.add_to_bench(champion(list_of_champs[i]))
             _, bench_mask = action_mask.create_move_and_sell_action_mask(player)

@@ -7,8 +7,7 @@ from Simulator import config
 from Simulator.game import pool
 from Simulator.game.game_round import log_to_file_start
 from Simulator.game.single_player_game_round import Game_Round
-from Simulator.observation.token.basic_observation import ObservationToken
-from Simulator.observation.token.action import ActionToken
+from Simulator.encoding.token.basic_observation import ObservationToken
 from Simulator.game.player_manager import PlayerManager
 from Simulator.game.step_function import Step_Function
 from Simulator.simulators.tft_simulator import TFTConfig
@@ -59,7 +58,9 @@ class TFT_Single_Player_Simulator(gym.Env):
 
         pool_obj = pool.pool()
         self.player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj,
-                                            TFTConfig(observation_class=self.observation_class, num_players=1))
+                                            TFTConfig(observation_class=self.observation_class,
+                                                      action_class=self.action_class,
+                                                      num_players=1))
         # Objects for the player manager
         self.PLAYER = self.player_manager.player_states['player_0']
 
@@ -126,13 +127,8 @@ class TFT_Single_Player_Simulator(gym.Env):
     def step(self, action):
         # Perform action and update observations
         action = np.asarray(action)
-        if action.ndim == 0:
-            self.step_function.perform_1d_action('player_0', action)
-        elif action.shape == (2,):
-            decoded = ActionToken.action_space_to_action(int(action[0] * 38 + action[1]))
-            self.step_function.perform_action('player_0', decoded)
-        else:
-            self.step_function.perform_action('player_0', action)
+        decoded = self.action_class.decode_env_action(action)
+        self.step_function.perform_action('player_0', decoded)
 
         self.action_count += 1
         if is_porosight_render(self.render_mode):
