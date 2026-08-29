@@ -1157,7 +1157,7 @@ class Player:
         for c in directions[parity]:
             nY = c[0] + y
             nX = c[1] + x
-            if (0 <= nY < 4 and 0 <= nX < 7) and not self.board[x][y]:
+            if (0 <= nY < 4 and 0 <= nX < 7) and not self.board[nX][nY]:
                 neighbors.append([nX, nY])
         return neighbors
 
@@ -1267,12 +1267,11 @@ class Player:
                 if len(champ.items) > 0:
                     if not self.item_bench_full(len(champ.items)):
                         while len(champ.items) > 0:
-                            self.item_bench[self.item_bench_vacancy(
-                            )] = champ.items[0]
-                            if champ.items[0] in trait_items.values():
+                            item = champ.items.pop(0)
+                            self.item_bench[self.item_bench_vacancy()] = item
+                            if item in trait_items.values():
                                 champ.origin.pop(-1)
                                 self.update_team_tiers()
-                            champ.items.pop(0)
                         self.item_bench[xBench] = None
                         return True
                 if DEBUG:
