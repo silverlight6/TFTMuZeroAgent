@@ -1,5 +1,4 @@
-import config
-from Simulator.item_stats import uncraftable_items, items
+from Simulator.battle.item_stats import uncraftable_items, items
 
 CHAMPION_INFORMATION = 12
 BOARD_X = 7
@@ -13,10 +12,14 @@ UNCRAFTABLE_ITEM = len(uncraftable_items)
 MAX_BENCH_SPACE = 10
 MAX_ITEMS_IN_SET = len(list(items.keys()))
 
+NUM_PLAYERS = 8
+ACTIONS_PER_TURN = 15
+AUTO_BATTLER_PERCENTAGE = 0
+DEBUG = True
+ALLOW_SPILL = False
+MINIMUM_POP_AMOUNT = 100
 
-NUM_PLAYERS = config.NUM_PLAYERS
 LOG_COMBAT = False
-
 PRINTMESSAGES = True
 LOGMESSAGES = True
 MANA_DAMAGE_GAIN = 0.06
@@ -33,7 +36,6 @@ BURN_SECONDS = 10
 BURN_DMG_PER_SLICE = 0.025
 BURN_HEALING_REDUCE = 0.5
 
-# unit name
 CHOSEN = None
 
 GALIO_MULTIPLIER = 0.14
@@ -49,3 +51,33 @@ WEIGHTS_INCREMENT = 3
 CRIT_CHANCE = 0
 CRIT_DAMAGE = 1.5
 SP = 1
+
+CHAMPION_ACTION_DIM = [5 for _ in range(58)]
+CHAMPION_LIST_DIM = [2 for _ in range(58)]
+ITEM_CHOICE_DIM = [3 for _ in range(10)]
+CHAMP_DECIDER_ACTION_DIM = CHAMPION_ACTION_DIM + [2] + ITEM_CHOICE_DIM
+
+# Number of categories for each trait tier. Emperor, for example, has 2: no emperors or 1.
+TEAM_TIERS_VECTOR = [
+    4, 5, 4, 4, 4, 3, 3, 3, 2, 4,
+    4, 4, 5, 3, 5, 2, 3, 5, 4, 4,
+    3, 4, 4, 4, 2, 5,
+]
+TIERS_FLATTEN_LENGTH = 97
+
+CHAMP_ENCODING_SIZE = 26
+ACTION_DIM = [7, 38, 38]
+
+SCALAR_INPUT_SIZE = 76
+SHOP_INPUT_SIZE = 45
+BOARD_INPUT_SIZE = 728
+BENCH_INPUT_SIZE = 234
+ITEMS_INPUT_SIZE = 60
+TRAIT_INPUT_SIZE = 102
+OTHER_PLAYER_INPUT_SIZE = 5866
+OTHER_PLAYER_POS_INPUT_SIZE = 5810
+OTHER_PLAYER_ITEM_POS_SIZE = 5920
+OTHER_PLAYER_SCALAR_SIZE = 8
+# Leftover sizes referenced by TFT_Item_Simulator.observation_space
+STATE_INPUT_SIZE = 76
+COMP_INPUT_SIZE = 102

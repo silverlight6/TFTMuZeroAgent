@@ -1,7 +1,9 @@
 import abc
 import numpy as np
+from gymnasium.spaces import Box, Dict
 
-from Simulator.observation.util import Util
+from Simulator import config
+from Simulator.observation.util import Util, TRAITS
 from Simulator.observation.normalization import Normalizer
 
 from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
@@ -566,3 +568,40 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
 
     def observation_to_input(self, observation):
         ...
+
+    CHAMPION_VECTOR_LENGTH = 1 + 3 + 7 + 12 + 7
+    PLAYER_SCALAR_SIZE = 16
+    PUBLIC_SCALAR_SIZE = 8
+    TRAIT_SIZE = len(TRAITS)
+
+    @classmethod
+    def player_observation_space(cls):
+        return Dict({
+            "scalars": Box(-10.0, 200.0, (cls.PLAYER_SCALAR_SIZE,), np.float32),
+            "board": Box(-10.0, 200.0, (config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "bench": Box(-10.0, 200.0, (config.BENCH_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "shop": Box(-10.0, 200.0, (config.SHOP_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "items": Box(0, 255, (config.ITEM_BENCH_SIZE,), np.float32),
+            "traits": Box(0, 30, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def public_observation_space(cls):
+        return Dict({
+            "scalars": Box(-10.0, 200.0, (cls.PUBLIC_SCALAR_SIZE,), np.float32),
+            "board": Box(-10.0, 200.0, (config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "bench": Box(-10.0, 200.0, (config.BENCH_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "items": Box(0, 255, (config.ITEM_BENCH_SIZE,), np.float32),
+            "traits": Box(0, 30, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def position_observation_space(cls, num_players: int = 8):
+        return Dict({
+            "board": Box(-10.0, 200.0, (num_players, config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "traits": Box(0, 30, (num_players, cls.TRAIT_SIZE), np.float32),
+        })
+
+    @classmethod
+    def observation_space(cls, num_players: int = 8):
+        return cls.player_observation_space()

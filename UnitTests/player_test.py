@@ -1,9 +1,9 @@
-from Simulator.player import Player
-from Simulator.pool import pool
-from Simulator.champion import champion
-from Simulator import champion as c_object
-from Simulator.item_stats import trait_items, starting_items
-from Simulator.origin_class_stats import origin_class
+from Simulator.game.player import Player
+from Simulator.game.pool import pool
+from Simulator.battle.champion import champion
+from Simulator.battle import champion as c_object
+from Simulator.battle.item_stats import trait_items, starting_items
+from Simulator.battle.origin_class_stats import origin_class
 
 
 def setup(player_num=0) -> Player:

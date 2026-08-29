@@ -41,7 +41,27 @@ class ObservationBase(abc.ABC):
     @abc.abstractmethod
     def observation_to_input(self, observation):
         """Turns the observation into the desired input"""
-        
+
+    @staticmethod
+    @abc.abstractmethod
+    def observation_space(num_players: int = 8):
+        """Gymnasium space matching observation_to_input()."""
+
+    @staticmethod
+    def player_observation_space():
+        """Gymnasium space matching fetch_player_observation()."""
+        raise NotImplementedError
+
+    @staticmethod
+    def public_observation_space():
+        """Gymnasium space matching fetch_public_observation()."""
+        raise NotImplementedError
+
+    @staticmethod
+    def position_observation_space(num_players: int = 8):
+        """Gymnasium space matching observation_to_position_input()."""
+        raise NotImplementedError
+
 class ActionBase(abc.ABC):
     @staticmethod
     @abc.abstractmethod

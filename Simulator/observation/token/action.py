@@ -1,5 +1,5 @@
 import numpy as np
-from gymnasium.spaces import MultiDiscrete
+from gymnasium.spaces import Box, Discrete, MultiDiscrete
 
 from Simulator.observation.interface import ActionBase, ActionVectorBase
 from Simulator.observation.util import Util
@@ -43,7 +43,12 @@ class ActionToken(ActionBase, ActionVectorBase):
         37 -> Sell Slot
         
         """
-        return MultiDiscrete([55, 38])
+        # Discrete over the 55x38 grid so PettingZoo/Gymnasium can sample with a 1D int8 mask.
+        return Discrete(55 * 38)
+
+    @staticmethod
+    def action_mask_space():
+        return Box(0, 1, shape=(55 * 38,), dtype=np.int8)
     
     @staticmethod
     def action_space_to_action(action):

@@ -1,15 +1,16 @@
 import abc
 import numpy as np
-import config
+from gymnasium.spaces import Box, Dict
+from Simulator import config
 import time
 
 from Simulator.observation.util import Util
 from Simulator.observation.normalization import Normalizer, safe_normalize
 from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
 from Simulator.config import MAX_CHAMPION_IN_SET, MAX_ITEMS_IN_SET
-from Simulator.item_stats import items
-from Simulator.stats import COST
-from Simulator.origin_class_stats import tiers, origin_class
+from Simulator.battle.item_stats import items
+from Simulator.battle.stats import COST
+from Simulator.battle.origin_class_stats import tiers, origin_class
 from Simulator.utils import x_y_to_1d_coord
 
 
@@ -616,3 +617,55 @@ class ObservationToken(ObservationBase, ObservationUpdateBase):
             key: np.stack([obs[key] for obs in observation])
             for key in observation[0].keys()
         }
+
+    CHAMPION_VECTOR_LENGTH = 5
+    PLAYER_SCALAR_SIZE = 20
+    PUBLIC_SCALAR_SIZE = 8
+    EMB_SCALAR_SIZE = 6
+    TRAIT_SIZE = config.TIERS_FLATTEN_LENGTH + 5
+    POSITION_ACTION_COUNT_SIZE = 12
+    # Champion / item token IDs are packed into these vectors.
+    _TOKEN_HIGH = 255
+
+    @classmethod
+    def player_observation_space(cls):
+        return Dict({
+            "scalars": Box(-1.0, 10.0, (cls.PLAYER_SCALAR_SIZE,), np.float64),
+            "emb_scalars": Box(0, 255, (cls.EMB_SCALAR_SIZE,), np.int16),
+            "board": Box(0, cls._TOKEN_HIGH, (config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "bench": Box(0, cls._TOKEN_HIGH, (config.BENCH_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.int16),
+            "shop": Box(0, cls._TOKEN_HIGH, (config.SHOP_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "items": Box(0, cls._TOKEN_HIGH, (config.ITEM_BENCH_SIZE,), np.int16),
+            "traits": Box(-1.0, 1.0, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def public_observation_space(cls):
+        return Dict({
+            "scalars": Box(-1.0, 10.0, (cls.PUBLIC_SCALAR_SIZE,), np.float64),
+            "board": Box(0, cls._TOKEN_HIGH, (config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "bench": Box(0, cls._TOKEN_HIGH, (config.BENCH_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.int16),
+            "items": Box(0, cls._TOKEN_HIGH, (config.ITEM_BENCH_SIZE,), np.int16),
+            "traits": Box(-1.0, 1.0, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def position_observation_space(cls, num_players: int = 8):
+        return Dict({
+            "board": Box(0, cls._TOKEN_HIGH, (num_players, config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.int16),
+            "traits": Box(-1.0, 1.0, (num_players, cls.TRAIT_SIZE), np.float32),
+            "action_count": Box(0.0, 1.0, (1, cls.POSITION_ACTION_COUNT_SIZE), np.float32),
+        })
+
+    @classmethod
+    def observation_space(cls, num_players: int = 8):
+        n_opp = num_players - 1
+        return Dict({
+            "board": Box(0, cls._TOKEN_HIGH, (num_players, config.BOARD_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.int16),
+            "traits": Box(-1.0, 1.0, (num_players, cls.TRAIT_SIZE), np.float32),
+            "bench": Box(0, cls._TOKEN_HIGH, (1, config.BENCH_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.int16),
+            "items": Box(0, cls._TOKEN_HIGH, (1, config.ITEM_BENCH_SIZE), np.int16),
+            "shop": Box(0, cls._TOKEN_HIGH, (config.SHOP_SIZE, cls.CHAMPION_VECTOR_LENGTH), np.float32),
+            "scalars": Box(-1.0, 10.0, (1, cls.PLAYER_SCALAR_SIZE + n_opp * cls.PUBLIC_SCALAR_SIZE), np.float32),
+            "emb_scalars": Box(0, 255, (cls.EMB_SCALAR_SIZE,), np.int16),
+        })

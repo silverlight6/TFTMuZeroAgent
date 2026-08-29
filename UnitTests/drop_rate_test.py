@@ -2,10 +2,10 @@
 # by running the simulator 100000 times and counting the number of times
 # each champion is chosen.
 
-from Simulator.player import Player
-from Simulator.pool import pool
-from Simulator.champion import champion
-from Simulator.pool import COST_1, COST_2, COST_3, COST_4, COST_5
+from Simulator.game.player import Player
+from Simulator.game.pool import pool
+from Simulator.battle.champion import champion
+from Simulator.game.pool import COST_1, COST_2, COST_3, COST_4, COST_5
 
 # Verify shop drop rates for each cost are correct
 

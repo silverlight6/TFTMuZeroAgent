@@ -1,15 +1,15 @@
 import numpy as np
 import copy
-import config
+from Simulator import config
 import random
-from Simulator.player import Player
-from Simulator.pool import pool
-from Simulator.champion import champion
-from Simulator.player_manager import PlayerManager
-from Simulator.tft_simulator import TFTConfig
-from Simulator.step_function import Step_Function
-from Simulator.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
-from Simulator.game_round import log_to_file, log_to_file_start
+from Simulator.game.player import Player
+from Simulator.game.pool import pool
+from Simulator.battle.champion import champion
+from Simulator.game.player_manager import PlayerManager
+from Simulator.simulators.tft_simulator import TFTConfig
+from Simulator.game.step_function import Step_Function
+from Simulator.simulators.tft_vector_simulator import TFT_Single_Player_Vector_Simulator
+from Simulator.game.game_round import log_to_file, log_to_file_start
 
 
 def setup() -> Player:

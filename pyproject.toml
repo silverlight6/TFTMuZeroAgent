@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=66"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tft-simulator"
+version = "0.1.0"
+description = "Teamfight Tactics Set 4 battle simulator for reinforcement learning"
+readme = "readme.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "numpy>=2.0",
+    "PettingZoo>=1.27.0",
+    "gymnasium>=1.3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["Simulator*"]
+exclude = ["Simulator.PoroSight*"]
+
+[tool.pytest.ini_options]
+testpaths = ["UnitTests"]

@@ -1,18 +1,15 @@
-import config
 import numpy as np
-from Simulator.tft_position_simulator import TFT_Position_Simulator
-from Simulator.battle_generator import BattleGenerator
+from Simulator.simulators.tft_position_simulator import TFT_Position_Simulator
+from Simulator.generators.battle_generator import BattleGenerator
 
 
-def create_simulator():
+def create_simulator(**kwargs):
     # Create a simulator instance
-    sim = TFT_Position_Simulator()
+    sim = TFT_Position_Simulator(**kwargs)
     sim.reset()  # Ensure the environment is reset for testing
     return sim
 
 def observation_changes_after_action_test(simulator):
-    config.MUZERO_POSITION = True
-    config.PRESET_BATTLE = True
     # Get the initial observation
     initial_observation, _ = simulator.reset()
 
@@ -33,7 +30,6 @@ def observation_changes_after_action_test(simulator):
     ), "Expected observation to change after action was taken."
 
 def stationary_false_test(simulator):
-    config.MUZERO_POSITION = True
     initial_observation, _ = simulator.reset()
     generator_config = simulator.leveling_system.levels
     generator_config[3]['stationary'] = False
@@ -50,5 +46,6 @@ def stationary_false_test(simulator):
             initial_observation, _ = simulator.reset()
 
 def test_list():
-    # observation_changes_after_action_test(create_simulator())
-    stationary_false_test(create_simulator())
+    # observation_changes_after_action_test(create_simulator(
+    #     preset_battle=True, step_until_units_placed=True))
+    stationary_false_test(create_simulator(step_until_units_placed=True))

@@ -1,13 +1,14 @@
 import numpy as np
-import config
+from gymnasium.spaces import Box, Dict
+from Simulator import config
 
 from Simulator.config import MAX_BENCH_SPACE, BENCH_SIZE
-from Simulator.item_stats import item_builds, uncraftable_items
+from Simulator.battle.item_stats import item_builds, uncraftable_items
 from Simulator.observation.interface import ObservationBase, ObservationUpdateBase
 from Simulator.observation.normalization import safe_normalize
-from Simulator.origin_class import team_traits
-from Simulator.origin_class_stats import tiers
-from Simulator.stats import COST
+from Simulator.battle.origin_class import team_traits
+from Simulator.battle.origin_class_stats import tiers
+from Simulator.battle.stats import COST
 from Simulator.utils import item_binary_encode, champ_binary_encode
 
 
@@ -518,7 +519,7 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
                     ],
                     axis=-1,
                 )
-                for x in range(config.NUM_PLAYERS)
+                for x in range(len(observation["opponents"]))
             ],
             axis=0,  # Concatenate opponent data along axis 0
         )
@@ -541,3 +542,48 @@ class ObservationVector(ObservationBase, ObservationUpdateBase):
             key: np.stack([obs[key] for obs in observation])
             for key in observation[0].keys()
         }
+
+    PLAYER_SCALAR_SIZE = 25
+    PUBLIC_SCALAR_SIZE = 8
+    TRAIT_SIZE = config.TRAIT_INPUT_SIZE
+
+    @classmethod
+    def player_observation_space(cls):
+        return Dict({
+            "scalars": Box(-1.0, 1.0, (cls.PLAYER_SCALAR_SIZE,), np.float32),
+            "board": Box(-1.0, 1.0, (config.BOARD_INPUT_SIZE,), np.float32),
+            "bench": Box(-1.0, 1.0, (config.BENCH_INPUT_SIZE,), np.float32),
+            "shop": Box(-1.0, 1.0, (config.SHOP_INPUT_SIZE,), np.float64),
+            "items": Box(-1.0, 1.0, (config.ITEMS_INPUT_SIZE,), np.float32),
+            "traits": Box(-1.0, 1.0, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def public_observation_space(cls):
+        return Dict({
+            "scalars": Box(-1.0, 1.0, (cls.PUBLIC_SCALAR_SIZE,), np.float64),
+            "board": Box(-1.0, 1.0, (config.BOARD_INPUT_SIZE,), np.float32),
+            "traits": Box(-1.0, 1.0, (cls.TRAIT_SIZE,), np.float32),
+        })
+
+    @classmethod
+    def position_observation_space(cls, num_players: int = 8):
+        return Dict({
+            "board": Box(-1.0, 1.0, (num_players, config.BOARD_INPUT_SIZE), np.float32),
+            "traits": Box(-1.0, 1.0, (num_players, cls.TRAIT_SIZE), np.float32),
+        })
+
+    @classmethod
+    def observation_space(cls, num_players: int = 8):
+        other_size = (num_players - 1) * (
+            config.BOARD_INPUT_SIZE + cls.PUBLIC_SCALAR_SIZE + cls.TRAIT_SIZE
+        )
+        return Dict({
+            "scalars": Box(-1.0, 1.0, (cls.PLAYER_SCALAR_SIZE,), np.float32),
+            "shop": Box(-1.0, 1.0, (config.SHOP_INPUT_SIZE,), np.float64),
+            "board": Box(-1.0, 1.0, (config.BOARD_INPUT_SIZE,), np.float32),
+            "bench": Box(-1.0, 1.0, (config.BENCH_INPUT_SIZE,), np.float32),
+            "items": Box(-1.0, 1.0, (config.ITEMS_INPUT_SIZE,), np.float32),
+            "traits": Box(-1.0, 1.0, (cls.TRAIT_SIZE,), np.float32),
+            "other_players": Box(-1.0, 1.0, (other_size,), np.float64),
+        })

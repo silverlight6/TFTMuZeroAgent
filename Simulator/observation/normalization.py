@@ -1,7 +1,7 @@
 import numpy as np
 
-from Simulator.stats import AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA, RANGE, DODGE
-from Simulator.item_stats import items
+from Simulator.battle.stats import AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA, RANGE, DODGE
+from Simulator.battle.item_stats import items
 from Simulator.config import STARMULTIPLIER, CRIT_CHANCE, CRIT_DAMAGE, SP
 
 """
