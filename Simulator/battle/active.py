@@ -1,7 +1,9 @@
 import Simulator.battle.stats as stats
 import Simulator.battle.field as field
 import Simulator.battle.origin_class_stats as origin_class_stats
-import random
+from Simulator.battle.combat_context import ListProxy, RandomProxy
+
+random = RandomProxy()
 
 
 # changing the stat manually since we have shenanigans in place for AD change in the section that makes stat changes
@@ -11,11 +13,10 @@ def jhin_init(champion):
     champion.print(' {} {} --> {}'.format('AS', None, champion.AS))
 
 
-jhin_shots = []
+jhin_shots = ListProxy("jhin_shots")
 
 
 def jhin(champion, target):
-    global jhin_shots
 
     found = False
     index = -1
@@ -42,7 +43,7 @@ def jhin(champion, target):
         return {'damage': 0, 'true_damage': False, 'crit_random': None, 'dodge_random': None}
 
 
-kalista_targets = []
+kalista_targets = ListProxy("kalista_targets")
 
 
 def kalista(champion, target):
@@ -91,7 +92,7 @@ def tahmkench_init(champion):
     champion.print(' {} {} --> {}'.format('damage_reduction', 0, champion.damage_reduction))
 
 
-vayne_targets = []
+vayne_targets = ListProxy("vayne_targets")
 
 
 def vayne(champion, target):
@@ -187,12 +188,10 @@ def warwick(champion, target):
         return {'damage': 0, 'true_damage': False, 'crit_random': None, 'dodge_random': None}
 
 
-zed_counter = []
+zed_counter = ListProxy("zed_counter")
 
 
 def zed(champion, target):
-    global zed_counter
-
     found = False
     index = -1
     if len(zed_counter) > 0:

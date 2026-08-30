@@ -2,7 +2,9 @@ from Simulator.battle import field, item_stats
 import Simulator.battle.champion_functions as champion_functions
 import Simulator.battle.stats as stats
 import Simulator.battle.origin_class as origin_class
-import random
+from Simulator.battle.combat_context import ListProxy, RandomProxy
+
+random = RandomProxy()
 
 # ALL FUNCTIONS REGARDING ITEMS ARE HERE
 # functions are named as just 'item_name'
@@ -56,7 +58,7 @@ def blue_buff(champion):
         change_stat(champion, 'mana', 20)
 
 
-bramble_vest_list = []
+bramble_vest_list = ListProxy("bramble_vest_list")
 def bramble_vest(champion):
     millis = champion_functions.MILLIS()
 
@@ -94,7 +96,7 @@ def chalice_of_power(champion):
 
 #adding stack whenever dealing damage to a target
 #at the same time checking if any of the old stacked enemies are dead. if so, add x AD
-deathblade_list = []
+deathblade_list = ListProxy("deathblade_list")
 def deathblade(champion, target):
     if('deathblade' in champion.items):
         item_amount = len(list(filter(lambda x: x == 'deathblade', champion.items)))
@@ -109,7 +111,7 @@ def deathblade(champion, target):
             deathblade_list.append([champion, target])
 
 
-frozen_heart_list = []
+frozen_heart_list = ListProxy("frozen_heart_list")
 def frozen_heart(champion):
     units = champion.own_team() + champion.enemy_team()
 
@@ -165,7 +167,7 @@ def frozen_heart(champion):
                     break
 
 
-gargoyle_stoneplate_list = []
+gargoyle_stoneplate_list = ListProxy("gargoyle_stoneplate_list")
 
 
 def gargoyle_stoneplate(target):
@@ -230,7 +232,7 @@ def hand_of_justice(champion):
                 change_stat(h, 'lifesteal_spells', h.lifesteal_spells + item_stats.lifesteal_spells['hand_of_justice'])
 
 
-hextech_gunblade_list = []
+hextech_gunblade_list = ListProxy("hextech_gunblade_list")
 
 
 def hextech_gunblade(champion, damage):
@@ -313,7 +315,7 @@ def infinity_edge(champion):
 
 
 # how many ionic spark holding enemies are in the range
-ionic_spark_list = []
+ionic_spark_list = ListProxy("ionic_spark_list")
 
 
 def ionic_spark(champion):
@@ -334,7 +336,7 @@ def ionic_spark(champion):
             change_stat(u, 'MR', u.MR / item_stats.item_mr_decrease['ionic_spark'])
 
 
-last_whisper_list = [] #[target, ms]
+last_whisper_list = ListProxy("last_whisper_list")  # [target, ms]
 def last_whisper(champion, target):
     millis = champion_functions.MILLIS()
 
@@ -507,7 +509,7 @@ def spear_of_shojin(champion):
 
 
 
-statikk_shiv_list = []
+statikk_shiv_list = ListProxy("statikk_shiv_list")
 def statikk_shiv(champion, target):
     if('statikk_shiv' in champion.items):
         item_amount = len(list(filter(lambda x: x == 'statikk_shiv', champion.items)))
@@ -568,7 +570,7 @@ def sunfire_cape(champion, data = {'loop': False}):
 def thieves_gloves(champion):
     ...
 
-titans_resolve_list = [] #[champion, stacks, maxxed]
+titans_resolve_list = ListProxy("titans_resolve_list")  # [champion, stacks, maxxed]
 def titans_resolve(champion, target, crit):
 
     # attacker in spells and physical attacks

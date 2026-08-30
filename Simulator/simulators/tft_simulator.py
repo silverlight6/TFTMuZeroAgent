@@ -23,6 +23,7 @@ from Simulator.encoding.interface import ObservationBase, ActionBase
 from Simulator.encoding.token.basic_observation import ObservationToken
 from Simulator.encoding.token.action import ActionToken
 from gymnasium.spaces import Box, Dict
+from Simulator.battle.combat_context import bind_episode, install_episode, merge_seed_info
 
 import time
 
@@ -121,10 +122,11 @@ class TFT_Simulator(AECEnv):
         pass
 
     def reset(self, seed=None, options=None):
-        if seed is not None:
-            import random
-            random.seed(seed)
-            np.random.seed(seed)
+        install_episode(self, seed, options)
+        with self.combat_ctx.bind():
+            self._reset_bound()
+
+    def _reset_bound(self):
         # --- PettingZoo AECEnv Variables ---
         self.agents = self.possible_agents[:]
         self._last_observations = {}
@@ -165,6 +167,8 @@ class TFT_Simulator(AECEnv):
                 "actions_taken": 0,
             } for player_id in range(self.num_players)
         }
+        for info in self.infos.values():
+            info.update(merge_seed_info({}, self))
 
         # --- Game State for Render ---
         if is_porosight_render(self.render_mode):
@@ -240,6 +244,10 @@ class TFT_Simulator(AECEnv):
     # --- Step Function ---
 
     def step(self, action):
+        with bind_episode(self).bind():
+            return self._step_bound(action)
+
+    def _step_bound(self, action):
         """
         Actions is a dictionary of actions from each agent.
         Ex:

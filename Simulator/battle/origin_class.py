@@ -1,47 +1,21 @@
 import Simulator.config as config
 import Simulator.battle.origin_class_stats as origin_class_stats
 import Simulator.battle.stats as stats
-import random
 import time
 from Simulator.battle import field, item_stats, items, champion_functions
+from Simulator.battle.combat_context import DictProxy, ListProxy, RandomProxy, get_ctx
+
+random = RandomProxy()
 
 # ORIGINS AND CLASSES
 # loads of similar functions
 
 starting_time = time.time_ns()
 
-cultist_stars = {'blue': 0, 'red': 0}  # chosen's stars counts as double
-total_health_teams = {'blue': 0, 'red': 0}
-galio_spawn_time = {'blue': 0, 'red': 0}
-
-amounts = {
-    'cultist': {'blue': 0, 'red': 0},           # 0  in champion.py: champion object, champion.champion_functions.py
-    'divine': {'blue': 0, 'red': 0},            # 1  in champion.py: spell(), champion_functions.py: attack()
-    'dusk': {'blue': 0, 'red': 0},              # 2  in origin_class.py: total_origin_class()
-    'elderwood': {'blue': 0, 'red': 0},         # 3  in champion.py: main()
-    'enlightened': {'blue': 0, 'red': 0},       # 4  in origin_class.py: total_origin_class()
-    'exile': {'blue': 0, 'red': 0},             # 5  in origin_class.py: total_origin_class()
-    'ninja': {'blue': 0, 'red': 0},             # 6  in origin_class.py: total_origin_class()
-    'spirit': {'blue': 0, 'red': 0},            # 7  in ability.py: default_ability_calls()
-    'the_boss': {'blue': 0, 'red': 0},          # 8  in champion.py: spell(), champion_functions.py: attack()
-    'warlord': {'blue': 0, 'red': 0},           # 9  in origin_class.py: total_origin_class()
-    'adept': {'blue': 0, 'red': 0},             # 10 in origin_class.py: total_origin_class()
-    'assassin': {'blue': 0, 'red': 0},          # 11 in origin_class.py: total_origin_class()
-    'brawler': {'blue': 0, 'red': 0},           # 12 in origin_class.py: total_origin_class()
-    'dazzler': {'blue': 0, 'red': 0},           # 13 in champion.py: clear_que_dazzler(), spell()
-    'duelist': {'blue': 0, 'red': 0},           # 14 in origin_class.py: total_origin_class(), champion.py: attack()
-    'emperor': {'blue': 0, 'red': 0},           # 15 in origin_class.py: total_origin_class()
-    'hunter': {'blue': 0, 'red': 0},            # 16 in champion.py: main()
-    'keeper': {'blue': 0, 'red': 0},            # 17 in origin_class.py: total_origin_class()
-    'mage': {'blue': 0, 'red': 0},              # 18 in origin_class.py: total_origin_class(), champion.py: ability()
-    'mystic': {'blue': 0, 'red': 0},            # 19 in origin_class.py: total_origin_class()
-    'shade': {'blue': 0, 'red': 0},             # 20 in origin_class.py: total_origin_class()
-    'sharpshooter': {'blue': 0, 'red': 0},      # 21 in champion_functions.py: attack(), champion.py: spell()
-    'vanguard': {'blue': 0, 'red': 0},          # 22 in origin_class.py: total_origin_class()
-    'fortune': {'blue': 0, 'red': 0},           # 23 in player
-    'moonlight': {'blue': 0, 'red': 0},         # 24 in origin_class.py: My own implementation
-    'tormented': {'blue': 0, 'red': 0}
-}
+cultist_stars = DictProxy("cultist_stars")  # chosen's stars counts as double
+total_health_teams = DictProxy("total_health_teams")
+galio_spawn_time = DictProxy("galio_spawn_time")
+amounts = DictProxy("amounts")
 
 team_traits = {
     'cultist': 0,
@@ -98,7 +72,6 @@ def chosen(champion, value):
 
 
 def total_health(blue, red):
-    global total_health_teams
     for b in blue:
         total_health_teams['blue'] += b.health
     for r in red:
@@ -224,8 +197,8 @@ def cultist_helper(champion, damage, target):
         champion.spell(t, damage)
 
 
-divine_attack_list = []  # [champion, attack_amount]
-divine_list = []  # champion, champion, champion
+divine_attack_list = ListProxy("divine_attack_list")  # [champion, attack_amount]
+divine_list = ListProxy("divine_list")  # champion, champion, champion
 
 
 def divine(champion, target, attack):
@@ -284,7 +257,7 @@ def dusk(blue_team, red_team):
                     items.change_stat(c, 'SP', c.SP + origin_class_stats.SP['dusk'][tier], 'dusk')
 
 
-elderwood_list = {'blue': 0, 'red': 0}
+elderwood_list = DictProxy("elderwood_list")
 
 
 def elderwood(blue_team, red_team):
@@ -356,7 +329,7 @@ def ninja(blue_team, red_team):
                     items.change_stat(c, 'SP', c.SP + origin_class_stats.SP['ninja'][tier], 'ninja')
 
 
-spirit_list = [] # champion, champion, champion (the ones who have casted)
+spirit_list = ListProxy("spirit_list")  # champion, champion, champion (the ones who have casted)
 def spirit(champion):
     tier = get_origin_class_tier(champion.team, 'spirit')
     if(tier > 0 and champion not in spirit_list):
@@ -443,7 +416,7 @@ def warlord(blue_team, red_team):
         if tier > 0:
             for c in teams[t]:
                 if is_trait(c, 'warlord'):
-                    wins = config.WARLORD_WINS[t]
+                    wins = get_ctx().warlord_wins[t]
                     if wins > 5:
                         wins = 5
 
@@ -541,7 +514,7 @@ def duelist(blue_team, red_team):
 
 
 # AS changes
-duelist_helper_list = []  # [champion, stacks]
+duelist_helper_list = ListProxy("duelist_helper_list")  # [champion, stacks]
 
 
 def duelist_helper(champion):
@@ -684,7 +657,7 @@ def shade(blue_team, red_team):
                 c.add_que('execute_function', config.LEAP_DELAY, [field.leap_to_back_line, {'trait': '  shade'}])
 
 
-shade_helper_list = []  # [champion, attacks]
+shade_helper_list = ListProxy("shade_helper_list")  # [champion, attacks]
 
 
 def shade_helper(champion):

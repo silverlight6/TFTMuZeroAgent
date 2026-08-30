@@ -1,12 +1,14 @@
 import Simulator.config as config
 import time
-import random
-import numpy as np
 from Simulator.battle import champion, minion
 from Simulator.battle.champion_functions import MILLIS
+from Simulator.battle.combat_context import NPRandomProxy, RandomProxy, get_ctx
 from Simulator.game.carousel import carousel
 from Simulator.battle.alt_autobattler import alt_auto_battle
 from copy import deepcopy
+
+random = RandomProxy()
+_np_random = NPRandomProxy()
 
 
 class Game_Round:
@@ -96,10 +98,10 @@ class Game_Round:
                 # Fixing the time signature to see how long battles take.
                 players[match[0]].start_time = time.time_ns()
                 players[match[1]].start_time = time.time_ns()
-                config.WARLORD_WINS['blue'] = players[match[0]].win_streak
-                config.WARLORD_WINS['red'] = players[match[1]].win_streak
+                get_ctx().warlord_wins['blue'] = players[match[0]].win_streak
+                get_ctx().warlord_wins['red'] = players[match[1]].win_streak
 
-                standard_battle = config.AUTO_BATTLER_PERCENTAGE < np.random.rand()
+                standard_battle = config.AUTO_BATTLER_PERCENTAGE < _np_random.rand()
                 if standard_battle:
                     # Main simulation call
                     index_won, damage = champion.run(champion.champion, players[match[0]], players[match[1]],
@@ -148,9 +150,9 @@ class Game_Round:
             else:
                 players[match[0]].start_time = time.time_ns()
                 players[match[0]].opponent = players[match[2]]
-                config.WARLORD_WINS['blue'] = players[match[0]].win_streak
-                config.WARLORD_WINS['red'] = players[match[2]].win_streak
-                if config.AUTO_BATTLER_PERCENTAGE < np.random.rand():
+                get_ctx().warlord_wins['blue'] = players[match[0]].win_streak
+                get_ctx().warlord_wins['red'] = players[match[2]].win_streak
+                if config.AUTO_BATTLER_PERCENTAGE < _np_random.rand():
                     index_won, damage = champion.run(champion.champion, players[match[0]], players[match[2]],
                                                      self.ROUND_DAMAGE[round_index][1])
                 else:
@@ -183,10 +185,10 @@ class Game_Round:
         # Fixing the time signature to see how long battles take.
         players[0].start_time = time.time_ns()
         players[1].start_time = time.time_ns()
-        config.WARLORD_WINS['blue'] = players[0].win_streak
-        config.WARLORD_WINS['red'] = players[1].win_streak
+        get_ctx().warlord_wins['blue'] = players[0].win_streak
+        get_ctx().warlord_wins['red'] = players[1].win_streak
 
-        standard_battle = config.AUTO_BATTLER_PERCENTAGE < np.random.rand()
+        standard_battle = config.AUTO_BATTLER_PERCENTAGE < _np_random.rand()
 
         player_0 = deepcopy(players[0])
         player_1 = deepcopy(players[1])

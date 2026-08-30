@@ -41,6 +41,7 @@ CHOSEN = None
 GALIO_MULTIPLIER = 0.14
 GALIO_TEAM_HEALTH_PERCENTAGE = 0.50
 
+# Fight-local warlord streaks live on CombatContext.warlord_wins.
 WARLORD_WINS = {"blue": 0, "red": 0}
 
 LEAP_DELAY = 395  # assassins and shades

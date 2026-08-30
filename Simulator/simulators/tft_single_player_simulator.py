@@ -1,8 +1,7 @@
-import random
-
 import numpy as np
 import gymnasium as gym
 from Simulator import config
+from Simulator.battle.combat_context import bind_episode, install_episode, merge_seed_info
 
 from Simulator.game import pool
 from Simulator.game.game_round import log_to_file_start
@@ -52,10 +51,11 @@ class TFT_Single_Player_Simulator(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        install_episode(self, seed, options)
+        with self.combat_ctx.bind():
+            return self._reset_bound()
 
+    def _reset_bound(self):
         pool_obj = pool.pool()
         self.player_manager = PlayerManager(config.NUM_PLAYERS, pool_obj,
                                             TFTConfig(observation_class=self.observation_class,
@@ -103,7 +103,7 @@ class TFT_Single_Player_Simulator(gym.Env):
         return {
             "observations": initial_observation["player"],
             "action_mask": np.asarray(initial_observation["action_mask"]).reshape(-1).astype(np.int8),
-        }, self.info
+        }, merge_seed_info(self.info, self)
 
     def render(self):
         ...
@@ -125,6 +125,10 @@ class TFT_Single_Player_Simulator(gym.Env):
                     no longer improve the positioning of the board from what it is given. 
     """
     def step(self, action):
+        with bind_episode(self).bind():
+            return self._step_bound(action)
+
+    def _step_bound(self, action):
         # Perform action and update observations
         action = np.asarray(action)
         decoded = self.action_class.decode_env_action(action)

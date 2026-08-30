@@ -1,8 +1,10 @@
 import math
 import time
 import numpy as np
-import random
 from Simulator.battle import champion, origin_class
+from Simulator.battle.combat_context import RandomProxy
+
+random = RandomProxy()
 import Simulator.utils as utils
 import Simulator.config as config
 from Simulator.battle.item_stats import basic_items, item_builds, thieves_gloves_items, \
@@ -345,7 +347,7 @@ class Player:
                 action = ActionToken(self)
                 np.set_printoptions(threshold=np.inf)
                 print(self.shop)
-                print([(c.cost, c.stars) for c in self.shop_champions])
+                print([(c.cost, c.stars) if c else None for c in self.shop_champions])
                 print(action.buy_mask)
                 print(self.gold)
                 print('----------------- OBS MASK ---------------')

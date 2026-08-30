@@ -3,7 +3,6 @@ import Simulator.battle.origin_class as origin_class
 import Simulator.battle.origin_class_stats as origin_class_stats
 import Simulator.battle.champion_functions as champion_functions
 import time
-import random
 import itertools
 
 from math import ceil
@@ -11,9 +10,13 @@ from Simulator.battle.stats import AD, HEALTH, ARMOR, MR, AS, RANGE, MANA, MAXMA
     DODGE, INITIATIVE_ACTIVE, ABILITY_LENGTH, DAMAGE_PER_UNIT
 from Simulator.battle.champion_functions import attack, die, MILLIS, MILLISECONDS_INCREASE, add_damage_dealt
 from Simulator.battle import ability, active, field, item_stats, items
+from Simulator.battle.combat_context import CombatContext, ListProxy, RandomProxy, get_ctx
 
-que = []
-log = []
+que = ListProxy("que")
+log = ListProxy("log")
+blue = ListProxy("blue")
+red = ListProxy("red")
+random = RandomProxy()
 
 
 def printt(msg):
@@ -146,6 +149,8 @@ class champion:
             # self.cost = cost_star_values[COST[name]][self.stars]
             self.health += 200
             self.max_health += 200
+
+        self.ctx = get_ctx()
 
         if name != 'aphelios_turret':
             items.initiate(self)
@@ -473,7 +478,7 @@ class champion:
         return blue
 
     def que_return(self):
-        return que
+        return get_ctx().que
 
     def spawn(self, name, stars, y, x, team=None, is_champion=True):
         if not team:
@@ -492,8 +497,7 @@ class champion:
         return unit
 
     def que_replace(self, q):
-        global que
-        que = q
+        get_ctx().que = list(q)
 
     def millis(self):
         return MILLIS()
@@ -531,20 +535,13 @@ class champion:
             return True
         return False
 
-# TODO: Check for concurrency errors with this when using multiple threads
-
-global blue
-global red
-
-blue = []
-red = []
-
-# I think I am going to redo parts of this function. 
-# Essentially, I am just going to change the first 10 lines so it reads in the data from the two teams.
-# This will be an area I will look to optimize on later if need be but for now,
-# I want to keep things as simple as possible.
 def run(champion_q, player_1, player_2, round_damage=0):
-    reset_global_variables()
+    ctx = get_ctx()
+    ctx.reset_combat()
+    return _run_battle(champion_q, player_1, player_2, round_damage, ctx)
+
+
+def _run_battle(champion_q, player_1, player_2, round_damage, ctx: CombatContext):
 
     for x in range(0, 7):
         for y in range(0, 4):
@@ -779,61 +776,7 @@ def change_stat(a_champion, action, length, function, stat, value, data):
 
 
 def reset_global_variables():
-    global blue
-    global red
-    global que
-    global log
-    blue = []
-    red = []
-    que = []
-    log = []
-
-    champion_functions.MILLISECONDS = 0
-    champion_functions.damage_dealt = []
-    champion_functions.damage_dealt_teams = {'blue': 0, 'red': 0}
-    champion_functions.galio_spawned = {'blue': False, 'red': False}
-
-    # global kennen_hits
-    # global l
-    ability.kennen_hits = []
-    ability.lulu_targeted = []
-    ability.morgana_MR_list = []
-    ability.riven_counter = []
-    ability.riven_identifier_list = []
-    ability.vi_armor_list = []
-    ability.yone_list = []
-    ability.yone_checking = False
-
-    active.jhin_shots = []
-    active.kalista_targets = []
-    active.vayne_targets = []
-    active.zed_counter = []
-
-    field.coordinates = [[None] * 7 for _ in range(8)]
-
-    items.bramble_vest_list = []
-    items.deathblade_list = []
-    items.frozen_heart_list = []
-    items.gargoyle_stoneplate_list = []
-    items.hextech_gunblade_list = []
-    items.ionic_spark_list = []
-    items.last_whisper_list = []
-    items.statikk_shiv_list = []
-    items.titans_resolve_list = []
-
-    origin_class.cultist_stars = {'blue': 0, 'red': 0}
-    origin_class.total_health_teams = {'blue': 0, 'red': 0}
-    origin_class.galio_spawn_time = {'blue': 0, 'red': 0}
-
-    for o in origin_class.amounts:
-        origin_class.amounts[o] = {'blue': 0, 'red': 0}
-
-    origin_class.divine_attack_list = []
-    origin_class.divine_list = []
-    origin_class.elderwood_list = {'blue': 0, 'red': 0}
-    origin_class.spirit_list = []
-    origin_class.duelist_helper_list = []
-    origin_class.shade_helper_list = []
+    get_ctx().reset_combat()
 
 
 def survive_combat(player, champ_list):

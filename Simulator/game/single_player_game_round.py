@@ -1,6 +1,7 @@
 import Simulator.config as config
 import time
 from Simulator.battle import champion, minion
+from Simulator.battle.combat_context import get_ctx
 from Simulator.game.carousel import carousel
 from Simulator.game.game_round import log_to_file, log_to_file_combat, log_to_file_start, log_end_turn
 from Simulator.generators.position_leveling_system import PositionLevelingSystem
@@ -93,8 +94,8 @@ class Game_Round:
         # Fixing the time signature to see how long battles take.
         player.start_time = time.time_ns()
         enemy.start_time = time.time_ns()
-        config.WARLORD_WINS['blue'] = player.win_streak
-        config.WARLORD_WINS['red'] = 0
+        get_ctx().warlord_wins['blue'] = player.win_streak
+        get_ctx().warlord_wins['red'] = 0
 
         player_0 = deepcopy(player)
         index_won, damage = champion.run(champion.champion, player_0, enemy)

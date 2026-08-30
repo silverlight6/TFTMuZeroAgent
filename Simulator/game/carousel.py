@@ -1,7 +1,9 @@
 from Simulator.battle.item_stats import item_builds as item_builds, basic_items, starting_items, offensive_items, defensive_items
 from Simulator.battle.champion import champion
+from Simulator.battle.combat_context import RandomProxy
 from Simulator.game.pool_stats import COST_1, COST_2, COST_3, COST_4, COST_5
-import random
+
+random = RandomProxy()
 
 # TODO:
 # Choose the best champion + item combo for each player

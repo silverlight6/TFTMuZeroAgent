@@ -2,38 +2,30 @@ import Simulator.config as config
 import Simulator.battle.origin_class as origin_class
 import Simulator.battle.origin_class_stats as origin_class_stats
 import Simulator.battle.stats as stats
-import random
 from math import ceil
 from Simulator.battle import ability, active, field, item_stats, items
+from Simulator.battle.combat_context import DictProxy, ListProxy, RandomProxy, get_ctx
 from Simulator.battle.stats import *
 
-MILLISECONDS = 0
+random = RandomProxy()
+damage_dealt = ListProxy("damage_dealt")
+damage_dealt_teams = DictProxy("damage_dealt_teams")
+galio_spawned = DictProxy("galio_spawned")
 
 
 def MILLIS():
-    return MILLISECONDS
+    return get_ctx().milliseconds
 
 
 def MILLISECONDS_INCREASE():
-    global MILLISECONDS
-    MILLISECONDS += 25
-
-
-damage_dealt = []
-damage_dealt_teams = {'blue': 0, 'red': 0}
+    get_ctx().milliseconds += 25
 
 
 def get_damage_dealt():
-    return damage_dealt
-
-
-galio_spawned = {'blue': False, 'red': False}
+    return get_ctx().damage_dealt
 
 
 def add_damage_dealt(champion, damage, target):
-    global damage_dealt
-    global damage_dealt_teams
-    global galio_spawned
     added = False
 
     if champion.team == 'blue':

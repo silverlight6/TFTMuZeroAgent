@@ -1,9 +1,11 @@
 from enum import Enum
-import random
-import numpy as np
 from Simulator.battle import champion
+from Simulator.battle.combat_context import NPRandomProxy, RandomProxy
 from Simulator.game import pool_stats
 from Simulator.battle.item_stats import thieves_gloves_items
+
+random = RandomProxy()
+_np_random = NPRandomProxy()
 
 # Theives gloves items includes all full items except emblems
 item_list = thieves_gloves_items
@@ -109,10 +111,9 @@ def give_random_full_item(player):
 # Helper functions for getting orbs after minion rounds
 def gen_orbs(choices, p, count):
     orbs = []
-    choices = np.array(choices, dtype=object)
 
     for _ in range(count):
-        orb = np.random.choice(choices, p=p)
+        orb = _np_random.choice(choices, p=p)
         if type(orb) is tuple:
             orbs.extend(orb)
         else:
@@ -125,7 +126,7 @@ def gen_orb_reward(loot_orb: LootOrb):
     choices = list(loot_orb.value.keys())
     probabilities = list(loot_orb.value.values())
 
-    reward = np.random.choice(choices, p=probabilities)
+    reward = _np_random.choice(choices, p=probabilities)
 
     return reward
 

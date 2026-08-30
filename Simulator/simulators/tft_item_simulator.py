@@ -1,6 +1,6 @@
-import random
 import time
 from Simulator import config
+from Simulator.battle.combat_context import bind_episode, install_episode, merge_seed_info
 import numpy as np
 import gymnasium as gym
 from Simulator.game import pool
@@ -55,9 +55,11 @@ class TFT_Item_Simulator(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        install_episode(self, seed, options)
+        with self.combat_ctx.bind():
+            return self._reset_bound()
+
+    def _reset_bound(self):
         if self.data_generator and self.data_generator.q_size() >= config.MINIMUM_POP_AMOUNT:
             [player, opponent, other_players, item_guide] = self.data_generator.pop()
         else:
@@ -97,7 +99,7 @@ class TFT_Item_Simulator(gym.Env):
             self.game_state = GameState.for_item(
                 self.PLAYER, opponent, other_players, self.render_path, file_suffix=suffix
             )
-        return observation, {}
+        return observation, merge_seed_info({}, self)
 
     def render(self):
         ...
@@ -106,6 +108,10 @@ class TFT_Item_Simulator(gym.Env):
         pass
 
     def step(self, action):
+        with bind_episode(self).bind():
+            return self._step_bound(action)
+
+    def _step_bound(self, action):
         self.PLAYER.printComp()
         log_to_file(self.PLAYER)
         self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])

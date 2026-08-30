@@ -1,8 +1,9 @@
 import math
 import Simulator.battle.stats as stats
 import Simulator.battle.items as items
+from Simulator.battle.combat_context import ListProxy
 
-coordinates = [[None] * 7 for _ in range(8)]
+coordinates = ListProxy("field_coordinates")
 
 
 def action(champion):

@@ -1,7 +1,8 @@
 import Simulator.battle.stats as stats
-import random
-
+from Simulator.battle.combat_context import RandomProxy
 from Simulator.game.pool_stats import *
+
+random = RandomProxy()
 from Simulator.battle.origin_class_stats import origin_class, chosen_exclude
 from Simulator.config import LOGMESSAGES
 

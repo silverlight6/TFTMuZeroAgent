@@ -5,6 +5,7 @@ import numpy as np
 from Simulator.simulators.tft_position_simulator import TFT_Position_Simulator
 from Simulator.simulators.tft_single_player_simulator import TFT_Single_Player_Simulator
 from Simulator.simulators.tft_simulator import TFTConfig
+from Simulator.rng import expand_vector_seeds
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,9 @@ class TFT_Vector_Pos_Simulator:
 
     # A fair amount of this code came strait from Ray source files. Not changing unless broken.
     def vector_reset(
-            self, *, seeds: Optional[List[int]] = None, options: Optional[List[dict]] = None
+            self, *, seeds: Optional[List[int]] = None, options=None, run_seed: Optional[int] = None
     ):
-        seeds = seeds or [None] * self.num_envs
-        options = options or [None] * self.num_envs
+        seeds, options = expand_vector_seeds(self.num_envs, seeds, options, run_seed)
         # Use reset_at(index) to restart and retry until
         # we successfully create a new env.
         resetted_obs = []
@@ -280,10 +280,9 @@ class TFT_Single_Player_Vector_Simulator:
 
     # A fair amount of this code came strait from Ray source files. Not changing unless broken.
     def vector_reset(
-            self, *, seeds: Optional[List[int]] = None, options: Optional[List[dict]] = None
+            self, *, seeds: Optional[List[int]] = None, options=None, run_seed: Optional[int] = None
     ):
-        seeds = seeds or [None] * self.num_envs
-        options = options or [None] * self.num_envs
+        seeds, options = expand_vector_seeds(self.num_envs, seeds, options, run_seed)
         # Use reset_at(index) to restart and retry until
         # we successfully create a new env.
         resetted_obs = []

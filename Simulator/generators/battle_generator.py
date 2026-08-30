@@ -1,6 +1,7 @@
-import numpy as np
+import random as std_random
+
 from Simulator import config
-import random
+from Simulator.battle.combat_context import CombatContext, NPRandomProxy, RandomProxy
 from Simulator.game.pool import pool
 from Simulator.game.player import Player
 from Simulator.utils import coord_to_x_y, x_y_to_1d_coord
@@ -8,6 +9,9 @@ from Simulator.battle.item_stats import item_builds, thieves_gloves_items
 from Simulator.battle.champion import champion
 from Simulator.encoding.token.action import ActionToken
 from Simulator.generators.default_agent_stats import ONE_COST_UNITS, TWO_COST_UNITS, THREE_COST_UNITS, FOUR_COST_UNITS, FIVE_COST_UNITS
+
+random = RandomProxy()
+_np_random = NPRandomProxy()
 
 
 base_level_config = {
@@ -52,15 +56,15 @@ class BattleGenerator:
         self.list_of_units = sum(self.list_of_units, [])
         self.stationary_coords = []
         if self.generator_config["stationary"]:
-            random.seed(8)
-            self.stationary_coords = random.sample(list(range(0, 28)), 12)
+            self.stationary_coords = std_random.Random(8).sample(list(range(0, 28)), 12)
             if self.generator_config["set_test_position"]:
                 if x_y_to_1d_coord(self.generator_config["test_position"][0],
                                    self.generator_config["test_position"][1]) not in self.stationary_coords:
                     self.stationary_coords[0] = x_y_to_1d_coord(self.generator_config["test_position"][0],
                                                                 self.generator_config["test_position"][1])
 
-        self.set_composition = [
+        with CombatContext().bind():
+            self.set_composition = [
             [champion('vi'), champion('katarina'), champion('nunu')],
             [champion('tahmkench'), champion('katarina', itemlist=['hand_of_justice']),
                 champion('nunu'), champion('annie')],
@@ -124,10 +128,10 @@ class BattleGenerator:
             level = self.generator_config["current_level"]
             item_count = self.generator_config["num_items"]
             if self.generator_config["extra_randomness"]:
-                level = level + np.random.randint(-2, 3)
+                level = level + _np_random.randint(-2, 3)
                 if level > 9:
                     level = 9
-                item_count += np.random.randint(-1, 2)
+                item_count += _np_random.randint(-1, 2)
                 if item_count < 0:
                     item_count = 0
                 elif item_count > 3:
@@ -140,13 +144,13 @@ class BattleGenerator:
             player.shop_champions = player.create_shop_champions()
             if self.generator_config["scenario_info"]:
                 if self.generator_config["test_mode"]:
-                    player.gold = np.random.randint(20, 60)
-                    player.round = np.random.randint(3, 30)
+                    player.gold = _np_random.randint(20, 60)
+                    player.round = _np_random.randint(3, 30)
                 else:
-                    player.gold = np.random.randint(0, 60)
-                    player.round = np.random.randint(0, 100) % (level * 3)
-                player.exp = np.random.randint(0, player.level_costs[level])
-                player.health = np.random.randint(1, 101)
+                    player.gold = _np_random.randint(0, 60)
+                    player.round = _np_random.randint(0, 100) % (level * 3)
+                player.exp = _np_random.randint(0, player.level_costs[level])
+                player.health = _np_random.randint(1, 101)
             action_mask = ActionToken(player)
             self.add_champions(player, action_mask, base_pool)
             # Add these back in later after I see proof of learning
@@ -199,14 +203,14 @@ class BattleGenerator:
             if self.generator_config["stationary"]:
                 coord = self.stationary_coords[i]
             else:
-                coord = np.random.randint(0, 28)
+                coord = _np_random.randint(0, 28)
             coord_x, coord_y = coord_to_x_y(coord)
             if bench_mask[0][coord]:
                 player.move_bench_to_board(0, coord_x, coord_y)
             else:
                 move_failure = 0
                 while not bench_mask[0][coord]:
-                    coord = np.random.randint(0, 28)
+                    coord = _np_random.randint(0, 28)
                     coord_x, coord_y = coord_to_x_y(coord)
                     if bench_mask[0][coord]:
                         player.move_bench_to_board(0, coord_x, coord_y)
@@ -283,7 +287,7 @@ class BattleGenerator:
                 # if set_position:
                 #     coord = self.stationary_coords[i]
                 # else:
-                #     coord = np.random.randint(0, 28)
+                #     coord = _np_random.randint(0, 28)
                 coord = self.stationary_coords[i]
                 coord_x, coord_y = coord_to_x_y(coord)
                 # TODO: Turn the next few lines into a method of it's own so I don't have to copy and paste.
@@ -294,7 +298,7 @@ class BattleGenerator:
                 else:
                     move_failure = 0
                     while not bench_mask[0][coord]:
-                        coord = np.random.randint(0, 28)
+                        coord = _np_random.randint(0, 28)
                         coord_x, coord_y = coord_to_x_y(coord)
                         if bench_mask[0][coord]:
                             player.move_bench_to_board(0, coord_x, coord_y)
@@ -322,9 +326,7 @@ def sample_with_limit(units, x, seed=None):
     Returns:
       A list of x sampled units, or the entire list if x is larger than the list size.
     """
-    if seed is not None:
-        random.seed(seed)
+    rng = std_random.Random(seed) if seed is not None else random
     if x <= len(units):
-        return random.sample(units, x)
-    else:
-        return units
+        return rng.sample(units, x)
+    return units

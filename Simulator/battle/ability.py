@@ -5,8 +5,10 @@ import Simulator.battle.champion_functions as champion_functions
 import Simulator.battle.item_stats as item_stats
 import Simulator.battle.origin_class as origin_class
 import Simulator.battle.items as items
-import random
 from math import ceil, floor
+from Simulator.battle.combat_context import ListProxy, RandomProxy, get_ctx
+
+random = RandomProxy()
 
 
 # ALL ULT FUNCTIONS BASE HERE. NAMED:
@@ -1005,12 +1007,11 @@ def kayn(champion, data={'redash': False}):
             champion.add_que('execute_function', 350, [kayn, {'redash': True}])
 
 
-kennen_hits = []
+kennen_hits = ListProxy("kennen_hits")
 
 
 def kennen(champion):
-    global kennen_hits
-    kennen_hits = list(filter(lambda x: x[0] != champion, kennen_hits))
+    get_ctx().kennen_hits = list(filter(lambda x: x[0] != champion, kennen_hits))
 
     # for kenny not to ult when there's no targets in range
     # brings some extra cpu load
@@ -1026,7 +1027,6 @@ def kennen(champion):
 
 
 def kennen_ability(champion, data):
-    global kennen_hits
     targets = field.enemies_in_distance(champion, champion.y, champion.x, stats.ABILITY_RADIUS[champion.name])
 
     if not champion.stunned:
@@ -1454,7 +1454,7 @@ def lissandra(champion):
             champion.spell(hex_data, stats.ABILITY_SECONDARY_DMG[champion.name][champion.stars])
 
 
-lulu_targeted = []
+lulu_targeted = ListProxy("lulu_targeted")
 
 
 def lulu(champion):
@@ -1599,11 +1599,10 @@ def morgana(champion):
         champion.add_que('execute_function', current_ms, [morgana_ability, {'coordinates': target, 'ms': current_ms}])
 
 
-morgana_MR_list = []
+morgana_MR_list = ListProxy("morgana_mr_list")
 
 
 def morgana_ability(champion, data):
-    global morgana_MR_list
     targets = field.enemies_in_distance(champion, data['coordinates'][0], data['coordinates'][1],
                                         stats.ABILITY_RADIUS[champion.name])
 
@@ -1630,7 +1629,7 @@ def morgana_ability(champion, data):
     # clear the list at the end of the last slice
     if (data['ms'] == stats.ABILITY_LENGTH[champion.name] - (
             stats.ABILITY_LENGTH[champion.name] / stats.ABILITY_SLICES[champion.name])):
-        morgana_MR_list = list(filter(lambda x: (x[0] != champion), morgana_MR_list))
+        get_ctx().morgana_mr_list = list(filter(lambda x: (x[0] != champion), morgana_MR_list))
 
 
 def nami(champion):
@@ -1787,14 +1786,13 @@ def pyke_ability(champion, data):
                 champion.spell(c, stats.ABILITY_DMG[champion.name][champion.stars])
 
 
-riven_counter = []
-riven_identifier_list = []
+riven_counter = ListProxy("riven_counter")
+riven_identifier_list = ListProxy("riven_identifier_list")
 
 
 def riven(champion):
     if riven_helper(champion, {}):
 
-        global riven_counter
         default_ability_calls(champion)
         # riven_counter needs to sustain multiple rivens on the field,
         # so there's gonna be every riven's data on the same array
@@ -2423,7 +2421,7 @@ def veigar(champion):
         champion.print(' {} {} --> {}'.format('SP', round(start_value, 2), round(champion.SP, 2)))
 
 
-vi_armor_list = []
+vi_armor_list = ListProxy("vi_armor_list")
 
 
 def vi(champion):
@@ -2589,21 +2587,18 @@ def yasuo_ability(champion, data):
     return (possible_hexes)
 
 
-yone_list = []
-yone_checking = False
+yone_list = ListProxy("yone_list")
 
 
 # welcome to the loop city
 # the sir lord mayor is named 'for'
 # dude's a dick tho
 def yone(champion):
-    global yone_list
-    global yone_checking
     default_ability_calls(champion)
 
-    if (not yone_checking):
+    if not get_ctx().yone_checking:
         champion.add_que('execute_function', 0, [yone_ability, {'loop': True}])
-        yone_checking = True
+        get_ctx().yone_checking = True
 
     coords = field.coordinates
 
@@ -2732,10 +2727,8 @@ def yone(champion):
 
 # check if someone on the list has died
 def yone_ability(champion, data):
-    global yone_list
-
     old_length = yone_helper(champion)
-    yone_list = list(filter(lambda x: x[1].health > 0, yone_list))
+    get_ctx().yone_list = list(filter(lambda x: x[1].health > 0, yone_list))
     new_length = yone_helper(champion)
     if (new_length != old_length):
         champion.print(' list length {} --> {}'.format(old_length, new_length))
@@ -2749,7 +2742,6 @@ def yone_ability(champion, data):
 
 
 def yone_helper(champion):
-    global yone_list
     counter = 0
     for y in yone_list:
         if (y[0] == champion):

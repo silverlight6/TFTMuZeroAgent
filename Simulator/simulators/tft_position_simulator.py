@@ -1,9 +1,9 @@
 import copy
-import random
 
 import gymnasium as gym
 import numpy as np
 from Simulator import config
+from Simulator.battle.combat_context import bind_episode, install_episode, merge_seed_info
 
 from gymnasium.spaces import Box, Dict, MultiDiscrete
 from Simulator.game import pool
@@ -59,9 +59,11 @@ class TFT_Position_Simulator(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        install_episode(self, seed, options)
+        with self.combat_ctx.bind():
+            return self._reset_bound()
+
+    def _reset_bound(self):
         if self.data_generator and self.data_generator.q_size() >= config.MINIMUM_POP_AMOUNT:
             [player, opponent, other_players] = self.data_generator.pop()
         else:
@@ -114,7 +116,7 @@ class TFT_Position_Simulator(gym.Env):
                 self.PLAYER, opponent, other_players, self.render_path, file_suffix=suffix
             )
 
-        return observation, {"num_units": self.max_action_count}
+        return observation, merge_seed_info({"num_units": self.max_action_count}, self)
 
     def render(self):
         ...
@@ -133,6 +135,10 @@ class TFT_Position_Simulator(gym.Env):
                     no longer improve the positioning of the board from what it is given. 
     """
     def step(self, action):
+        with bind_episode(self).bind():
+            return self._step_bound(action)
+
+    def _step_bound(self, action):
         if action is not None:
             if self.step_until_units_placed:
                 self.step_function.multi_step_position_controller(action, self.action_count)
@@ -181,6 +187,10 @@ class TFT_Position_Simulator(gym.Env):
                 simulations that would return a termination or an observation. 
     """
     def fake_step(self, action, unit_number):
+        with bind_episode(self).bind():
+            return self._fake_step_bound(action, unit_number)
+
+    def _fake_step_bound(self, action, unit_number):
         copied_player = copy.deepcopy(self.PLAYER)
         if action is not None:
             action_count = 0

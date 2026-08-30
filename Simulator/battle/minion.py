@@ -267,7 +267,8 @@ def minion_combat(player, enemy, round, others=None, other_rewards=True):
             [27, 8],
             [10000, 15]
         ]
-    config.WARLORD_WINS['blue'] = player.win_streak
+    from Simulator.battle.combat_context import get_ctx
+    get_ctx().warlord_wins['blue'] = player.win_streak
     player.end_turn_actions()
 
     round_index = 0
