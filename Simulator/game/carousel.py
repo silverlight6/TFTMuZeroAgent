@@ -36,7 +36,7 @@ def carousel(players, r, pool_obj):
         for champ in champions:
             if champ.cost > current.cost:
                 current = champ
-        player.add_to_bench(current)
+        player.add_to_bench(current, from_carousel=True)
         champions.remove(current)
         # pool updating should be handled upon a player choosing a champion
         # much easier this way

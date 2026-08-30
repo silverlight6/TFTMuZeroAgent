@@ -382,8 +382,8 @@ class Player:
         If the bench is full, will autosell the champion.
         If conditions are met, will add champion to the next open spot on the bench.
 
-        The from_carousel flag is currently unused.
-        Previously it was used to make sure that we didn't give a mistake reward when the bench was full.
+        A carousel grant with a full bench autosells the unit for gold and is
+        not treated as a failed action, so it must not print a debug warning.
 
         Conditions:
             - Must not be target dummy or azir sandguard
