@@ -239,18 +239,21 @@ class Game_Round:
                 # if no opponents have a high enough possible opponents value, take whichever one is highest
                 opponent = 0
                 for i, key in enumerate(player_list):
-                    if i < 0:
+                    if i > 0:
                         if player.possible_opponents[key] >= opponent:
                             opponent = player.possible_opponents[key]
                             index = i
             else:
                 # if there are opponents with a high enough value, use weights to determine who to fight
-                r = random.randint(0, weights)
-                while r >= player.possible_opponents[player_list[index]]:
-                    r -= player.possible_opponents[player_list[index]]
-                    index += 1
-                    if index == len(player_list):
-                        index = 1
+                # draw only over the eligible opponents, so r < weights always lands on one of them
+                r = random.randint(0, weights - 1)
+                for i, key in enumerate(player_list):
+                    if i == 0 or player.possible_opponents[key] < config.MATCHMAKING_WEIGHTS:
+                        continue
+                    if r < player.possible_opponents[key]:
+                        index = i
+                        break
+                    r -= player.possible_opponents[key]
             self.matchups.append([player_list[0], player_list[index]])
             opposition = self.PLAYERS[player_list[index]]
             opposition.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
