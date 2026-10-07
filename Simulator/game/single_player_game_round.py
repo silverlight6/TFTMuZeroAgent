@@ -12,11 +12,11 @@ class Game_Round:
     def __init__(self, game_player, pool_obj, step_func_obj):
         # Amount of damage taken as a base per round. First number is max round, second is damage
         self.ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
+            [8, 0],
+            [14, 2],
+            [20, 3],
+            [26, 5],
+            [32, 8],
             [10000, 15]
         ]
         self.PLAYER = game_player
