@@ -125,7 +125,10 @@ class Game_Round:
         carousel([self.PLAYER], self.current_round, self.pool_obj)
         log_to_file(self.PLAYER)
 
+        # Income of the 1-2 and 1-3 planning phases; start_round() is first called for 1-4
+        self.PLAYER.gold_income(0)
         result = minion.minion_round(self.PLAYER, 0, self.PLAYER)
+        self.PLAYER.gold_income(1)
         self.PLAYER.refresh_shop()
         self.last_opponent = None
         self.last_was_minion = True
