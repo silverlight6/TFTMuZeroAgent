@@ -11,14 +11,7 @@ random = RandomProxy()
 def carousel(players, r, pool_obj):
     # probability of certain arrangements during certain carousels
     # https://leagueoflegends.fandom.com/wiki/Carousel_(Teamfight_Tactics)
-    alive = []
-    # sort the list of alive players with the lowest HP player at the beginning
-    for player in players:
-        if player:
-            if len(alive) == 0:
-                alive.append(player)
-            elif player.health <= alive[0].health and player != alive[0]:
-                alive.insert(0, player)
+    alive = carousel_order(players, r)
 
     champions = generateChampions(r, pool_obj)
     items = generateHeldItems(r)
@@ -30,8 +23,10 @@ def carousel(players, r, pool_obj):
     # player will choose the highest cost available regardless of item
     # needs to be changed to choose the "best" choice for each player
 
-    # alive is already ordered from lowest hp to highest
+    # alive is in pick order
     for player in alive:
+        if not champions:
+            break
         current = champions[0]
         for champ in champions:
             if champ.cost > current.cost:
@@ -41,6 +36,27 @@ def carousel(players, r, pool_obj):
         # pool updating should be handled upon a player choosing a champion
         # much easier this way
         pool_obj.update_pool(current, -1)
+
+def carousel_order(players, r):
+    """Pick order for the carousel at round index r: every living player, first pick first.
+
+    The first carousel releases everyone at once (random order). Later carousels release
+    players two at a time from lowest HP up; ties and the order inside a pair are random.
+    Built from a list rather than by comparing players, because Player.__eq__ compares
+    boards and benches, so identical players (e.g. everyone at the first carousel) compare equal.
+    """
+    alive = [player for player in players if player and player.health > 0]
+    random.shuffle(alive)
+    if r == 0:
+        return alive
+    alive.sort(key=lambda player: player.health)  # stable, so ties keep the shuffled order
+    order = []
+    for i in range(0, len(alive), 2):
+        pair = alive[i:i + 2]
+        random.shuffle(pair)
+        order.extend(pair)
+    return order
+
 
 # this will handle champion generation based on the current round
 def generateChampions(r, pool_obj):
