@@ -11,9 +11,12 @@ class PlayerManager:
         self.pool_obj = pool_obj
         self.config = tft_config
         
-        self.players = {
+        # A list in seat order, not a set: seat "player_i" gets player_num i, and every loop over the
+        # seats (shops, PvE fights, carousel, matchmaking) draws from the shared RNG in the same order
+        # for a given seed. Set order depends on PYTHONHASHSEED and changes across processes.
+        self.players = [
             "player_" + str(player_id) for player_id in range(num_players)
-        }
+        ]
         
         # Ensure that the opponent obs are always in the same order
         self.player_ids = sorted(list(self.players))
@@ -156,9 +159,9 @@ class PlayerManager:
         pass
 
     def reinit_player_set(self, new_player_set):
-        self.players = {
+        self.players = [
             "player_" + str(player_id) for player_id in range(config.NUM_PLAYERS)
-        }
+        ]
 
         # Ensure that the opponent obs are always in the same order
         self.player_ids = sorted(list(self.players))
