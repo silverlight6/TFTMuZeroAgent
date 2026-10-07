@@ -338,7 +338,7 @@ class Player:
         Returns:
             bool: True if action was performed successfully, False otherwise.
         """
-        champion_cost = cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
+        champion_cost = self.champion_buy_cost(a_champion)
 
         # I don't know what the second condition is for but I don't intend to find out...
         if champion_cost > self.gold or a_champion.cost == 0:
@@ -374,6 +374,18 @@ class Player:
                 print("Did not buy champion successfully")
 
         return champion_added
+
+    @staticmethod
+    def champion_buy_cost(a_champion):
+        """Gold needed to buy a champion.
+
+        A Chosen unit arrives 2-star and costs three times its 1-star price (patch 10.19).
+        The 2-star column of cost_star_values is the sell value (3 * cost - 1 above 1-cost),
+        so it is not used for Chosen.
+        """
+        if a_champion.chosen:
+            return 3 * a_champion.cost
+        return cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
 
     def add_to_bench(self, a_champion, from_carousel=False):
         """Adds a champion to the bench.

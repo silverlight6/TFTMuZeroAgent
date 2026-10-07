@@ -314,7 +314,7 @@ class ActionToken(ActionBase, ActionVectorBase):
             return buy_action_mask
 
         for i, champion in enumerate(player.shop_champions):
-            champion_cost = self.util.get_champion_cost(champion)
+            champion_cost = player.champion_buy_cost(champion)
 
             if champion and player.gold >= champion_cost:
                 buy_action_mask[i] = 1
