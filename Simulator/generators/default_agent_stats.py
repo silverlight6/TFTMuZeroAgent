@@ -51,7 +51,7 @@ BACK_LINE_UNITS = [
     'evelynn',
     'jinx',
     'kalista',
-    'katerina',
+    'katarina',
     'kindred',
     'veigar',
     'yuumi',
@@ -66,7 +66,7 @@ BACK_LINE_UNITS = [
 ]
 
 TEAM_COMPS = [
-    ['annie', 'jinx', 'sejuani', 'katerina', 'tahmkench', 'talon', 'shen', 'sett'],
+    ['annie', 'jinx', 'sejuani', 'katarina', 'tahmkench', 'talon', 'shen', 'sett'],
     ['ashe', 'ezreal', 'hecarim', 'lulu', 'maokai', 'nunu', 'veigar', 'lillia'],
     ['ahri', 'annie', 'lillia', 'lulu', 'nami', 'twistedfate', 'veigar', 'thresh'],
     ['irelia', 'jax', 'leesin', 'lux', 'morgana', 'wukong', 'sejuani', 'shen'],
@@ -99,7 +99,7 @@ DESIRED_SPAT = [
 ]
 
 TEAM_ITEM_HOLDER = [
-    ['sejuani', 'katerina'],
+    ['sejuani', 'katarina'],
     ['lillia', 'ezreal'],
     ['leesin', 'veigar'],
     ['sejuani', 'lux'],
