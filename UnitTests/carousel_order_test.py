@@ -27,14 +27,14 @@ def test_first_carousel_gives_every_player_a_unit():
 
 
 def test_later_carousel_gives_every_living_player_a_unit():
+    # Eliminated players are no longer in the game's player dict; None stands for one here.
     with CombatContext(rng=EnvRNG.from_episode_seed(5)).bind():
         base_pool = pool()
-        players = [Player(base_pool, i) for i in range(8)]
-        for player, hp in zip(players, [80, 90, 70, 60, 100, 50, 30, 95]):
+        players = [Player(base_pool, i) for i in range(7)]
+        for player, hp in zip(players, [80, 90, 70, 60, 100, 50, 30]):
             player.health = hp
-        players[3].health = 0
         carousel(players + [None], 12, base_pool)
-        assert [_bench_count(p) for p in players] == [1, 1, 1, 0, 1, 1, 1, 1]
+        assert [_bench_count(p) for p in players] == [1] * 7
 
 
 def test_order_is_pairs_from_lowest_hp():

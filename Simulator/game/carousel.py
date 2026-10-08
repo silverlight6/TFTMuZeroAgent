@@ -25,8 +25,6 @@ def carousel(players, r, pool_obj):
 
     # alive is in pick order
     for player in alive:
-        if not champions:
-            break
         current = champions[0]
         for champ in champions:
             if champ.cost > current.cost:
@@ -45,7 +43,7 @@ def carousel_order(players, r):
     Built from a list rather than by comparing players, because Player.__eq__ compares
     boards and benches, so identical players (e.g. everyone at the first carousel) compare equal.
     """
-    alive = [player for player in players if player and player.health > 0]
+    alive = [player for player in players if player]
     random.shuffle(alive)
     if r == 0:
         return alive
