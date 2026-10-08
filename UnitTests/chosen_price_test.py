@@ -53,3 +53,15 @@ def test_normal_units_keep_their_price():
         player = _player_offered("annie", 10)
         assert player.buy_shop_action(0)
         assert player.gold == 8
+
+
+@pytest.mark.parametrize("gold,buyable", [(12, 0), (13, 1)])
+def test_chosen_price_after_another_slot_was_bought(gold, buyable):
+    # With a bought (None) slot in the shop the mask still prices a 4-cost Chosen at 12.
+    with CombatContext(rng=EnvRNG.from_episode_seed(7)).bind():
+        player = _player_offered("ahri_spirit_c", gold)
+        actions = ActionToken(player)
+        assert player.buy_shop_action(1)  # garen, 1 gold
+        actions.update_action_mask([3, 1, 0])
+        assert list(actions.buy_mask[:2]) == [buyable, 0]
+        assert bool(player.buy_shop_action(0)) == bool(buyable)
