@@ -1054,9 +1054,9 @@ class Player:
         """Queries if the shop is empty.
 
         Returns:
-            bool: True if shop is empty, False otherwise.
+            bool: True if every shop slot is empty, False otherwise.
         """
-        return not all(self.shop)
+        return not any(self.shop)
 
     # --- Game Mechanics Functions --- #
     def gold_income(self, t_round):
