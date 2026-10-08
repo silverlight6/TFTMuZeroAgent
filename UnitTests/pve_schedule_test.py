@@ -54,3 +54,19 @@ def test_player_rounds_have_no_monster_fight(monkeypatch):
         for round_index in (3, 9, 27, 31):
             assert minion.minion_round(player, round_index) is False
     assert fights == []
+
+
+def test_game_round_loop_fights_at_6_7(monkeypatch):
+    """The same check through Game_Round itself: play_game_round walks the schedule and passes
+    its own current_round to minion.minion_round, so the index the loop is on at 6-7 is 32."""
+    fights = _record_fights(monkeypatch)
+    monkeypatch.setattr(Game_Round, "combat_phase", lambda self, players, player_round: None)  # nobody dies
+    with CombatContext(rng=EnvRNG.from_episode_seed(1)).bind():
+        base_pool = pool()
+        player = Player(base_pool, 0)
+        game_round = Game_Round({"player_0": player}, base_pool, None)
+        while game_round.current_round < len(game_round.game_rounds):
+            game_round.play_game_round()
+    # round_1 plays the 1-2 fight with index 0, then the scheduled minion rounds follow
+    assert [r for r, _ in fights] == [0, 1, 2, 8, 14, 20, 26, 32, 38]
+    assert fights[-2:] == [(32, "Herald"), (38, "Herald")]
