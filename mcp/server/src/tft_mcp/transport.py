@@ -197,6 +197,19 @@ TOOLS.append(Tool(name="get_shop", description="Inspect all own shop offers and 
     "required": list(SHOP_PROPERTIES), "additionalProperties": False}))
 
 
+REFRESH_PROPERTIES = {"gold_spent": {"type": "integer"}, "slots": SHOP_PROPERTIES["slots"], "status": STATUS_SCHEMA}
+XP_PROPERTIES = {**{key: {"type": "integer"} for key in
+    ("gold_spent", "xp_before", "xp", "level_before", "level", "unit_capacity")}, "status": STATUS_SCHEMA}
+TOOLS.extend([
+    Tool(name="refresh_shop", description="Buy one native shop refresh using the current cost. Repeated offers are valid. Consumes one planning action.",
+         inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": REFRESH_PROPERTIES,
+         "required": list(REFRESH_PROPERTIES), "additionalProperties": False}),
+    Tool(name="buy_xp", description="Buy one native experience increment using the current cost and level cap. Returns actual level and capacity progression. Consumes one planning action.",
+         inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": XP_PROPERTIES,
+         "required": list(XP_PROPERTIES), "additionalProperties": False}),
+])
+
+
 INVENTORY_PROPERTIES = {**PLAYER_PROPERTIES, "slots": {"type": "array", "minItems": 10, "maxItems": 10, "items": {
     "type": "object", "properties": {"slot": {"type": "integer", "minimum": 0, "maximum": 9},
         "item": {"type": ["string", "null"]}}, "required": ["slot", "item"], "additionalProperties": False}}}
@@ -288,7 +301,7 @@ def validate_arguments(name, arguments):
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
-    elif name in {"get_game_status", "close_game", "end_turn", "get_bench", "get_shop", "get_items", "get_economy", "get_round", "get_players"}:
+    elif name in {"get_game_status", "close_game", "end_turn", "refresh_shop", "buy_xp", "get_bench", "get_shop", "get_items", "get_economy", "get_round", "get_players"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
     elif name in {"get_board", "get_traits"}:
@@ -348,6 +361,10 @@ async def serve():
                         result = session.start_game(arguments["seed"])
                     elif name == "get_game_status":
                         result = session.get_game_status()
+                    elif name == "refresh_shop":
+                        result = session.refresh_shop(**arguments)
+                    elif name == "buy_xp":
+                        result = session.buy_xp(**arguments)
                     elif name == "buy_unit":
                         result = session.buy_unit(**arguments)
                     elif name == "sell_unit":

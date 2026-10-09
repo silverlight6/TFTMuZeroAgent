@@ -571,6 +571,56 @@ class GameSession:
             raise SessionError("budget_exhausted", "Only end_turn is available until the next round.")
 
     @transactional
+    def refresh_shop(self, **arguments):
+        if arguments:
+            raise SessionError("invalid_input", "refresh_shop takes no arguments.")
+        self.require_action_budget()
+        player = self.game.player_manager.player_states["player_0"]
+        cost, gold = player.refresh_cost, player.gold
+        if gold < cost:
+            raise SessionError("insufficient_gold", "Shop refresh costs more gold than is available.",
+                               {"resource": "gold", "required": cost, "available": gold})
+        shop, champions = player.shop, player.shop_champions
+        before_status = self.get_game_status()
+        status = self.controlled_action([2, 0, 0])
+        if player.gold != gold - cost or player.shop is shop or player.shop_champions is champions:
+            raise SessionError("internal_error", "Shop refresh postconditions failed.")
+        check_action_status(before_status, status, self.game.agent_selection)
+        slots = self.get_shop()["slots"]
+        if len(slots) != 5:
+            raise SessionError("internal_error", "Shop refresh did not produce five offers.")
+        return {"gold_spent": cost, "slots": slots, "status": status}
+
+    @transactional
+    def buy_xp(self, **arguments):
+        if arguments:
+            raise SessionError("invalid_input", "buy_xp takes no arguments.")
+        self.require_action_budget()
+        player = self.game.player_manager.player_states["player_0"]
+        level, xp, capacity = player.level, player.exp, player.max_units
+        cap, cost, gold = player.max_level, player.exp_cost, player.gold
+        thresholds = list(player.level_costs)
+        if level >= cap:
+            raise SessionError("level_cap", "The player has reached the native level cap.",
+                               {"level": level, "max_level": cap})
+        if gold < cost:
+            raise SessionError("insufficient_gold", "Experience costs more gold than is available.",
+                               {"resource": "gold", "required": cost, "available": gold})
+        before_status = self.get_game_status()
+        status = self.controlled_action([1, 0, 0])
+        if not level <= player.level <= cap:
+            raise SessionError("internal_error", "Experience level postcondition failed.")
+        spent_xp = sum(thresholds[level:player.level])
+        available_xp = xp + cost
+        valid_xp = (player.exp == 0 and spent_xp <= available_xp if player.level == cap else
+                    player.exp == available_xp - spent_xp and 0 <= player.exp < thresholds[player.level])
+        if player.gold != gold - cost or player.max_units != capacity + player.level - level or not valid_xp:
+            raise SessionError("internal_error", "Experience postconditions failed.")
+        check_action_status(before_status, status, self.game.agent_selection)
+        return {"gold_spent": cost, "xp_before": xp, "xp": player.exp,
+                "level_before": level, "level": player.level, "unit_capacity": player.max_units, "status": status}
+
+    @transactional
     def buy_unit(self, **arguments):
         validate_buy_arguments(arguments)
         self.require_action_budget()
@@ -834,3 +884,9 @@ def simulator_defaults():
             continue
         defaults[name] = value
     return defaults
+
+
+def check_action_status(before, after, selection):
+    if (after["state"] != "running" or after["round"] != before["round"] or selection != "player_0"
+            or after["planning_budget"]["remaining"] != before["planning_budget"]["remaining"] - 1):
+        raise SessionError("internal_error", "Singular action changed the decision boundary.")
