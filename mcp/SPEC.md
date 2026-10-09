@@ -1,5 +1,7 @@
 # MCP tools for the installed TFT simulator
 
+Implementation is paused at the owner's explicit request after verified integration of #2, #5, #6, #7 and #3. The next frontier is #4/#8/#9. Resume instructions and remaining evidence are in [the continuation record](server/CONTINUATION.md).
+
 Status: Server product scope and revised twelve-slice dependency order confirmed on 2026-10-09. The owner subsequently accepted mcp/server/ with shared planning under mcp/ and requested explicit Codex CLI and Claude Code connection support. The owner confirmed prompt-driven setup, existing host permissions, and a complete Codex game as client acceptance; the server gameplay contract is unchanged. Lifecycle has a bounded concrete contract. AEC interleaving and automatic lobby completion after controlled-player elimination are accepted. The shared technical contracts in #7 were reviewed against the integrated lifecycle and real simulator; dependent slices require its verified integration. The owner clarified that rules come from the installed simulator without a fixed set number or runtime set selector.
 
 ## Problem statement
