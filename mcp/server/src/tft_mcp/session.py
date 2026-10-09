@@ -267,9 +267,49 @@ class GameSession:
             return deepcopy(self.terminal_snapshot)
         return freeze_player(self.game.player_manager.player_states[player_id], self.game.game_round.current_round)
 
+    def public_player(self, player_id, category):
+        if self.game is None:
+            raise SessionError("no_game", "Start a game before inspecting player state.")
+        manager = self.game.player_manager
+        if player_id not in manager.player_ids:
+            raise SessionError("invalid_player", "Select a player_id from get_players.", {
+                "player_id": player_id, "supported_ids": sorted(manager.player_ids)})
+        player = manager.player_states.get(player_id)
+        if player is None:
+            raise SessionError("player_eliminated", f"This player's {category} is unavailable after removal. Use get_players for final public status.", {
+                "player_id": player_id, "category": category})
+        return player
+
+    def get_players(self):
+        with SIMULATOR_LOCK:
+            if self.game is None:
+                raise SessionError("no_game", "Start a game before inspecting players.")
+            manager = self.game.player_manager
+            players = []
+            for player_id in sorted(manager.player_ids):
+                player = manager.player_states.get(player_id)
+                placement = self.placements.get(player_id)
+                public = ({"health": player.health, "level": player.level} if player is not None
+                          else self.public_final.get(player_id, {}))
+                status = "alive"
+                if placement == 1:
+                    status = "winner"
+                elif placement is not None or player is None:
+                    status = "eliminated"
+                players.append({"player_id": player_id, "controlled": player_id == "player_0",
+                                "status": status,
+                                "health": public.get("health"), "level": public.get("level"), "placement": placement})
+            return {"game_id": self.game_id, "players": players}
+
     def get_board(self, player_id="player_0"):
         with SIMULATOR_LOCK:
-            snapshot = self.own_inspection(player_id)
+            if player_id == "player_0":
+                snapshot = self.own_inspection()
+            else:
+                player = self.public_player(player_id, "board")
+                snapshot = {"board": [[freeze_unit(unit) for unit in column] for column in player.board],
+                            "num_units_in_play": player.num_units_in_play, "max_units": player.max_units,
+                            "round": self.game.game_round.current_round}
             return {"game_id": self.game_id, "player_id": player_id, "round": snapshot["round"],
                     "slots": [{"location": {"kind": "board", "x": x, "y": y}, "unit": unit}
                               for x, column in enumerate(snapshot["board"]) for y, unit in enumerate(column)],
@@ -312,9 +352,15 @@ class GameSession:
 
     def get_traits(self, player_id="player_0"):
         with SIMULATOR_LOCK:
-            snapshot = self.own_inspection(player_id)
-            traits = snapshot["traits"]
-            return {"game_id": self.game_id, "player_id": player_id, "round": snapshot["round"],
+            if player_id == "player_0":
+                snapshot = self.own_inspection()
+                traits = snapshot["traits"]
+                round_number = snapshot["round"]
+            else:
+                player = self.public_player(player_id, "traits")
+                traits = {"composition": player.team_composition, "tiers": player.team_tiers}
+                round_number = self.game.game_round.current_round
+            return {"game_id": self.game_id, "player_id": player_id, "round": round_number,
                     "traits": [{"trait_id": key, "count": traits["composition"][key], "tier": traits["tiers"][key]}
                                for key in sorted(traits["composition"])]}
 
