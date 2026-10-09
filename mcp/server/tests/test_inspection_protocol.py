@@ -130,10 +130,10 @@ async def test_inspection_errors_are_strict_and_restart_clears_state(tmp_path):
             assert result.isError and result.structuredContent['code'] == 'no_game'
         initial = (await session.call_tool('start_game', {'seed': 0})).structuredContent
         for name in ('get_board', 'get_traits'):
-            for value in ('player_1', 'unknown', ''):
+            for value in ('unknown', ''):
                 result = await session.call_tool(name, {'player_id': value})
                 assert result.isError and result.structuredContent['code'] == 'invalid_player'
-                assert result.structuredContent['details']['supported_ids'] == ['player_0']
+                assert result.structuredContent['details']['supported_ids'] == [f'player_{index}' for index in range(8)]
         assert (await session.call_tool('get_game_status', {})).structuredContent == initial
         await session.call_tool('close_game', {})
         for name in INSPECTION_TOOLS:

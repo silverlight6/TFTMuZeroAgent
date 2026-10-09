@@ -173,7 +173,7 @@ BOARD_PROPERTIES = {**PLAYER_PROPERTIES,
                 "required": ["kind", "x", "y"], "additionalProperties": False}, "unit": UNIT_SCHEMA},
         "required": ["location", "unit"], "additionalProperties": False}},
     "num_units_in_play": {"type": "integer"}, "max_units": {"type": "integer"}}
-TOOLS.append(Tool(name="get_board", description="Inspect own board in local x=0..6 left-to-right, y=0..3 bottom-to-top coordinates. Terminal round is the retained own snapshot round.",
+TOOLS.append(Tool(name="get_board", description="Inspect own or a known living opponent board. Omitted player_id selects player_0. Removed opponents return player_eliminated. Boards use local x=0..6 left-to-right, y=0..3 bottom-to-top coordinates. Terminal round is the retained own snapshot round.",
     inputSchema=PLAYER_INPUT, outputSchema={"type": "object", "properties": BOARD_PROPERTIES,
     "required": list(BOARD_PROPERTIES), "additionalProperties": False}))
 
@@ -215,7 +215,7 @@ TOOLS.append(Tool(name="get_economy", description="Inspect own gold, health, lev
 OWN_TRAIT_PROPERTIES = {**PLAYER_PROPERTIES, "traits": {"type": "array", "items": {
     "type": "object", "properties": {"trait_id": {"type": "string"}, "count": {"type": "integer"}, "tier": {"type": "integer"}},
     "required": ["trait_id", "count", "tier"], "additionalProperties": False}}}
-TOOLS.append(Tool(name="get_traits", description="Inspect own stored installed simulator trait counts and tiers without recomputation. Terminal round is the retained own snapshot round.",
+TOOLS.append(Tool(name="get_traits", description="Inspect own or a known living opponent stored trait counts and tiers without recomputation. Omitted player_id selects player_0; removed opponents return player_eliminated. Terminal round is the retained own snapshot round.",
     inputSchema=PLAYER_INPUT, outputSchema={"type": "object", "properties": OWN_TRAIT_PROPERTIES,
     "required": list(OWN_TRAIT_PROPERTIES), "additionalProperties": False}))
 
@@ -226,12 +226,26 @@ TOOLS.append(Tool(name="get_round", description="Inspect the current installed s
         "required": ["game_id", "round"], "additionalProperties": False}))
 
 
+PUBLIC_PLAYER_PROPERTIES = {
+    "player_id": {"type": "string"}, "controlled": {"type": "boolean"},
+    "status": {"enum": ["alive", "eliminated", "winner"]},
+    "health": {"type": ["integer", "null"]}, "level": {"type": ["integer", "null"]},
+    "placement": {"type": ["integer", "null"], "minimum": 1, "maximum": 8},
+}
+TOOLS.append(Tool(name="get_players", description="List stable initial player IDs and public health, level and native placement. Removed players retain public final status until close.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": {
+        "game_id": {"type": "string"}, "players": {"type": "array", "items": {
+            "type": "object", "properties": PUBLIC_PLAYER_PROPERTIES,
+            "required": list(PUBLIC_PLAYER_PROPERTIES), "additionalProperties": False}}},
+        "required": ["game_id", "players"], "additionalProperties": False}))
+
+
 def validate_arguments(name, arguments):
     if name == "start_game":
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
-    elif name in {"get_game_status", "close_game", "end_turn", "get_bench", "get_shop", "get_items", "get_economy", "get_round"}:
+    elif name in {"get_game_status", "close_game", "end_turn", "get_bench", "get_shop", "get_items", "get_economy", "get_round", "get_players"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
     elif name in {"get_board", "get_traits"}:
@@ -294,6 +308,8 @@ async def serve():
                     elif name == "end_turn":
                         result = session.end_turn()
 
+                    elif name == "get_players":
+                        result = session.get_players()
                     elif name == "get_round":
                         result = session.get_round()
                     elif name == "get_traits":
