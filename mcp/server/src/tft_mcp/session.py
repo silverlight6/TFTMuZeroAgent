@@ -254,6 +254,76 @@ class GameSession:
                 "outcome": deepcopy(self.outcome),
             }
 
+    def own_inspection(self, player_id="player_0"):
+        if self.game is None:
+            raise SessionError("no_game", "Start a game before inspecting player state.")
+        if player_id != "player_0":
+            raise SessionError("invalid_player", "Only the controlled player is available.", {
+                "player_id": player_id, "supported_ids": ["player_0"]})
+        if self.state == "terminal":
+            if self.terminal_snapshot is None:
+                raise SessionError("internal_error", "Terminal own-state snapshot is unavailable.", {
+                    "player_id": player_id})
+            return deepcopy(self.terminal_snapshot)
+        return freeze_player(self.game.player_manager.player_states[player_id], self.game.game_round.current_round)
+
+    def get_board(self, player_id="player_0"):
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection(player_id)
+            return {"game_id": self.game_id, "player_id": player_id, "round": snapshot["round"],
+                    "slots": [{"location": {"kind": "board", "x": x, "y": y}, "unit": unit}
+                              for x, column in enumerate(snapshot["board"]) for y, unit in enumerate(column)],
+                    "num_units_in_play": snapshot["num_units_in_play"], "max_units": snapshot["max_units"]}
+
+    def get_bench(self):
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection()
+            return {"game_id": self.game_id, "player_id": "player_0", "round": snapshot["round"],
+                    "slots": [{"location": {"kind": "bench", "slot": slot}, "unit": unit}
+                              for slot, unit in enumerate(snapshot["bench"])]}
+
+    def get_shop(self):
+        from Simulator.game.pool_stats import cost_star_values
+
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection()
+            slots = []
+            for slot, (offer, unit) in enumerate(zip(snapshot["shop"], snapshot["shop_champions"], strict=True)):
+                expected_offer = (f"{unit['champion']}_{unit['chosen']}_c" if unit["chosen"] else unit["champion"]) if unit else None
+                if offer != expected_offer:
+                    raise SessionError("internal_error", "Stored shop offer is inconsistent.", {
+                        "category": "shop", "slot": slot})
+                price = cost_star_values[unit["cost"] - 1][unit["stars"] - 1] if unit else None
+                slots.append({"slot": slot, "unit": unit, "purchase_cost": price})
+            return {"game_id": self.game_id, "player_id": "player_0", "round": snapshot["round"], "slots": slots}
+
+    def get_items(self):
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection()
+            return {"game_id": self.game_id, "player_id": "player_0", "round": snapshot["round"],
+                    "slots": [{"slot": slot, "item": item} for slot, item in enumerate(snapshot["items"])]}
+
+    def get_economy(self):
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection()
+            return {"game_id": self.game_id, "player_id": "player_0", "round": snapshot["round"],
+                    **{key: snapshot["economy"][key] for key in ("gold", "health", "level", "exp")},
+                    "planning_budget": self.get_game_status()["planning_budget"]}
+
+    def get_traits(self, player_id="player_0"):
+        with SIMULATOR_LOCK:
+            snapshot = self.own_inspection(player_id)
+            traits = snapshot["traits"]
+            return {"game_id": self.game_id, "player_id": player_id, "round": snapshot["round"],
+                    "traits": [{"trait_id": key, "count": traits["composition"][key], "tier": traits["tiers"][key]}
+                               for key in sorted(traits["composition"])]}
+
+    def get_round(self):
+        with SIMULATOR_LOCK:
+            if self.game is None:
+                raise SessionError("no_game", "Start a game before inspecting the round.")
+            return {"game_id": self.game_id, "round": self.get_game_status()["round"]}
+
     @transactional
     def start_game(self, seed):
         if type(seed) is not int or not 0 <= seed <= 2147483647:
@@ -458,20 +528,23 @@ class GameSession:
         return self.get_game_status()
 
 
+def freeze_unit(champion):
+    """Copy only visible unit fields, without traversing combat references."""
+    if champion is None:
+        return None
+    return {"champion": champion.name, "stars": champion.stars,
+            "items": list(champion.items), "chosen": champion.chosen, "cost": champion.cost,
+            "kayn_form": getattr(champion, "kayn_form", None),
+            "traits": list(champion.origin), "target_dummy": champion.target_dummy,
+            "sandguard_overlord_coordinates": deepcopy(getattr(champion, "sandguard_overlord_coordinates", []))}
+
+
 def freeze_player(player, round_number):
     """Detached post-combat records for later own-state inspection tools."""
-    def unit(champion):
-        if champion is None:
-            return None
-        return {"champion": champion.name, "stars": champion.stars,
-                "items": list(champion.items), "chosen": champion.chosen, "cost": champion.cost,
-                "kayn_form": getattr(champion, "kayn_form", None),
-                "traits": list(champion.origin), "target_dummy": champion.target_dummy,
-                "sandguard_overlord_coordinates": deepcopy(getattr(champion, "sandguard_overlord_coordinates", []))}
     return deepcopy({
-        "board": [[unit(champion) for champion in column] for column in player.board],
-        "bench": [unit(champion) for champion in player.bench],
-        "shop": list(player.shop), "shop_champions": [unit(champion) for champion in player.shop_champions],
+        "board": [[freeze_unit(champion) for champion in column] for column in player.board],
+        "bench": [freeze_unit(champion) for champion in player.bench],
+        "shop": list(player.shop), "shop_champions": [freeze_unit(champion) for champion in player.shop_champions],
         "items": list(player.item_bench),
         "num_units_in_play": player.num_units_in_play, "max_units": player.max_units,
         "economy": {key: getattr(player, key) for key in

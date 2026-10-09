@@ -149,14 +149,93 @@ TOOLS.extend([
 ])
 
 
+UNIT_SCHEMA = {
+    "type": ["object", "null"], "properties": {
+        "champion": {"type": "string"}, "stars": {"type": "integer", "minimum": 1, "maximum": 4},
+        "items": {"type": "array", "items": {"type": "string"}},
+        "chosen": {"anyOf": [{"const": False}, {"type": "string"}]},
+        "cost": {"type": "integer"}, "kayn_form": {"type": ["string", "null"]},
+        "traits": {"type": "array", "items": {"type": "string"}},
+        "target_dummy": {"type": "boolean"},
+        "sandguard_overlord_coordinates": {"type": "array", "items": {
+            "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}}},
+    "required": ["champion", "stars", "items", "chosen", "cost", "kayn_form", "traits", "target_dummy", "sandguard_overlord_coordinates"],
+    "additionalProperties": False,
+}
+PLAYER_INPUT = {"type": "object", "properties": {"player_id": {"type": "string"}}, "additionalProperties": False}
+PLAYER_PROPERTIES = {"game_id": {"type": "string"}, "player_id": {"type": "string"}, "round": {"type": "integer"}}
+BOARD_PROPERTIES = {**PLAYER_PROPERTIES,
+    "slots": {"type": "array", "minItems": 28, "maxItems": 28, "items": {
+        "type": "object", "properties": {
+            "location": {"type": "object", "properties": {
+                "kind": {"const": "board"}, "x": {"type": "integer", "minimum": 0, "maximum": 6},
+                "y": {"type": "integer", "minimum": 0, "maximum": 3}},
+                "required": ["kind", "x", "y"], "additionalProperties": False}, "unit": UNIT_SCHEMA},
+        "required": ["location", "unit"], "additionalProperties": False}},
+    "num_units_in_play": {"type": "integer"}, "max_units": {"type": "integer"}}
+TOOLS.append(Tool(name="get_board", description="Inspect own board in local x=0..6 left-to-right, y=0..3 bottom-to-top coordinates. Terminal round is the retained own snapshot round.",
+    inputSchema=PLAYER_INPUT, outputSchema={"type": "object", "properties": BOARD_PROPERTIES,
+    "required": list(BOARD_PROPERTIES), "additionalProperties": False}))
+
+
+BENCH_PROPERTIES = {**PLAYER_PROPERTIES, "slots": {"type": "array", "minItems": 9, "maxItems": 9, "items": {
+    "type": "object", "properties": {"location": {"type": "object", "properties": {
+        "kind": {"const": "bench"}, "slot": {"type": "integer", "minimum": 0, "maximum": 8}},
+        "required": ["kind", "slot"], "additionalProperties": False}, "unit": UNIT_SCHEMA},
+    "required": ["location", "unit"], "additionalProperties": False}}}
+TOOLS.append(Tool(name="get_bench", description="Inspect all own reserve slots, indexed 0..8. Terminal round is the retained own snapshot round.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": BENCH_PROPERTIES,
+    "required": list(BENCH_PROPERTIES), "additionalProperties": False}))
+
+
+SHOP_PROPERTIES = {**PLAYER_PROPERTIES, "slots": {"type": "array", "minItems": 5, "maxItems": 5, "items": {
+    "type": "object", "properties": {"slot": {"type": "integer", "minimum": 0, "maximum": 4},
+        "unit": UNIT_SCHEMA, "purchase_cost": {"type": ["integer", "null"]}},
+    "required": ["slot", "unit", "purchase_cost"], "additionalProperties": False}}}
+TOOLS.append(Tool(name="get_shop", description="Inspect all own shop offers and native purchase prices, indexed 0..4. Terminal round is the retained own snapshot round.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": SHOP_PROPERTIES,
+    "required": list(SHOP_PROPERTIES), "additionalProperties": False}))
+
+
+INVENTORY_PROPERTIES = {**PLAYER_PROPERTIES, "slots": {"type": "array", "minItems": 10, "maxItems": 10, "items": {
+    "type": "object", "properties": {"slot": {"type": "integer", "minimum": 0, "maximum": 9},
+        "item": {"type": ["string", "null"]}}, "required": ["slot", "item"], "additionalProperties": False}}}
+TOOLS.append(Tool(name="get_items", description="Inspect all own loose inventory items, indexed 0..9. Terminal round is the retained own snapshot round.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": INVENTORY_PROPERTIES,
+    "required": list(INVENTORY_PROPERTIES), "additionalProperties": False}))
+
+
+ECONOMY_PROPERTIES = {**PLAYER_PROPERTIES, **{key: {"type": "integer"} for key in ("gold", "health", "level", "exp")},
+    "planning_budget": STATUS_SCHEMA["properties"]["planning_budget"]}
+TOOLS.append(Tool(name="get_economy", description="Inspect own gold, health, level, experience and the shared planning budget. Terminal budget is null and round is the retained own snapshot round.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": ECONOMY_PROPERTIES,
+    "required": list(ECONOMY_PROPERTIES), "additionalProperties": False}))
+
+
+OWN_TRAIT_PROPERTIES = {**PLAYER_PROPERTIES, "traits": {"type": "array", "items": {
+    "type": "object", "properties": {"trait_id": {"type": "string"}, "count": {"type": "integer"}, "tier": {"type": "integer"}},
+    "required": ["trait_id", "count", "tier"], "additionalProperties": False}}}
+TOOLS.append(Tool(name="get_traits", description="Inspect own stored installed simulator trait counts and tiers without recomputation. Terminal round is the retained own snapshot round.",
+    inputSchema=PLAYER_INPUT, outputSchema={"type": "object", "properties": OWN_TRAIT_PROPERTIES,
+    "required": list(OWN_TRAIT_PROPERTIES), "additionalProperties": False}))
+
+
+TOOLS.append(Tool(name="get_round", description="Inspect the current installed simulator round. Terminal returns the final completed-lobby round, which can differ from retained own category rounds.",
+    inputSchema=EMPTY_INPUT, outputSchema={"type": "object", "properties": {
+        "game_id": {"type": "string"}, "round": {"type": "integer"}},
+        "required": ["game_id", "round"], "additionalProperties": False}))
+
+
 def validate_arguments(name, arguments):
     if name == "start_game":
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
-    elif name in {"get_game_status", "close_game", "end_turn"}:
+    elif name in {"get_game_status", "close_game", "end_turn", "get_bench", "get_shop", "get_items", "get_economy", "get_round"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
+    elif name in {"get_board", "get_traits"}:
+        validate_catalog_arguments(arguments, {"player_id"})
     elif name == "search_traits":
         validate_catalog_arguments(arguments, {"query"})
     elif name in {"get_trait", "get_trait_champions"}:
@@ -215,6 +294,20 @@ async def serve():
                     elif name == "end_turn":
                         result = session.end_turn()
 
+                    elif name == "get_round":
+                        result = session.get_round()
+                    elif name == "get_traits":
+                        result = session.get_traits(**arguments)
+                    elif name == "get_economy":
+                        result = session.get_economy()
+                    elif name == "get_items":
+                        result = session.get_items()
+                    elif name == "get_shop":
+                        result = session.get_shop()
+                    elif name == "get_bench":
+                        result = session.get_bench()
+                    elif name == "get_board":
+                        result = session.get_board(**arguments)
                     elif name == "search_traits":
                         result = session.search_traits(**arguments)
                     elif name == "get_trait":
