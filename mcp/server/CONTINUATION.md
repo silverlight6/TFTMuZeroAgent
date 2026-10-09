@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Paused at the owner's explicit request on 2026-10-09 after verified integration of ticket #3. No dependent implementation is running. Resume from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Paused again at the owner's explicit request on 2026-10-09 after verified integration of ticket #4. The owner resumed work for only that next ticket and requested another stop afterward. No implementation is running. Resume from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
@@ -16,7 +16,7 @@ Repository: `KyleDerZweite/TFTMuZeroAgent`. Workspace: `/home/kyle/CodingProject
 
 Fixed implementation/review base: `54cbb8bb9e9933a80ea04bf99989bf001fe4774e`. It already contains the accepted planning/layout and metadata preparation. Keep the implementation scope checker limited to `mcp/`. Simulator comparison base: `33c2c6e`.
 
-Last functional merge: `684bbbf8e88be96890b0069c0bc7d4728ff0ceff`. The later commit containing this record only saves documentation for the pause. Use the live integration tip as the resume base, and preserve this functional evidence.
+Last functional merge: `f4a7de26e88b80468aa02ea45e1ad8c63fbdb617`. #4 started from the previous documentation checkpoint `bde19766296fe70b7ead45cd57057da7bc0dfd61`, after verified #3 integration. The later commit containing this record only saves documentation for the new pause. Use the live integration tip as the resume base, and preserve this functional evidence.
 
 | Ticket | Integrated PR | Verified merge |
 | --- | --- | --- |
@@ -25,8 +25,9 @@ Last functional merge: `684bbbf8e88be96890b0069c0bc7d4728ff0ceff`. The later com
 | #5 champions/traits | [#16](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/16) | 497a426f50a16bc0b239f9fa843e38b24691ef59 |
 | #7 atomic progression | [#17](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/17) | 7215c6a709d0075ed56408a8656865724aafe318 |
 | #3 own inspection | [#18](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/18) | 684bbbf8e88be96890b0069c0bc7d4728ff0ceff |
+| #4 public inspection | [#19](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/19) | f4a7de26e88b80468aa02ea45e1ad8c63fbdb617 |
 
-These five tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #4 and #8 through #13 remain open. #4/#8/#9 are the next reviewed frontier; readiness does not revoke the owner's pause.
+These six tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #8 through #13 remain open. #8/#9 are the next reviewed frontier; neither slice has started, and readiness does not revoke the owner's pause. The completed #4 writer worktree is removed after its clean head is verified as an ancestor of integration; branch history remains available.
 
 Native direct blockers are `2:[]`, `5:[2]`, `6:[2]`, `7:[2]`, `3:[7]`, `4:[3]`, `8:[3]`, `9:[3]`, `10:[8]`, `11:[6,8]`, `12:[4,5,9,10,11]`, `13:[12]`. Display order adds no dependency.
 
@@ -44,11 +45,15 @@ PR #17 exact head `abed92714d629faf9f80c1e1fe20d328a04fb066` passed all 40 exten
 
 PR #18 implementation `d2cf5a93796e369212a0aba94431ea7d0df92a7d` passed all 17 affected inspection tests, including actual terminal inspection, and 54 combined quick checks with three complete-lobby scenarios deselected. Final slice `e865bba5613eec2eb05d7cad12ed055a4bc004ef` adds verification prose. Merger repeated 54 quick checks and proved tree identity `e206d95f2c2959b7bda37fd01c340b4f92e97938`; integrated inspection passed 16 with the already-tested terminal repetition deselected. Seven-path scope and whitespace checks passed; 11 simulator checks passed. Parent and merger found no material finding. Current terminal inspection observed own round 13, health 0 and final lobby round 30. Earlier probe values are observations, not fixed expected outcomes.
 
+PR #19 functional head `7384dcb04a60ff733619df30e3634d590bbea37d` adds strict `get_players` and living-opponent board/trait reads. It resolves sorted initial dictionary keys, reuses public unit allowlists, and reads removed-player health/level and native placements from #7. Public status is alive/eliminated/winner. Private economy, bench, shop, loose inventory, caches, pools, policies, future matchups and RNG are excluded recursively. Removed opponents, including the winner, return `player_eliminated` for board/traits; own terminal projection remains unchanged. No opponent board-history store exists.
+
+All four new SDK scenarios passed, including actual terminal removal and winner identity; three focused adapter checks cover distinctive private data, nested schemas, detached results and complete read purity. The exact functional terminal refresh passed separately. Final slice `22016669f3612ec5ead86a631a39b147e67204b6` adds verification prose only. Independent Standards and Spec reviews found zero material findings, and the Spec reviewer repeated all three focused adapter checks. The independent merger passed 60 quick checks with four documented full-lobby repetitions deselected, proved identical slice/merge tree `3453db57846b0ed32b9699192eb20f5c6630b0c1`, and passed six integrated public checks with the already-tested terminal repetition deselected. Eight-path scope and whitespace passed before and after integration; 11 unchanged simulator checks passed. No GitHub CI checks are configured under the owner's local-only choice.
+
 Detailed commands, digests, failed fixture corrections and limits remain in [verification.md](verification.md). A complete whole-milestone suite at the eventual final functional head, all-family replay, final two-axis code-review and actual CLI LLM games remain unexecuted. Completed slice review is not final milestone review.
 
 ## Local environment and commands
 
-`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the new #3 extension and must not establish final-head installation evidence.
+`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4 extension and must not establish final-head installation evidence.
 
 Inherited APPIMAGE from T3 can make Python report the AppImage executable and miss venv packages. All verification Python calls use `env -u APPIMAGE`. A production native-host registration can use `/usr/bin/env -u APPIMAGE /absolute/venv/bin/tft-mcp` when this inherited condition applies. Preserve the host's permissions.
 
@@ -65,8 +70,6 @@ Use affected checks during slices. Do not repeat unchanged complete games after 
 Initial unchanged simulator baseline passed 36 tests covering RNG, default agent, buy masks, action space, bench capacity, steps and Player. Broader checks passed 8 and failed 2 under Gymnasium 1.4.0. Existing `test_gymnasium_item_env` and `test_gymnasium_single_player_env` return shared observation objects rejected by the newer checker. These are separate unmodified environments; relevant AEC/parallel/concurrency/round tests passed. Retain and report these pre-existing failures rather than repairing core in this milestone.
 
 ## Next slice contracts
-
-#4 extends only public resolution for board/traits and adds `get_players`. Sort stable initial player IDs, resolve dictionary keys, use #7 `public_final` health/level and native-order `placements`. Public status is alive/eliminated/winner. Never expose gold, exp, bench, shop, loose inventory, pools, caches, policies, future matchups or RNG. Removed opponent board/traits return `player_eliminated`; no opponent board-history store exists. Own terminal projection remains unchanged. Test recursive allowed keys with distinctive private fixture data, repeated-read purity, real living opponent SDK queries, removed players and winner identity.
 
 Common action locations are strict `{kind:"board",x:0..6,y:0..3}` or `{kind:"bench",slot:0..8}`, with integer-only fields and no unknown keys. Shared native mapping is `x*4+y` or `28+slot`. All actions operate on the controlled player, with no player selector. Reuse #3 unit records and #7 status/budget. A unit delta is `{location,before:Unit|null,after:Unit|null}`; an item delta is `{slot,before:string|null,after:string|null}`. These are observed changes, without invented instance IDs. Validate before native execution and check actual postconditions before outer transaction commit. Action masks and discarded wrapper booleans are insufficient evidence.
 
