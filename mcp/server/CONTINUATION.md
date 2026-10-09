@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-The owner resumed work on 2026-10-09 for only the next ticket, #8, after verified integration of #4. Stop again after #8 is checked and integrated. #9 and dependent slices remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Paused again on 2026-10-09 after verified integration of ticket #8. The owner resumed only the next ticket after #4 and requested another stop afterward. No implementation is running. #9 and subsequent slices remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
@@ -16,7 +16,7 @@ Repository: `KyleDerZweite/TFTMuZeroAgent`. Workspace: `/home/kyle/CodingProject
 
 Fixed implementation/review base: `54cbb8bb9e9933a80ea04bf99989bf001fe4774e`. It already contains the accepted planning/layout and metadata preparation. Keep the implementation scope checker limited to `mcp/`. Simulator comparison base: `33c2c6e`.
 
-Last functional merge: `f4a7de26e88b80468aa02ea45e1ad8c63fbdb617`. #4 started from the previous documentation checkpoint `bde19766296fe70b7ead45cd57057da7bc0dfd61`, after verified #3 integration. The later commit containing this record only saves documentation for the new pause. Use the live integration tip as the resume base, and preserve this functional evidence.
+Last functional merge: `a208efdc89353f248d0d92d358e15453089a4467`. #8 started from reviewed contract checkpoint `42cd697e70c79ed25dedc8bf67556fc60b858783`, following the previous pause at `00f63bdf63228610967e8f439ddd94b4503a221e`. The later commit containing this record only saves documentation for the new pause. Use the live integration tip as the resume base, and preserve this functional evidence.
 
 | Ticket | Integrated PR | Verified merge |
 | --- | --- | --- |
@@ -26,8 +26,9 @@ Last functional merge: `f4a7de26e88b80468aa02ea45e1ad8c63fbdb617`. #4 started fr
 | #7 atomic progression | [#17](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/17) | 7215c6a709d0075ed56408a8656865724aafe318 |
 | #3 own inspection | [#18](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/18) | 684bbbf8e88be96890b0069c0bc7d4728ff0ceff |
 | #4 public inspection | [#19](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/19) | f4a7de26e88b80468aa02ea45e1ad8c63fbdb617 |
+| #8 buy/sell | [#20](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/20) | a208efdc89353f248d0d92d358e15453089a4467 |
 
-These six tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #8 through #13 remain open. The owner resumed only #8; #9 remains a reviewed unstarted frontier. The completed #4 writer worktree was removed after its clean head was verified as an ancestor of integration; branch history remains available.
+These seven tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #9 through #13 remain open. #9 is the next reviewed unstarted ticket. #10/#11 now have all prerequisites integrated, but their detailed contracts require review against the new integration before becoming Ready. This readiness work does not revoke the owner's pause. Completed writer worktrees are removed after their clean heads are verified as ancestors of integration; branch history remains available.
 
 Native direct blockers are `2:[]`, `5:[2]`, `6:[2]`, `7:[2]`, `3:[7]`, `4:[3]`, `8:[3]`, `9:[3]`, `10:[8]`, `11:[6,8]`, `12:[4,5,9,10,11]`, `13:[12]`. Display order adds no dependency.
 
@@ -49,11 +50,17 @@ PR #19 functional head `7384dcb04a60ff733619df30e3634d590bbea37d` adds strict `g
 
 All four new SDK scenarios passed, including actual terminal removal and winner identity; three focused adapter checks cover distinctive private data, nested schemas, detached results and complete read purity. The exact functional terminal refresh passed separately. Final slice `22016669f3612ec5ead86a631a39b147e67204b6` adds verification prose only. Independent Standards and Spec reviews found zero material findings, and the Spec reviewer repeated all three focused adapter checks. The independent merger passed 60 quick checks with four documented full-lobby repetitions deselected, proved identical slice/merge tree `3453db57846b0ed32b9699192eb20f5c6630b0c1`, and passed six integrated public checks with the already-tested terminal repetition deselected. Eight-path scope and whitespace passed before and after integration; 11 unchanged simulator checks passed. No GitHub CI checks are configured under the owner's local-only choice.
 
+PR #20 functional head `4e96017713e0c2dbf0bfe871ee2bab747a4a7d75` adds strict singular `buy_unit` and `sell_unit`. Concrete native legality and receipt helpers reuse the existing outer transaction and one nested controlled_action. Native prices, Chosen, full-bench and cascading merges, pool/catalog behavior, board item returns, bench whole-set drops, gloves and Azir removal remain native. Receipts contain detached original units, gold changes, actual location/inventory deltas, returned/dropped equipment and status. Successful calls consume one planning action and do not start combat.
+
+Two isolated native fixtures proved that ignored board contributor failures can duplicate copies or lose equipment even when copy weight balances. The adapter validates item capacity in native bench-return/drop then board-return order through reachable cascades, and checks actual copy, gold, offer and inventory postconditions before audit commit. Unsafe capacity and unsupported native price/promotion ranges reject without core repairs. Native bench equipment loss remains supported and explicit. All failures discard baselines, encoders, aliases, native/audit logs and RNG; fresh-reference retries match. The durable Buy and sell contract in the Spec records these constraints.
+
+The exact functional #8 head passed 46 focused checks and 106 combined checks with four unchanged whole-lobby repetitions deselected. The 27 unchanged purchase/sale/bench/mask/action simulator checks passed from an isolated native working directory. Independent Standards and Spec reviews each found zero material findings; the Spec reviewer independently repeated all 46 focused checks. Final slice `8048bddb18024a88b3d016bbba00146d8a7df2d8` adds verification prose only. The independent merger repeated 106 checks, proved identical full slice/merge tree `ed7493e0c6469f7367bd32d80db97563fa011a04`, and passed all 46 focused checks on integrated root. Six-path scope and whitespace passed. The SDK includes purchase, native board autofill/combat and board sale; this is bounded #8 evidence, not a new completed-lobby replay.
+
 Detailed commands, digests, failed fixture corrections and limits remain in [verification.md](verification.md). A complete whole-milestone suite at the eventual final functional head, all-family replay, final two-axis code-review and actual CLI LLM games remain unexecuted. Completed slice review is not final milestone review.
 
 ## Local environment and commands
 
-`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4 extension and must not establish final-head installation evidence.
+`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4/#8 extension and must not establish final-head installation evidence.
 
 Inherited APPIMAGE from T3 can make Python report the AppImage executable and miss venv packages. All verification Python calls use `env -u APPIMAGE`. A production native-host registration can use `/usr/bin/env -u APPIMAGE /absolute/venv/bin/tft-mcp` when this inherited condition applies. Preserve the host's permissions.
 
@@ -82,10 +89,6 @@ Common action locations are strict `{kind:"board",x:0..6,y:0..3}` or `{kind:"ben
 | move_unit | source,target; `[5,source_flat,target_flat]` | source, target, unit_changes |
 | equip_item | item_slot 0..9,target; `[6,target_flat,item_slot]` | item_slot, item_id, target, unit_changes, item_changes, kayn_form |
 
-#8 uses native `cost_star_values`, Chosen star prices, affordability and actual triple catalog. Full-bench merging is legal despite buy_mask=0; a full bench without a merge can native-autosell and must be rejected before execution. Board sale must prevalidate free inventory, as core can decrement catalog before failed item return. Bench sale can drop the entire equipment set on overflow; expose and document actual returned/dropped items. Generated glove equipment is not ordinary returnable sale equipment. Dummies/sandguards are unsupported sales. Preserve native cascading merges and Azir removal with actual deltas.
-
-The #8 resume contract in the Spec adds mandatory merge item-capacity validation across native bench-return/drop and board-return ordering, including cascade phases and Chosen constructor promotion. Two isolated native fixtures confirmed ignored contributor failures, with duplicate copies or lost equipment despite balanced copy weight. Validate capacity before core and copy weights after action before audit commit; reject unsupported price/promotion ranges without repairing the simulator. The source review and fixtures are supplemental in /tmp/tft-mcp-context/design-8.md and design-8-native-*.json. Accepted schemas and test requirements are durable in the Spec and ticket.
-
 #9 uses player.refresh_cost/exp_cost/max_level. A refresh can validly repeat the same visible offers. Read actual recursive native XP/level/capacity changes instead of duplicating leveling rules. Reject cap and affordability errors without changes.
 
 #10 starts after verified #8. Validate occupied source before core, because movement sorts endpoints and can otherwise move the target backwards. Reject same-location no-op and native-disabled bench-to-bench. Respect board capacity and dummy/sandguard restrictions. Native bench/board swaps place the displaced board unit in the first free bench slot, sometimes different from the named source. Expose that destination for bench-to-board. For directed board-to-occupied-bench, reject when an earlier vacancy would prevent the requested target from receiving the source unit. Preserve core behavior without symmetric swap fixes.
@@ -106,4 +109,4 @@ After all tickets complete, run parallel independent Standards and Spec reviews 
 
 ## External historical context
 
-Additional exploration and orchestration files currently exist under `/tmp/tft-mcp-context/`: orchestration.json, issue snapshots, progression-design.md, catalog-contracts.md, inspection-contracts.md, action-contracts.md, acceptance-design.md, client-setup-research.md and review-7-atomicity.md. They are supplemental and may disappear; the Spec, tickets, this record, verification.md and retained Git commits are the durable resume owners. No secrets are stored in this record. Completed writer branch history remains in Git after worktree removal.
+Additional exploration and orchestration files currently exist under `/tmp/tft-mcp-context/`: orchestration.json, issue snapshots, progression-design.md, catalog-contracts.md, inspection-contracts.md, action-contracts.md, acceptance-design.md, client-setup-research.md, review-7-atomicity.md, design-8.md, design-8-native-*.json and the two review-8 reports and merge-8.md. They are supplemental and may disappear; the Spec, tickets, this record, verification.md and retained Git commits are the durable resume owners. No secrets are stored in this record. Completed writer branch history remains in Git after worktree removal.
