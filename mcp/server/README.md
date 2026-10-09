@@ -93,3 +93,20 @@ env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/tft-mc
 ```
 
 The suite separates ordinary production stdio journeys from a test-local preconfigured real-session SDK memory fixture for rare level-cap boundaries.
+
+
+`move_unit` requires exactly `source` and `target`. Each is a strict board location `{"kind":"board","x":integer,"y":integer}` or bench location `{"kind":"bench","slot":integer}`. The documented board orientation and slot bounds apply. Unknown keys, nulls, booleans and decimal coordinates return `invalid_input`. No player selector is accepted. The source must hold an owned unit, even when the target is occupied. Same-location and native-disabled bench-to-bench requests return `unsupported_action`.
+
+Board moves support empty destinations and native swaps in either coordinate direction. Bench entry into an empty board cell requires regular-unit capacity. Bench entry into an occupied cell displaces its unit to the native first bench vacancy after clearing the incoming slot. That vacancy can precede the requested source. Board moves to an empty bench slot use that exact slot. An occupied bench target supports a directed swap only when no earlier bench vacancy would send the outgoing board unit elsewhere. Full benches and full regular-unit capacity still permit supported swaps.
+
+Board dummies and sandguards can reposition and swap on board but cannot leave to bench or be displaced there. Azir bench entry requires two free guard cells after displacement and outgoing Azir guard removal. Native guard creation, removal, board positioning, overlord state and linkage remain intact. Benched Azir retains its old coordinate list. Newly spawned guards retain native initial cached coordinates; receipts use their actual board storage. Glove tracking follows native supported swaps.
+
+Each successful move consumes one shared planning action and returns in the same round. The receipt contains exactly detached `source`, `target`, observed `unit_changes` and `status`. Changes use the existing unit records in board x/y then bench-slot order, including displaced units and Azir guard/link changes. Distinct units with identical visible records can swap with an empty change list. Candidate identity checks still prove the move. Invalid legality, silent native failure, inconsistent metadata and corrupt postconditions discard the complete candidate, baselines, RNG and logs.
+
+Run focused movement adapter and production SDK checks:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/tft-mcp-venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_movement.py -q
+```
+
+Production stdio tests acquire units through gameplay and cover movement families, orientation, supported swaps, rejection, audit recovery and seeded replay with extra reads. Separate preconfigured real-session tests cover rare Azir, dummy, glove and capacity conditions. One rare Azir fixture also crosses official SDK memory streams through unchanged transport. See the [movement contract](../SPEC.md#movement-contract).

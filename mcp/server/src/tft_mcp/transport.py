@@ -278,11 +278,17 @@ SELL_PROPERTIES = {
     "dropped_items": {"type": "array", "items": {"type": "string"}},
     "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA}, "status": STATUS_SCHEMA,
 }
+MOVE_PROPERTIES = {"source": LOCATION_SCHEMA, "target": LOCATION_SCHEMA,
+                   "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA}, "status": STATUS_SCHEMA}
 TOOLS.extend([
     Tool(name="buy_unit", description="Buy one own shop offer at slot 0..4 using installed native prices and merges. Full-bench merges are supported. Consume one planning action and return at the same round without combat.",
          inputSchema={"type": "object", "properties": {"shop_slot": BUY_PROPERTIES["shop_slot"]},
                       "required": ["shop_slot"], "additionalProperties": False},
          outputSchema={"type": "object", "properties": BUY_PROPERTIES, "required": list(BUY_PROPERTIES), "additionalProperties": False}),
+    Tool(name="move_unit", description="Move one owned unit using board x=0..6,y=0..3 or bench slot=0..8. Native supported swaps consume one action. Bench-to-board displacement uses the first bench vacancy. Same-location and bench-to-bench movement are unsupported.",
+         inputSchema={"type": "object", "properties": {"source": LOCATION_SCHEMA, "target": LOCATION_SCHEMA},
+                      "required": ["source", "target"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": MOVE_PROPERTIES, "required": list(MOVE_PROPERTIES), "additionalProperties": False}),
     Tool(name="sell_unit", description="Sell one owned board or bench unit. Board equipment needs inventory capacity; bench overflow drops the complete real equipment set. Thieves gloves return only the glove. Consume one planning action without combat.",
          inputSchema={"type": "object", "properties": {"location": LOCATION_SCHEMA},
                       "required": ["location"], "additionalProperties": False},
@@ -294,6 +300,9 @@ def validate_arguments(name, arguments):
     if name == "buy_unit":
         from tft_mcp.session import validate_buy_arguments
         validate_buy_arguments(arguments)
+    elif name == "move_unit":
+        from tft_mcp.session import validate_move_arguments
+        validate_move_arguments(arguments)
     elif name == "sell_unit":
         from tft_mcp.session import validate_sell_arguments
         validate_sell_arguments(arguments)
@@ -367,6 +376,8 @@ async def serve():
                         result = session.buy_xp(**arguments)
                     elif name == "buy_unit":
                         result = session.buy_unit(**arguments)
+                    elif name == "move_unit":
+                        result = session.move_unit(**arguments)
                     elif name == "sell_unit":
                         result = session.sell_unit(**arguments)
                     elif name == "end_turn":
