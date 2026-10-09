@@ -347,3 +347,33 @@ GitHub status checks are absent under the accepted local-only workflow. Four unc
 The owner requested only the next ticket after #4 and another stop afterward. Only #8 was implemented and integrated. Ticket #8 is completed from actual verified results; milestone #1 stays open. #9 remains the next reviewed ticket, while #10/#11 have their prerequisites integrated and still need detailed contract reviews before Ready. No subsequent writer started, no main/upstream merge occurred, and [CONTINUATION.md](CONTINUATION.md) retains the remaining contracts and evidence requirements.
 
 The pause checkpoint changes only Spec status, this evidence and the continuation record. Runtime checks are not repeated for those prose-only changes. Before saving the pause, the parent checks fixed-base scope and whitespace, unchanged simulator/root packaging, ticket and milestone consistency, PR links, clean ancestor-preserving worktree removal and pushed clean integration.
+
+## Shop refresh and experience slice #9
+
+Implemented on 2026-10-09 in isolated writer `/tmp/tft-mcp-worktrees/issue-9`, branch `feat/mcp-9-shop-xp`, clean reviewed base `c9ff68c5b5d8778393ff8c0693093d4f481f7305`. Functional head is `c98cb7cd761924b84177bbcd6894d97e31839cc0`. The integration branch still pointed to the base when the writer merged its latest tip and received `Already up to date`. This record changes evidence prose only; source, tests and configuration are frozen for independent review.
+
+`refresh_shop` and `buy_xp` use strict no-argument MCP schemas, concrete session methods, the existing outer transaction and one nested controlled action. The adapter reads native instance costs, cap and thresholds. Refresh verifies both shop lists regenerate and projects the five actual offers through existing shop validation. XP verifies observed crossed-level conservation and capacity increments without copying native leveling. Cap errors precede affordability after lifecycle and budget checks. No simulator, root packaging, dependency, CI, scheduler or RNG owner changed.
+
+Vertical TDD reds were observed before implementation: refresh lacked a GameSession method, four XP fixture cases lacked a GameSession method, and production SDK discovery lacked refresh registration. After registration, missing manual no-argument dispatch validation returned invalid_input instead of no_game; adding the tools to existing validation fixed it. The first earned-gold fixture used two turns and correctly received insufficient_gold after refreshing. Three native turns provide the intended successful refresh and level-transition journey. Initial error-detail assertions omitted the existing transaction diagnostic paths; assertions now select the contractual resource/cap fields. These fixture corrections changed no simulator behavior.
+
+The focused suite passed 34 checks in 13.30 seconds before a test-only fault label was clarified. It includes production stdio discovery, strict requests, earned-gold refresh/XP, native level transition, audit failure/recovery and fresh-process refresh replay despite reordered reads and rejections. A separately named SDK memory-stream fixture runs unchanged transport.serve with a preconfigured real session for near-cap success and atomic cap rejection. That fixture proves protocol behavior, not naturally reached production stdio cap gameplay.
+
+Real adapter fixtures cover nonleveling and recursive multilevel XP, discarded cap overflow, bonus capacity, changed native costs and thresholds, affordability/cap/budget/lifecycle precedence, silent native no-ops and corrupt gold/shop/XP/level/capacity effects. Eight fault modes per action cover native mutation, observation updates, real baseline progression, postcondition inspection, native writes and audit commit. Snapshots include native episode NumPy generator state in addition to existing gameplay, episode Python and baseline RNG, process Python/NumPy state, graph aliases, module bindings, budget and accepted log bytes. Recovery retries match fresh real reference sessions.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_shop_xp.py -q
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -k 'not seed_zero_full_lobby and not real_seed_zero and not terminal_inspection and not terminal_public_list' -q
+```
+
+An earlier combined snapshot passed 139 checks with four unchanged completed-lobby repetitions deselected in 63.79 seconds. It preceded the final production recovery test and explicit NumPy snapshot coverage. The exact frozen-head combined result is recorded below.
+
+The unchanged native RNG, Player, step-function and action-space checks passed 27 tests in 0.86 seconds from external cwd `/tmp/tft-mcp-context/issue-9-simulator-runtime`. The first attempt could not start because that external directory did not exist; creating it and rerunning succeeded. No native check ran from the checkout or modified root log.txt.
+
+```sh
+cd /tmp/tft-mcp-context/issue-9-simulator-runtime
+env -u APPIMAGE PYTHONHASHSEED=0 /tmp/tft-mcp-env/bin/python -m pytest -c /tmp/tft-mcp-worktrees/issue-9/mcp/server/pyproject.toml /tmp/tft-mcp-worktrees/issue-9/UnitTests/rng_test.py /tmp/tft-mcp-worktrees/issue-9/UnitTests/player_test.py /tmp/tft-mcp-worktrees/issue-9/UnitTests/step_function_test.py /tmp/tft-mcp-worktrees/issue-9/UnitTests/action_space_test.py -q
+```
+
+Scope passed five functional changed paths against the reviewed base, including the untracked test before commit. Whitespace passed. `git diff 33c2c6e -- Simulator UnitTests pyproject.toml` was empty. Final evidence-only scope includes this sixth path. No push, PR/issue mutation, integration merge, main/upstream change or later-ticket implementation was performed by the writer. Independent Standards/Spec review, integration and owner acceptance remain separate. Four unchanged whole-lobby repetitions, final noneditable installation, all-family replay and real LLM-host gameplay remain unexecuted for this bounded slice and belong to #12/#13. Existing broader Gymnasium baseline failures remain unchanged.
+
+At exact frozen functional head `c98cb7cd761924b84177bbcd6894d97e31839cc0`, the combined command above passed 140 checks with the same four unchanged whole-lobby repetitions deselected in 67.59 seconds. This includes all 34 focused #9 scenarios after the fault-label clarification and native episode NumPy snapshot additions. Final six-path scope and whitespace passed with only verification prose changed since that tested head.
