@@ -166,7 +166,7 @@ class GameSession:
 
     @contextmanager
     def lifecycle_transaction(self, mutable=False):
-        """Copy one aliased graph; atomically publish all buffered audit events."""
+        """Keep candidate fields private under the lock until their audit commit."""
         with SIMULATOR_LOCK:
             if self._records is not None:
                 if mutable:
@@ -196,15 +196,16 @@ class GameSession:
                     "failed_game_id": failed_id}) from error
 
     def get_game_status(self):
-        return {
-            "state": self.state,
-            "game_id": self.game_id,
-            "controlled_player_id": "player_0" if self.game else None,
-            "round": self.game.game_round.current_round if self.game else None,
-            "planning_budget": ({"capacity": 14, "remaining": max(0, 14 - self.game.actions_taken["player_0"])}
-                                if self.state == "running" else None),
-            "outcome": deepcopy(self.outcome),
-        }
+        with SIMULATOR_LOCK:
+            return {
+                "state": self.state,
+                "game_id": self.game_id,
+                "controlled_player_id": "player_0" if self.game else None,
+                "round": self.game.game_round.current_round if self.game else None,
+                "planning_budget": ({"capacity": 14, "remaining": max(0, 14 - self.game.actions_taken["player_0"])}
+                                    if self.state == "running" else None),
+                "outcome": deepcopy(self.outcome),
+            }
 
     @transactional
     def start_game(self, seed):
