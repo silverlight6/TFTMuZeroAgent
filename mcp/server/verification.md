@@ -221,3 +221,47 @@ These checks use Python 3.14 with the installed unchanged editable simulator and
 The owner requested a graceful stop after #3 on 2026-10-09. PR #18 merged at `684bbbf8e88be96890b0069c0bc7d4728ff0ceff`. The independent merger repeated 54 combined quick tests with exactly three documented full-lobby repetitions deselected, confirmed identical slice/merge tree `e206d95f2c2959b7bda37fd01c340b4f92e97938`, then passed 16 integrated inspection checks with the previously tested terminal repetition deselected. Fixed-base scope and whitespace passed for seven allowed paths. No material review finding remained in the slice. The complete affected 17-test terminal evidence and 11 simulator checks above remain applicable.
 
 No dependent implementation, final whole-milestone code-review, all-family replay or actual Codex/Claude LLM gameplay started. [CONTINUATION.md](CONTINUATION.md) records the verified frontier, environment, design contracts and remaining work. The pause commit changes documentation only; runtime checks were not repeated for that prose-only change. Scope, whitespace, tracker consistency and clean-worktree cleanup are checked for the saved pause.
+
+## #4 public player inspection
+
+Reviewed base `bde19766296fe70b7ead45cd57057da7bc0dfd61`, functional head `7384dcb04a60ff733619df30e3634d590bbea37d`, branch `feat/mcp-4-public-inspection`, isolated worktree `/tmp/tft-mcp-worktrees/issue-4`. The verified initial worktree was clean. A final merge of `feat/mcp-server-main` reported already up to date at the same base. All seven functional paths are under `mcp/`, and simulator source, root packaging, dependencies and CI remain unchanged. The functional diff SHA256 from `git diff bde19766296fe70b7ead45cd57057da7bc0dfd61 7384dcb04a60ff733619df30e3634d590bbea37d | sha256sum` is `aaeb3f63f614e23ebae6526204e66758ef1a7abf9d826a8b61f9033291a78f7a`. Functional commit working diff was empty; this record is the only subsequent documentation change.
+
+Transport registers strict no-argument `get_players` and extends existing board/trait selectors. Concrete session methods resolve sorted initial dictionary keys and read only public opponent fields under the existing lock. Removed records use #7 native placements and public final scalars; own terminal categories retain their existing snapshot. The Spec contract was recorded before code, and current own-only descriptions and assertions were reconciled.
+
+The accepted production SDK and focused concrete adapter seams were used with vertical TDD. The first player-list test failed on missing discovery, then passed after registration and projection. The opponent SDK test failed on `invalid_player`, then passed after public resolution. Fixture failures were corrected without product changes: subprocess working directories needed creation, early baseline boards remained empty until later rounds, a native Chosen constructor produced two stars, and SessionError text is read through `str(error)`. No executed check remains unresolved.
+
+The environment is the retained CPU-only Python 3.14.7, MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1 environment. Every Python command removes inherited APPIMAGE. Source checks select the slice extension through PYTHONPATH without reinstalling shared packages.
+
+The new SDK suite passed all four tests in 64.57 seconds. It proved discovery, strict inputs, all stable public IDs, local living-opponent board coordinates, visible nonempty boards, stored traits, unchanged later progression across two real server processes, audit failure/retry, actual terminal removals and a removed winner, own retained categories, close and fresh-start cleanup. Focused adapter tests passed all three in 1.16 seconds before the final recursive-schema assertions. These cover distinctive hidden fixture values, nested schema rejection and defensive copies, dictionary-key identity, complete graph/RNG/cache/module-binding purity, and native forced removals and winner records.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_public_inspection_protocol.py -q
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_public_inspection.py -q
+```
+
+Final functional-source combined checks passed 60 tests with four complete-lobby repetitions deselected in 47.57 seconds. This includes the final recursive schema assertions and status/error wording. Prerequisite complete-game evidence remains applicable; the affected terminal public scenario receives its own exact-head refresh below.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -k 'not seed_zero_full_lobby and not real_seed_zero and not terminal_inspection and not terminal_public_list' -q
+```
+
+The selected unchanged simulator checks passed 11 tests in 2.33 seconds with the same two existing PettingZoo observation warnings. Existing broader Gymnasium failures are unchanged and were not rerun for this slice.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 /tmp/tft-mcp-env/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+```
+
+Fresh noneditable installation, actual CLI LLM gameplay, all action families, full-milestone replay and final milestone review remain unexecuted and assigned to their later accepted slices. #4 establishes public inspection only. Parent Standards/Spec review, PR creation and separate integration remain pending at writer handoff; no push, PR or issue mutation was performed by this writer.
+
+The exact functional head terminal refresh passed one test with three deselected in 54.92 seconds. The actual seed-zero lobby completed at round 30 with controlled placement 8 and winner `player_2`, health 5, level 8, placement 1. All eight stable participant records retained their native placements; removed winner board/traits returned `player_eliminated`, and own frozen categories remained available. These are observed values, not fixed test assumptions.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_public_inspection_protocol.py -k terminal_public_list -q
+```
+
+Final scope passed for eight changed paths including this record, and whitespace passed against the fixed base. After the prose-only verification commit, source/tests/config are unchanged from the reviewed functional head and the working diff is empty.
+
+```sh
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py bde19766296fe70b7ead45cd57057da7bc0dfd61
+git diff --check bde19766296fe70b7ead45cd57057da7bc0dfd61
+```
