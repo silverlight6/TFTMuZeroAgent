@@ -105,6 +105,8 @@ async def test_bootstrap_reexec_records_fixed_hash_and_reproducibility(tmp_path)
         assert str(record["hash_probe"]) == expected
         assert record["seed"] == record["baseline_seed"] == 123
         assert record["baseline"] == "Simulator.generators.default_agent.Default_Agent(False)"
+        from Simulator.simulators.tft_simulator import TFT_Simulator
+        assert record["simulator"]["environment_name"] == TFT_Simulator.metadata["name"]
         assert record["simulator"]["revision"]
         assert len(record["simulator"]["source_sha256"]) == 64
         assert record["configuration"]["num_players"] == 8

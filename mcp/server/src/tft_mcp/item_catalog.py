@@ -1,4 +1,4 @@
-"""Read-only Set 4 item definitions and source-supported assignment constraints."""
+"""Read-only installed simulator item definitions and source-supported assignment constraints."""
 
 from copy import deepcopy
 

@@ -157,3 +157,26 @@ git diff --check
 Initial tracer failure for missing planning budget was resolved. Two obsolete lifecycle assertions were reconciled with atomic buffering and audit preflight: failed candidate startup records remain unpublished, and diagnostic directories are identified by error details. One installed check invocation referenced nonexistent catalog filenames and ran no tests; the corrected combined command above passed. No unresolved executed check failed.
 
 This bounded slice does not implement later inspection/action tools, runtime set selection, simulator schedule repairs, restart recovery, cross-file crash persistence, GitHub CI or required real Codex client acceptance. The owner subsequently rejected fixed set hardcoding; the parent owns scope reconciliation and readiness of affected contracts. Scheduling and recovery use the installed simulator and existing baseline without adding a set-specific rules table. Owner acceptance, PR integration and deployment are separate from the technical evidence recorded here.
+
+## Installed-simulator clarification after #7
+
+The owner clarified on 2026-10-09 that the extension uses the installed simulator without a fixed set number. Current tool descriptions, package/module descriptions, shared and server guides, setup prompt and Spec now follow that direction. No runtime set selector, guard, copied catalog, core change or generic multiset framework was added. Existing concrete mechanics remain supported through their installed definitions. Kayn form metadata now excludes form-item IDs absent from `item_stats.items`.
+
+Simulator identity records `environment_name` directly from `TFT_Simulator.metadata`. The tested installed source currently reports `tft-set4-v0`; this is observed source metadata, not a server set constant or compatibility guard. Source digest and distribution/revision evidence remain recorded.
+
+The final clarification diff was tested against precommit HEAD `c866647`, with combined integration base `497a426f50a16bc0b239f9fa843e38b24691ef59`. Server source, tests, scripts and configuration have combined SHA-256 `2997a48fc27245073e55129dafa5193703e67240762a2582bf53572815b38d4b`. The commit containing this clarification record owns the tested diff.
+
+Affected catalog and lifecycle source checks passed 20 tests. The final noneditable extension was reinstalled, and the same checks through the installed launcher from `/tmp` passed 20 tests in 21.06 seconds. These checks include generic MCP descriptions, absence/rejection of a set selector, actual environment metadata, omission of absent special items and existing exhaustive source-definition comparisons:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_champion_catalog.py mcp/server/tests/test_item_catalog.py mcp/server/tests/test_item_protocol.py mcp/server/tests/test_protocol.py -k 'not seed_zero_full_lobby' -q
+env -u APPIMAGE TFT_MCP_TEST_COMMAND=/tmp/tft-mcp-install-7/bin/tft-mcp /tmp/tft-mcp-install-7/bin/python -m pytest -c /tmp/tft-mcp-worktrees/issue-7/mcp/server/pyproject.toml /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_champion_catalog.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_item_catalog.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_item_protocol.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_protocol.py -k 'not seed_zero_full_lobby' -q
+```
+
+Focused real-simulator lifecycle/progression checks passed another 14 tests after the metadata change. Complete seed-zero lobbies were not rerun for the later labeling/metadata clarification because scheduling and recovery were unchanged; their preceding complete source and installed evidence remains recorded above.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_session.py mcp/server/tests/test_progression.py -k 'not real_seed_zero' -q
+```
+
+An independent focused source/test review at checkpoint `11e60e1` found no material atomicity issue and confirmed audit/native preflight, non-failing post-replacement publication, full aggregate alias recovery and final snapshot completeness. The parent retained its report at `/tmp/tft-mcp-context/review-7-atomicity.md`. That review is distinct from final parent review of the clarified contract and whole-milestone acceptance.

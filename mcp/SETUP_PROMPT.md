@@ -3,7 +3,7 @@
 Copy the prompt below into Codex or Claude Code. This is currently a planning artifact: the server has not been implemented, so setup cannot succeed yet. Issue #13 verifies this prompt against the implemented installation commands and production launcher.
 
 ```text
-Install the local TFT Set 4 MCP server from KyleDerZweite/TFTMuZeroAgent
+Install the local TFT MCP server from KyleDerZweite/TFTMuZeroAgent
 and connect it to the Codex or Claude Code client I am using.
 
 Read mcp/README.md, mcp/server/README.md, and the installation instructions

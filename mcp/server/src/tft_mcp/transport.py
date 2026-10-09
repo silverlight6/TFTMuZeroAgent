@@ -61,7 +61,7 @@ CHAMPION_SUMMARY = {"type": "object", "properties": {
     "champion_id": {"type": "string"}, "cost": {"type": "integer"},
     "traits": {"type": "array", "items": {"type": "string"}}},
     "required": ["champion_id", "cost", "traits"], "additionalProperties": False}
-TOOLS.append(Tool(name="search_champions", description="Search canonical Set 4 champion IDs with optional cost and intrinsic trait filters. Works without a game.",
+TOOLS.append(Tool(name="search_champions", description="Search canonical installed simulator champion IDs with optional cost and intrinsic trait filters. Works without a game.",
     inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""},
         "cost": {"type": "integer", "minimum": 1, "maximum": 5}, "trait_id": {"type": "string"}}, "additionalProperties": False},
     outputSchema={"type": "object", "properties": {"champions": {"type": "array", "items": CHAMPION_SUMMARY}},
@@ -85,7 +85,7 @@ CHAMPION_PROPERTIES = dict(CHAMPION_SUMMARY["properties"], **{
     "description": {"type": "null"}, "ability_description": {"type": "null"},
     "unavailable_fields": {"type": "array", "items": {"type": "string"}},
 })
-TOOLS.append(Tool(name="get_champion", description="Read raw Set 4 champion definitions, star gold costs and Chosen metadata. Descriptions unavailable; stats are not dynamically adjusted.",
+TOOLS.append(Tool(name="get_champion", description="Read raw installed simulator champion definitions, star gold costs and Chosen metadata. Descriptions unavailable; stats are not dynamically adjusted.",
     inputSchema={"type": "object", "properties": {"champion_id": {"type": "string"}}, "required": ["champion_id"], "additionalProperties": False},
     outputSchema={"type": "object", "properties": CHAMPION_PROPERTIES, "required": list(CHAMPION_PROPERTIES), "additionalProperties": False}))
 
@@ -99,13 +99,13 @@ TRAIT_PROPERTIES = dict(TRAIT_SUMMARY["properties"], **{
     "description": {"type": "null"}, "unavailable_fields": {"type": "array", "items": {"type": "string"}},
 })
 TOOLS.extend([
-    Tool(name="search_traits", description="Search canonical Set 4 trait IDs and activation thresholds without a game.",
+    Tool(name="search_traits", description="Search canonical installed simulator trait IDs and activation thresholds without a game.",
          inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""}}, "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"traits": {"type": "array", "items": TRAIT_SUMMARY}}, "required": ["traits"], "additionalProperties": False}),
-    Tool(name="get_trait", description="Read Set 4 trait thresholds, raw effect parameters and intrinsic champion membership. Ninja activation is exact; descriptions unavailable.",
+    Tool(name="get_trait", description="Read installed simulator trait thresholds, raw effect parameters and intrinsic champion membership. Ninja activation is exact; descriptions unavailable.",
          inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
          outputSchema={"type": "object", "properties": TRAIT_PROPERTIES, "required": list(TRAIT_PROPERTIES), "additionalProperties": False}),
-    Tool(name="get_trait_champions", description="List canonical champions with an intrinsic Set 4 trait, without item or Chosen counts.",
+    Tool(name="get_trait_champions", description="List canonical champions with an intrinsic installed simulator trait, without item or Chosen counts.",
          inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}, "champions": {"type": "array", "items": CHAMPION_SUMMARY}}, "required": ["trait_id", "champions"], "additionalProperties": False}),
 ])
@@ -136,14 +136,14 @@ ITEM_SCHEMA = {
     "additionalProperties": False,
 }
 TOOLS.extend([
-    Tool(name="search_items", description="Search static Set 4 item IDs by case-insensitive substring and optional kind, without a game.",
+    Tool(name="search_items", description="Search static installed simulator item IDs by case-insensitive substring and optional kind, without a game.",
          inputSchema={"type": "object", "properties": {
              "query": {"type": "string", "default": ""},
              "kind": {"type": "string", "enum": ["component", "equipment", "consumable"]}},
              "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"items": {"type": "array", "items": ITEM_SUMMARY_SCHEMA}},
                        "required": ["items"], "additionalProperties": False}),
-    Tool(name="get_item", description="Inspect an exact canonical Set 4 item ID, raw effects, recipes and simulator constraints. Official description is unavailable.",
+    Tool(name="get_item", description="Inspect an exact canonical installed simulator item ID, raw effects, recipes and simulator constraints. Official description is unavailable.",
          inputSchema={"type": "object", "properties": {"item_id": {"type": "string"}},
                       "required": ["item_id"], "additionalProperties": False}, outputSchema=ITEM_SCHEMA),
 ])

@@ -1,10 +1,10 @@
-# MCP tools for the TFT Set 4 simulator
+# MCP tools for the installed TFT simulator
 
-Status: Server product scope and revised twelve-slice dependency order confirmed on 2026-10-09. The owner subsequently accepted mcp/server/ with shared planning under mcp/ and requested explicit Codex CLI and Claude Code connection support. The owner confirmed prompt-driven setup, existing host permissions, and a complete Codex game as client acceptance; the server gameplay contract is unchanged. Lifecycle has a bounded concrete contract. AEC interleaving and automatic lobby completion after controlled-player elimination are accepted. The shared technical contracts in #7 were reviewed against the integrated lifecycle and real simulator; dependent slices require its verified integration.
+Status: Server product scope and revised twelve-slice dependency order confirmed on 2026-10-09. The owner subsequently accepted mcp/server/ with shared planning under mcp/ and requested explicit Codex CLI and Claude Code connection support. The owner confirmed prompt-driven setup, existing host permissions, and a complete Codex game as client acceptance; the server gameplay contract is unchanged. Lifecycle has a bounded concrete contract. AEC interleaving and automatic lobby completion after controlled-player elimination are accepted. The shared technical contracts in #7 were reviewed against the integrated lifecycle and real simulator; dependent slices require its verified integration. The owner clarified that rules come from the installed simulator without a fixed set number or runtime set selector.
 
 ## Problem statement
 
-LLM agents need a documented set of MCP tools to inspect and play the existing TFT Set 4 simulator. They must choose what information to request and which individual game actions to perform.
+LLM agents need a documented set of MCP tools to inspect and play the installed TFT simulator. They must choose what information to request and which individual game actions to perform.
 
 ## Solution
 
@@ -19,7 +19,7 @@ Expose game information and rule knowledge as separate tools. Expose each suppor
 1. As an agent, I want to start a seeded game and inspect its lifecycle status, so that I know which game I can operate.
 2. As an agent, I want to request my board or a named opponent's publicly visible board, so that I can inspect positioning.
 3. As an agent, I want to separately request my bench, shop, inventory, economy, active traits, round, and public player list, so that I can choose the information relevant to my next action.
-4. As an agent, I want to search champions and inspect their Set 4 rules, so that I can evaluate available units.
+4. As an agent, I want to search champions and inspect their installed simulator rules, so that I can evaluate available units.
 5. As an agent, I want to search traits, inspect thresholds, and find their champions, so that I can understand team compositions.
 6. As an agent, I want to search items and inspect effects and supported recipes, so that I can evaluate equipment choices.
 7. As an agent, I want to purchase a champion from a specific shop slot, so that I can add that offer to my team.
@@ -41,7 +41,7 @@ The MCP transport module owns tool registration, input schemas, descriptions, st
 
 The game-session adapter owns lifecycle, scheduling, action validation, coordinate conversion, public information projection, baseline execution, and recording. It depends on the existing simulator. The simulator does not depend on the MCP server or adapter.
 
-Rule-query tools read existing simulator definitions. They do not use current live-game metadata or duplicate game rules. Responses clearly distinguish data available from the simulator from descriptions that the simulator does not supply.
+Rule-query tools read the installed simulator definitions. The server has no fixed set-number label, set guard, set selector or copied fixed catalog. Simulator identity records its actual environment metadata and source digest. Concrete support for mechanics already present in that simulator remains in the adapter. Rule queries do not use current live-game metadata or duplicate game rules. Responses clearly distinguish data available from the simulator from descriptions that the simulator does not supply.
 
 The MCP extension lives under mcp/. Shared planning and entry documentation belong at mcp/SPEC.md and mcp/README.md. Server implementation belongs in mcp/server/, including its Python package, packaging metadata, server dependencies, tests, developer commands, and entry point. A future custom client may live in mcp/client/ after its own scope and contracts are accepted; this milestone does not implement that client or create a placeholder package. The repository root packaging and the existing simulator source, rules, defaults, and mandatory dependencies remain unchanged. Install the unchanged simulator from the selected repository revision, then install the extension as its own package; the simulator distribution version alone does not identify the revision.
 
@@ -59,7 +59,7 @@ The owner chose local checks only on 2026-10-09. Do not add GitHub Actions or ot
 
 The controlled player defaults to player_0. Board queries accept an optional player identifier; omission selects the controlled player. Player identifiers are distinct from board coordinates.
 
-Board locations use documented coordinates. Bench, shop, and inventory use documented zero-based slot indices. Unit responses include champion identity, star level, equipped items, and relevant Set 4 special attributes. The implementation must use the simulator's actual coordinate mapping consistently.
+Board locations use documented coordinates. Bench, shop, and inventory use documented zero-based slot indices. Unit responses include champion identity, star level, equipped items, and relevant installed simulator special attributes. The implementation must use the simulator's actual coordinate mapping consistently.
 
 Inspection tools never advance the simulation, mutate gameplay state, or consume randomness. Hidden opponent shops, private simulator state, and future random outcomes are not exposed. Structured responses are limited to the requested information category. Action responses confirm the change and relevant status rather than returning the entire game.
 
@@ -102,7 +102,7 @@ The owner accepted these five tool schemas for #5. Review against integrated lif
 All inputs are objects with no unknown keys. Explicit null is invalid. IDs are exact, case-sensitive canonical simulator IDs. Search query defaults to an empty string and matches case-insensitive identifier substrings. Filters combine with AND. Results sort by canonical ID; no match returns an empty list. Champions are exactly `stats.BASE_CHAMPION_LIST`; traits are exactly `origin_class_stats.tiers` keys.
 
 - `search_champions({query?: string = "", cost?: integer 1..5, trait_id?: string})` returns `{champions: [{champion_id: string, cost: integer, traits: string[]}]}`. Booleans and decimal numbers are invalid costs. The trait filter must name a catalog trait.
-- `get_champion({champion_id: string})` returns `{champion_id, cost, traits, star_costs: [{stars: 1|2|3, gold: integer}], base_stats: object, rule_parameters: object, special_attributes: {chosen: {eligible_traits: string[], bonus: {stat: string, value: number}|null}, kayn_forms: string[]}, description: null, ability_description: null, unavailable_fields: ["description", "ability_description"]}`. Base stats are raw AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA and RANGE. Other keyed `stats.py` entries retain their names and raw values. Gold values come from `pool_stats.cost_star_values`; they are not combat strength. Chosen bonuses retain source stat/value and exclude `chosen_exclude` traits. Kayn alone reports literal `kayn_shadowassassin` and `kayn_rhast` form-item IDs. These values do not promise adjusted star, Chosen, or transformed combat stats.
+- `get_champion({champion_id: string})` returns `{champion_id, cost, traits, star_costs: [{stars: 1|2|3, gold: integer}], base_stats: object, rule_parameters: object, special_attributes: {chosen: {eligible_traits: string[], bonus: {stat: string, value: number}|null}, kayn_forms: string[]}, description: null, ability_description: null, unavailable_fields: ["description", "ability_description"]}`. Base stats are raw AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA and RANGE. Other keyed `stats.py` entries retain their names and raw values. Gold values come from `pool_stats.cost_star_values`; they are not combat strength. Chosen bonuses retain source stat/value and exclude `chosen_exclude` traits. Kayn reports `kayn_shadowassassin` and `kayn_rhast` form-item IDs only when they exist in the installed item definitions. These values do not promise adjusted star, Chosen, or transformed combat stats.
 - `search_traits({query?: string = ""})` returns `{traits: [{trait_id: string, thresholds: integer[]}]}`.
 - `get_trait({trait_id: string})` returns `{trait_id, thresholds: integer[], activation: "minimum"|"exact", effects: object, champion_ids: string[], chosen_eligible: boolean, description: null, unavailable_fields: ["description"]}`. Ninja activation is exact; other traits use minimum thresholds. Effects retain keyed raw `origin_class_stats` parameters, including inactive entries. Fortune includes named `fortune_returns`. Empty effects remain valid. Membership is intrinsic and sorted.
 - `get_trait_champions({trait_id: string})` returns `{trait_id, champions: [{champion_id, cost, traits}]}` with the same summaries as champion search. Item grants and Chosen counts do not change intrinsic membership.
@@ -131,7 +131,7 @@ Claude Code receives the same documented setup and game prompt. Verify its real 
 
 ## Out of scope
 
-Simulator or core modifications; new game mechanics; current TFT sets; MetaTFT integration; model hosting, provider adapters, and a custom LLM runner; training; comparative model benchmarking; remote MCP transport; concurrent games; restart persistence; strategic macro tools; automatic upstream submission, merging, or deployment.
+Simulator or core modifications; new game mechanics; runtime set selection; MetaTFT integration; model hosting, provider adapters, and a custom LLM runner; training; comparative model benchmarking; remote MCP transport; concurrent games; restart persistence; strategic macro tools; automatic upstream submission, merging, or deployment.
 
 ## Further notes
 

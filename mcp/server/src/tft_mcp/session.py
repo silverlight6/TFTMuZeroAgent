@@ -484,6 +484,7 @@ def freeze_player(player, round_number):
 
 def simulator_identity():
     import Simulator
+    from Simulator.simulators.tft_simulator import TFT_Simulator
 
     source_root = Path(Simulator.__file__).resolve().parent
     digest = hashlib.sha256()
@@ -500,6 +501,7 @@ def simulator_identity():
         except (OSError, subprocess.CalledProcessError):
             revision = None
     return {"revision": revision or "sha256:" + digest.hexdigest(), "source_sha256": digest.hexdigest(),
+            "environment_name": TFT_Simulator.metadata.get("name"),
             "distribution_version": metadata.version("tft-simulator")}
 
 

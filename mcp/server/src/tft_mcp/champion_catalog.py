@@ -1,8 +1,8 @@
-"""Read-only Set 4 champion and trait projections from simulator definitions."""
+"""Read-only installed simulator champion and trait projections from simulator definitions."""
 
 from copy import deepcopy
 
-from Simulator.battle import origin_class_stats, stats
+from Simulator.battle import item_stats, origin_class_stats, stats
 from Simulator.game import pool_stats
 
 
@@ -34,7 +34,8 @@ def get_champion(champion_id):
                             and name not in (*BASE_STATS, 'COST')},
         'special_attributes': {'chosen': {
             'eligible_traits': [trait for trait in result['traits'] if trait not in origin_class_stats.chosen_exclude],
-            'bonus': bonus}, 'kayn_forms': ['kayn_shadowassassin', 'kayn_rhast'] if champion_id == 'kayn' else []},
+            'bonus': bonus}, 'kayn_forms': [name for name in ('kayn_shadowassassin', 'kayn_rhast')
+                                    if name in item_stats.items] if champion_id == 'kayn' else []},
         'description': None, 'ability_description': None,
         'unavailable_fields': ['description', 'ability_description'],
     })
