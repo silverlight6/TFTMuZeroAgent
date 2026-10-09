@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Paused again on 2026-10-09 after verified integration of ticket #10. The owner resumed only #10 and requested another stop afterward. No implementation is running. #11 through #13 remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Resumed on 2026-10-09 at `49e4a60d6bd9d44f88d6c9470ca75a8759f112e7`. The owner authorized completing the remaining tickets #11 through #13, superseding the stop after #10. Review #11 first, then verify each prerequisite integration before starting its dependent slice. Continue on the fork integration branch `feat/mcp-server-main`; preserve all completed slices and the unchanged simulator.
 
 ## Accepted scope and workflow
 
