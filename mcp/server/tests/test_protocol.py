@@ -119,6 +119,9 @@ async def test_audit_and_native_failure_leave_idle(tmp_path):
         error = await session.call_tool("start_game", {"seed": 0})
         assert error.isError
         assert error.structuredContent["code"] == "log_unavailable"
+        rejected = await session.call_tool("end_turn", {"extra": 1})
+        assert rejected.isError
+        assert rejected.structuredContent["code"] == "log_unavailable"
     async with client(tmp_path, TFT_MCP_NATIVE_LOG_DIR="/proc/tft-mcp-native") as session:
         error = await session.call_tool("start_game", {"seed": 0})
         assert error.isError

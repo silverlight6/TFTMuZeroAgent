@@ -240,8 +240,8 @@ async def serve():
                 result = SessionError("internal_error", "Unexpected server failure.", {"error": str(error)}).result()
             try:
                 session.record("tool_error", tool=name, arguments=arguments, result=result, is_error=True)
-            except SessionError:
-                pass
+            except SessionError as log_error:
+                result = log_error.result()
             return CallToolResult(content=[TextContent(type="text", text=json.dumps(result))],
                                   structuredContent=result, isError=True)
 
