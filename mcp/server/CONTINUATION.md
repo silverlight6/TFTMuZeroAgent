@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Paused again on 2026-10-09 after verified integration of ticket #8. The owner resumed only the next ticket after #4 and requested another stop afterward. No implementation is running. #9 and subsequent slices remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Resumed on 2026-10-09 for only ticket #9 after the previous verified #8 integration and pause. #9's contract is reviewed against clean integration b02d22bf32dba3b507bdf47ff75977059542218c. Stop again after checked #9 integration. No later slice is started. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
