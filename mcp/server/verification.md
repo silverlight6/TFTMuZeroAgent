@@ -265,3 +265,14 @@ Final scope passed for eight changed paths including this record, and whitespace
 env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py bde19766296fe70b7ead45cd57057da7bc0dfd61
 git diff --check bde19766296fe70b7ead45cd57057da7bc0dfd61
 ```
+
+
+### Standards review for #4
+
+Zero material findings. The independent reviewer inspected all seven functional paths, the subsequent verification prose, repository standards and the full smell baseline. The diff follows mcp/AGENTS.md and the Spec's concrete Python and ownership contracts. Transport owns strict schemas and delegation; GameSession owns public projection and locking. Shared unit/own projections are reused. No framework, generic dispatcher, copied catalog, dependency reversal or outside-scope source/configuration was introduced. The documented adapter responsibility supersedes Feature Envy suggestions to move code into core. Existing selector branches and transport dispatch do not justify unrequested abstraction. No runtime checks were run by this Standards reviewer.
+
+### Spec review for #4
+
+Zero material findings. The independent reviewer found no missing accepted requirement, scope creep or incorrect behavior. Sorted initial dictionary keys, explicit public scalar/unit allowlists, existing public_final/placements, preserved own terminal data, local coordinates and removed-opponent errors match #4 and the #3/#7 contracts. Strict transport schemas and focused SDK/native fixtures preserve privacy and read purity. The reviewer independently passed all three focused real-adapter public inspection tests in 1.16 seconds. Recorded terminal and broader checks were inspected without repeating them. Fresh installed packaging, whole-milestone replay and actual LLM host acceptance remain later evidence.
+
+Both reviews pinned functional head `7384dcb04a60ff733619df30e3634d590bbea37d` against base `bde19766296fe70b7ead45cd57057da7bc0dfd61`, using `git diff <base>...<functional-head>`. Reviewed artifact head `3e392a9ee921d72d838127c8f478fe67b0ad809c` changes only verification prose after the functional commit; source/tests/config are identical, and staged/unstaged/untracked status was clean. The commit containing this aggregate adds only this review record. Scope and whitespace are refreshed for that prose-only change, without new runtime checks. Standards: 0 findings, no worst issue. Spec: 0 findings, no worst issue. Full reports remain supplemental in /tmp/tft-mcp-context/review-4-standards.md and review-4-spec.md. This bounded slice review does not replace final milestone review.
