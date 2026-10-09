@@ -1,6 +1,6 @@
 # TFT MCP server
 
-The Python stdio server operates one seeded eight-player game using the installed TFT simulator. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games and queries static champion, trait and item rules. `end_turn` runs opponents and automated combat. `buy_unit` and `sell_unit` perform individual native purchases and sales. Positioning and other action tools arrive in later slices. Read the shared [Spec](../SPEC.md).
+The Python stdio server operates one seeded eight-player game using the installed TFT simulator. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games and queries static champion, trait and item rules. `end_turn` runs opponents and automated combat. `buy_unit` and `sell_unit` perform individual native purchases and sales. `refresh_shop` and `buy_xp` buy one native shop refresh or experience increment. Positioning and equipment tools arrive in later slices. Read the shared [Spec](../SPEC.md).
 
 Install the unchanged simulator first, then the extension in a CPU-only virtual environment. Run these commands from the repository checkout, replacing `/absolute/path/tft-mcp-venv` with your environment path:
 
@@ -80,3 +80,16 @@ Economy contains own gold, health, level, experience and the exact status planni
 Buy receipts contain the detached original `purchased` unit, native `gold_spent`, consumed `shop_slot`, changed own unit and inventory slots, and status. Full-bench merges are supported even when the native action mask disables buying. Merge validation follows bench returns and drops before board returns through cascading promotions. Unsafe native merge capacity or copy preservation rejects atomically. Sale receipts contain the detached original `sold` unit, `location`, native `gold_gained`, changed own unit slots, status, and equipment `returned_items` or `dropped_items`. Board sales require space for all real equipment. Bench overflow drops the whole equipment set. Thieves gloves count as one real item; generated equipment disappears. Azir board sale includes removed sandguards.
 
 Action errors include `empty_slot`, `insufficient_gold`, `capacity_exceeded` and `unsupported_action`, with location, slot, resource, capacity or reason details. Dummies, sandguards and unsupported native price or promotion ranges cannot be sold or purchased. Inconsistent native records or failed postconditions return `internal_error`. Rejected actions preserve gameplay, planning budget, baselines and RNG. See the [buy and sell contract](../SPEC.md#buy-and-sell-contract).
+
+
+`refresh_shop` and `buy_xp` accept no arguments. Unknown keys, including `player_id`, return `invalid_input`. Each success spends the native instance cost and one shared planning action, then returns at the controlled decision in the same round. `refresh_shop` returns exactly `gold_spent`, five actual `slots` with native purchase prices, and `status`. Repeated visible offers are valid. `buy_xp` returns exactly `gold_spent`, `xp_before`, `xp`, `level_before`, `level`, `unit_capacity` and `status`. Costs, thresholds, experience increments and cap come from the installed simulator. Native recursive leveling and bonus capacity remain intact; reaching the cap clears residual experience.
+
+Both tools validate lifecycle and budget before legality. XP checks `level_cap` before affordability and reports `level` and `max_level`. Unaffordable calls return `insufficient_gold` with `resource`, `required` and `available`. Failed native effects or inconsistent postconditions return `internal_error`. Rejections and failures preserve committed gameplay, budget, baseline policies, RNG and accepted logs through the shared transaction. See the [shop refresh and experience contract](../SPEC.md#shop-refresh-and-experience-contract).
+
+Run the focused real adapter and SDK checks from the checkout:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/tft-mcp-venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_shop_xp.py -q
+```
+
+The suite separates ordinary production stdio journeys from a test-local preconfigured real-session SDK memory fixture for rare level-cap boundaries.
