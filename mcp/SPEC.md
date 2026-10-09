@@ -95,6 +95,22 @@ The adapter gives native simulator logging an isolated writable working director
 
 Repository documentation, issues, pull requests, and code comments are written in English. Discussion with the owner is in German.
 
+## Champion and trait catalog contract
+
+The owner accepted these five tool schemas for #5. Review against integrated lifecycle revision `de46dd110f6a94229df4af5baa8ea619581138da` confirms that transport validation, `SessionError`, structured MCP errors, concrete `GameSession` methods and production launcher tests support this contract. `champion_catalog.py` owns static champion and trait projections. Transport delegates through the session; the helper reads definition tables and returns fresh values without constructing champions, running combat, or requiring a game.
+
+All inputs are objects with no unknown keys. Explicit null is invalid. IDs are exact, case-sensitive canonical simulator IDs. Search query defaults to an empty string and matches case-insensitive identifier substrings. Filters combine with AND. Results sort by canonical ID; no match returns an empty list. Champions are exactly `stats.BASE_CHAMPION_LIST`; traits are exactly `origin_class_stats.tiers` keys.
+
+- `search_champions({query?: string = "", cost?: integer 1..5, trait_id?: string})` returns `{champions: [{champion_id: string, cost: integer, traits: string[]}]}`. Booleans and decimal numbers are invalid costs. The trait filter must name a catalog trait.
+- `get_champion({champion_id: string})` returns `{champion_id, cost, traits, star_costs: [{stars: 1|2|3, gold: integer}], base_stats: object, rule_parameters: object, special_attributes: {chosen: {eligible_traits: string[], bonus: {stat: string, value: number}|null}, kayn_forms: string[]}, description: null, ability_description: null, unavailable_fields: ["description", "ability_description"]}`. Base stats are raw AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA and RANGE. Other keyed `stats.py` entries retain their names and raw values. Gold values come from `pool_stats.cost_star_values`; they are not combat strength. Chosen bonuses retain source stat/value and exclude `chosen_exclude` traits. Kayn alone reports literal `kayn_shadowassassin` and `kayn_rhast` form-item IDs. These values do not promise adjusted star, Chosen, or transformed combat stats.
+- `search_traits({query?: string = ""})` returns `{traits: [{trait_id: string, thresholds: integer[]}]}`.
+- `get_trait({trait_id: string})` returns `{trait_id, thresholds: integer[], activation: "minimum"|"exact", effects: object, champion_ids: string[], chosen_eligible: boolean, description: null, unavailable_fields: ["description"]}`. Ninja activation is exact; other traits use minimum thresholds. Effects retain keyed raw `origin_class_stats` parameters, including inactive entries. Fortune includes named `fortune_returns`. Empty effects remain valid. Membership is intrinsic and sorted.
+- `get_trait_champions({trait_id: string})` returns `{trait_id, champions: [{champion_id, cost, traits}]}` with the same summaries as champion search. Item grants and Chosen counts do not change intrinsic membership.
+
+Exact misses return `unknown_champion` or `unknown_trait`, with the requested ID in the message and details `{champion_id: value}` or `{trait_id: value}`. Invalid types, missing required fields, unknown keys, invalid costs and unknown trait filters return `invalid_input` with `{field, value}` details. Errors use MCP `isError` and `{code, message, details}`.
+
+Source limitation for later action acceptance: `player.transform_kayn` stores form-item IDs while `ability.py` checks `shadow_assassin` and `rhast`; bench assignment uses `kaynform` rather than `kayn_form`. The catalog reports literal inputs and raw parameters. This finding does not authorize core changes or establish combat transformation correctness.
+
 ## Testing decisions
 
 The principal acceptance seam is the MCP protocol: an official SDK client launches the production stdio server and calls its tools against the real simulator. Protocol tests prove discovery, schemas, structured results, and game behavior together.
@@ -166,3 +182,15 @@ The single serialized transaction copies one aggregate containing the environmen
 Acceptance uses official SDK lifecycle/status/end_turn against the real simulator, plus the approved concrete adapter seam for budget, graph aliases, failure injection, frozen projections, native/audit writes and deterministic retries. The core's latent schedule/round-guard mismatch remains unchanged; any observed overrun returns atomic internal_error.
 
 The retained own snapshot stores native board and bench unit records, existing shop_champions with native cost/stars, shop text, item_bench, economy and cost/level thresholds, unit capacity, stored composition/tiers and elimination round. Unit records include native traits, target_dummy and Azir sandguard linkage coordinates. Separate public_final records retain only removed-player health and level; placements use their own native-order map. Later inspection tools must project these plain fields through category allowlists and return detached copies.
+
+## Item catalog contract
+
+Ticket #6 was refreshed against integrated lifecycle revision de46dd110f6a94229df4af5baa8ea619581138da. Transport registers and validates `search_items` and `get_item`; concrete `GameSession` methods call a dedicated static item catalog helper. Imports point from the extension to simulator definitions. Queries work while idle and never execute item mechanics.
+
+`search_items` accepts optional string `query`, defaulting to empty, and optional `kind` equal to `component`, `equipment`, or `consumable`. Filters combine with AND. Query matches canonical identifiers by case-insensitive substring. Results contain `items`, sorted by `item_id`, with `item_id`, `kind`, and boolean `craftable`. Components follow `basic_items`; the five special consumables are `kayn_rhast`, `kayn_shadowassassin`, `champion_duplicator`, `magnetic_remover`, and `reforger`. Other entries are equipment.
+
+`get_item` requires exact case-sensitive string `item_id`. Results contain `item_id`, `kind`, `craftable`, raw `base_stats`, raw keyed `effects`, nullable two-component `recipe`, sorted `builds_into` records with `item_id` and two `components`, nullable `granted_trait`, source-supported string `constraints`, null `description`, and `unavailable_fields: ["description"]`. Canonical IDs are exactly `item_stats.items` keys. Recipes preserve source ingredient order and duplicates; craftability is membership in `item_builds`. Returned data are defensive JSON-compatible copies. Raw effect parameter names and values are preserved without interpreting star arrays, inverse quantities, or multipliers.
+
+Both inputs reject unknown fields, wrong types, and explicit null optional filters. Invalid input errors include the field and rejected value. Missing exact IDs return `unknown_item` with the requested ID in message and `details: {item_id: value}`. Production MCP and focused adapter tests are the accepted seams. They cover source consistency for every ID, strict validation, idle queries, recipes, consumables, defensive copies, and unchanged definitions and Python/NumPy RNG state.
+
+The core Kayn transformation has a source limitation. `transform_kayn` stores `kayn_shadowassassin` or `kayn_rhast`, but combat abilities check `shadow_assassin` or `rhast`; bench assignment writes `kaynform` instead of `kayn_form`. Catalog output reports literal supported inputs and this limitation without promising working combat transformation. Later equipment acceptance must account for it; this slice does not change the simulator.
