@@ -964,6 +964,7 @@ def merge_inventory(player, incoming, trace=None):
             return inventory
         if trace is not None:
             trace["contributors"].extend(contributors)
+            trace["board_phases"].append(bool(board))
         for unit in contributors:
             equipment = real_items(unit)
             available = inventory.count(None)
@@ -1118,7 +1119,7 @@ def equipment_contract(player, slot, target):
     categories = []
     incoming = None
     merged_items = None
-    trace = {"contributors": []}
+    trace = {"contributors": [], "board_phases": []}
     if item == "champion_duplicator":
         if not COST[unit.name]:
             raise SessionError("unsupported_action", "Zero-cost units cannot be duplicated.", {"reason": "zero_cost"})
@@ -1131,6 +1132,9 @@ def equipment_contract(player, slot, target):
                                    chosen=unit.chosen, kayn_form=unit.kayn_form, target_dummy=False,
                                    items=[], origin=list(origin_class[unit.name]), sandguard_overlord_coordinates=[])
         merged_items = merge_inventory(player, incoming, trace)
+        if any(trace["board_phases"][:-1]):
+            raise SessionError("unsupported_action", "Native cascading duplication cannot safely reposition an early board contributor.",
+                               {"reason": "early_board_duplicate_cascade"})
         trace["guards"] = [tuple(c) for u in trace["contributors"] if u.name == "azir"
                            for c in getattr(u, "sandguard_overlord_coordinates", [])]
         expected = equipment
@@ -1307,6 +1311,9 @@ def check_equipment_catalog(player):
     from collections import Counter
     units = [(loc, u) for loc, u in owned_locations(player) if u and not u.target_dummy and u.name != "sandguard"]
     counts = Counter((u.name, u.stars) for _, u in units)
+    if any(type(e.get("level")) is not int or not 1 <= e["level"] <= 4
+           or type(e.get("num")) is not int or not 1 <= e["num"] <= 2 for e in player.triple_catalog):
+        raise SessionError("internal_error", "Native triple catalog has impossible levels or counts.")
     entries = {(e["name"], e["level"]): e["num"] for e in player.triple_catalog}
     if len(entries) != len(player.triple_catalog) or entries != counts or any(n > 2 for n in counts.values()):
         raise SessionError("internal_error", "Native triple catalog differs from owned regular units.")

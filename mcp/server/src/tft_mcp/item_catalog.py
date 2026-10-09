@@ -33,7 +33,7 @@ def get_item(item_id):
             'Source limitation: stored form IDs differ from combat ability checks; bench assignment writes kaynform instead of kayn_form. Combat transformation is not guaranteed.']
     elif item_id == 'champion_duplicator':
         constraints += ['Requires nonzero champion cost and a bench vacancy.',
-                        'Creates a new default-star champion preserving chosen and form arguments; native safe merges can occur. Does not clone stars, items or acquired attributes.']
+                        'Creates a new default-star champion preserving chosen and form arguments; native safe merges can occur. Cascades with board contributors before the final merge phase are unsupported because native repositioning can use an invalid bench slot. Does not clone stars, items or acquired attributes.']
     elif item_id in {'magnetic_remover', 'reforger'}:
         constraints += ['Requires equipped items and inventory room for their full count before this consumable is removed.']
         if item_id == 'magnetic_remover':

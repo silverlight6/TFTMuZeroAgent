@@ -583,3 +583,37 @@ def test_initial_catalog_inconsistency_rejects_every_equipment_mode(tmp_path, it
         session.equip_item(item_slot=0, target=bench(0))
     assert error.value.code == 'internal_error'
     assert pickle.dumps(session.game) == before
+
+
+def test_early_board_contributor_cascade_rejects_before_unsafe_native_reposition(tmp_path):
+    import pickle
+    session = session_fixture(tmp_path)
+    player = install_units(session, bench=[(0, 'garen', 1, []), (1, 'garen', 2, []), (2, 'garen', 2, [])], board=[((0, 0), 'garen', 1, [])])
+    player.item_bench = ['champion_duplicator'] + [None] * 9
+    before = pickle.dumps(session.game)
+    with pytest.raises(SessionError) as error:
+        session.equip_item(item_slot=0, target=board(0, 0))
+    assert error.value.code == 'unsupported_action'
+    assert error.value.details['reason'] == 'early_board_duplicate_cascade'
+    assert pickle.dumps(session.game) == before
+
+
+def test_final_phase_board_contributor_cascade_remains_supported(tmp_path):
+    session = session_fixture(tmp_path)
+    player = install_units(session, bench=[(0, 'garen', 1, []), (1, 'garen', 1, []), (2, 'garen', 2, [])], board=[((0, 0), 'garen', 2, [])])
+    player.item_bench = ['champion_duplicator'] + [None] * 9
+    receipt = session.equip_item(item_slot=0, target=bench(0))
+    assert session.get_board()['slots'][0]['unit']['stars'] == 3
+    assert all(s['unit'] is None for s in session.get_bench()['slots'])
+    assert receipt['status']['planning_budget']['remaining'] == 13
+
+
+@pytest.mark.parametrize('field,value', [('num', True), ('level', True), ('num', 0)])
+def test_impossible_catalog_types_reject_before_equipment(tmp_path, field, value):
+    session = session_fixture(tmp_path)
+    player = install_units(session, bench=[(0, 'garen', 1, [])])
+    player.item_bench = ['bf_sword'] + [None] * 9
+    player.triple_catalog[0][field] = value
+    with pytest.raises(SessionError) as error:
+        session.equip_item(item_slot=0, target=bench(0))
+    assert error.value.code == 'internal_error'
