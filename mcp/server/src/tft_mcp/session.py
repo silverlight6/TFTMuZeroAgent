@@ -46,6 +46,25 @@ class GameSession:
         self.sequence = 0
         self.server_id = uuid.uuid4().hex
 
+    def search_items(self, query="", kind=None):
+        from tft_mcp.item_catalog import search_items
+
+        if type(query) is not str:
+            raise SessionError("invalid_input", "query must be a string.", {"field": "query", "value": query})
+        if kind is not None and (type(kind) is not str or kind not in {"component", "equipment", "consumable"}):
+            raise SessionError("invalid_input", "Unknown item kind.", {"field": "kind", "value": kind})
+        return search_items(query, kind)
+
+    def get_item(self, item_id):
+        from Simulator.battle import item_stats
+        from tft_mcp.item_catalog import get_item
+
+        if type(item_id) is not str:
+            raise SessionError("invalid_input", "item_id must be a string.", {"field": "item_id", "value": item_id})
+        if item_id not in item_stats.items:
+            raise SessionError("unknown_item", f"Unknown item: {item_id}", {"item_id": item_id})
+        return get_item(item_id)
+
     def record(self, event, **fields):
         if self.audit_path is None:
             raise SessionError("log_unavailable", "Set TFT_MCP_AUDIT_PATH to a writable audit file.")
