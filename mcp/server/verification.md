@@ -180,3 +180,37 @@ env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/
 ```
 
 An independent focused source/test review at checkpoint `11e60e1` found no material atomicity issue and confirmed audit/native preflight, non-failing post-replacement publication, full aggregate alias recovery and final snapshot completeness. The parent retained its report at `/tmp/tft-mcp-context/review-7-atomicity.md`. That review is distinct from final parent review of the clarified contract and whole-milestone acceptance.
+
+## Own inspection slice #3
+
+Verified on 2026-10-09 in `/tmp/tft-mcp-worktrees/issue-3`, branch `feat/mcp-3-inspection`, against fixed prerequisite base `7215c6a709d0075ed56408a8656865724aafe318`. The worktree was clean on that exact base before writing. Reviewed inspection contracts were recorded in the Spec before implementation. The accepted seams are the production-launcher MCP SDK and focused concrete GameSession fixtures. TDD added one category at a time with an observed failing tracer before its implementation, then added a failing nonempty shop-consistency test before its guard.
+
+Prerequisite evidence supplied by the parent: PR #17 integrated #7 as `7215c6a709d0075ed56408a8656865724aafe318`. Exact slice `abed92714d629faf9f80c1e1fe20d328a04fb066` passed all 40 server tests, including complete lobbies. The merger confirmed identical Git tree `bb5193f87adc0e2d3bca5354e2fb466e933c9ae0` and passed 38 additional integrated checks with only two unaffected full-lobby repeats deselected. Scope covered 14 MCP paths and whitespace passed. Those prerequisite checks were not rerun wholesale for inspection.
+
+Implementation and final affected tests are committed at `d2cf5a93796e369212a0aba94431ea7d0df92a7d`. The focused suite ran on the identical working tree subsequently committed at that head. After committing, merging local `feat/mcp-server-main` reported already up to date at the fixed prerequisite base. The exact committed head passed combined quick regressions. Parent reviewed the session, transport, Spec and both new test files and found no material issue. The evidence-only commit containing this record preserves that tested implementation and test tree. Server Python/configuration files have SHA-256 `7ee8f30a97f5520340155954c25fe84d5e550878d7c83c3ca3add7ccaa4d2ade`, computed in sorted relative path order, hashing each path followed by bytes and excluding `__pycache__`.
+
+The final focused suite passed 17 tests in 63.95 seconds. It covers all seven separate strict tools, native seeded offers/prices and economy/trait values, explicit empty slots, board coordinates, Chosen/items/four-star/Kayn/sandguard allowlists, output schema validation, exhausted shared budget, exact retained terminal records, nested mutation isolation, negative native terminal health, close/restart, actionable rejection errors and audit-failure retry. Pickled complete game state remains byte-identical across repeated adapter reads and rejected selectors. Python/NumPy RNG, episode RNG, baseline RNG, module bindings, caches and graph aliases remain unchanged. Two following real rounds match a no-read reference game.
+
+The actual production-launcher SDK seed-zero terminal run retained own category round 13, health 0 and null budget, while get_round and lifecycle status reported final lobby round 30. Repeated category calls returned identical data until close. The separate native negative-health fixture proves retained health is not clamped by the adapter. These are observed fixture values, not new gameplay constraints.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_inspection.py mcp/server/tests/test_inspection_protocol.py -q
+```
+
+Exact-head combined checks passed 54 tests with three repeats deselected in 36.81 seconds. The two existing complete-lobby checks retain prerequisite evidence; the new terminal inspection check has its own final full-run evidence above.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -k 'not seed_zero_full_lobby and not real_seed_zero and not terminal_inspection' -q
+```
+
+Relevant unchanged simulator checks passed 11 tests in 2.13 seconds, with two existing PettingZoo observation warnings. The six-path implementation scope and whitespace checks passed against the fixed base; final evidence adds only this MCP verification record.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 /tmp/tft-mcp-env/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py 7215c6a709d0075ed56408a8656865724aafe318
+git diff --check 7215c6a709d0075ed56408a8656865724aafe318
+```
+
+Initial missing-tool tracer failures and the shop-mismatch failure were resolved. Early test fixtures incorrectly used the champion constructor `items` keyword and a nonexistent `target_dummy` champion name; final fixtures use the native constructor and `sandguard` with its target-dummy flag. A baseline RNG assertion initially compared NumPy arrays directly and now compares serialized states. The first terminal test incorrectly required strictly negative health; the observed zero-health elimination is allowed, and the corrected full run passed. No executed check remains failed.
+
+These checks use Python 3.14 with the installed unchanged editable simulator and CPU dependencies in `/tmp/tft-mcp-env`. Fresh SDK subprocesses run the actual launcher from a temporary working directory with this checkout's source path; APPIMAGE is removed for every command. The extension was not reinstalled into a new standalone environment for #3, so this record does not claim fresh noneditable packaging acceptance. No Codex or Claude Code interactive game, owner gameplay acceptance, PR integration, deployment or GitHub CI was executed. Those remain separate milestone evidence. No simulator/core, root packaging or shared environment package changes occurred.
