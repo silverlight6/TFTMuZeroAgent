@@ -240,8 +240,51 @@ TOOLS.append(Tool(name="get_players", description="List stable initial player ID
         "required": ["game_id", "players"], "additionalProperties": False}))
 
 
+LOCATION_SCHEMA = {"oneOf": [
+    BOARD_PROPERTIES["slots"]["items"]["properties"]["location"],
+    BENCH_PROPERTIES["slots"]["items"]["properties"]["location"],
+]}
+UNIT_CHANGE_SCHEMA = {"type": "object", "properties": {
+    "location": LOCATION_SCHEMA, "before": UNIT_SCHEMA, "after": UNIT_SCHEMA},
+    "required": ["location", "before", "after"], "additionalProperties": False}
+ITEM_CHANGE_SCHEMA = {"type": "object", "properties": {
+    "slot": {"type": "integer", "minimum": 0, "maximum": 9},
+    "before": {"type": ["string", "null"]}, "after": {"type": ["string", "null"]}},
+    "required": ["slot", "before", "after"], "additionalProperties": False}
+BUY_PROPERTIES = {
+    "shop_slot": {"type": "integer", "minimum": 0, "maximum": 4},
+    "purchased": {**UNIT_SCHEMA, "type": "object"},
+    "gold_spent": {"type": "integer", "minimum": 0},
+    "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA},
+    "item_changes": {"type": "array", "items": ITEM_CHANGE_SCHEMA}, "status": STATUS_SCHEMA,
+}
+SELL_PROPERTIES = {
+    "location": LOCATION_SCHEMA, "sold": {**UNIT_SCHEMA, "type": "object"},
+    "gold_gained": {"type": "integer", "minimum": 0},
+    "returned_items": {"type": "array", "items": {"type": "string"}},
+    "dropped_items": {"type": "array", "items": {"type": "string"}},
+    "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA}, "status": STATUS_SCHEMA,
+}
+TOOLS.extend([
+    Tool(name="buy_unit", description="Buy one own shop offer at slot 0..4 using installed native prices and merges. Full-bench merges are supported. Consume one planning action and return at the same round without combat.",
+         inputSchema={"type": "object", "properties": {"shop_slot": BUY_PROPERTIES["shop_slot"]},
+                      "required": ["shop_slot"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": BUY_PROPERTIES, "required": list(BUY_PROPERTIES), "additionalProperties": False}),
+    Tool(name="sell_unit", description="Sell one owned board or bench unit. Board equipment needs inventory capacity; bench overflow drops the complete real equipment set. Thieves gloves return only the glove. Consume one planning action without combat.",
+         inputSchema={"type": "object", "properties": {"location": LOCATION_SCHEMA},
+                      "required": ["location"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": SELL_PROPERTIES, "required": list(SELL_PROPERTIES), "additionalProperties": False}),
+])
+
+
 def validate_arguments(name, arguments):
-    if name == "start_game":
+    if name == "buy_unit":
+        from tft_mcp.session import validate_buy_arguments
+        validate_buy_arguments(arguments)
+    elif name == "sell_unit":
+        from tft_mcp.session import validate_sell_arguments
+        validate_sell_arguments(arguments)
+    elif name == "start_game":
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
@@ -305,6 +348,10 @@ async def serve():
                         result = session.start_game(arguments["seed"])
                     elif name == "get_game_status":
                         result = session.get_game_status()
+                    elif name == "buy_unit":
+                        result = session.buy_unit(**arguments)
+                    elif name == "sell_unit":
+                        result = session.sell_unit(**arguments)
                     elif name == "end_turn":
                         result = session.end_turn()
 
