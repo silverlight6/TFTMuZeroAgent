@@ -289,7 +289,7 @@ The repository preparation review on 2026-10-09 found no material contract confl
 
 The owner accepted the mcp/ layout on 2026-10-09 to keep a future custom client possible. Current client connection research used local Codex CLI 0.161.0 and Claude Code 2.1.294 help, plus the official [Codex MCP documentation](https://developers.openai.com/codex/mcp/) and [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp). Both support launching local stdio servers. Installed client executables establish neither model access nor a successful connection; server implementation had not begun at that research point.
 
-On 2026-10-09 the owner chose one copyable prompt to let Codex or Claude Code perform setup, a required real Codex full-game test after implementation, and unchanged host permissions with no server-specific approval layer. These choices finalize #13 without changing the twelve-slice graph or authorizing a custom client. The setup prompt is a planning artifact until #13 verifies it against the implemented launcher and installation instructions.
+On 2026-10-09 the owner chose one copyable prompt to let Codex or Claude Code perform setup, a required real Codex full-game test after implementation, and unchanged host permissions with no server-specific approval layer. These choices finalize #13 without changing the twelve-slice graph or authorizing a custom client. Issue #13 makes the setup prompt operational against the installed launcher and archived-source instructions. Its current installed and native target evidence, including open acceptance blockers, is recorded in [server/verification.md](server/verification.md).
 
 ## Lifecycle slice source review
 

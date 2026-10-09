@@ -14,6 +14,7 @@ TFT_INSTALL=/absolute/path/operator-owned/tft-mcp
 TFT_REVISION=FULL_VERIFIED_GIT_REVISION
 mkdir -p "$TFT_INSTALL/source" "$TFT_INSTALL/host" "$TFT_INSTALL/logs/sdk" "$TFT_INSTALL/logs/codex" "$TFT_INSTALL/logs/claude"
 chmod 700 "$TFT_INSTALL" "$TFT_INSTALL/logs"
+git init -q "$TFT_INSTALL/host"
 git -C "$TFT_REPO" archive --output="$TFT_INSTALL/source.tar" "$TFT_REVISION"
 tar -xf "$TFT_INSTALL/source.tar" -C "$TFT_INSTALL/source"
 env -u APPIMAGE python3 -m venv "$TFT_INSTALL/venv"
@@ -31,7 +32,7 @@ The SDK check initializes the installed launcher outside the checkout, discovers
 
 Inspect `codex mcp get tft --json` or `claude mcp get tft` first. Compare command, args and TFT environment. Reuse a correct entry. For an existing different entry update only those fields, retaining unrelated environment fields and any per-tool restrictions. A remove/add cycle can discard custom policy. Preserve all unrelated operator configuration, authentication, permissions, approval, sandbox and allowlists. These examples apply only when the named entry is absent.
 
-Codex stores native registration in operator `~/.codex/config.toml`. Claude private local registration belongs to `~/.claude.json` under the exact external launch cwd. Use that same stable cwd in fresh Claude sessions; no repository `.mcp.json` is needed.
+Codex stores native registration in operator `~/.codex/config.toml`. Claude private local registration belongs to `~/.claude.json` under the exact external launch cwd. Use that same stable cwd in fresh Claude sessions; no repository `.mcp.json` is needed. The empty external Git project created above establishes the exact scope even when an ancestor has a `.git` marker. Check the actual stored project path, because Claude resolves local scope by project root.
 
 ```sh
 cd "$TFT_INSTALL/host"
