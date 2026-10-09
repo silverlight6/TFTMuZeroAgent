@@ -2,7 +2,7 @@
 
 This directory owns the local Python MCP extension for the existing TFT Set 4 simulator. Shared planning lives here; [server/](server/) owns the separately packaged server implementation. A future custom client can be added under client/ after its scope is agreed. The simulator remains a separately installed, unchanged dependency. An external MCP client owns model inference.
 
-Implementation has not started. The production launcher, package configuration, installation commands, and runnable checks will be introduced by [issue #2](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/2). There is no server to run yet. The [copyable setup prompt](SETUP_PROMPT.md) records the intended installation workflow; [issue #13](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/13) must verify it against the implemented server before setup can succeed.
+The lifecycle server introduced by [issue #2](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/2) provides `start_game`, `get_game_status`, and `close_game`. See the [server guide](server/README.md) for installation, launch, configuration, and local checks. Gameplay tools remain later slices. The [copyable setup prompt](SETUP_PROMPT.md) records the intended client workflow; [issue #13](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/13) must verify that workflow and real Codex gameplay against the completed server.
 
 Read [SPEC.md](SPEC.md) for the accepted behavior, module responsibilities, lifecycle interface, scope constraints, and test strategy. [Milestone #1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) is its published tracker mirror. GitHub owns ticket status, blocking relationships, and execution order. The root [glossary](../GLOSSARY.md) owns domain terminology.
 
