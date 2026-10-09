@@ -29,8 +29,8 @@ STATUS_SCHEMA = {
         "round": {"type": ["integer", "null"]},
         "planning_budget": {
             "type": ["object", "null"],
-            "properties": {"capacity": {"type": "integer", "minimum": 0},
-                           "remaining": {"type": "integer", "minimum": 0}},
+            "properties": {"capacity": {"type": "integer", "const": 14},
+                           "remaining": {"type": "integer", "minimum": 0, "maximum": 14}},
             "required": ["capacity", "remaining"], "additionalProperties": False,
         },
         "outcome": OUTCOME_SCHEMA,
@@ -40,6 +40,8 @@ STATUS_SCHEMA = {
 }
 EMPTY_INPUT = {"type": "object", "properties": {}, "additionalProperties": False}
 TOOLS = [
+    Tool(name="end_turn", description="End planning explicitly and return the next decision or completed lobby.",
+         inputSchema=EMPTY_INPUT, outputSchema=STATUS_SCHEMA),
     Tool(name="start_game", description="Start one seeded eight-player game with player_0 controlled. Close an active game first.",
          inputSchema={"type": "object", "properties": {
              "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647}},
@@ -60,7 +62,7 @@ def validate_arguments(name, arguments):
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
-    elif name in {"get_game_status", "close_game"}:
+    elif name in {"get_game_status", "close_game", "end_turn"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
     else:
@@ -87,6 +89,8 @@ async def serve():
                         result = session.start_game(arguments["seed"])
                     elif name == "get_game_status":
                         result = session.get_game_status()
+                    elif name == "end_turn":
+                        result = session.end_turn()
                     else:
                         result = session.close_game()
                     session.record("tool_result", tool=name, result=result, is_error=False)

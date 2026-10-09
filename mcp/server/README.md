@@ -1,6 +1,6 @@
 # TFT MCP server
 
-The Python stdio server operates one seeded eight-player TFT Set 4 game. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. This lifecycle slice starts, inspects, and closes games. Gameplay scheduling and action tools arrive in later slices. Read the shared [Spec](../SPEC.md).
+The Python stdio server operates one seeded eight-player TFT Set 4 game. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games. `end_turn` runs opponents and automated combat. Individual purchase and positioning tools arrive in later slices. Read the shared [Spec](../SPEC.md).
 
 Install the unchanged simulator first, then the extension in a CPU-only virtual environment. Run these commands from the repository checkout, replacing `/absolute/path/tft-mcp-venv` with your environment path:
 
@@ -20,7 +20,7 @@ TFT_MCP_NATIVE_LOG_DIR=/absolute/path/logs/native \
 /absolute/path/tft-mcp-venv/bin/tft-mcp
 ```
 
-`TFT_MCP_AUDIT_PATH` is required for tool execution. Its parent directory is created when writable. `TFT_MCP_NATIVE_LOG_DIR` is optional and defaults to `native` beside the audit file. Every game gets a separate native directory containing unchanged simulator `log.txt` output. stdout carries only MCP messages; simulator diagnostics go to stderr. Failed starts retain diagnostic directories identified by the audit's `failed_start` record or the error's details.
+`TFT_MCP_AUDIT_PATH` is required for tool execution. Its parent directory is created when writable. `TFT_MCP_NATIVE_LOG_DIR` is optional and defaults to `native` beside the audit file. Every accepted gameplay transaction retains an isolated native directory containing unchanged simulator `log.txt` output. stdout carries only MCP messages; simulator diagnostics go to stderr. Failed starts retain diagnostic directories identified by the error's details. Failed candidate records are not published as accepted gameplay.
 
 On a Linux host that exports `APPIMAGE`, launch through `env -u APPIMAGE`:
 
@@ -33,9 +33,9 @@ The tested T3 Code AppImage host makes Python report the AppImage executable and
 
 The launcher re-executes Python with `PYTHONHASHSEED=0` before loading the SDK or simulator. Audit records include that setting and an actual interpreter hash probe, seed, baseline identity and seed, simulator source digest, distribution version, interpreter and dependency versions, and configuration. Source checkouts also record their Git revision. Set `TFT_MCP_SIMULATOR_REVISION` to the installed source revision for installations without Git metadata; otherwise the source SHA-256 identifies that revision. Paths and IDs do not affect gameplay equality.
 
-`start_game` requires exactly `{"seed": integer}` with a value from 0 through 2147483647. Booleans, decimal JSON numbers, missing seeds and unknown arguments fail. `get_game_status` and `close_game` accept `{}` only. Status includes `state`, `game_id`, `controlled_player_id`, `round`, `planning_budget` and `outcome`. Idle game fields are null. Planning budget and terminal outcome remain null until the progression slice implements them.
+`start_game` requires exactly `{"seed": integer}` with a value from 0 through 2147483647. Booleans, decimal JSON numbers, missing seeds and unknown arguments fail. `get_game_status`, `end_turn`, and `close_game` accept `{}` only. Status includes `state`, `game_id`, `controlled_player_id`, `round`, `planning_budget` and `outcome`. Idle game fields are null. Running planning budget has capacity 14 and remaining slots. Individual actions reserve the fifteenth internal slot for `end_turn`; exhaustion never starts combat. `end_turn` drains planning and returns the next controlled decision. After controlled elimination, baselines finish the lobby before it returns terminal with null budget and the final controlled placement. Own terminal data is frozen until close.
 
-Starting an active game returns `game_active` and preserves it. Closing a running game returns its ID, an outcome with `reason: "closed_incomplete"`, and idle status. Repeated close is harmless. Structured errors contain `code`, `message`, and `details`, with MCP `isError: true`. Codes are `invalid_input`, `game_active`, `log_unavailable` and `internal_error`. Malformed MCP request envelopes use native SDK protocol errors. Audit failures preserve active lifecycle state; failed initialization leaves idle. Process restarts begin idle and do not resume old games.
+Starting an active game returns `game_active` and preserves it. Closing a running game returns its ID, an outcome with `reason: "closed_incomplete"`, and idle status. Repeated close is harmless. Structured errors contain `code`, `message`, and `details`, with MCP `isError: true`. Codes include `invalid_input`, `game_active`, `no_game`, `game_terminal`, `budget_exhausted`, `log_unavailable` and `internal_error`. Malformed MCP request envelopes use native SDK protocol errors. Candidate gameplay, policies, RNG and native writes are published only after atomic audit replacement. Native, internal and audit failures preserve the committed game and accepted logs; failed initialization leaves idle. Process restarts begin idle and do not resume old games.
 
 Run local checks from the repository checkout after installing the extension's `dev` extra:
 
