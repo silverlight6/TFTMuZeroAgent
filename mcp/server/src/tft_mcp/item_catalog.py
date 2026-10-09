@@ -28,21 +28,22 @@ def get_item(item_id):
     constraints = ['Requires a present unit that is not a target dummy.']
     if item_id in {'kayn_rhast', 'kayn_shadowassassin'}:
         constraints += [
-            'Targets Kayn only and consumes both Kayn form items.',
+            'Targets board Kayn only and consumes every inventory copy of both Kayn form items; bench targeting is unsupported.',
             'Form items become available after three Kayn board rounds with two inventory vacancies.',
             'Source limitation: stored form IDs differ from combat ability checks; bench assignment writes kaynform instead of kayn_form. Combat transformation is not guaranteed.']
     elif item_id == 'champion_duplicator':
         constraints += ['Requires nonzero champion cost and a bench vacancy.',
-                        'Creates a new default-star champion preserving chosen and form arguments; consumes the duplicator.']
+                        'Creates a new default-star champion preserving chosen and form arguments; native safe merges can occur. Does not clone stars, items or acquired attributes.']
     elif item_id in {'magnetic_remover', 'reforger'}:
         constraints += ['Requires equipped items and inventory room for their full count before this consumable is removed.']
         if item_id == 'magnetic_remover':
-            constraints += ['Returns equipped items to inventory and consumes the remover.']
+            constraints += ['Returns ordinary equipped items in native order. Trait items require intrinsic origins as the exact prefix and a suffix matching all equipped grants; unsafe suffixes and gloves are unsupported.']
         else:
-            constraints += ['Returns random replacements from source item categories and consumes the reforger; spatula remains spatula.']
+            constraints += ['Returns random replacements from source item categories; spatula remains spatula. Trait items and gloves are unsupported.']
     else:
         constraints += ['Maximum three equipped items.',
                         'Two components may combine at the three-item limit when the final equipped item is a component.']
+        constraints += ['Additions to existing thieves gloves are unsupported; the ordinary sparring_gloves pair is unsupported because native num_items is stale.']
         if granted_trait:
             constraints += ['Rejects a unit already possessing the granted trait.']
         if item_id == 'thieves_gloves':

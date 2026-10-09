@@ -280,7 +280,16 @@ SELL_PROPERTIES = {
 }
 MOVE_PROPERTIES = {"source": LOCATION_SCHEMA, "target": LOCATION_SCHEMA,
                    "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA}, "status": STATUS_SCHEMA}
+EQUIP_PROPERTIES = {"item_slot": {"type": "integer", "minimum": 0, "maximum": 9},
+                    "item_id": {"type": "string"}, "target": LOCATION_SCHEMA,
+                    "unit_changes": {"type": "array", "items": UNIT_CHANGE_SCHEMA},
+                    "item_changes": {"type": "array", "items": ITEM_CHANGE_SCHEMA},
+                    "kayn_form": {"type": ["string", "null"]}, "status": STATUS_SCHEMA}
 TOOLS.extend([
+    Tool(name="equip_item", description="Assign one inventory item at slot 0..9 to one owned board or bench unit. Native recipes, direct gloves and safe consumables consume one action without combat. Unsupported: component glove pair, additions/remover/reforger on gloves, trait reforge, unsafe trait removal and bench Kayn tokens. Kayn forms expose literal board effects, not guaranteed combat transformation.",
+         inputSchema={"type": "object", "properties": {"item_slot": EQUIP_PROPERTIES["item_slot"], "target": LOCATION_SCHEMA},
+                      "required": ["item_slot", "target"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": EQUIP_PROPERTIES, "required": list(EQUIP_PROPERTIES), "additionalProperties": False}),
     Tool(name="buy_unit", description="Buy one own shop offer at slot 0..4 using installed native prices and merges. Full-bench merges are supported. Consume one planning action and return at the same round without combat.",
          inputSchema={"type": "object", "properties": {"shop_slot": BUY_PROPERTIES["shop_slot"]},
                       "required": ["shop_slot"], "additionalProperties": False},
@@ -297,7 +306,10 @@ TOOLS.extend([
 
 
 def validate_arguments(name, arguments):
-    if name == "buy_unit":
+    if name == "equip_item":
+        from tft_mcp.session import validate_equip_arguments
+        validate_equip_arguments(arguments)
+    elif name == "buy_unit":
         from tft_mcp.session import validate_buy_arguments
         validate_buy_arguments(arguments)
     elif name == "move_unit":
@@ -374,6 +386,8 @@ async def serve():
                         result = session.refresh_shop(**arguments)
                     elif name == "buy_xp":
                         result = session.buy_xp(**arguments)
+                    elif name == "equip_item":
+                        result = session.equip_item(**arguments)
                     elif name == "buy_unit":
                         result = session.buy_unit(**arguments)
                     elif name == "move_unit":

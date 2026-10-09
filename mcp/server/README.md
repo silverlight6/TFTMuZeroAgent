@@ -1,6 +1,6 @@
 # TFT MCP server
 
-The Python stdio server operates one seeded eight-player game using the installed TFT simulator. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games and queries static champion, trait and item rules. `end_turn` runs opponents and automated combat. `buy_unit` and `sell_unit` perform individual native purchases and sales. `refresh_shop` and `buy_xp` buy one native shop refresh or experience increment. `move_unit` positions owned units and performs supported native board/bench swaps. Equipment tools remain a later slice. Read the shared [Spec](../SPEC.md).
+The Python stdio server operates one seeded eight-player game using the installed TFT simulator. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games and queries static champion, trait and item rules. `end_turn` runs opponents and automated combat. `buy_unit` and `sell_unit` perform individual native purchases and sales. `refresh_shop` and `buy_xp` buy one native shop refresh or experience increment. `move_unit` positions owned units and performs supported native board/bench swaps. `equip_item` assigns inventory equipment and supported native consumables. Read the shared [Spec](../SPEC.md).
 
 Install the unchanged simulator first, then the extension in a CPU-only virtual environment. Run these commands from the repository checkout, replacing `/absolute/path/tft-mcp-venv` with your environment path:
 
@@ -110,3 +110,24 @@ env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/tft-mc
 ```
 
 Production stdio tests acquire units through gameplay and cover movement families, orientation, supported swaps, rejection, audit recovery and seeded replay with extra reads. Separate preconfigured real-session tests cover rare Azir, dummy, glove and capacity conditions. One rare Azir fixture also crosses official SDK memory streams through unchanged transport. See the [movement contract](../SPEC.md#movement-contract).
+
+
+`equip_item` requires exactly `item_slot`, an integer from 0 through 9, and `target`, the strict owned board or bench Location used by movement. Empty inventory or target returns `empty_slot`. Ordinary equipment preserves native ordering: a complete item precedes the final component, and two final components combine through an installed recipe. Combination remains possible at the three-item limit. Duplicate trait grants and missing recipes return `incompatible_item`. The ordinary sparring-gloves pair returns `unsupported_action` because native `num_items` is stale. Direct `thieves_gloves` requires empty equipment, draws two distinct native items and tracks the board or bench location. Further ordinary equipment, remover and reforger on gloves are unsupported.
+
+Duplicators require nonzero native champion cost and a genuine bench vacancy before any merge. They create a fresh default-star unit with the original Chosen and form arguments, without cloning stars, equipment or acquired attributes. Native constructor Chosen behavior can produce two stars. Supported cascades preserve native item returns and bench whole-set drops. Unsafe board return capacity and unsupported promotion ranges reject before execution. Native copy weights, catalog, surviving units and the actual resulting unit establish success. There is no invented pool debit.
+
+Remover and reforger require equipped items and vacancies for their complete count while the consumable still occupies its inventory slot. Remover returns items in equipment order. Trait removal requires intrinsic origins as the exact prefix and a suffix whose multiset equals every equipped trait grant. This supports safely assigned grants in either equipment order and rejects unsafe constructor or merged state. Reforger rejects all trait items, preserves spatula, and uses native category draws and exclusions for ordinary items. Neither consumable supports gloves.
+
+Kayn tokens target board Kayn only. They consume every inventory copy of both form tokens and set the literal player and all board Kayn forms. Bench `kayn_form` and existing shop fields remain unchanged. Native writes bench `kaynform` instead, and stored token IDs differ from combat spellings. The receipt describes the literal result and does not establish working combat transformation. Reapplying a present token still consumes one action.
+
+Every successful assignment returns exactly detached `item_slot`, original `item_id`, requested `target`, actual `unit_changes`, `item_changes`, nullable player `kayn_form` and `status`. All affected owned locations appear in board x/y then bench order, and inventory changes use slot order. Successful actions consume one shared planning slot without combat. Legality, native failures, corrupt results and receipt/audit failures discard the whole candidate, logs and RNG. Native masks and discarded wrapper booleans are insufficient evidence of success.
+
+An installed observation limitation can still reject an otherwise legal native item operation. `ObservationToken` asserts inventory IDs below 58, so a remaining special consumable can make its post-action inventory update fail. The server returns atomic `internal_error` and retains the committed state. It does not change the simulator encoder or remove unrelated consumables. Native duplicator updates can also leave incremental observation and action-mask caches different from a freshly reconstructed encoder. Receipts and legality use actual owned state; equipment preserves the native update path.
+
+Run focused equipment adapter and official SDK checks:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/tft-mcp-venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_equipment.py mcp/server/tests/test_equipment_protocol.py -q
+```
+
+Production stdio tests naturally buy units, earn a sparring glove in combat, equip board and bench units, recover from audit failure and replay with extra reads and rejections. Combination and rare consumables cross the official SDK through test-local real-session memory fixtures. Focused native fixtures cover ordering, traits, capacities, fresh duplication, cascades, Azir, gloves, literal Kayn effects, observations, masks and random failure recovery. Whole-milestone replay and actual host gameplay remain later acceptance. See the [equipment contract](../SPEC.md#equipment-contract).
