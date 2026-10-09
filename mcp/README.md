@@ -2,7 +2,7 @@
 
 This directory owns the local Python MCP extension for the existing TFT Set 4 simulator. Shared planning lives here; [server/](server/) owns the separately packaged server implementation. A future custom client can be added under client/ after its scope is agreed. The simulator remains a separately installed, unchanged dependency. An external MCP client owns model inference.
 
-Implementation has not started. The production launcher, package configuration, installation commands, and runnable checks will be introduced by [issue #2](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/2). There is no server to run yet.
+Implementation has not started. The production launcher, package configuration, installation commands, and runnable checks will be introduced by [issue #2](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/2). There is no server to run yet. The [copyable setup prompt](SETUP_PROMPT.md) records the intended installation workflow; [issue #13](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/13) must verify it against the implemented server before setup can succeed.
 
 Read [SPEC.md](SPEC.md) for the accepted behavior, module responsibilities, lifecycle interface, scope constraints, and test strategy. [Milestone #1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) is its published tracker mirror. GitHub owns ticket status, blocking relationships, and execution order. The root [glossary](../GLOSSARY.md) owns domain terminology.
 
@@ -10,6 +10,6 @@ For a slice, read its ticket and relevant Spec contract, start from the integrat
 
 Use ordinary Python functions and concrete classes with clear names and short control flow. Explain the reason for simulator-specific recovery or scheduling code. Add abstraction only when an existing caller or acceptance scenario needs it.
 
-Local verification includes a real SDK client over stdio, focused adapter failure tests, relevant existing simulator checks, and a scope check against the reviewed base. Installation acceptance also starts the installed server from outside the checkout. GitHub Actions is not part of the current delivery model.
+Local verification includes a real SDK client over stdio, focused adapter failure tests, relevant existing simulator checks, and a scope check against the reviewed base. Installation acceptance also starts the installed server from outside the checkout. Client acceptance also includes a complete real Codex game after implementation. Existing Codex and Claude Code permissions apply. GitHub Actions is not part of the current delivery model.
 
 Slice PRs target the integration branch feat/mcp-server-main. origin is the fork remote. main remains the fork main branch; upstream is the original project remote. Completing a slice does not authorize the final merge or upstream submission.
