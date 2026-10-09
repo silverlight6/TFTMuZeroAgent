@@ -40,7 +40,15 @@ async def client(tmp_path, **environment):
 async def test_production_discovery_and_idle(tmp_path):
     async with client(tmp_path) as session:
         tools = (await session.list_tools()).tools
-        assert {"start_game", "get_game_status", "close_game", "end_turn"} <= {tool.name for tool in tools}
+        assert len(tools) == 25
+        assert {tool.name for tool in tools} == {
+            "start_game", "get_game_status", "close_game", "end_turn",
+            "search_champions", "get_champion", "search_traits", "get_trait",
+            "get_trait_champions", "search_items", "get_item", "get_board",
+            "get_bench", "get_shop", "get_items", "get_economy", "get_traits",
+            "get_round", "get_players", "buy_unit", "sell_unit", "refresh_shop",
+            "buy_xp", "move_unit", "equip_item",
+        }
         status = await session.call_tool("get_game_status", {})
         assert not status.isError
         assert status.structuredContent == {"state": "idle", "game_id": None,

@@ -2,15 +2,7 @@
 
 The Python stdio server operates one seeded eight-player game using the installed TFT simulator. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, progresses, and closes games and queries static champion, trait and item rules. `end_turn` runs opponents and automated combat. `buy_unit` and `sell_unit` perform individual native purchases and sales. `refresh_shop` and `buy_xp` buy one native shop refresh or experience increment. `move_unit` positions owned units and performs supported native board/bench swaps. `equip_item` assigns inventory equipment and supported native consumables. Read the shared [Spec](../SPEC.md).
 
-Install the unchanged simulator first, then the extension in a CPU-only virtual environment. Run these commands from the repository checkout, replacing `/absolute/path/tft-mcp-venv` with your environment path:
-
-```sh
-python3 -m venv /absolute/path/tft-mcp-venv
-/absolute/path/tft-mcp-venv/bin/python -m pip install .
-/absolute/path/tft-mcp-venv/bin/python -m pip install './mcp/server[dev]'
-```
-
-No training, model-hosting or GPU packages are required. Both distributions are separate installations; root package discovery and dependencies stay unchanged.
+Use the shared [installation and native client guide](../README.md) for archived CPU-only installation, registration, installed protocol checks and removal. Both hosts use this package's absolute installed `tft-mcp` entry point. The simulator and extension remain separate noneditable installations. No training, model-hosting or GPU packages are required.
 
 Launch the installed entry point from any working directory:
 

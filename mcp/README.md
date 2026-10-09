@@ -1,15 +1,78 @@
 # TFT simulator MCP extension
 
-This directory owns the local Python MCP extension for the installed TFT simulator. Shared planning lives here; [server/](server/) owns the separately packaged server implementation. A future custom client can be added under client/ after its scope is agreed. The simulator remains a separately installed, unchanged dependency. An external MCP client owns model inference.
+The implemented local stdio server controls `player_0` in one seeded eight-player game. Seven opponents use unchanged `Default_Agent(False)` policies. Existing Codex CLI and Claude Code hosts own model inference. [SETUP_PROMPT.md](SETUP_PROMPT.md) is the single operational setup prompt; [GAME_PROMPT.md](GAME_PROMPT.md) starts a separate complete game.
 
-The lifecycle server introduced by [issue #2](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/2) provides `start_game`, `get_game_status`, and `close_game`. See the [server guide](server/README.md) for installation, launch, configuration, and local checks. `end_turn` added by [issue #7](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/7) advances planning and combat, reports the budget, and finishes the remaining lobby after controlled elimination. Own and public inspection tools expose controlled economy, shop, units, items and living opponent boards and traits. `buy_unit`, `sell_unit`, `refresh_shop`, `buy_xp`, `move_unit` and `equip_item` provide singular native actions. Movement supports native positioning and supported board/bench swaps. Equipment supports native ordinary recipes, direct gloves, safe removers/reforgers and fresh-unit duplicators. Board Kayn tokens expose literal form effects; unsafe native cases reject explicitly. The [copyable setup prompt](SETUP_PROMPT.md) records the intended client workflow; [issue #13](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/13) must verify that workflow and real Codex gameplay against the completed server.
+[server/](server/) owns Python code, packaging, tests and tooling. [server/README.md](server/README.md) documents all 25 tools, schemas, coordinates, slots, budgets, privacy, errors and native equipment limitations. [SPEC.md](SPEC.md) owns accepted behavior and component boundaries; [the glossary](../GLOSSARY.md) owns vocabulary. GitHub owns ticket status and dependencies. Each useful slice has a PR targeting `feat/mcp-server-main` on the fork. No CI or custom client is added.
 
-Read [SPEC.md](SPEC.md) for the accepted behavior, module responsibilities, lifecycle interface, scope constraints, and test strategy. [Milestone #1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) is its published tracker mirror. GitHub owns ticket status, blocking relationships, and execution order. The root [glossary](../GLOSSARY.md) owns domain terminology.
+## Install archived source outside the checkout
 
-For a slice, read its ticket and relevant Spec contract, start from the integrated prerequisite revision, implement the smallest complete behavior, and verify through the production MCP interface. Keep server code, dependencies, tests, commands, and server-specific operational documentation in server/. Shared documentation and client connection examples stay within mcp/. Simulator field access belongs in the concrete adapter; the transport contains no game rules.
+Use Python 3.10 or newer and a fresh external directory. Select a verified full Git revision from the integration branch. Replace the three absolute paths and revision below. The archive makes the source immutable for this installation and avoids build artifacts in the checkout. These noneditable installations require only CPU dependencies NumPy, PettingZoo, Gymnasium and MCP; the `dev` extra adds pytest for checks.
 
-Use ordinary Python functions and concrete classes with clear names and short control flow. Explain the reason for simulator-specific recovery or scheduling code. Add abstraction only when an existing caller or acceptance scenario needs it.
+```sh
+TFT_REPO=/absolute/path/TFTMuZeroAgent
+TFT_INSTALL=/absolute/path/operator-owned/tft-mcp
+TFT_REVISION=FULL_VERIFIED_GIT_REVISION
+mkdir -p "$TFT_INSTALL/source" "$TFT_INSTALL/host" "$TFT_INSTALL/logs/sdk" "$TFT_INSTALL/logs/codex" "$TFT_INSTALL/logs/claude"
+chmod 700 "$TFT_INSTALL" "$TFT_INSTALL/logs"
+git -C "$TFT_REPO" archive --output="$TFT_INSTALL/source.tar" "$TFT_REVISION"
+tar -xf "$TFT_INSTALL/source.tar" -C "$TFT_INSTALL/source"
+env -u APPIMAGE python3 -m venv "$TFT_INSTALL/venv"
+env -u APPIMAGE "$TFT_INSTALL/venv/bin/python" -m pip install "$TFT_INSTALL/source"
+env -u APPIMAGE "$TFT_INSTALL/venv/bin/python" -m pip install "$TFT_INSTALL/source/mcp/server[dev]"
+env -u APPIMAGE "$TFT_INSTALL/venv/bin/python" -m pip check
+cd "$TFT_INSTALL/host"
+env -u APPIMAGE -u PYTHONPATH "$TFT_INSTALL/venv/bin/python" -c 'import sys, Simulator, tft_mcp; from importlib.metadata import version; print(sys.executable, Simulator.__file__, tft_mcp.__file__); print({n:version(n) for n in ("tft-simulator","tft-mcp-server","numpy","PettingZoo","gymnasium","mcp")})'
+env -u APPIMAGE -u PYTHONPATH TFT_MCP_SIMULATOR_REVISION="$TFT_REVISION" TFT_MCP_TEST_COMMAND="$TFT_INSTALL/venv/bin/tft-mcp" "$TFT_INSTALL/venv/bin/python" -m pytest -c "$TFT_INSTALL/source/mcp/server/pyproject.toml" "$TFT_INSTALL/source/mcp/server/tests/test_protocol.py" -k 'not full_lobby' -q --basetemp="$TFT_INSTALL/logs/sdk/protocol"
+```
 
-Local verification includes a real SDK client over stdio, focused adapter failure tests, relevant existing simulator checks, and a scope check against the reviewed base. Installation acceptance also starts the installed server from outside the checkout. Client acceptance also includes a complete real Codex game after implementation. Existing Codex and Claude Code permissions apply. GitHub Actions is not part of the current delivery model.
+The SDK check initializes the installed launcher outside the checkout, discovers exactly 25 tools, checks idle, strict inputs, lifecycle, restart, deterministic bootstrap, failure recovery and clean JSON protocol stdout. It starts short test games under this explicit installation acceptance procedure. Setup without test-game authorization can select only `-k production_discovery_and_idle`. Imports must resolve inside the new venv. Record archive SHA-256 with `sha256sum "$TFT_INSTALL/source.tar"`. Record simulator and extension source revisions separately from their package versions, both currently `0.1.0`. Accepted game audit startup records include the simulator source digest, configuration and actual runtime dependencies. Set `TFT_MCP_SIMULATOR_REVISION` to the archive revision, not an older equivalent source revision.
 
-Slice PRs target the integration branch feat/mcp-server-main. origin is the fork remote. main remains the fork main branch; upstream is the original project remote. Completing a slice does not authorize the final merge or upstream submission.
+## Register existing native hosts
+
+Inspect `codex mcp get tft --json` or `claude mcp get tft` first. Compare command, args and TFT environment. Reuse a correct entry. For an existing different entry update only those fields, retaining unrelated environment fields and any per-tool restrictions. A remove/add cycle can discard custom policy. Preserve all unrelated operator configuration, authentication, permissions, approval, sandbox and allowlists. These examples apply only when the named entry is absent.
+
+Codex stores native registration in operator `~/.codex/config.toml`. Claude private local registration belongs to `~/.claude.json` under the exact external launch cwd. Use that same stable cwd in fresh Claude sessions; no repository `.mcp.json` is needed.
+
+```sh
+cd "$TFT_INSTALL/host"
+codex mcp add tft --env "TFT_MCP_AUDIT_PATH=$TFT_INSTALL/logs/codex/audit.jsonl" --env "TFT_MCP_NATIVE_LOG_DIR=$TFT_INSTALL/logs/codex/native" --env "TFT_MCP_SIMULATOR_REVISION=$TFT_REVISION" -- /usr/bin/env -u APPIMAGE "$TFT_INSTALL/venv/bin/tft-mcp"
+claude mcp add --scope local --transport stdio tft -e "TFT_MCP_AUDIT_PATH=$TFT_INSTALL/logs/claude/audit.jsonl" -e "TFT_MCP_NATIVE_LOG_DIR=$TFT_INSTALL/logs/claude/native" -e "TFT_MCP_SIMULATOR_REVISION=$TFT_REVISION" -- /usr/bin/env -u APPIMAGE "$TFT_INSTALL/venv/bin/tft-mcp"
+codex mcp get tft --json
+claude mcp get tft
+```
+
+The `/usr/bin/env -u APPIMAGE` command preserves the venv interpreter on affected AppImage hosts. The launcher automatically fixes `PYTHONHASHSEED=0` before imports. Audit logs are mandatory; native logs default beside the audit when omitted. Simulator stdout is redirected to stderr. Keep audit, native and host transcripts protected and separate for each SDK/host run. Process restart starts idle; games do not resume. Close clears the current game while preserving logs.
+
+Compare parsed configuration in memory immediately before and after registration, excluding only `mcp_servers.tft` for Codex and `projects[exact_cwd].mcpServers.tft` for Claude. Preserve all preexisting keys. If Claude creates default project metadata, report its new key names separately. Do not copy operator configuration or secrets into repository evidence. Repeat native inspection on repeated setup and prove no rewrite when already correct.
+
+Open a fresh native session and request an actual `tft.get_game_status` call. Registration and discovery do not prove tool execution. Existing host policy applies. If connection or model access fails, record the exact result and keep that acceptance open. Local help was checked with Codex 0.162.1 and Claude Code 2.1.294 on 2026-10-10. Official references are [Codex MCP](https://developers.openai.com/codex/mcp/) and [Claude MCP](https://code.claude.com/docs/en/mcp).
+
+For the authorized complete-game acceptance, supply the text block from GAME_PROMPT.md to a normal fresh native session. Codex uses `codex exec --model gpt-6.1-sol -c 'model_reasoning_effort="low"' --json`; outside a Git repository add `--skip-git-repo-check`. Claude supports `claude --print --output-format stream-json --verbose`. Keep existing policies and authentication. Native transcripts plus correlated audit requests/results, game/server IDs, terminal placements, inspection and close receipt establish gameplay. SDK replay remains separate evidence.
+
+## Gameplay and local checks
+
+Reads do not consume budget or randomness. Individual actions consume one of 14 planning slots and interleave baseline decisions. Only explicit `end_turn` starts combat. Carousel, loot, baseline turns and remaining-lobby completion after controlled elimination are handled automatically. Terminal own categories retain the controlled snapshot; `get_round` returns the final lobby round. `get_players` exposes all eight final placements. Opponent privacy excludes shops, bench, inventory, gold and experience. Living opponent boards and stored traits are public; eliminated historical boards are unavailable.
+
+Board coordinates are x=0..6 left to right and y=0..3 bottom to top. Bench slots are 0..8, shop 0..4 and loose inventory 0..9. Rule tools read installed definitions without a fixed set selector. Official prose, shop locking, unsafe native equipment combinations and intended Kayn combat transformation are unavailable; consult the precise limitations in server/README.md. Existing simulator limitations are retained.
+
+Developer checks remain server-owned. From a checkout with the extension installed, run:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+env -u APPIMAGE /absolute/path/venv/bin/python mcp/server/scripts/check_scope.py 54cbb8bb9e9933a80ea04bf99989bf001fe4774e
+env -u APPIMAGE /absolute/path/venv/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+```
+
+[server/verification.md](server/verification.md) records current revision evidence, failures and unexecuted checks. Root Gymnasium-related historical failures do not authorize simulator changes.
+
+## Remove the named entry
+
+Run removal only when retiring this setup. Preserve unrelated configuration and logs. Claude removal must use the registration cwd.
+
+```sh
+codex mcp remove tft
+cd "$TFT_INSTALL/host"
+claude mcp remove --scope local tft
+```
+
+After both hosts stop using the entry, the operator can remove the dedicated environment/source directory and separately decide whether to retain audit/native/session logs. Removing an entry does not require deleting evidence.

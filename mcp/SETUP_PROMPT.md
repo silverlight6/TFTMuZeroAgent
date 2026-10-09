@@ -1,42 +1,49 @@
 # Set up the TFT MCP server
 
-Copy the prompt below into Codex or Claude Code. This is currently a planning artifact: the server has not been implemented, so setup cannot succeed yet. Issue #13 verifies this prompt against the implemented installation commands and production launcher.
+Copy the single prompt below into Codex or Claude Code. It authorizes installation and the inspected named `tft` configuration entry. Use [the separate game prompt](GAME_PROMPT.md) when gameplay is wanted.
 
 ```text
-Install the local TFT MCP server from KyleDerZweite/TFTMuZeroAgent
-and connect it to the Codex or Claude Code client I am using.
+Install the TFT MCP server from https://github.com/KyleDerZweite/TFTMuZeroAgent
+and connect it to my current Codex CLI or Claude Code host.
 
-Read mcp/README.md, mcp/server/README.md, and the installation instructions
-at the selected revision on feat/mcp-server-main. Reuse the correct existing
-checkout when available; otherwise obtain a separate checkout from
-https://github.com/KyleDerZweite/TFTMuZeroAgent. Preserve unrelated local work.
-Record the exact revision. If the production launcher and installation
-instructions are not implemented yet, report that and stop setup.
+Read mcp/README.md and mcp/server/README.md at the selected verified revision
+on feat/mcp-server-main. Reuse the correct checkout or obtain a separate one;
+preserve unrelated work. Record the full source revision. Follow the actual
+archived-source CPU-only instructions in mcp/README.md. Create a dedicated
+external environment, install the unchanged simulator noneditably first, then
+the extension separately. Record both source revisions, distribution versions
+and simulator digest. Do not modify simulator, root dependencies or CI.
 
-Use the documented CPU-only installation commands in a dedicated Python
-environment. Install the unchanged simulator from the recorded revision
-first, then the separate extension from mcp/server/. Use absolute paths
-for the installed production launcher and a writable log destination.
-Do not modify the simulator or add repository-root configuration.
+Use absolute installed paths and protected writable logs outside the checkout.
+On an APPIMAGE host remove APPIMAGE only from Python/server child environments.
+Do not use PYTHONPATH or an editable installation for acceptance. Run pip check
+and the documented installed official SDK protocol checks from an external cwd.
+Require exact discovery of 25 tools and idle get_game_status.
 
-Use the client's native MCP configuration tools to register the server
-as tft. Inspect an existing tft entry before updating it and preserve
-unrelated entries. For Claude Code, use private local scope for this
-project rather than an uploaded or tracked repository configuration.
-Keep the client's existing permission policy and authentication unchanged.
-Do not add tool allowlists, change approval modes, or introduce extra
-server-specific authorization. No custom client or LLM runner is needed.
+Inspect the existing named tft entry with the host's native MCP command before
+registration, including repeated setup. Reuse an already correct entry without
+rewriting. If different, update only its command, arguments and TFT environment
+fields, preserving existing per-tool policy and unrelated environment fields.
+Preserve all other configuration, authentication, permissions, approval modes,
+sandbox and allowlists. Do not remove and recreate an entry with custom policy.
+Use native registration when tft is absent. Codex uses operator config; Claude
+uses private local scope in one stable external cwd for registration and play.
+Do not create repository client configuration, an approval layer, a custom
+client, provider adapter or LLM runner. Add no permission overrides.
 
-Verify the installed launcher from outside the checkout with the documented
-protocol check. Then verify the real client's active connection, tool
-discovery, and an idle get_game_status call. If the client must restart
-or open a new session to load the server, state that exact step and
-leave the live connection check open until it has actually passed.
+Compare parsed configuration before and after, excluding only the named tft
+entry. For Claude retain every preexisting project key and report any CLI-added
+default metadata keys. Store no credentials or raw operator config in the repo
+or shared temporary files. Keep SDK, Codex and Claude audit/native logs separate.
 
-Report the installed revision, environment and launcher paths, log location,
-client registration, checks actually performed, and any remaining step.
-Show the documented game prompt and removal command. Do not start a game
-until I give the game prompt or an explicit test instruction.
+Start a fresh normal native host session from the registered external cwd and
+verify an actual idle tft get_game_status call. Registration or discovery alone
+is not active connection evidence. Report the exact reload/access blocker if
+connection fails. Do not start a game during setup without explicit test scope.
+
+Report revisions, package versions, interpreter/launcher paths, source digest,
+log locations, host versions, registration preservation and checks actually
+passed or still open. Provide mcp/GAME_PROMPT.md and the documented removal
+commands. Inspect the named entry again on repeated setup and retain it unchanged
+when correct. Complete authorized work without an extra approval gate.
 ```
-
-For implementers, #13 must add the verified host-specific configuration examples, exact installation/check/removal commands, and game prompt to the operational documentation. The game prompt must use a stated seed, individual tools, explicit end_turn, completed-lobby status and placement, terminal inspection, and close_game. It preserves the host's existing permissions.
