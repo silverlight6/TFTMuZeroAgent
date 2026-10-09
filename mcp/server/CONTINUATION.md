@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Paused again on 2026-10-09 after verified integration of ticket #9. The owner resumed only #9 and requested another stop afterward. No implementation is running. #10 through #13 remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Resumed on 2026-10-09 for only ticket #10 after the verified #9 pause. Its contract is reviewed against clean integration f4b194c8fe939bff46d2d57b75ce610fbda93ddf and the real installed simulator. Stop again after checked #10 integration. No later slice has started. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
@@ -29,7 +29,7 @@ Last functional merge: `c42a6fc273a1bb426d0844fd90da542120fdd173`. #9 started fr
 | #8 buy/sell | [#20](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/20) | a208efdc89353f248d0d92d358e15453089a4467 |
 | #9 refresh/XP | [#21](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/21) | c42a6fc273a1bb426d0844fd90da542120fdd173 |
 
-These eight tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #10 through #13 remain open. The next intended ticket is #10. #10/#11 have all native prerequisites integrated, but their detailed contracts require review against the current integration before becoming Ready. This readiness work does not revoke the owner's pause. Completed writer and review worktrees are removed after their clean heads are verified as ancestors of integration; branch history remains available.
+These eight tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #10 through #13 remain open. The next intended ticket is #10. #10 is Ready after its current movement contract review. #11 has all native prerequisites integrated but still needs its detailed contract review before Ready. The owner resumed only #10 and requested another stop after integration. Completed writer and review worktrees are removed after their clean heads are verified as ancestors of integration; branch history remains available.
 
 Native direct blockers are `2:[]`, `5:[2]`, `6:[2]`, `7:[2]`, `3:[7]`, `4:[3]`, `8:[3]`, `9:[3]`, `10:[8]`, `11:[6,8]`, `12:[4,5,9,10,11]`, `13:[12]`. Display order adds no dependency.
 
@@ -65,7 +65,7 @@ Detailed commands, digests, failed fixture corrections and limits remain in [ver
 
 ## Local environment and commands
 
-`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4/#8/#9 extension and must not establish final-head installation evidence.
+`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. The previous temporary environment disappeared and was recreated for #10. Simulator is now a noneditable build from unchanged archived revision f4b194c8fe939bff46d2d57b75ce610fbda93ddf under `/tmp/tft-mcp-context/simulator-source-10`. External-cwd imports resolve inside the venv, and all 53 installed native Python files match the checkout. Root-origin tests may import the unchanged checkout. Writers select their extension through PYTHONPATH and do not reinstall shared packages. Earlier fresh environments `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7` are historical evidence and no longer present. They did not contain the #3/#4/#8/#9 extension and cannot establish final-head installation acceptance.
 
 Inherited APPIMAGE from T3 can make Python report the AppImage executable and miss venv packages. All verification Python calls use `env -u APPIMAGE`. A production native-host registration can use `/usr/bin/env -u APPIMAGE /absolute/venv/bin/tft-mcp` when this inherited condition applies. Preserve the host's permissions.
 
