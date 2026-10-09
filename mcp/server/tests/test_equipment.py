@@ -526,3 +526,60 @@ def test_remover_rejects_mismatched_trait_origin_prefix_or_suffix(tmp_path, orig
         session.equip_item(item_slot=0, target=bench(0))
     assert error.value.code == 'unsupported_action'
     assert error.value.details['reason'] == 'trait_origin_suffix'
+
+
+@pytest.mark.parametrize('mode', ['grant', 'remove', 'duplicate'])
+def test_trait_corruption_after_native_equipment_rolls_back_and_retries(tmp_path, monkeypatch, mode):
+    import pickle
+    from Simulator.game.player import Player
+    from test_shop_xp import gameplay
+    from test_movement import normalized_graph
+    sessions = [session_fixture(tmp_path / name) for name in ['actual', 'reference']]
+    for session in sessions:
+        if mode == 'duplicate':
+            player = install_units(session, bench=[(0, 'garen', 1, [])], board=[((0, 0), 'garen', 1, [])])
+            item = 'champion_duplicator'
+        else:
+            player = install_units(session, board=[((0, 0), 'garen', 1, [])])
+            if mode == 'remove':
+                player.item_bench = ['duelists_zeal'] + [None] * 9
+                session.equip_item(item_slot=0, target=board(0, 0))
+                player = session.game.player_manager.player_states['player_0']
+            item = 'magnetic_remover' if mode == 'remove' else 'duelists_zeal'
+        player.item_bench = [item] + [None] * 9
+    actual, reference = sessions
+    before = pickle.dumps(actual.game)
+    refs = actual.game, actual.baselines, actual.module_state, actual.python_rng, actual.baseline_rng
+    logs = actual.audit_path.read_bytes(), (actual.native_dir / 'log.txt').read_bytes()
+    native = Player.move_item
+    with monkeypatch.context() as patch:
+        def corrupt(player, *args):
+            result = native(player, *args)
+            player.team_composition['duelist'] = 999
+            player.team_tiers['duelist'] = 999
+            return result
+        patch.setattr(Player, 'move_item', corrupt)
+        with pytest.raises(SessionError) as error:
+            actual.equip_item(item_slot=0, target=board(0, 0))
+        assert error.value.code == 'internal_error'
+    assert pickle.dumps(actual.game) == before
+    assert all(a is b for a, b in zip(refs, (actual.game, actual.baselines, actual.module_state, actual.python_rng, actual.baseline_rng)))
+    assert logs == (actual.audit_path.read_bytes(), (actual.native_dir / 'log.txt').read_bytes())
+    actual.equip_item(item_slot=0, target=board(0, 0))
+    reference.equip_item(item_slot=0, target=board(0, 0))
+    assert gameplay(actual) == gameplay(reference)
+    assert normalized_graph(actual.game) == normalized_graph(reference.game)
+
+
+@pytest.mark.parametrize('item', ['bf_sword', 'magnetic_remover', 'reforger', 'thieves_gloves'])
+def test_initial_catalog_inconsistency_rejects_every_equipment_mode(tmp_path, item):
+    import pickle
+    session = session_fixture(tmp_path)
+    player = install_units(session, bench=[(0, 'garen', 1, ['bf_sword'] if item in {'magnetic_remover', 'reforger'} else [])])
+    player.triple_catalog.clear()
+    player.item_bench = [item] + [None] * 9
+    before = pickle.dumps(session.game)
+    with pytest.raises(SessionError) as error:
+        session.equip_item(item_slot=0, target=bench(0))
+    assert error.value.code == 'internal_error'
+    assert pickle.dumps(session.game) == before

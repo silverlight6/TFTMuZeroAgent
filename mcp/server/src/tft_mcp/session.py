@@ -1106,12 +1106,13 @@ def equipment_contract(player, slot, target):
     from Simulator.battle.stats import BASE_CHAMPION_LIST, COST
     if unit.target_dummy or unit.name == "sandguard":
         raise SessionError("unsupported_action", "Dummy units cannot receive equipment.", {"reason": "dummy_unit"})
-    if unit.name not in BASE_CHAMPION_LIST or unit.cost != COST[unit.name] or type(unit.stars) is not int or unit.stars < 1:
+    if unit.name not in BASE_CHAMPION_LIST or unit.cost != COST[unit.name] or type(unit.stars) is not int or not 1 <= unit.stars <= 4:
         raise SessionError("internal_error", "Equipment target differs from installed champion definitions.")
     if item not in item_stats.items or any(i not in item_stats.items for i in unit.items):
         raise SessionError("internal_error", "Unknown installed item identifier.")
     from collections import Counter
     from Simulator.battle.origin_class_stats import origin_class
+    check_equipment_catalog(player)
     equipment, origin = list(unit.items), list(unit.origin)
     mode = item
     categories = []
@@ -1129,7 +1130,6 @@ def equipment_contract(player, slot, target):
         incoming = SimpleNamespace(name=unit.name, cost=COST[unit.name], stars=2 if unit.chosen else 1,
                                    chosen=unit.chosen, kayn_form=unit.kayn_form, target_dummy=False,
                                    items=[], origin=list(origin_class[unit.name]), sandguard_overlord_coordinates=[])
-        check_equipment_catalog(player)
         merged_items = merge_inventory(player, incoming, trace)
         trace["guards"] = [tuple(c) for u in trace["contributors"] if u.name == "azir"
                            for c in getattr(u, "sandguard_overlord_coordinates", [])]
@@ -1202,7 +1202,7 @@ def equipment_contract(player, slot, target):
     return {"item": item, "slot": slot, "target": deepcopy(target), "equipment": expected, "mode": mode, "categories": categories,
             "incoming": freeze_unit(incoming), "merged_items": merged_items, "trace": trace,
             "owned": owned_locations(player), "chosen": player.chosen,
-            "original_equipment": equipment, "origin": origin, "shop": deepcopy(player.shop),
+            "original_equipment": equipment, "origin": origin, "origin_changed": origin != unit.origin, "shop": deepcopy(player.shop),
             "offers": [freeze_unit(u) for u in player.shop_champions], "catalog": deepcopy(player.triple_catalog),
             "capacity": player.max_units, "count": player.num_units_in_play,
             "gloves": deepcopy(player.thieves_gloves_loc), "form": player.kayn_form,
@@ -1283,10 +1283,16 @@ def check_equipment(player, contract, before, after):
             inventory[vacancy] = item
         inventory[slot] = None
         expected["items"] = inventory
-    same_origins = all((old["traits"] if old else None) == (new["traits"] if new else None)
-                       for (_, old), (_, new) in zip(before["units"], after["units"], strict=True))
-    if same_origins and (player.team_composition, player.team_tiers) != contract["traits"]:
-        raise SessionError("internal_error", "Equipment changed unrelated native traits.")
+    board_changed = before["units"][:28] != after["units"][:28]
+    recomputed_traits = contract["origin_changed"] or (mode == "champion_duplicator" and board_changed)
+    if recomputed_traits:
+        # Native trait assignment updates tiers before inserting the incoming equipment.
+        override = (target, contract["original_equipment"]) if mode == "ordinary" else None
+        expected_traits = equipment_native_traits(player, override)
+    else:
+        expected_traits = contract["traits"]
+    if (player.team_composition, player.team_tiers) != expected_traits:
+        raise SessionError("internal_error", "Native equipment trait postconditions failed.")
     if mode != "champion_duplicator" and player.chosen != contract["chosen"]:
         raise SessionError("internal_error", "Equipment changed unrelated Chosen ownership.")
     if (after != expected or player.shop != contract["shop"]
@@ -1317,3 +1323,24 @@ def check_equipment_catalog(player):
             if linked.intersection(map(tuple, coords)):
                 raise SessionError("internal_error", "Duplicator requires distinct Azir guard ownership.")
             linked.update(map(tuple, coords))
+
+
+def equipment_native_traits(player, equipment_override=None):
+    """Read native counts on a detached shallow view without changing caches or module bindings."""
+    from copy import copy
+    from Simulator.battle.origin_class_stats import tiers
+    view = copy(player)
+    view.team_composition = dict.fromkeys(player.team_composition, 0)
+    if equipment_override is not None:
+        location, equipment = equipment_override
+        if location["kind"] == "board":
+            view.board = [list(column) for column in player.board]
+            unit = copy(location_unit(player, location))
+            unit.items = list(equipment)
+            view.board[location["x"]][location["y"]] = unit
+    view.team_origin_class()
+    if player.chosen in view.team_composition:
+        view.team_composition[player.chosen] += 1
+    expected_tiers = {trait: sum(count >= threshold for threshold in tiers[trait])
+                      for trait, count in view.team_composition.items()}
+    return view.team_composition, expected_tiers

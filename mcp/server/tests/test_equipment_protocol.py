@@ -146,3 +146,35 @@ async def test_stdio_equipment_replay_ignores_reads_and_rejections(tmp_path):
         progression = [{key: e[key] for key in ('player_id', 'round', 'kind', 'action', 'placements')} for e in events if e['event'] == 'progression']
         journeys.append((receipts, state, progression))
     assert journeys[0] == journeys[1]
+
+
+@pytest.mark.anyio
+async def test_sdk_impossible_native_stars_reject_before_output_publication(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    import pickle
+    import anyio
+    from mcp import ClientSession
+    from mcp.shared.memory import create_client_server_memory_streams
+    import tft_mcp.transport as transport
+    from test_buy_sell import install_units, session_fixture
+    session = session_fixture(tmp_path)
+    player = install_units(session, bench=[(0, 'garen', 5, [])])
+    player.item_bench = ['bf_sword'] + [None] * 9
+    before = pickle.dumps(session.game)
+    status = session.get_game_status()
+    monkeypatch.setattr(transport, 'GameSession', lambda *args: session)
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        @asynccontextmanager
+        async def streams():
+            yield server_streams
+        monkeypatch.setattr(transport, 'stdio_server', streams)
+        async with anyio.create_task_group() as tasks:
+            tasks.start_soon(transport.serve)
+            async with ClientSession(*client_streams) as sdk:
+                await sdk.initialize()
+                result = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': bench(0)})
+                assert result.isError
+                assert pickle.dumps(session.game) == before
+                assert result.structuredContent['code'] == 'internal_error'
+                assert session.get_game_status() == status
+            tasks.cancel_scope.cancel()
