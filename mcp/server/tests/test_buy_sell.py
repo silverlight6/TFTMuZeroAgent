@@ -400,3 +400,13 @@ def test_promoted_sale_preserves_native_copy_quantity_and_pool_saturation(tmp_pa
     assert receipt['gold_gained'] == 9
     assert session.game.pool_obj.COST_1['garen'] == expected_copies
     assert session.game.player_manager.player_states['player_0'].triple_catalog == []
+
+
+def test_inconsistent_empty_shop_record_is_internal_error(tmp_path):
+    session = session_fixture(tmp_path)
+    player = install_units(session)
+    player.shop_champions[0] = None
+    with pytest.raises(SessionError) as error:
+        session.buy_unit(shop_slot=0)
+    assert error.value.code == 'internal_error'
+    assert session.get_game_status()['planning_budget']['remaining'] == 14

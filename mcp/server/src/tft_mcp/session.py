@@ -578,6 +578,8 @@ class GameSession:
         player = self.game.player_manager.player_states["player_0"]
         unit = player.shop_champions[slot]
         if unit is None:
+            if player.shop[slot] is not None:
+                raise SessionError("internal_error", "Stored shop offer is inconsistent.", {"shop_slot": slot})
             raise SessionError("empty_slot", "Select an occupied shop slot.", {"shop_slot": slot})
         purchased = freeze_unit(unit)
         expected_offer = f"{unit.name}_{unit.chosen}_c" if unit.chosen else unit.name
