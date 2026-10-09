@@ -109,6 +109,44 @@ TOOLS.extend([
 ])
 
 
+ITEM_SUMMARY_SCHEMA = {
+    "type": "object", "properties": {
+        "item_id": {"type": "string"},
+        "kind": {"type": "string", "enum": ["component", "equipment", "consumable"]},
+        "craftable": {"type": "boolean"}},
+    "required": ["item_id", "kind", "craftable"], "additionalProperties": False,
+}
+COMPONENT_PAIR_SCHEMA = {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}
+ITEM_SCHEMA = {
+    "type": "object", "properties": {
+        **ITEM_SUMMARY_SCHEMA["properties"],
+        "base_stats": {"type": "object"}, "effects": {"type": "object"},
+        "recipe": {**COMPONENT_PAIR_SCHEMA, "type": ["array", "null"]},
+        "builds_into": {"type": "array", "items": {
+            "type": "object", "properties": {"item_id": {"type": "string"}, "components": COMPONENT_PAIR_SCHEMA},
+            "required": ["item_id", "components"], "additionalProperties": False}},
+        "granted_trait": {"type": ["string", "null"]},
+        "constraints": {"type": "array", "items": {"type": "string"}},
+        "description": {"type": "null"},
+        "unavailable_fields": {"type": "array", "items": {"const": "description"}, "minItems": 1, "maxItems": 1}},
+    "required": ["item_id", "kind", "craftable", "base_stats", "effects", "recipe", "builds_into",
+                 "granted_trait", "constraints", "description", "unavailable_fields"],
+    "additionalProperties": False,
+}
+TOOLS.extend([
+    Tool(name="search_items", description="Search static Set 4 item IDs by case-insensitive substring and optional kind, without a game.",
+         inputSchema={"type": "object", "properties": {
+             "query": {"type": "string", "default": ""},
+             "kind": {"type": "string", "enum": ["component", "equipment", "consumable"]}},
+             "additionalProperties": False},
+         outputSchema={"type": "object", "properties": {"items": {"type": "array", "items": ITEM_SUMMARY_SCHEMA}},
+                       "required": ["items"], "additionalProperties": False}),
+    Tool(name="get_item", description="Inspect an exact canonical Set 4 item ID, raw effects, recipes and simulator constraints. Official description is unavailable.",
+         inputSchema={"type": "object", "properties": {"item_id": {"type": "string"}},
+                      "required": ["item_id"], "additionalProperties": False}, outputSchema=ITEM_SCHEMA),
+])
+
+
 def validate_arguments(name, arguments):
     if name == "start_game":
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
@@ -125,6 +163,17 @@ def validate_arguments(name, arguments):
         validate_catalog_arguments(arguments, {"champion_id"}, {"champion_id"})
     elif name == "search_champions":
         validate_catalog_arguments(arguments, {"query", "cost", "trait_id"})
+
+    elif name in {"search_items", "get_item"}:
+        allowed = {"query", "kind"} if name == "search_items" else {"item_id"}
+        for field in arguments:
+            if field not in allowed:
+                raise SessionError("invalid_input", "Unknown argument.", {"field": field, "value": arguments[field]})
+        if name == "get_item" and "item_id" not in arguments:
+            raise SessionError("invalid_input", "item_id is required.", {"field": "item_id", "value": None})
+        for field, value in arguments.items():
+            if type(value) is not str or (field == "kind" and value not in {"component", "equipment", "consumable"}):
+                raise SessionError("invalid_input", f"Invalid {field}.", {"field": field, "value": value})
     else:
         raise SessionError("invalid_input", "Unknown tool.", {"tool": name})
 
@@ -171,6 +220,11 @@ async def serve():
                         result = session.get_champion(**arguments)
                     elif name == "search_champions":
                         result = session.search_champions(**arguments)
+
+                    elif name == "search_items":
+                        result = session.search_items(**arguments)
+                    elif name == "get_item":
+                        result = session.get_item(arguments["item_id"])
                     else:
                         result = session.close_game()
                     session.record("tool_result", tool=name, result=result, is_error=False)

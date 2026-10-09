@@ -60,3 +60,9 @@ Run catalog acceptance with the same environment as the local checks:
 ```sh
 PYTHONPATH=mcp/server/src /absolute/path/tft-mcp-venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_champion_catalog.py
 ```
+
+`search_items` and `get_item` query static Set 4 definitions even while idle. `search_items` accepts optional string `query` and optional `kind` of `component`, `equipment`, or `consumable`. Query uses case-insensitive identifier substring matching; both filters combine. Results are sorted by canonical `item_id` and include `kind` and `craftable`. `get_item` requires an exact case-sensitive `item_id`, for example `tear_of_the_goddess`, `guardian_angel`, or `kayn_rhast`. Unknown IDs return `unknown_item`. Extra arguments, wrong types, and explicit null filters return `invalid_input`.
+
+Item detail contains raw `base_stats` and `effects`, a nullable two-component `recipe`, sorted `builds_into`, nullable `granted_trait`, and source-supported assignment `constraints`. Source parameter names, arrays and inverse values remain unchanged. Recipes retain duplicate ingredients and their source order. `description` is null with `unavailable_fields: ["description"]`, because official prose is unavailable. Consumables report their supported targets, capacity conditions and consumption behavior without executing mechanics or predicting random replacements.
+
+Kayn form items have an unchanged simulator limitation. Assignment stores form-item IDs while combat checks different strings, and bench assignment writes a different attribute. The catalog reports these literal inputs and does not guarantee the intended combat transformation. Inspection never consumes planning budget or randomness.
