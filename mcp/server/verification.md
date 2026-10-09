@@ -46,3 +46,24 @@ git diff --check
 Scope includes committed HEAD, index, working tree and untracked paths; renamed source paths are checked separately. Simulator source, root packaging, mandatory dependencies and CI files are unchanged. Failure-path filesystem checks use actual `/proc` write failures, not mode-bit assumptions that privileged execution could bypass.
 
 Initial red checks failed as intended for missing lifecycle implementation, missing production launcher and missing actual interpreter-hash recording. Those failures are resolved. No remaining executed check failed. Scheduling, executable terminal transitions, complete-game replay, later action tools and real Codex/Claude client acceptance were not executed for this bounded lifecycle slice; they remain owned by their later tickets. No release, PR merge, owner acceptance or deployment is claimed here.
+
+## Ticket #6 item catalog verification
+
+Reviewed base and refreshed concrete lifecycle seam: `de46dd110f6a94229df4af5baa8ea619581138da`. Implementation head tested: `f1b24b17e4f71bd11bcf5a3f8dc8404355b83f2d` on `feat/mcp-6-items` in `/tmp/tft-mcp-worktrees/issue-6`. The integration tip was merged before final checks and was already the base. The final documentation-only commit adds this record. Working changes were clean before the record.
+
+Passed commands, using the existing CPU-only environment without changing its installation:
+
+```sh
+env -u APPIMAGE PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+env -u APPIMAGE PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py de46dd110f6a94229df4af5baa8ea619581138da
+git diff --check de46dd110f6a94229df4af5baa8ea619581138da
+```
+
+The extension suite passed 22 tests. The affected simulator checks passed 11 tests with two existing PettingZoo observation warnings. Scope passed for eight changed paths before this record; all implementation and tests live under `mcp/server/`, with shared contract changes only in `mcp/SPEC.md`. No simulator files, root packaging, dependency definitions, or CI were changed.
+
+TDD recorded failing adapter search, adapter detail and production discovery tests before their corresponding implementation. Official MCP SDK clients launched the production module outside the checkout, exercised strict schemas and structured errors, fetched every canonical item while idle, and queried a running game. Focused real-session checks compared source definitions, Python/NumPy/session RNG, player shops, inventories, gold, health, boards and benches before and after repeated catalogs. Nested returned data were mutated to prove defensive copies. Representative source constraints cover all five consumables and Thieves' Gloves; recipes cover duplicate ingredients and granted traits.
+
+The first broad source snapshot check failed because it included Python module `__builtins__`; the check now captures definition tables only. Subsequent checks passed. The static helper also excludes module metadata from effect tables.
+
+Fresh installation, real Codex connection, complete gameplay and working Kayn combat transformation were not executed by this slice. Existing installation acceptance belongs to lifecycle/setup; complete gameplay belongs to later slices. Kayn's source mismatch is explicitly exposed in catalog constraints and recorded in the Spec, with no core fix or promise of working transformation. Technical slice verification does not establish host-client or owner acceptance.
