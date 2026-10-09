@@ -95,6 +95,25 @@ The adapter gives native simulator logging an isolated writable working director
 
 Repository documentation, issues, pull requests, and code comments are written in English. Discussion with the owner is in German.
 
+## Own inspection contract
+
+Reviewed for #3 against integrated progression revision `7215c6a709d0075ed56408a8656865724aafe318` on 2026-10-09. Transport owns strict input/output schemas and delegates to concrete GameSession methods. GameSession reads under SIMULATOR_LOCK without simulator_scope, observation updates, baseline progression or random draws. SDK calls and focused concrete adapter fixtures are the accepted test seams.
+
+All seven tools take objects with no unknown keys. get_board and get_traits accept optional string player_id, defaulting to player_0. Explicit null is invalid_input. This slice accepts only player_0; other selectors return invalid_player after checking game presence. Other inspection tools take no arguments. Idle or closed inspection returns no_game. Terminal inspection is valid. Missing retained own data or inconsistent shop offers return internal_error.
+
+Player categories contain exactly game_id, player_id and round plus the fields below. While running, round is the current simulator round. After terminal completion, category round is the retained controlled-player elimination or winner snapshot round. get_round returns exactly game_id and the current session round, including final completed-lobby round, which can differ from terminal category round.
+
+- get_board returns slots, num_units_in_play and max_units. All 28 slots contain location:{kind:"board",x,y} and unit or null, ordered by x then y. x is 0..6 left to right and y is 0..3 bottom to top. Native flat index is x*4+y. Container indices establish location, never cached unit coordinates.
+- get_bench returns all nine slots with location:{kind:"bench",slot:0..8} and unit or null. Native flat index is 28+slot.
+- get_shop returns all five slots with slot:0..4, unit or null, and purchase_cost or null. Price uses the installed simulator cost_star_values, rather than unit.cost. Empty native offers require empty champion records.
+- get_items returns all ten slots with slot:0..9 and item string or null.
+- get_economy returns integer gold, health, level and exp, plus planning_budget identical to get_game_status. Terminal planning_budget is null. No separate budget counter exists.
+- get_traits returns traits sorted by trait_id, with trait_id, count and tier for every native stored composition key. Counts and tiers come from team_composition/team_tiers or retained records without recomputation.
+
+Every unit contains exactly champion, stars, items, chosen, cost, kayn_form, traits, target_dummy and sandguard_overlord_coordinates. champion is the native catalog identifier accepted as champion_id by catalog tools. stars permits native four-star units. items and traits retain native ordering. chosen is false or the actual native trait string. kayn_form is a native string or null, including kayn_rhast. sandguard_overlord_coordinates is a list of coordinate pairs. Native planning dummies and sandguards remain visible; no future combat summons are synthesized. Every nested object uses additionalProperties=false. No simulator object, combat reference, hidden opponent state or whole status snapshot enters these results.
+
+Live own categories use detached freeze_player records. Terminal categories copy the existing terminal_snapshot retained by #7, with no new terminal store. Nested result mutation must never affect live or retained state. Inspection preserves gameplay, caches, graph aliases, action counters, all RNG states and simulator module bindings. Tests cover category values, empty slots, native special fields and coordinates, native price, strict failures, exhausted/terminal budget, terminal round semantics, read-independent progression and close/restart cleanup.
+
 ## Champion and trait catalog contract
 
 The owner accepted these five tool schemas for #5. Review against integrated lifecycle revision `de46dd110f6a94229df4af5baa8ea619581138da` confirms that transport validation, `SessionError`, structured MCP errors, concrete `GameSession` methods and production launcher tests support this contract. `champion_catalog.py` owns static champion and trait projections. Transport delegates through the session; the helper reads definition tables and returns fresh values without constructing champions, running combat, or requiring a game.
