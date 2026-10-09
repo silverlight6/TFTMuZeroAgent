@@ -565,6 +565,88 @@ class GameSession:
             self.advance()
         return self.get_game_status()
 
+    def require_action_budget(self):
+        self.require_decision()
+        if self.get_game_status()["planning_budget"]["remaining"] <= 0:
+            raise SessionError("budget_exhausted", "Only end_turn is available until the next round.")
+
+    @transactional
+    def buy_unit(self, **arguments):
+        validate_buy_arguments(arguments)
+        self.require_action_budget()
+        slot = arguments["shop_slot"]
+        player = self.game.player_manager.player_states["player_0"]
+        unit = player.shop_champions[slot]
+        if unit is None:
+            if player.shop[slot] is not None:
+                raise SessionError("internal_error", "Stored shop offer is inconsistent.", {"shop_slot": slot})
+            raise SessionError("empty_slot", "Select an occupied shop slot.", {"shop_slot": slot})
+        purchased = freeze_unit(unit)
+        expected_offer = f"{unit.name}_{unit.chosen}_c" if unit.chosen else unit.name
+        if player.shop[slot] != expected_offer:
+            raise SessionError("internal_error", "Stored shop offer is inconsistent.", {"shop_slot": slot})
+        price = action_price(unit)
+        if player.gold < price:
+            raise SessionError("insufficient_gold", "The offer costs more gold than is available.",
+                               {"shop_slot": slot, "required": price, "available": player.gold, "resource": "gold"})
+        expected_items = merge_inventory(player, unit)
+        if all(player.bench):
+            entry = catalog_entry(player, unit.name, unit.stars)
+            if entry is None or entry["num"] != 2:
+                raise SessionError("capacity_exceeded", "The bench is full and this offer cannot merge.",
+                                   {"shop_slot": slot, "resource": "bench", "required": 1, "available": 0})
+        before = action_snapshot(player)
+        status = self.controlled_action([3, slot, 0])
+        after = action_snapshot(player)
+        if player.shop[slot] is not None or player.shop_champions[slot] is not None or player.gold != before["gold"] - price or after["items"] != expected_items:
+            raise SessionError("internal_error", "Purchase postconditions failed.", {"shop_slot": slot})
+        check_copy_change(before, after, purchased, 1)
+        return {"shop_slot": slot, "purchased": purchased, "gold_spent": price,
+                "unit_changes": unit_changes(before, after), "item_changes": item_changes(before, after), "status": status}
+
+    @transactional
+    def sell_unit(self, **arguments):
+        validate_sell_arguments(arguments)
+        self.require_action_budget()
+        location = arguments["location"]
+        player = self.game.player_manager.player_states["player_0"]
+        unit = (player.board[location["x"]][location["y"]] if location["kind"] == "board"
+                else player.bench[location["slot"]])
+        if unit is None:
+            raise SessionError("empty_slot", "Select an occupied owned location.", {"location": location})
+        sold = freeze_unit(unit)
+        price = action_price(unit)
+        entry = catalog_entry(player, unit.name, unit.stars)
+        count = sum(1 for column in player.board for owned in column if owned and owned.name == unit.name and owned.stars == unit.stars)
+        count += sum(1 for owned in player.bench if owned and owned.name == unit.name and owned.stars == unit.stars)
+        if entry is None or entry["num"] != count:
+            raise SessionError("internal_error", "Owned units do not match the native catalog.", {"location": location})
+        equipment = real_items(unit)
+        available = player.item_bench.count(None)
+        if location["kind"] == "board" and len(equipment) > available:
+            raise SessionError("capacity_exceeded", "Board equipment cannot fit in inventory.",
+                               {"location": location, "resource": "items", "required": len(equipment), "available": available})
+        returned = equipment if len(equipment) <= available else []
+        dropped = [] if returned == equipment else equipment
+        before = action_snapshot(player)
+        flat = location["x"] * 4 + location["y"] if location["kind"] == "board" else 28 + location["slot"]
+        status = self.controlled_action([4, flat, 0])
+        after = action_snapshot(player)
+        remaining = (player.board[location["x"]][location["y"]] if location["kind"] == "board"
+                     else player.bench[location["slot"]])
+        expected_items = list(before["items"])
+        for item in returned:
+            expected_items[expected_items.index(None)] = item
+        if remaining is not None or player.gold != before["gold"] + price or after["items"] != expected_items:
+            raise SessionError("internal_error", "Sale postconditions failed.", {"location": location})
+        check_copy_change(before, after, sold, -1)
+        if location["kind"] == "board" and sold["champion"] == "azir":
+            if any(player.board[x][y] is not None for x, y in sold["sandguard_overlord_coordinates"]):
+                raise SessionError("internal_error", "Azir sandguard removal failed.", {"location": location})
+        return {"location": deepcopy(location), "sold": sold, "gold_gained": price,
+                "returned_items": returned, "dropped_items": dropped,
+                "unit_changes": unit_changes(before, after), "status": status}
+
     @transactional
     def end_turn(self):
         self.require_decision()
@@ -572,6 +654,121 @@ class GameSession:
         with self.simulator_scope():
             self.advance(old_round)
         return self.get_game_status()
+
+
+def validate_buy_arguments(arguments):
+    if set(arguments) != {"shop_slot"} or type(arguments.get("shop_slot")) is not int or not 0 <= arguments["shop_slot"] <= 4:
+        raise SessionError("invalid_input", "buy_unit requires only shop_slot, an integer from 0 through 4.", {"field": "shop_slot"})
+
+
+def validate_sell_arguments(arguments):
+    location = arguments.get("location")
+    if set(arguments) != {"location"} or type(location) is not dict:
+        raise SessionError("invalid_input", "sell_unit requires only a board or bench location.", {"field": "location"})
+    kind = location.get("kind")
+    fields = {"kind", "x", "y"} if kind == "board" else {"kind", "slot"} if kind == "bench" else set()
+    bounds = {"x": 6, "y": 3} if kind == "board" else {"slot": 8}
+    if not fields or set(location) != fields or any(type(location.get(key)) is not int or not 0 <= location[key] <= bound for key, bound in bounds.items()):
+        raise SessionError("invalid_input", "Use exact board x=0..6,y=0..3 or bench slot=0..8 coordinates.", {"field": "location"})
+
+
+def action_price(unit):
+    from Simulator.battle.stats import BASE_CHAMPION_LIST, COST
+    from Simulator.game.pool_stats import cost_star_values
+    if unit.target_dummy or unit.name == "sandguard":
+        raise SessionError("unsupported_action", "Dummy units cannot be purchased or sold.", {"reason": "dummy_unit"})
+    if unit.name not in BASE_CHAMPION_LIST:
+        raise SessionError("internal_error", "Unit is absent from the installed champion catalog.", {"champion": unit.name})
+    if type(unit.cost) is not int or type(unit.stars) is not int or not 1 <= unit.cost <= 5 or not 1 <= unit.stars <= 3:
+        raise SessionError("unsupported_action", "Unit has no supported native action price.", {"reason": "price_range", "champion": unit.name})
+    if unit.cost != COST[unit.name]:
+        raise SessionError("internal_error", "Unit cost differs from the installed champion definition.", {"champion": unit.name})
+    return cost_star_values[unit.cost - 1][unit.stars - 1]
+
+
+def catalog_entry(player, name, stars):
+    entries = [entry for entry in player.triple_catalog if entry["name"] == name and entry["level"] == stars]
+    if len(entries) > 1 or (entries and (type(entries[0]["num"]) is not int or not 1 <= entries[0]["num"] <= 2)):
+        raise SessionError("internal_error", "Native triple catalog is inconsistent.", {"champion": name, "stars": stars})
+    return entries[0] if entries else None
+
+
+def real_items(unit):
+    return ["thieves_gloves"] if unit.items and unit.items[0] == "thieves_gloves" else list(unit.items)
+
+
+def merge_inventory(player, incoming):
+    """Check native bench returns before board returns across reachable merges."""
+    inventory = list(player.item_bench)
+    stars, chosen = incoming.stars, incoming.chosen
+    visited = set()
+    while True:
+        if stars in visited or not 1 <= stars <= 3:
+            raise SessionError("unsupported_action", "Native promotion is outside supported action stars.",
+                               {"reason": "promotion_range", "champion": incoming.name})
+        visited.add(stars)
+        entry = catalog_entry(player, incoming.name, stars)
+        bench = [unit for unit in player.bench if unit and unit.name == incoming.name and unit.stars == stars]
+        board = [unit for column in player.board for unit in column if unit and unit.name == incoming.name and unit.stars == stars]
+        contributors = bench + board
+        if len(contributors) != (entry["num"] if entry else 0):
+            raise SessionError("internal_error", "Native catalog does not match owned contributors.",
+                               {"champion": incoming.name, "stars": stars})
+        if entry is None or entry["num"] != 2:
+            return inventory
+        for unit in contributors:
+            equipment = real_items(unit)
+            available = inventory.count(None)
+            if len(equipment) > available:
+                if unit in board:
+                    raise SessionError("capacity_exceeded", "Merge board equipment cannot fit in inventory.",
+                                       {"resource": "items", "required": len(equipment), "available": available,
+                                        "location": {"kind": "board", "x": unit.x, "y": unit.y}})
+                continue
+            for item in equipment:
+                inventory[inventory.index(None)] = item
+        promoted = 3 if chosen else stars + 1
+        chosen = False
+        for unit in contributors:
+            if unit.chosen:
+                chosen = unit.chosen
+        if promoted <= stars:
+            raise SessionError("unsupported_action", "Native promotion does not progress.", {"reason": "promotion_cycle"})
+        stars = promoted
+
+
+def copy_weights(snapshot):
+    weights = {}
+    for _, unit in snapshot["units"]:
+        if unit and not unit["target_dummy"] and unit["champion"] != "sandguard":
+            weights[unit["champion"]] = weights.get(unit["champion"], 0) + 3 ** (unit["stars"] - 1)
+    return weights
+
+
+def check_copy_change(before, after, unit, direction):
+    expected = copy_weights(before)
+    name = unit["champion"]
+    expected[name] = expected.get(name, 0) + direction * 3 ** (unit["stars"] - 1)
+    expected = {name: count for name, count in expected.items() if count}
+    if copy_weights(after) != expected:
+        raise SessionError("internal_error", "Native action did not preserve expected owned copies.", {"champion": name})
+
+
+def action_snapshot(player):
+    return {"units": [({"kind": "board", "x": x, "y": y}, freeze_unit(unit))
+                      for x, column in enumerate(player.board) for y, unit in enumerate(column)] +
+                     [({"kind": "bench", "slot": slot}, freeze_unit(unit)) for slot, unit in enumerate(player.bench)],
+            "items": list(player.item_bench), "gold": player.gold}
+
+
+def unit_changes(before, after):
+    return [{"location": location, "before": old, "after": new}
+            for (location, old), (_, new) in zip(before["units"], after["units"], strict=True) if old != new]
+
+
+def item_changes(before, after):
+    return [{"slot": slot, "before": old, "after": new}
+            for slot, (old, new) in enumerate(zip(before["items"], after["items"], strict=True)) if old != new]
 
 
 def freeze_unit(champion):
