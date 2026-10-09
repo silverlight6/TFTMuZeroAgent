@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Paused again at the owner's explicit request on 2026-10-09 after verified integration of ticket #4. The owner resumed work for only that next ticket and requested another stop afterward. No implementation is running. Resume from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+The owner resumed work on 2026-10-09 for only the next ticket, #8, after verified integration of #4. Stop again after #8 is checked and integrated. #9 and dependent slices remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
@@ -27,7 +27,7 @@ Last functional merge: `f4a7de26e88b80468aa02ea45e1ad8c63fbdb617`. #4 started fr
 | #3 own inspection | [#18](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/18) | 684bbbf8e88be96890b0069c0bc7d4728ff0ceff |
 | #4 public inspection | [#19](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/19) | f4a7de26e88b80468aa02ea45e1ad8c63fbdb617 |
 
-These six tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #8 through #13 remain open. #8/#9 are the next reviewed frontier; neither slice has started, and readiness does not revoke the owner's pause. The completed #4 writer worktree is removed after its clean head is verified as an ancestor of integration; branch history remains available.
+These six tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #8 through #13 remain open. The owner resumed only #8; #9 remains a reviewed unstarted frontier. The completed #4 writer worktree was removed after its clean head was verified as an ancestor of integration; branch history remains available.
 
 Native direct blockers are `2:[]`, `5:[2]`, `6:[2]`, `7:[2]`, `3:[7]`, `4:[3]`, `8:[3]`, `9:[3]`, `10:[8]`, `11:[6,8]`, `12:[4,5,9,10,11]`, `13:[12]`. Display order adds no dependency.
 
@@ -83,6 +83,8 @@ Common action locations are strict `{kind:"board",x:0..6,y:0..3}` or `{kind:"ben
 | equip_item | item_slot 0..9,target; `[6,target_flat,item_slot]` | item_slot, item_id, target, unit_changes, item_changes, kayn_form |
 
 #8 uses native `cost_star_values`, Chosen star prices, affordability and actual triple catalog. Full-bench merging is legal despite buy_mask=0; a full bench without a merge can native-autosell and must be rejected before execution. Board sale must prevalidate free inventory, as core can decrement catalog before failed item return. Bench sale can drop the entire equipment set on overflow; expose and document actual returned/dropped items. Generated glove equipment is not ordinary returnable sale equipment. Dummies/sandguards are unsupported sales. Preserve native cascading merges and Azir removal with actual deltas.
+
+The #8 resume contract in the Spec adds mandatory merge item-capacity validation across native bench-return/drop and board-return ordering, including cascade phases and Chosen constructor promotion. Two isolated native fixtures confirmed ignored contributor failures, with duplicate copies or lost equipment despite balanced copy weight. Validate capacity before core and copy weights after action before audit commit; reject unsupported price/promotion ranges without repairing the simulator. The source review and fixtures are supplemental in /tmp/tft-mcp-context/design-8.md and design-8-native-*.json. Accepted schemas and test requirements are durable in the Spec and ticket.
 
 #9 uses player.refresh_cost/exp_cost/max_level. A refresh can validly repeat the same visible offers. Read actual recursive native XP/level/capacity changes instead of duplicating leveling rules. Reject cap and affordability errors without changes.
 
