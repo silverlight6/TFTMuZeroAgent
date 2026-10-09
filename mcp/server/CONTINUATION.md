@@ -1,6 +1,6 @@
 # MCP implementation continuation
 
-Resumed on 2026-10-09 for only ticket #9 after the previous verified #8 integration and pause. #9's contract is reviewed against clean integration b02d22bf32dba3b507bdf47ff75977059542218c. Stop again after checked #9 integration. No later slice is started. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
+Paused again on 2026-10-09 after verified integration of ticket #9. The owner resumed only #9 and requested another stop afterward. No implementation is running. #10 through #13 remain unstarted. Continue from the existing fork integration branch `feat/mcp-server-main`; do not restart completed slices.
 
 ## Accepted scope and workflow
 
@@ -16,7 +16,7 @@ Repository: `KyleDerZweite/TFTMuZeroAgent`. Workspace: `/home/kyle/CodingProject
 
 Fixed implementation/review base: `54cbb8bb9e9933a80ea04bf99989bf001fe4774e`. It already contains the accepted planning/layout and metadata preparation. Keep the implementation scope checker limited to `mcp/`. Simulator comparison base: `33c2c6e`.
 
-Last functional merge: `a208efdc89353f248d0d92d358e15453089a4467`. #8 started from reviewed contract checkpoint `42cd697e70c79ed25dedc8bf67556fc60b858783`, following the previous pause at `00f63bdf63228610967e8f439ddd94b4503a221e`. The later commit containing this record only saves documentation for the new pause. Use the live integration tip as the resume base, and preserve this functional evidence.
+Last functional merge: `c42a6fc273a1bb426d0844fd90da542120fdd173`. #9 started from reviewed contract checkpoint `c9ff68c5b5d8778393ff8c0693093d4f481f7305`, following the previous pause at `b02d22bf32dba3b507bdf47ff75977059542218c`. The later commit containing this record only saves documentation for the new pause. Use the live integration tip as the resume base, and preserve this functional evidence.
 
 | Ticket | Integrated PR | Verified merge |
 | --- | --- | --- |
@@ -27,8 +27,9 @@ Last functional merge: `a208efdc89353f248d0d92d358e15453089a4467`. #8 started fr
 | #3 own inspection | [#18](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/18) | 684bbbf8e88be96890b0069c0bc7d4728ff0ceff |
 | #4 public inspection | [#19](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/19) | f4a7de26e88b80468aa02ea45e1ad8c63fbdb617 |
 | #8 buy/sell | [#20](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/20) | a208efdc89353f248d0d92d358e15453089a4467 |
+| #9 refresh/XP | [#21](https://github.com/KyleDerZweite/TFTMuZeroAgent/pull/21) | c42a6fc273a1bb426d0844fd90da542120fdd173 |
 
-These seven tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #9 through #13 remain open. #9 is the next reviewed unstarted ticket. #10/#11 now have all prerequisites integrated, but their detailed contracts require review against the new integration before becoming Ready. This readiness work does not revoke the owner's pause. Completed writer worktrees are removed after their clean heads are verified as ancestors of integration; branch history remains available.
+These eight tickets are completed. #6 was briefly reopened after the installed-simulator clarification and revalidated by #7. Milestone [#1](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/1) remains open and mirrors [SPEC.md](../SPEC.md). Tickets #10 through #13 remain open. The next intended ticket is #10. #10/#11 have all native prerequisites integrated, but their detailed contracts require review against the current integration before becoming Ready. This readiness work does not revoke the owner's pause. Completed writer and review worktrees are removed after their clean heads are verified as ancestors of integration; branch history remains available.
 
 Native direct blockers are `2:[]`, `5:[2]`, `6:[2]`, `7:[2]`, `3:[7]`, `4:[3]`, `8:[3]`, `9:[3]`, `10:[8]`, `11:[6,8]`, `12:[4,5,9,10,11]`, `13:[12]`. Display order adds no dependency.
 
@@ -56,11 +57,15 @@ Two isolated native fixtures proved that ignored board contributor failures can 
 
 The exact functional #8 head passed 46 focused checks and 106 combined checks with four unchanged whole-lobby repetitions deselected. The 27 unchanged purchase/sale/bench/mask/action simulator checks passed from an isolated native working directory. Independent Standards and Spec reviews each found zero material findings; the Spec reviewer independently repeated all 46 focused checks. Final slice `8048bddb18024a88b3d016bbba00146d8a7df2d8` adds verification prose only. The independent merger repeated 106 checks, proved identical full slice/merge tree `ed7493e0c6469f7367bd32d80db97563fa011a04`, and passed all 46 focused checks on integrated root. Six-path scope and whitespace passed. The SDK includes purchase, native board autofill/combat and board sale; this is bounded #8 evidence, not a new completed-lobby replay.
 
+PR #21 functional head `c98cb7cd761924b84177bbcd6894d97e31839cc0` adds strict singular refresh_shop and buy_xp. It reuses the existing candidate transaction, budget, scheduling and projections. Costs, native thresholds, recursive XP progression, cap and capacity bonuses remain installed-simulator behavior. Postconditions verify actual gold/shop/XP/capacity and the unchanged round/decision boundary. Failures discard the entire candidate including baselines, graph aliases, logs, module bindings and all RNG. Production stdio journeys cover earned-gold success, actual level transition, strict rejection, audit recovery and refresh replay with extra reads. A separate real-session SDK memory fixture covers near-cap success and atomic cap rejection; naturally reached stdio cap gameplay is not claimed.
+
+The functional #9 head passed 140 combined checks with four unchanged whole-lobby repetitions deselected, including all 34 focused checks. The writer passed 27 unchanged native RNG/Player/step/action checks from an external working directory. Standards and Spec reviews found zero material findings in separate clean detached worktrees; the Spec reviewer independently passed all 34 focused checks. Final slice `3f6aca1c05e47377e1b0ce2d4ab733f5c98ba40f` adds verification prose only. The independent merger repeated 140 checks, verified full slice/merge tree identity `2bfe212ac48ebb7697da34433baee6103fbf98ea`, and passed all 34 focused checks on integrated root. Six-path scope, whitespace and unchanged-core checks passed. No GitHub CI is configured.
+
 Detailed commands, digests, failed fixture corrections and limits remain in [verification.md](verification.md). A complete whole-milestone suite at the eventual final functional head, all-family replay, final two-axis code-review and actual CLI LLM games remain unexecuted. Completed slice review is not final milestone review.
 
 ## Local environment and commands
 
-`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4/#8 extension and must not establish final-head installation evidence.
+`/tmp/tft-mcp-env` is a CPU-only Python 3.14.7 environment with MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0, Gymnasium 1.4.0 and pytest 9.1.1. Simulator is editable from the root checkout. Writers use their own extension through PYTHONPATH and do not reinstall shared packages. Existing fresh noneditable verification environments are `/tmp/tft-mcp-install-2` and `/tmp/tft-mcp-install-7`; they do not contain the #3/#4/#8/#9 extension and must not establish final-head installation evidence.
 
 Inherited APPIMAGE from T3 can make Python report the AppImage executable and miss venv packages. All verification Python calls use `env -u APPIMAGE`. A production native-host registration can use `/usr/bin/env -u APPIMAGE /absolute/venv/bin/tft-mcp` when this inherited condition applies. Preserve the host's permissions.
 
@@ -89,7 +94,7 @@ Common action locations are strict `{kind:"board",x:0..6,y:0..3}` or `{kind:"ben
 | move_unit | source,target; `[5,source_flat,target_flat]` | source, target, unit_changes |
 | equip_item | item_slot 0..9,target; `[6,target_flat,item_slot]` | item_slot, item_id, target, unit_changes, item_changes, kayn_form |
 
-#9 uses player.refresh_cost/exp_cost/max_level. A refresh can validly repeat the same visible offers. Read actual recursive native XP/level/capacity changes instead of duplicating leveling rules. Reject cap and affordability errors without changes.
+#9 is integrated and uses player.refresh_cost/exp_cost/max_level. A refresh can validly repeat the same visible offers. Read actual recursive native XP/level/capacity changes instead of duplicating leveling rules. Reject cap and affordability errors without changes.
 
 #10 starts after verified #8. Validate occupied source before core, because movement sorts endpoints and can otherwise move the target backwards. Reject same-location no-op and native-disabled bench-to-bench. Respect board capacity and dummy/sandguard restrictions. Native bench/board swaps place the displaced board unit in the first free bench slot, sometimes different from the named source. Expose that destination for bench-to-board. For directed board-to-occupied-bench, reject when an earlier vacancy would prevent the requested target from receiving the source unit. Preserve core behavior without symmetric swap fixes.
 
