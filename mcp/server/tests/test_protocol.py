@@ -40,7 +40,7 @@ async def client(tmp_path, **environment):
 async def test_production_discovery_and_idle(tmp_path):
     async with client(tmp_path) as session:
         tools = (await session.list_tools()).tools
-        assert {"start_game", "get_game_status", "close_game"} <= {tool.name for tool in tools}
+        assert {"start_game", "get_game_status", "close_game", "end_turn"} <= {tool.name for tool in tools}
         status = await session.call_tool("get_game_status", {})
         assert not status.isError
         assert status.structuredContent == {"state": "idle", "game_id": None,
@@ -56,7 +56,7 @@ async def test_strict_inputs_lifecycle_and_restart(tmp_path):
             ("start_game", {"seed": 1.0}), ("start_game", {"seed": -1}),
             ("start_game", {"seed": 2147483648}), ("start_game", {"seed": "1"}),
             ("start_game", {"seed": 1, "extra": 2}),
-            ("get_game_status", {"extra": 1}), ("close_game", {"extra": 1}),
+            ("get_game_status", {"extra": 1}), ("close_game", {"extra": 1}), ("end_turn", {"extra": 1}),
         ]:
             error = await session.call_tool(name, arguments)
             assert error.isError, (name, arguments)
@@ -105,6 +105,8 @@ async def test_bootstrap_reexec_records_fixed_hash_and_reproducibility(tmp_path)
         assert str(record["hash_probe"]) == expected
         assert record["seed"] == record["baseline_seed"] == 123
         assert record["baseline"] == "Simulator.generators.default_agent.Default_Agent(False)"
+        from Simulator.simulators.tft_simulator import TFT_Simulator
+        assert record["simulator"]["environment_name"] == TFT_Simulator.metadata["name"]
         assert record["simulator"]["revision"]
         assert len(record["simulator"]["source_sha256"]) == 64
         assert record["configuration"]["num_players"] == 8
@@ -119,6 +121,9 @@ async def test_audit_and_native_failure_leave_idle(tmp_path):
         error = await session.call_tool("start_game", {"seed": 0})
         assert error.isError
         assert error.structuredContent["code"] == "log_unavailable"
+        rejected = await session.call_tool("end_turn", {"extra": 1})
+        assert rejected.isError
+        assert rejected.structuredContent["code"] == "log_unavailable"
     async with client(tmp_path, TFT_MCP_NATIVE_LOG_DIR="/proc/tft-mcp-native") as session:
         error = await session.call_tool("start_game", {"seed": 0})
         assert error.isError
@@ -186,3 +191,42 @@ def test_protocol_stdout_is_json_and_malformed_envelopes_are_native_errors(tmp_p
             process.wait(timeout=15)
             process.stdout.close()
         assert process.returncode == 0
+
+
+@pytest.mark.anyio
+async def test_seed_zero_full_lobby_read_independent_replay(tmp_path):
+    accepted = []
+    for with_reads in (False, True):
+        run_path = tmp_path / str(with_reads)
+        run_path.mkdir()
+        async with client(run_path) as session:
+            assert not (await session.call_tool('start_game', {'seed': 0})).isError
+            results = []
+            for _ in range(30):
+                if with_reads:
+                    for _ in range(2):
+                        status = await session.call_tool('get_game_status', {})
+                        assert not status.isError
+                result = await session.call_tool('end_turn', {})
+                assert not result.isError, result.structuredContent
+                data = {key: value for key, value in result.structuredContent.items() if key != 'game_id'}
+                results.append(data)
+                if data['state'] == 'terminal':
+                    break
+            assert results[-1]['outcome'] == {'controlled_placement': 8, 'lobby_complete': True, 'reason': 'lobby_complete'}
+            assert results[-1]['planning_budget'] is None
+            rejected = await session.call_tool('end_turn', {})
+            assert rejected.isError and rejected.structuredContent['code'] == 'game_terminal'
+            rejected = await session.call_tool('start_game', {'seed': 1})
+            assert rejected.isError and rejected.structuredContent['code'] == 'game_active'
+            receipt = await session.call_tool('close_game', {})
+            assert receipt.structuredContent['outcome'] == results[-1]['outcome']
+            assert (await session.call_tool('start_game', {'seed': 0})).structuredContent['round'] == 1
+        events = [json.loads(line) for line in (run_path / 'audit.jsonl').read_text().splitlines()]
+        progress = [{key: event[key] for key in ('player_id', 'round', 'kind', 'action', 'placements')}
+                    for event in events if event['event'] == 'progression']
+        completed = [event for event in events if event['event'] == 'lobby_complete']
+        assert len(completed) == 1
+        assert len(completed[0]['placements']) == 8
+        accepted.append((results, progress))
+    assert accepted[0] == accepted[1]

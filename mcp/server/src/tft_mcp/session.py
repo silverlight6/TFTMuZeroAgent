@@ -8,6 +8,9 @@ import json
 import os
 from pathlib import Path
 import random
+import shutil
+import tempfile
+from functools import wraps
 import subprocess
 import sys
 import threading
@@ -15,6 +18,7 @@ import uuid
 
 
 SIMULATOR_LOCK = threading.RLock()
+MAX_PROGRESS_STEPS = 6000
 
 
 class SessionError(Exception):
@@ -25,6 +29,14 @@ class SessionError(Exception):
 
     def result(self):
         return {"code": self.code, "message": str(self), "details": self.details}
+
+
+def transactional(method):
+    @wraps(method)
+    def invoke(self, *args, **kwargs):
+        with self.lifecycle_transaction(mutable=True):
+            return method(self, *args, **kwargs)
+    return invoke
 
 
 class GameSession:
@@ -43,6 +55,11 @@ class GameSession:
         self.baseline_rng = None
         self.python_rng = None
         self.module_state = None
+        self.placements = {}
+        self.terminal_snapshot = None
+        self._records = None
+        self._candidate_prepared = False
+        self.public_final = {}
         self.sequence = 0
         self.server_id = uuid.uuid4().hex
 
@@ -94,20 +111,54 @@ class GameSession:
         return get_item(item_id)
 
     def record(self, event, **fields):
+        if self._records is None:
+            with self.lifecycle_transaction():
+                self.record(event, **fields)
+            return
+        self.sequence += 1
+        self._records.append({"server_id": self.server_id, "sequence": self.sequence,
+                              "event": event, **fields})
+
+    def probe_audit(self):
         if self.audit_path is None:
             raise SessionError("log_unavailable", "Set TFT_MCP_AUDIT_PATH to a writable audit file.")
-        self.sequence += 1
-        record = {"server_id": self.server_id, "sequence": self.sequence, "event": event, **fields}
         try:
             self.audit_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.audit_path.open("a", encoding="utf-8") as stream:
-                stream.write(json.dumps(record, sort_keys=True) + "\n")
+            if self.audit_path.exists():
+                self.audit_path.read_bytes()
+            with tempfile.TemporaryFile(dir=self.audit_path.parent) as stream:
+                stream.write(b"audit destination probe")
                 stream.flush()
                 os.fsync(stream.fileno())
         except OSError as error:
             raise SessionError("log_unavailable", "Audit log is unavailable.", {
-                "path": str(self.audit_path), "error": str(error),
-            }) from error
+                "path": str(self.audit_path), "error": str(error)}) from error
+
+    def publish_audit(self):
+        if self.audit_path is None:
+            raise SessionError("log_unavailable", "Set TFT_MCP_AUDIT_PATH to a writable audit file.")
+        temporary = None
+        try:
+            self.audit_path.parent.mkdir(parents=True, exist_ok=True)
+            previous = self.audit_path.read_bytes() if self.audit_path.exists() else b""
+            with tempfile.NamedTemporaryFile(dir=self.audit_path.parent, delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(previous)
+                for record in self._records:
+                    stream.write((json.dumps(record, sort_keys=True) + "\n").encode())
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.audit_path)
+            temporary = None
+        except OSError as error:
+            raise SessionError("log_unavailable", "Audit log is unavailable.", {
+                "path": str(self.audit_path), "error": str(error)}) from error
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     @contextmanager
     def simulator_scope(self, game=None, native_dir=None):
@@ -148,43 +199,62 @@ class GameSession:
                  champion.test_multiple, champion.log) = previous_modules
                 os.chdir(previous_dir)
 
+    def prepare_candidate(self):
+        if self._candidate_prepared:
+            return
+        candidate = deepcopy(self.__dict__)
+        self.__dict__.update(candidate)
+        self._candidate_prepared = True
+        if self.game is not None:
+            candidate_dir = self.native_root / (self.game_id + "-" + uuid.uuid4().hex)
+            accepted_dir = self.native_dir
+            self.native_dir = candidate_dir
+            shutil.copytree(accepted_dir, candidate_dir)
+
     @contextmanager
-    def lifecycle_transaction(self):
-        """Publish lifecycle changes only when their audit result is durable."""
-        previous = dict(self.__dict__)
-        try:
-            yield
-        except Exception as error:
-            failed_start = None
-            if self.game is not None and self.game is not previous["game"]:
-                failed_start = {"failed_game_id": self.game_id, "native_log_dir": str(self.native_dir)}
-                try:
-                    with self.simulator_scope():
-                        self.game.close()
-                except Exception:
-                    pass
-            sequence = self.sequence
-            self.__dict__.update(previous)
-            self.sequence = sequence
-            if failed_start is not None:
+    def lifecycle_transaction(self, mutable=False):
+        """Keep candidate fields private under the lock until their audit commit."""
+        with SIMULATOR_LOCK:
+            if self._records is not None:
+                if mutable:
+                    self.prepare_candidate()
+                yield
+                return
+            previous = dict(self.__dict__)
+            try:
+                self._records = []
+                if mutable:
+                    self.prepare_candidate()
+                yield
+                self.publish_audit()
+                self._records = None
+                self._candidate_prepared = False
+            except Exception as error:
+                diagnostic = self.native_dir if self.native_dir != previous["native_dir"] else None
+                failed_id = self.game_id
+                self.__dict__.update(previous)
                 if isinstance(error, SessionError):
-                    error.details.update(failed_start)
-                try:
-                    self.record("failed_start", **failed_start, error=str(error))
-                except SessionError:
-                    pass
-            raise
+                    if diagnostic is not None:
+                        error.details.update(native_log_dir=str(diagnostic), failed_game_id=failed_id)
+                    raise
+                code = "log_unavailable" if isinstance(error, OSError) else "internal_error"
+                raise SessionError(code, "Transaction failed; committed game is unchanged.", {
+                    "error": str(error), "native_log_dir": str(diagnostic),
+                    "failed_game_id": failed_id}) from error
 
     def get_game_status(self):
-        return {
-            "state": self.state,
-            "game_id": self.game_id,
-            "controlled_player_id": "player_0" if self.game else None,
-            "round": self.game.game_round.current_round if self.game else None,
-            "planning_budget": self.planning_budget,
-            "outcome": self.outcome,
-        }
+        with SIMULATOR_LOCK:
+            return {
+                "state": self.state,
+                "game_id": self.game_id,
+                "controlled_player_id": "player_0" if self.game else None,
+                "round": self.game.game_round.current_round if self.game else None,
+                "planning_budget": ({"capacity": 14, "remaining": max(0, 14 - self.game.actions_taken["player_0"])}
+                                    if self.state == "running" else None),
+                "outcome": deepcopy(self.outcome),
+            }
 
+    @transactional
     def start_game(self, seed):
         if type(seed) is not int or not 0 <= seed <= 2147483647:
             raise SessionError("invalid_input", "seed must be an integer from 0 through 2147483647.")
@@ -194,6 +264,7 @@ class GameSession:
             })
         game_id = uuid.uuid4().hex
         candidate_dir = self.native_root / game_id if self.native_root else None
+        self.probe_audit()
         self.record("start_candidate", game_id=game_id, seed=seed,
                     native_log_dir=str(candidate_dir) if candidate_dir else None)
         try:
@@ -246,8 +317,12 @@ class GameSession:
                         }, native_log_dir=str(candidate_dir))
         except Exception as error:
             if candidate is not None:
-                with self.simulator_scope(game=candidate, native_dir=candidate_dir):
-                    candidate.close()
+                try:
+                    with self.simulator_scope(game=candidate, native_dir=candidate_dir):
+                        candidate.close()
+                except Exception:
+                    # Retain the initialization error and unpublished diagnostic directory.
+                    pass
             self.python_rng = None
             self.baseline_rng = None
             self.module_state = None
@@ -269,20 +344,25 @@ class GameSession:
         self.state = "running"
         return self.get_game_status()
 
+    @transactional
     def close_game(self):
         outcome = self.outcome
         if self.game is not None:
             if self.state == "running":
                 outcome = {"controlled_placement": None, "lobby_complete": False, "reason": "closed_incomplete"}
-            self.record("game_closed", game_id=self.game_id, outcome=outcome)
+            self.record("game_closed", game_id=self.game_id, outcome=outcome,
+                        native_log_dir=str(self.native_dir))
             with self.simulator_scope():
                 self.game.close()
-        receipt = {"closed_game_id": self.game_id, "outcome": outcome}
+        receipt = {"closed_game_id": self.game_id, "outcome": deepcopy(outcome)}
         self.game = None
         self.game_id = None
         self.state = "idle"
         self.outcome = None
         self.planning_budget = None
+        self.placements = {}
+        self.terminal_snapshot = None
+        self.public_final = {}
         self.baselines = {}
         self.native_dir = None
         self.python_rng = None
@@ -291,9 +371,120 @@ class GameSession:
         receipt["status"] = self.get_game_status()
         return receipt
 
+    def require_decision(self):
+        if self.state == "idle":
+            raise SessionError("no_game", "Start a game first.")
+        if self.state == "terminal":
+            raise SessionError("game_terminal", "The completed game accepts no more actions.")
+        if (self.game.agent_selection != "player_0" or self.game.truncations["player_0"]
+                or self.game.terminations.get("player_0", True)):
+            raise SessionError("internal_error", "No controlled decision is available.")
+
+    def baseline_action(self, player_id):
+        player = self.game.player_manager.player_states[player_id]
+        mask = self.game.player_manager.action_handlers[player_id].fetch_action_mask()
+        encoded = self.baselines[player_id].policy(player, player.shop,
+                                                   self.game.game_round.current_round, mask)
+        action = [int(part) for part in encoded.split("_")]
+        return (action + [0, 0])[:3]
+
+    def step(self, action, kind):
+        game = self.game
+        player_id = game.agent_selection
+        round_number = game.game_round.current_round
+        retained = [(key, player) for key, player in game.player_manager.player_states.items()
+                    if player is not None and not game.terminations.get(key, True)]
+        alive = game.num_alive
+        before = (round_number, sum(game.actions_taken.values()), tuple(game.agents))
+        game.step(action)
+        after = (game.game_round.current_round, sum(game.actions_taken.values()), tuple(game.agents))
+        if before == after:
+            raise SessionError("internal_error", "Simulator step made no bounded progress.")
+        for key, player in retained:
+            removed = game.player_manager.player_states.get(key) is None
+            if removed and key not in self.placements and player.health <= 0:
+                self.placements[key] = alive
+                alive -= 1
+        for key, player in retained:
+            if game.player_manager.player_states.get(key) is None and key not in self.placements:
+                self.placements[key] = 1
+            if key in self.placements:
+                self.public_final[key] = {"health": player.health, "level": player.level}
+            if key == "player_0" and key in self.placements and self.terminal_snapshot is None:
+                self.terminal_snapshot = freeze_player(player, game.game_round.current_round)
+        self.record("progression", game_id=self.game_id, player_id=player_id, round=round_number,
+                    kind=kind, action=action, placements=dict(self.placements),
+                    native_log_dir=str(self.native_dir))
+
+    def advance(self, old_round=None):
+        for _ in range(MAX_PROGRESS_STEPS):
+            game = self.game
+            if not game.agents or all(game.terminations.values()):
+                self.state = "terminal"
+                self.outcome = {"controlled_placement": self.placements["player_0"],
+                                "lobby_complete": True, "reason": "lobby_complete"}
+                self.record("lobby_complete", game_id=self.game_id, outcome=self.outcome,
+                            placements=self.placements, native_log_dir=str(self.native_dir))
+                return
+            selected = game.agent_selection
+            if selected == "player_0" and not game.terminations[selected] and not game.truncations[selected]:
+                if old_round is None or game.game_round.current_round > old_round:
+                    return
+            if game.terminations[selected] or game.truncations[selected]:
+                self.step(None, "cleanup")
+            elif selected == "player_0":
+                self.step([0, 0, 0], "controlled_drain")
+            else:
+                self.step(self.baseline_action(selected), "baseline")
+        raise SessionError("internal_error", "Simulator progression exceeded 6000 steps.")
+
+    @transactional
+    def controlled_action(self, action):
+        """Adapter seam for already-validated singular action tools."""
+        self.require_decision()
+        if self.get_game_status()["planning_budget"]["remaining"] <= 0:
+            raise SessionError("budget_exhausted", "Only end_turn is available until the next round.")
+        with self.simulator_scope():
+            self.step(action, "controlled_action")
+            self.advance()
+        return self.get_game_status()
+
+    @transactional
+    def end_turn(self):
+        self.require_decision()
+        old_round = self.game.game_round.current_round
+        with self.simulator_scope():
+            self.advance(old_round)
+        return self.get_game_status()
+
+
+def freeze_player(player, round_number):
+    """Detached post-combat records for later own-state inspection tools."""
+    def unit(champion):
+        if champion is None:
+            return None
+        return {"champion": champion.name, "stars": champion.stars,
+                "items": list(champion.items), "chosen": champion.chosen, "cost": champion.cost,
+                "kayn_form": getattr(champion, "kayn_form", None),
+                "traits": list(champion.origin), "target_dummy": champion.target_dummy,
+                "sandguard_overlord_coordinates": deepcopy(getattr(champion, "sandguard_overlord_coordinates", []))}
+    return deepcopy({
+        "board": [[unit(champion) for champion in column] for column in player.board],
+        "bench": [unit(champion) for champion in player.bench],
+        "shop": list(player.shop), "shop_champions": [unit(champion) for champion in player.shop_champions],
+        "items": list(player.item_bench),
+        "num_units_in_play": player.num_units_in_play, "max_units": player.max_units,
+        "economy": {key: getattr(player, key) for key in
+                    ("gold", "level", "exp", "health", "win_streak", "loss_streak", "max_units",
+                     "refresh_cost", "exp_cost", "level_costs", "max_level")},
+        "traits": {"composition": player.team_composition, "tiers": player.team_tiers},
+        "round": round_number, "player_round": player.round,
+    })
+
 
 def simulator_identity():
     import Simulator
+    from Simulator.simulators.tft_simulator import TFT_Simulator
 
     source_root = Path(Simulator.__file__).resolve().parent
     digest = hashlib.sha256()
@@ -310,6 +501,7 @@ def simulator_identity():
         except (OSError, subprocess.CalledProcessError):
             revision = None
     return {"revision": revision or "sha256:" + digest.hexdigest(), "source_sha256": digest.hexdigest(),
+            "environment_name": TFT_Simulator.metadata.get("name"),
             "distribution_version": metadata.version("tft-simulator")}
 
 

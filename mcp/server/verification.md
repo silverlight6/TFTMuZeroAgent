@@ -110,3 +110,73 @@ git diff --check 24f8fb7a5498126f7cb608b61079b4c65edb88a6
 ```
 
 Scope passed for seven changed paths against the refreshed base. The whitespace check passed, and no conflict markers remain. Simulator code and dependencies did not change, so the earlier 11 passed simulator checks remain applicable. The parent independently reviewed the original #5 diff without a material finding. Refreshed independent integration review and installed-package verification remain parent integration work. The commit containing this refresh record changes documentation only.
+
+## Progression slice #7
+
+Ticket [#7](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/7) was implemented from verified lifecycle base `de46dd110f6a94229df4af5baa8ea619581138da` and refreshed onto verified catalog integration `497a426f50a16bc0b239f9fa843e38b24691ef59`. The merged implementation tested at HEAD `6196ef6` on `feat/mcp-7-progression` preserves both catalogs and their acceptance records. Its complete source suite passed 38 tests in 182.92 seconds:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+```
+
+Official SDK evidence includes two complete seed-zero lobbies, identical accepted statuses and ordered baseline/drain actions with and without extra status reads, early controlled elimination with placement 8, autonomous remaining-lobby completion, terminal budget, rejection of further actions and duplicate start, preserved close outcome, and fresh start. The concrete adapter additionally proves capacity 14 leaves combat unstarted at exhaustion, explicit end_turn remains available, frozen post-combat own records survive native removal, and a native winner-cleanup fixture retains placement 1 and its own snapshot. Public terminal health and level remain separate from the private own projection.
+
+Injected internal steps, partial native writes, atomic audit replacement failure, late tool-result failure, failed close mutation and bounded-progress exhaustion preserve the original environment, policies, module bindings, RNG, audit bytes and accepted native bytes. Retried progression matches an uninterrupted real-simulator run. Shared pool/player/encoder/action-handler/step-function/combat-RNG aliases remain intact. An actual unavailable audit destination is rejected before native construction; logged status reads preserve environment/native-directory/RNG identities.
+
+A final transport patch makes rejection-audit failure return `log_unavailable` instead of swallowing it. The affected source protocol check passed one test after the complete-suite run. The installed extension was then rebuilt and the same installed failure check passed one test. These two files, and this verification record, are the working diff after tested HEAD `6196ef6`; the commit containing this record owns that final patch. Source, tests, scripts and configuration have combined SHA-256 `0969675ab912a2ff4de876e309d50c7cff64680dd015df1c6956c97e4755a71a`.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_protocol.py -k audit_and_native -q
+```
+
+A fresh CPU-only, noneditable environment at `/tmp/tft-mcp-install-7` installed the unchanged simulator and extension. Both distributions record empty `dir_info`, and imports from `/tmp` resolve inside its site-packages. Python 3.14.7, MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0 and Gymnasium 1.4.0 match the source checks. No GPU or model-hosting distribution was installed. The final extension was reinstalled after merging both catalogs:
+
+```sh
+uv venv /tmp/tft-mcp-install-7
+uv pip install --python /tmp/tft-mcp-install-7/bin/python . './mcp/server[dev]'
+uv pip install --python /tmp/tft-mcp-install-7/bin/python --reinstall-package tft-mcp-server './mcp/server[dev]'
+```
+
+Setuptools generated root build and egg-info artifacts during installation. Only those generated untracked artifacts were moved outside the checkout before the final scope check. Simulator and root source, packaging, mandatory dependencies and CI remain unchanged.
+
+From `/tmp`, the final installed absolute console launcher passed 15 combined lifecycle, full-lobby, champion/trait and item checks in 127.39 seconds. The late rejection-audit patch was reinstalled and its affected installed check passed separately in 2.27 seconds.
+
+```sh
+env -u APPIMAGE TFT_MCP_TEST_COMMAND=/tmp/tft-mcp-install-7/bin/tft-mcp /tmp/tft-mcp-install-7/bin/python -m pytest -c /tmp/tft-mcp-worktrees/issue-7/mcp/server/pyproject.toml /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_protocol.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_champion_catalog.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_item_protocol.py -q
+env -u APPIMAGE TFT_MCP_TEST_COMMAND=/tmp/tft-mcp-install-7/bin/tft-mcp /tmp/tft-mcp-install-7/bin/python -m pytest -c /tmp/tft-mcp-worktrees/issue-7/mcp/server/pyproject.toml /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_protocol.py -k audit_and_native -q
+```
+
+Relevant unchanged simulator checks passed 11 tests after the integration refresh, with two existing PettingZoo observation warnings. Scope and whitespace checks passed against the combined catalog base, including the final working diff:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 /tmp/tft-mcp-env/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py 497a426f50a16bc0b239f9fa843e38b24691ef59
+git diff --check
+```
+
+Initial tracer failure for missing planning budget was resolved. Two obsolete lifecycle assertions were reconciled with atomic buffering and audit preflight: failed candidate startup records remain unpublished, and diagnostic directories are identified by error details. One installed check invocation referenced nonexistent catalog filenames and ran no tests; the corrected combined command above passed. No unresolved executed check failed.
+
+This bounded slice does not implement later inspection/action tools, runtime set selection, simulator schedule repairs, restart recovery, cross-file crash persistence, GitHub CI or required real Codex client acceptance. The owner subsequently rejected fixed set hardcoding; the parent owns scope reconciliation and readiness of affected contracts. Scheduling and recovery use the installed simulator and existing baseline without adding a set-specific rules table. Owner acceptance, PR integration and deployment are separate from the technical evidence recorded here.
+
+## Installed-simulator clarification after #7
+
+The owner clarified on 2026-10-09 that the extension uses the installed simulator without a fixed set number. Current tool descriptions, package/module descriptions, shared and server guides, setup prompt and Spec now follow that direction. No runtime set selector, guard, copied catalog, core change or generic multiset framework was added. Existing concrete mechanics remain supported through their installed definitions. Kayn form metadata now excludes form-item IDs absent from `item_stats.items`.
+
+Simulator identity records `environment_name` directly from `TFT_Simulator.metadata`. The tested installed source currently reports `tft-set4-v0`; this is observed source metadata, not a server set constant or compatibility guard. Source digest and distribution/revision evidence remain recorded.
+
+The final clarification diff was tested against precommit HEAD `c866647`, with combined integration base `497a426f50a16bc0b239f9fa843e38b24691ef59`. Server source, tests, scripts and configuration have combined SHA-256 `2997a48fc27245073e55129dafa5193703e67240762a2582bf53572815b38d4b`. The commit containing this clarification record owns the tested diff.
+
+Affected catalog and lifecycle source checks passed 20 tests. The final noneditable extension was reinstalled, and the same checks through the installed launcher from `/tmp` passed 20 tests in 21.06 seconds. These checks include generic MCP descriptions, absence/rejection of a set selector, actual environment metadata, omission of absent special items and existing exhaustive source-definition comparisons:
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_champion_catalog.py mcp/server/tests/test_item_catalog.py mcp/server/tests/test_item_protocol.py mcp/server/tests/test_protocol.py -k 'not seed_zero_full_lobby' -q
+env -u APPIMAGE TFT_MCP_TEST_COMMAND=/tmp/tft-mcp-install-7/bin/tft-mcp /tmp/tft-mcp-install-7/bin/python -m pytest -c /tmp/tft-mcp-worktrees/issue-7/mcp/server/pyproject.toml /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_champion_catalog.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_item_catalog.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_item_protocol.py /tmp/tft-mcp-worktrees/issue-7/mcp/server/tests/test_protocol.py -k 'not seed_zero_full_lobby' -q
+```
+
+Focused real-simulator lifecycle/progression checks passed another 14 tests after the metadata change. Complete seed-zero lobbies were not rerun for the later labeling/metadata clarification because scheduling and recovery were unchanged; their preceding complete source and installed evidence remains recorded above.
+
+```sh
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_session.py mcp/server/tests/test_progression.py -k 'not real_seed_zero' -q
+```
+
+An independent focused source/test review at checkpoint `11e60e1` found no material atomicity issue and confirmed audit/native preflight, non-failing post-replacement publication, full aggregate alias recovery and final snapshot completeness. The parent retained its report at `/tmp/tft-mcp-context/review-7-atomicity.md`. That review is distinct from final parent review of the clarified contract and whole-milestone acceptance.

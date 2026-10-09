@@ -29,8 +29,8 @@ STATUS_SCHEMA = {
         "round": {"type": ["integer", "null"]},
         "planning_budget": {
             "type": ["object", "null"],
-            "properties": {"capacity": {"type": "integer", "minimum": 0},
-                           "remaining": {"type": "integer", "minimum": 0}},
+            "properties": {"capacity": {"type": "integer", "const": 14},
+                           "remaining": {"type": "integer", "minimum": 0, "maximum": 14}},
             "required": ["capacity", "remaining"], "additionalProperties": False,
         },
         "outcome": OUTCOME_SCHEMA,
@@ -40,6 +40,8 @@ STATUS_SCHEMA = {
 }
 EMPTY_INPUT = {"type": "object", "properties": {}, "additionalProperties": False}
 TOOLS = [
+    Tool(name="end_turn", description="End planning explicitly and return the next decision or completed lobby.",
+         inputSchema=EMPTY_INPUT, outputSchema=STATUS_SCHEMA),
     Tool(name="start_game", description="Start one seeded eight-player game with player_0 controlled. Close an active game first.",
          inputSchema={"type": "object", "properties": {
              "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647}},
@@ -59,7 +61,7 @@ CHAMPION_SUMMARY = {"type": "object", "properties": {
     "champion_id": {"type": "string"}, "cost": {"type": "integer"},
     "traits": {"type": "array", "items": {"type": "string"}}},
     "required": ["champion_id", "cost", "traits"], "additionalProperties": False}
-TOOLS.append(Tool(name="search_champions", description="Search canonical Set 4 champion IDs with optional cost and intrinsic trait filters. Works without a game.",
+TOOLS.append(Tool(name="search_champions", description="Search canonical installed simulator champion IDs with optional cost and intrinsic trait filters. Works without a game.",
     inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""},
         "cost": {"type": "integer", "minimum": 1, "maximum": 5}, "trait_id": {"type": "string"}}, "additionalProperties": False},
     outputSchema={"type": "object", "properties": {"champions": {"type": "array", "items": CHAMPION_SUMMARY}},
@@ -83,7 +85,7 @@ CHAMPION_PROPERTIES = dict(CHAMPION_SUMMARY["properties"], **{
     "description": {"type": "null"}, "ability_description": {"type": "null"},
     "unavailable_fields": {"type": "array", "items": {"type": "string"}},
 })
-TOOLS.append(Tool(name="get_champion", description="Read raw Set 4 champion definitions, star gold costs and Chosen metadata. Descriptions unavailable; stats are not dynamically adjusted.",
+TOOLS.append(Tool(name="get_champion", description="Read raw installed simulator champion definitions, star gold costs and Chosen metadata. Descriptions unavailable; stats are not dynamically adjusted.",
     inputSchema={"type": "object", "properties": {"champion_id": {"type": "string"}}, "required": ["champion_id"], "additionalProperties": False},
     outputSchema={"type": "object", "properties": CHAMPION_PROPERTIES, "required": list(CHAMPION_PROPERTIES), "additionalProperties": False}))
 
@@ -97,13 +99,13 @@ TRAIT_PROPERTIES = dict(TRAIT_SUMMARY["properties"], **{
     "description": {"type": "null"}, "unavailable_fields": {"type": "array", "items": {"type": "string"}},
 })
 TOOLS.extend([
-    Tool(name="search_traits", description="Search canonical Set 4 trait IDs and activation thresholds without a game.",
+    Tool(name="search_traits", description="Search canonical installed simulator trait IDs and activation thresholds without a game.",
          inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""}}, "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"traits": {"type": "array", "items": TRAIT_SUMMARY}}, "required": ["traits"], "additionalProperties": False}),
-    Tool(name="get_trait", description="Read Set 4 trait thresholds, raw effect parameters and intrinsic champion membership. Ninja activation is exact; descriptions unavailable.",
+    Tool(name="get_trait", description="Read installed simulator trait thresholds, raw effect parameters and intrinsic champion membership. Ninja activation is exact; descriptions unavailable.",
          inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
          outputSchema={"type": "object", "properties": TRAIT_PROPERTIES, "required": list(TRAIT_PROPERTIES), "additionalProperties": False}),
-    Tool(name="get_trait_champions", description="List canonical champions with an intrinsic Set 4 trait, without item or Chosen counts.",
+    Tool(name="get_trait_champions", description="List canonical champions with an intrinsic installed simulator trait, without item or Chosen counts.",
          inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}, "champions": {"type": "array", "items": CHAMPION_SUMMARY}}, "required": ["trait_id", "champions"], "additionalProperties": False}),
 ])
@@ -134,14 +136,14 @@ ITEM_SCHEMA = {
     "additionalProperties": False,
 }
 TOOLS.extend([
-    Tool(name="search_items", description="Search static Set 4 item IDs by case-insensitive substring and optional kind, without a game.",
+    Tool(name="search_items", description="Search static installed simulator item IDs by case-insensitive substring and optional kind, without a game.",
          inputSchema={"type": "object", "properties": {
              "query": {"type": "string", "default": ""},
              "kind": {"type": "string", "enum": ["component", "equipment", "consumable"]}},
              "additionalProperties": False},
          outputSchema={"type": "object", "properties": {"items": {"type": "array", "items": ITEM_SUMMARY_SCHEMA}},
                        "required": ["items"], "additionalProperties": False}),
-    Tool(name="get_item", description="Inspect an exact canonical Set 4 item ID, raw effects, recipes and simulator constraints. Official description is unavailable.",
+    Tool(name="get_item", description="Inspect an exact canonical installed simulator item ID, raw effects, recipes and simulator constraints. Official description is unavailable.",
          inputSchema={"type": "object", "properties": {"item_id": {"type": "string"}},
                       "required": ["item_id"], "additionalProperties": False}, outputSchema=ITEM_SCHEMA),
 ])
@@ -152,7 +154,7 @@ def validate_arguments(name, arguments):
         if set(arguments) != {"seed"} or type(arguments.get("seed")) is not int or not 0 <= arguments["seed"] <= 2147483647:
             raise SessionError("invalid_input", "start_game requires only seed, an integer from 0 through 2147483647.",
                                {"tool": name})
-    elif name in {"get_game_status", "close_game"}:
+    elif name in {"get_game_status", "close_game", "end_turn"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
     elif name == "search_traits":
@@ -210,6 +212,9 @@ async def serve():
                         result = session.start_game(arguments["seed"])
                     elif name == "get_game_status":
                         result = session.get_game_status()
+                    elif name == "end_turn":
+                        result = session.end_turn()
+
                     elif name == "search_traits":
                         result = session.search_traits(**arguments)
                     elif name == "get_trait":
@@ -235,8 +240,8 @@ async def serve():
                 result = SessionError("internal_error", "Unexpected server failure.", {"error": str(error)}).result()
             try:
                 session.record("tool_error", tool=name, arguments=arguments, result=result, is_error=True)
-            except SessionError:
-                pass
+            except SessionError as log_error:
+                result = log_error.result()
             return CallToolResult(content=[TextContent(type="text", text=json.dumps(result))],
                                   structuredContent=result, isError=True)
 

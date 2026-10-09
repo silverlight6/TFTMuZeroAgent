@@ -78,7 +78,8 @@ def test_failed_initialization_restores_rng_and_retains_diagnostic_evidence(tmp_
     assert np.array_equal(np.random.get_state()[1], numpy_state[1])
     evidence = Path(failed.value.details["native_log_dir"])
     assert evidence.is_dir()
-    assert '"event": "failed_start"' in (tmp_path / "audit.jsonl").read_text()
+    # Failed candidate records are unpublished; the error identifies native evidence.
+    assert not (tmp_path / "audit.jsonl").exists()
     assert session.start_game(123)["state"] == "running"
     session.close_game()
 

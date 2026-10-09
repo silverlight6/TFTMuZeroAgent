@@ -138,3 +138,24 @@ async def test_catalog_queries_preserve_running_status(tmp_path):
                                 ('get_trait_champions', {'trait_id': 'keeper'})]:
             assert not (await session.call_tool(name, arguments)).isError
         assert (await session.call_tool('get_game_status', {})).structuredContent == started.structuredContent
+
+
+@pytest.mark.anyio
+async def test_tools_describe_installed_simulator_without_set_selector(tmp_path):
+    import re
+    async with client(tmp_path) as session:
+        for tool in (await session.list_tools()).tools:
+            assert re.search(r'\bset\s*\d+\b', tool.description, re.IGNORECASE) is None
+            assert not {'set', 'set_id', 'set_number'} & set(tool.inputSchema.get('properties', {}))
+        result = await session.call_tool('start_game', {'seed': 0, 'set': 4})
+        assert result.isError
+        assert result.structuredContent['code'] == 'invalid_input'
+
+
+def test_special_metadata_omits_forms_absent_from_installed_definitions(monkeypatch):
+    from Simulator.battle import item_stats
+    from tft_mcp.session import GameSession
+    with monkeypatch.context() as patch:
+        patch.delitem(item_stats.items, 'kayn_rhast')
+        result = GameSession().get_champion('kayn')
+    assert result['special_attributes']['kayn_forms'] == ['kayn_shadowassassin']
