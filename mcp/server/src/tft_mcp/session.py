@@ -46,6 +46,34 @@ class GameSession:
         self.sequence = 0
         self.server_id = uuid.uuid4().hex
 
+    def search_champions(self, query='', cost=None, trait_id=None):
+        from tft_mcp import champion_catalog
+        if trait_id is not None and trait_id not in champion_catalog.origin_class_stats.tiers:
+            raise SessionError('invalid_input', 'Unknown trait filter.', {'field': 'trait_id', 'value': trait_id})
+        return champion_catalog.search_champions(query, cost, trait_id)
+
+    def get_champion(self, champion_id):
+        from tft_mcp import champion_catalog
+        if champion_id not in champion_catalog.stats.BASE_CHAMPION_LIST:
+            raise SessionError('unknown_champion', f'Unknown champion: {champion_id}.', {'champion_id': champion_id})
+        return champion_catalog.get_champion(champion_id)
+
+    def search_traits(self, query=''):
+        from tft_mcp import champion_catalog
+        return champion_catalog.search_traits(query)
+
+    def get_trait(self, trait_id):
+        from tft_mcp import champion_catalog
+        if trait_id not in champion_catalog.origin_class_stats.tiers:
+            raise SessionError('unknown_trait', f'Unknown trait: {trait_id}.', {'trait_id': trait_id})
+        return champion_catalog.get_trait(trait_id)
+
+    def get_trait_champions(self, trait_id):
+        from tft_mcp import champion_catalog
+        if trait_id not in champion_catalog.origin_class_stats.tiers:
+            raise SessionError('unknown_trait', f'Unknown trait: {trait_id}.', {'trait_id': trait_id})
+        return champion_catalog.get_trait_champions(trait_id)
+
     def search_items(self, query="", kind=None):
         from tft_mcp.item_catalog import search_items
 

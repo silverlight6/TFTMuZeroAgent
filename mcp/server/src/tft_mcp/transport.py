@@ -55,6 +55,60 @@ TOOLS = [
 ]
 
 
+CHAMPION_SUMMARY = {"type": "object", "properties": {
+    "champion_id": {"type": "string"}, "cost": {"type": "integer"},
+    "traits": {"type": "array", "items": {"type": "string"}}},
+    "required": ["champion_id", "cost", "traits"], "additionalProperties": False}
+TOOLS.append(Tool(name="search_champions", description="Search canonical Set 4 champion IDs with optional cost and intrinsic trait filters. Works without a game.",
+    inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""},
+        "cost": {"type": "integer", "minimum": 1, "maximum": 5}, "trait_id": {"type": "string"}}, "additionalProperties": False},
+    outputSchema={"type": "object", "properties": {"champions": {"type": "array", "items": CHAMPION_SUMMARY}},
+        "required": ["champions"], "additionalProperties": False}))
+
+
+CHAMPION_PROPERTIES = dict(CHAMPION_SUMMARY["properties"], **{
+    "star_costs": {"type": "array", "items": {"type": "object", "properties": {
+        "stars": {"type": "integer", "enum": [1, 2, 3]}, "gold": {"type": "integer"}},
+        "required": ["stars", "gold"], "additionalProperties": False}},
+    "base_stats": {"type": "object"}, "rule_parameters": {"type": "object"},
+    "special_attributes": {"type": "object", "properties": {
+        "chosen": {"type": "object", "properties": {
+            "eligible_traits": {"type": "array", "items": {"type": "string"}},
+            "bonus": {"type": ["object", "null"], "properties": {
+                "stat": {"type": "string"}, "value": {"type": "number"}},
+                "required": ["stat", "value"], "additionalProperties": False}},
+            "required": ["eligible_traits", "bonus"], "additionalProperties": False},
+        "kayn_forms": {"type": "array", "items": {"type": "string"}}},
+        "required": ["chosen", "kayn_forms"], "additionalProperties": False},
+    "description": {"type": "null"}, "ability_description": {"type": "null"},
+    "unavailable_fields": {"type": "array", "items": {"type": "string"}},
+})
+TOOLS.append(Tool(name="get_champion", description="Read raw Set 4 champion definitions, star gold costs and Chosen metadata. Descriptions unavailable; stats are not dynamically adjusted.",
+    inputSchema={"type": "object", "properties": {"champion_id": {"type": "string"}}, "required": ["champion_id"], "additionalProperties": False},
+    outputSchema={"type": "object", "properties": CHAMPION_PROPERTIES, "required": list(CHAMPION_PROPERTIES), "additionalProperties": False}))
+
+
+TRAIT_SUMMARY = {"type": "object", "properties": {
+    "trait_id": {"type": "string"}, "thresholds": {"type": "array", "items": {"type": "integer"}}},
+    "required": ["trait_id", "thresholds"], "additionalProperties": False}
+TRAIT_PROPERTIES = dict(TRAIT_SUMMARY["properties"], **{
+    "activation": {"type": "string", "enum": ["minimum", "exact"]}, "effects": {"type": "object"},
+    "champion_ids": {"type": "array", "items": {"type": "string"}}, "chosen_eligible": {"type": "boolean"},
+    "description": {"type": "null"}, "unavailable_fields": {"type": "array", "items": {"type": "string"}},
+})
+TOOLS.extend([
+    Tool(name="search_traits", description="Search canonical Set 4 trait IDs and activation thresholds without a game.",
+         inputSchema={"type": "object", "properties": {"query": {"type": "string", "default": ""}}, "additionalProperties": False},
+         outputSchema={"type": "object", "properties": {"traits": {"type": "array", "items": TRAIT_SUMMARY}}, "required": ["traits"], "additionalProperties": False}),
+    Tool(name="get_trait", description="Read Set 4 trait thresholds, raw effect parameters and intrinsic champion membership. Ninja activation is exact; descriptions unavailable.",
+         inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": TRAIT_PROPERTIES, "required": list(TRAIT_PROPERTIES), "additionalProperties": False}),
+    Tool(name="get_trait_champions", description="List canonical champions with an intrinsic Set 4 trait, without item or Chosen counts.",
+         inputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}}, "required": ["trait_id"], "additionalProperties": False},
+         outputSchema={"type": "object", "properties": {"trait_id": {"type": "string"}, "champions": {"type": "array", "items": CHAMPION_SUMMARY}}, "required": ["trait_id", "champions"], "additionalProperties": False}),
+])
+
+
 ITEM_SUMMARY_SCHEMA = {
     "type": "object", "properties": {
         "item_id": {"type": "string"},
@@ -101,6 +155,15 @@ def validate_arguments(name, arguments):
     elif name in {"get_game_status", "close_game"}:
         if arguments:
             raise SessionError("invalid_input", f"{name} takes no arguments.", {"tool": name})
+    elif name == "search_traits":
+        validate_catalog_arguments(arguments, {"query"})
+    elif name in {"get_trait", "get_trait_champions"}:
+        validate_catalog_arguments(arguments, {"trait_id"}, {"trait_id"})
+    elif name == "get_champion":
+        validate_catalog_arguments(arguments, {"champion_id"}, {"champion_id"})
+    elif name == "search_champions":
+        validate_catalog_arguments(arguments, {"query", "cost", "trait_id"})
+
     elif name in {"search_items", "get_item"}:
         allowed = {"query", "kind"} if name == "search_items" else {"item_id"}
         for field in arguments:
@@ -113,6 +176,18 @@ def validate_arguments(name, arguments):
                 raise SessionError("invalid_input", f"Invalid {field}.", {"field": field, "value": value})
     else:
         raise SessionError("invalid_input", "Unknown tool.", {"tool": name})
+
+
+def validate_catalog_arguments(arguments, allowed, required=()):
+    for field in sorted(set(arguments) - allowed):
+        raise SessionError("invalid_input", "Unknown argument.", {"field": field, "value": arguments[field]})
+    for field in sorted(required):
+        if field not in arguments:
+            raise SessionError("invalid_input", "Missing required argument.", {"field": field, "value": None})
+    for field, value in arguments.items():
+        valid = type(value) is int and 1 <= value <= 5 if field == "cost" else type(value) is str
+        if not valid:
+            raise SessionError("invalid_input", "Invalid argument value.", {"field": field, "value": value})
 
 
 async def serve():
@@ -135,6 +210,17 @@ async def serve():
                         result = session.start_game(arguments["seed"])
                     elif name == "get_game_status":
                         result = session.get_game_status()
+                    elif name == "search_traits":
+                        result = session.search_traits(**arguments)
+                    elif name == "get_trait":
+                        result = session.get_trait(**arguments)
+                    elif name == "get_trait_champions":
+                        result = session.get_trait_champions(**arguments)
+                    elif name == "get_champion":
+                        result = session.get_champion(**arguments)
+                    elif name == "search_champions":
+                        result = session.search_champions(**arguments)
+
                     elif name == "search_items":
                         result = session.search_items(**arguments)
                     elif name == "get_item":

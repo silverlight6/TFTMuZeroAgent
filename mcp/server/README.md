@@ -1,6 +1,6 @@
 # TFT MCP server
 
-The Python stdio server operates one seeded eight-player TFT Set 4 game. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. This lifecycle slice starts, inspects, and closes games. Gameplay scheduling and action tools arrive in later slices. Read the shared [Spec](../SPEC.md).
+The Python stdio server operates one seeded eight-player TFT Set 4 game. `player_0` is controlled through MCP; seven opponents own existing `Default_Agent(False)` policies. The server starts, inspects, and closes games and queries static champion and trait rules. Gameplay scheduling and action tools arrive in later slices. Read the shared [Spec](../SPEC.md).
 
 Install the unchanged simulator first, then the extension in a CPU-only virtual environment. Run these commands from the repository checkout, replacing `/absolute/path/tft-mcp-venv` with your environment path:
 
@@ -48,6 +48,18 @@ Run local checks from the repository checkout after installing the extension's `
 When running directly against an uninstalled extension checkout, set `PYTHONPATH=mcp/server/src`. To verify the installed console entry point rather than source imports, set `TFT_MCP_TEST_COMMAND=/absolute/path/tft-mcp-venv/bin/tft-mcp` and run `mcp/server/tests/test_protocol.py`. These SDK tests launch the server outside the checkout and remove source-path imports for the installed command. On the affected AppImage host, prepend `env -u APPIMAGE` to Python commands too.
 
 The [verification record](verification.md) distinguishes this slice's lifecycle evidence from later complete-game and real Codex client acceptance.
+
+Champion and trait catalogs work in idle, running, and terminal states. `search_champions` accepts optional `query`, integer `cost` from 1 through 5, and exact `trait_id` filters. `search_traits` accepts optional `query`. Search queries match case-insensitive substrings of canonical IDs, filters combine with AND, and results sort by ID. Empty results are valid. IDs include `jarvaniv`, `leesin`, `tahmkench`, and `the_boss`; display-name aliases are unsupported.
+
+`get_champion` requires `champion_id`. `get_trait` and `get_trait_champions` require `trait_id`. Exact IDs are case-sensitive. Unknown IDs return `unknown_champion` or `unknown_trait` and the requested ID in error details. Invalid filters, missing fields, nulls, types and unknown keys return `invalid_input` with `field` and `value` details. An unknown search trait filter is invalid input.
+
+Champion details include raw base stats, other named rule parameters, intrinsic traits, star gold values and Chosen metadata. Trait details include thresholds, activation mode, raw effects and intrinsic membership. Ninja activates at exactly one or four; other thresholds are minimum counts. Values retain simulator table conventions and inactive array entries. Missing descriptions are null and explicitly listed in `unavailable_fields`. Responses do not calculate adjusted combat stats. Kayn form IDs describe supported item inputs; the source has inconsistent form names between assignment and combat, so the catalog does not establish transformation correctness.
+
+Run catalog acceptance with the same environment as the local checks:
+
+```sh
+PYTHONPATH=mcp/server/src /absolute/path/tft-mcp-venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests/test_champion_catalog.py
+```
 
 `search_items` and `get_item` query static Set 4 definitions even while idle. `search_items` accepts optional string `query` and optional `kind` of `component`, `equipment`, or `consumable`. Query uses case-insensitive identifier substring matching; both filters combine. Results are sorted by canonical `item_id` and include `kind` and `craftable`. `get_item` requires an exact case-sensitive `item_id`, for example `tear_of_the_goddess`, `guardian_angel`, or `kayn_rhast`. Unknown IDs return `unknown_item`. Extra arguments, wrong types, and explicit null filters return `invalid_input`.
 

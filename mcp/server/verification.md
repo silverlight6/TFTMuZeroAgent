@@ -47,6 +47,35 @@ Scope includes committed HEAD, index, working tree and untracked paths; renamed 
 
 Initial red checks failed as intended for missing lifecycle implementation, missing production launcher and missing actual interpreter-hash recording. Those failures are resolved. No remaining executed check failed. Scheduling, executable terminal transitions, complete-game replay, later action tools and real Codex/Claude client acceptance were not executed for this bounded lifecycle slice; they remain owned by their later tickets. No release, PR merge, owner acceptance or deployment is claimed here.
 
+## Champion and trait catalog slice
+
+Ticket [#5](https://github.com/KyleDerZweite/TFTMuZeroAgent/issues/5), verified on 2026-10-09 in `/tmp/tft-mcp-worktrees/issue-5` on `feat/mcp-5-champions`. Reviewed base is integrated lifecycle commit `de46dd110f6a94229df4af5baa8ea619581138da`. Tested implementation HEAD is `587abcdd8d193f73e58f31e8a7bac639754be85b` with a clean working tree. Merging the current local `feat/mcp-server-main` before final checks reported already up to date. The subsequent verification-record commit changes only this document.
+
+The accepted catalog contract was refreshed against the concrete lifecycle adapter and transport, then recorded in the Spec. Static projections belong to `champion_catalog.py`; transport owns schemas and validation and calls concrete session methods. Imports point into simulator definition tables. No champions are constructed for queries or expected values. No simulator source, root packaging, dependency or CI changes were made.
+
+The source suite passed 22 tests:
+
+```sh
+env -u APPIMAGE PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+```
+
+Six catalog tests cover production-launcher SDK discovery and schemas, idle queries, combined filters and empty searches, exact unknown IDs, strict types and unknown keys, Kayn metadata, star gold values, ninja exact activation, fortune parameters, intrinsic trait membership, and running-state status preservation. Focused adapter evidence compares every canonical champion and trait to simulator definitions, snapshots all definition dictionaries/lists and Python/NumPy RNG state, and mutates nested returned values before querying again. Source consistency and defensive-copy checks passed.
+
+The relevant unchanged simulator checks passed 11 tests with the same two PettingZoo observation warnings:
+
+```sh
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py -q
+```
+
+Complete committed/index/working/untracked scope and whitespace checks passed:
+
+```sh
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py de46dd110f6a94229df4af5baa8ea619581138da
+git diff --check de46dd110f6a94229df4af5baa8ea619581138da
+```
+
+Red tests first failed because search, champion detail and trait tools were absent. Initial expected literals for Kayn Chosen eligibility and star gold values disagreed with source; those expectations were corrected to exclude tormented and use 5/14/44 gold. No executed check remains failed. This slice used the existing source verification environment without changing installed distributions. Fresh installed-package verification, independent integration review, complete gameplay and actual Codex/Claude host acceptance remain later integration evidence. No release, merge, deployment or owner acceptance is claimed.
+
 ## Ticket #6 item catalog verification
 
 Reviewed base and refreshed concrete lifecycle seam: `de46dd110f6a94229df4af5baa8ea619581138da`. Implementation head tested: `f1b24b17e4f71bd11bcf5a3f8dc8404355b83f2d` on `feat/mcp-6-items` in `/tmp/tft-mcp-worktrees/issue-6`. The integration tip was merged before final checks and was already the base. The final documentation-only commit adds this record. Working changes were clean before the record.
@@ -67,3 +96,17 @@ TDD recorded failing adapter search, adapter detail and production discovery tes
 The first broad source snapshot check failed because it included Python module `__builtins__`; the check now captures definition tables only. Subsequent checks passed. The static helper also excludes module metadata from effect tables.
 
 Fresh installation, real Codex connection, complete gameplay and working Kayn combat transformation were not executed by this slice. Existing installation acceptance belongs to lifecycle/setup; complete gameplay belongs to later slices. Kayn's source mismatch is explicitly exposed in catalog constraints and recorded in the Spec, with no core fix or promise of working transformation. Technical slice verification does not establish host-client or owner acceptance.
+
+## Ticket #5 refresh after item catalog integration
+
+The isolated `feat/mcp-5-champions` branch merged verified integration tip `24f8fb7a5498126f7cb608b61079b4c65edb88a6` before handoff. Tested merge HEAD is `8155faade1ff4eb5918811729316e54c0b008b62`, with a clean working tree. Additive conflicts in session methods, transport registration/validation/dispatch, README and verification records preserve both catalog contracts. The lifecycle discovery test retains the integrated subset assertion. The Spec merged both accepted contracts. No unintegrated progression code was included.
+
+The combined source suite passed 28 tests, including both item and champion/trait production MCP journeys and focused adapter checks:
+
+```sh
+env -u APPIMAGE PYTHONPATH=mcp/server/src /tmp/tft-mcp-env/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+env -u APPIMAGE /tmp/tft-mcp-env/bin/python mcp/server/scripts/check_scope.py 24f8fb7a5498126f7cb608b61079b4c65edb88a6
+git diff --check 24f8fb7a5498126f7cb608b61079b4c65edb88a6
+```
+
+Scope passed for seven changed paths against the refreshed base. The whitespace check passed, and no conflict markers remain. Simulator code and dependencies did not change, so the earlier 11 passed simulator checks remain applicable. The parent independently reviewed the original #5 diff without a material finding. Refreshed independent integration review and installed-package verification remain parent integration work. The commit containing this refresh record changes documentation only.

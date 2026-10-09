@@ -95,6 +95,22 @@ The adapter gives native simulator logging an isolated writable working director
 
 Repository documentation, issues, pull requests, and code comments are written in English. Discussion with the owner is in German.
 
+## Champion and trait catalog contract
+
+The owner accepted these five tool schemas for #5. Review against integrated lifecycle revision `de46dd110f6a94229df4af5baa8ea619581138da` confirms that transport validation, `SessionError`, structured MCP errors, concrete `GameSession` methods and production launcher tests support this contract. `champion_catalog.py` owns static champion and trait projections. Transport delegates through the session; the helper reads definition tables and returns fresh values without constructing champions, running combat, or requiring a game.
+
+All inputs are objects with no unknown keys. Explicit null is invalid. IDs are exact, case-sensitive canonical simulator IDs. Search query defaults to an empty string and matches case-insensitive identifier substrings. Filters combine with AND. Results sort by canonical ID; no match returns an empty list. Champions are exactly `stats.BASE_CHAMPION_LIST`; traits are exactly `origin_class_stats.tiers` keys.
+
+- `search_champions({query?: string = "", cost?: integer 1..5, trait_id?: string})` returns `{champions: [{champion_id: string, cost: integer, traits: string[]}]}`. Booleans and decimal numbers are invalid costs. The trait filter must name a catalog trait.
+- `get_champion({champion_id: string})` returns `{champion_id, cost, traits, star_costs: [{stars: 1|2|3, gold: integer}], base_stats: object, rule_parameters: object, special_attributes: {chosen: {eligible_traits: string[], bonus: {stat: string, value: number}|null}, kayn_forms: string[]}, description: null, ability_description: null, unavailable_fields: ["description", "ability_description"]}`. Base stats are raw AD, AS, HEALTH, ARMOR, MR, MANA, MAXMANA and RANGE. Other keyed `stats.py` entries retain their names and raw values. Gold values come from `pool_stats.cost_star_values`; they are not combat strength. Chosen bonuses retain source stat/value and exclude `chosen_exclude` traits. Kayn alone reports literal `kayn_shadowassassin` and `kayn_rhast` form-item IDs. These values do not promise adjusted star, Chosen, or transformed combat stats.
+- `search_traits({query?: string = ""})` returns `{traits: [{trait_id: string, thresholds: integer[]}]}`.
+- `get_trait({trait_id: string})` returns `{trait_id, thresholds: integer[], activation: "minimum"|"exact", effects: object, champion_ids: string[], chosen_eligible: boolean, description: null, unavailable_fields: ["description"]}`. Ninja activation is exact; other traits use minimum thresholds. Effects retain keyed raw `origin_class_stats` parameters, including inactive entries. Fortune includes named `fortune_returns`. Empty effects remain valid. Membership is intrinsic and sorted.
+- `get_trait_champions({trait_id: string})` returns `{trait_id, champions: [{champion_id, cost, traits}]}` with the same summaries as champion search. Item grants and Chosen counts do not change intrinsic membership.
+
+Exact misses return `unknown_champion` or `unknown_trait`, with the requested ID in the message and details `{champion_id: value}` or `{trait_id: value}`. Invalid types, missing required fields, unknown keys, invalid costs and unknown trait filters return `invalid_input` with `{field, value}` details. Errors use MCP `isError` and `{code, message, details}`.
+
+Source limitation for later action acceptance: `player.transform_kayn` stores form-item IDs while `ability.py` checks `shadow_assassin` and `rhast`; bench assignment uses `kaynform` rather than `kayn_form`. The catalog reports literal inputs and raw parameters. This finding does not authorize core changes or establish combat transformation correctness.
+
 ## Testing decisions
 
 The principal acceptance seam is the MCP protocol: an official SDK client launches the production stdio server and calls its tools against the real simulator. Protocol tests prove discovery, schemas, structured results, and game behavior together.
