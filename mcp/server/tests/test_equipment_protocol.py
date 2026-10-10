@@ -1,7 +1,7 @@
 import pytest
 
-from test_protocol import client
-from test_movement import bench, board
+from support import client
+from support import bench, board
 
 
 @pytest.mark.anyio
@@ -55,47 +55,33 @@ async def test_stdio_equipment_discovery_strict_schema_and_natural_item(tmp_path
 @pytest.mark.anyio
 @pytest.mark.parametrize('item,equipment,expected', [('bf_sword', ['bf_sword'], ['deathblade']), ('magnetic_remover', ['bf_sword'], []), ('reforger', ['bf_sword'], []), ('champion_duplicator', [], []), ('thieves_gloves', [], None), ('kayn_rhast', [], [])])
 async def test_sdk_memory_rare_equipment_native_fixture(tmp_path, monkeypatch, item, equipment, expected):
-    from contextlib import asynccontextmanager
-    import anyio
-    from mcp import ClientSession
-    from mcp.shared.memory import create_client_server_memory_streams
-    import tft_mcp.transport as transport
-    from test_buy_sell import install_units, session_fixture
-    from test_shop_xp import gameplay
+    from support import memory_client
+    from support import install_units, session_fixture
+    from support import gameplay_with_numpy as gameplay
     session = session_fixture(tmp_path)
     is_kayn = item == 'kayn_rhast'
     player = install_units(session, **({'board': [((6, 3), 'kayn', 1, equipment)]} if is_kayn else {'bench': [(8, 'garen', 1, equipment)]}))
     player.item_bench = [item] + [None] * 9
     target = board(6, 3) if is_kayn else bench(8)
-    monkeypatch.setattr(transport, 'GameSession', lambda *args: session)
-    async with create_client_server_memory_streams() as (client_streams, server_streams):
-        @asynccontextmanager
-        async def streams():
-            yield server_streams
-        monkeypatch.setattr(transport, 'stdio_server', streams)
-        async with anyio.create_task_group() as tasks:
-            tasks.start_soon(transport.serve)
-            async with ClientSession(*client_streams) as sdk:
-                await sdk.initialize()
-                result = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': target})
-                assert not result.isError, result.structuredContent
-                receipt = result.structuredContent
-                assert receipt['item_id'] == item and receipt['target'] == target
-                assert receipt['status']['planning_budget']['remaining'] == 13
-                if item == 'champion_duplicator':
-                    assert receipt['unit_changes'][0]['after']['stars'] == 1
-                elif item == 'kayn_rhast':
-                    assert receipt['kayn_form'] == item
-                elif expected is not None:
-                    assert receipt['unit_changes'][0]['after']['items'] == expected
-                else:
-                    assert len(receipt['unit_changes'][0]['after']['items']) == 3
-                before = gameplay(session)
-                rejected = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': target})
-                assert rejected.isError and rejected.structuredContent['code'] == 'empty_slot'
-                assert gameplay(session) == before
-                await sdk.call_tool('close_game')
-            tasks.cancel_scope.cancel()
+    async with memory_client(session, monkeypatch) as sdk:
+        result = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': target})
+        assert not result.isError, result.structuredContent
+        receipt = result.structuredContent
+        assert receipt['item_id'] == item and receipt['target'] == target
+        assert receipt['status']['planning_budget']['remaining'] == 13
+        if item == 'champion_duplicator':
+            assert receipt['unit_changes'][0]['after']['stars'] == 1
+        elif item == 'kayn_rhast':
+            assert receipt['kayn_form'] == item
+        elif expected is not None:
+            assert receipt['unit_changes'][0]['after']['items'] == expected
+        else:
+            assert len(receipt['unit_changes'][0]['after']['items']) == 3
+        before = gameplay(session)
+        rejected = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': target})
+        assert rejected.isError and rejected.structuredContent['code'] == 'empty_slot'
+        assert gameplay(session) == before
+        await sdk.call_tool('close_game')
 
 
 @pytest.mark.anyio
@@ -150,31 +136,17 @@ async def test_stdio_equipment_replay_ignores_reads_and_rejections(tmp_path):
 
 @pytest.mark.anyio
 async def test_sdk_impossible_native_stars_reject_before_output_publication(tmp_path, monkeypatch):
-    from contextlib import asynccontextmanager
+    from support import memory_client
     import pickle
-    import anyio
-    from mcp import ClientSession
-    from mcp.shared.memory import create_client_server_memory_streams
-    import tft_mcp.transport as transport
-    from test_buy_sell import install_units, session_fixture
+    from support import install_units, session_fixture
     session = session_fixture(tmp_path)
     player = install_units(session, bench=[(0, 'garen', 5, [])])
     player.item_bench = ['bf_sword'] + [None] * 9
     before = pickle.dumps(session.game)
     status = session.get_game_status()
-    monkeypatch.setattr(transport, 'GameSession', lambda *args: session)
-    async with create_client_server_memory_streams() as (client_streams, server_streams):
-        @asynccontextmanager
-        async def streams():
-            yield server_streams
-        monkeypatch.setattr(transport, 'stdio_server', streams)
-        async with anyio.create_task_group() as tasks:
-            tasks.start_soon(transport.serve)
-            async with ClientSession(*client_streams) as sdk:
-                await sdk.initialize()
-                result = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': bench(0)})
-                assert result.isError
-                assert pickle.dumps(session.game) == before
-                assert result.structuredContent['code'] == 'internal_error'
-                assert session.get_game_status() == status
-            tasks.cancel_scope.cancel()
+    async with memory_client(session, monkeypatch) as sdk:
+        result = await sdk.call_tool('equip_item', {'item_slot': 0, 'target': bench(0)})
+        assert result.isError
+        assert pickle.dumps(session.game) == before
+        assert result.structuredContent['code'] == 'internal_error'
+        assert session.get_game_status() == status

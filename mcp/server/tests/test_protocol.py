@@ -1,39 +1,10 @@
-from contextlib import asynccontextmanager
 import json
 import os
 from pathlib import Path
 import sys
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from support import client
 import pytest
-
-
-@pytest.fixture
-def anyio_backend():
-    return "asyncio"
-
-
-@asynccontextmanager
-async def client(tmp_path, **environment):
-    env = dict(os.environ)
-    env.pop("APPIMAGE", None)
-    env.update({"TFT_MCP_AUDIT_PATH": str(tmp_path / "audit.jsonl"),
-                "TFT_MCP_NATIVE_LOG_DIR": str(tmp_path / "native")})
-    env.update(environment)
-    command = os.environ.get("TFT_MCP_TEST_COMMAND")
-    if command:
-        env.pop("PYTHONPATH", None)
-        args = []
-    else:
-        command = sys.executable
-        args = ["-m", "tft_mcp"]
-        env["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
-    parameters = StdioServerParameters(command=command, args=args, env=env, cwd=str(tmp_path))
-    async with stdio_client(parameters) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            yield session
 
 
 @pytest.mark.anyio
@@ -155,6 +126,61 @@ async def test_failed_close_keeps_game_active(tmp_path):
         audit.write_bytes(saved)
         assert (await session.call_tool("get_game_status", {})).structuredContent == started.structuredContent
         assert not (await session.call_tool("close_game", {})).isError
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('tool,arguments', [
+    ('start_game', {'seed': 0}), ('buy_unit', {'shop_slot': 0}),
+    ('end_turn', {}), ('close_game', {}),
+])
+async def test_invalid_output_rolls_back_before_sdk_error(tmp_path, monkeypatch, tool, arguments):
+    from support import memory_client
+    import pickle
+    from tft_mcp.session import GameSession
+
+    real_session = GameSession(tmp_path / 'audit.jsonl', tmp_path / 'native')
+    if tool != 'start_game':
+        real_session.start_game(0)
+        real_session.game.player_manager.player_states['player_0'].gold = 100
+    async with memory_client(real_session, monkeypatch) as sdk:
+        status = (await sdk.call_tool('get_game_status')).structuredContent
+        committed = real_session.game
+        graph = pickle.dumps(committed)
+        native_dir = real_session.native_dir
+        native_log = (native_dir / 'log.txt').read_bytes() if native_dir else None
+        accepted_audit = real_session.audit_path.read_bytes()
+        method = getattr(GameSession, tool)
+        def invalid_receipt(current, *args, **kwargs):
+            return {**method(current, *args, **kwargs), 'unexpected': True}
+        with monkeypatch.context() as patch:
+            patch.setattr(GameSession, tool, invalid_receipt)
+            result = await sdk.call_tool(tool, arguments)
+        assert result.isError
+        assert result.structuredContent is not None
+        assert result.structuredContent['code'] == 'internal_error'
+        assert result.structuredContent['message'] == 'Tool output does not match its schema.'
+        assert real_session.game is committed and pickle.dumps(real_session.game) == graph
+        assert real_session.native_dir == native_dir
+        if native_dir:
+            assert (native_dir / 'log.txt').read_bytes() == native_log
+        audit = real_session.audit_path.read_bytes()
+        assert audit.startswith(accepted_audit)
+        added = [json.loads(line) for line in audit[len(accepted_audit):].splitlines()]
+        assert len(added) == 1 and added[0]['event'] == 'tool_error'
+        assert added[0]['result'] == result.structuredContent
+        assert (await sdk.call_tool('get_game_status')).structuredContent == status
+        retry = await sdk.call_tool(tool, arguments)
+        assert not retry.isError
+        current = (await sdk.call_tool('get_game_status')).structuredContent
+        if tool == 'close_game':
+            assert current['state'] == 'idle' and real_session.game is None
+        elif tool == 'start_game':
+            assert current == retry.structuredContent and real_session.game is not None
+        elif tool == 'end_turn':
+            assert current['round'] > status['round']
+        else:
+            assert current['planning_budget']['remaining'] == status['planning_budget']['remaining'] - 1
+            assert real_session.get_shop()['slots'][0]['unit'] is None
 
 
 def test_protocol_stdout_is_json_and_malformed_envelopes_are_native_errors(tmp_path):

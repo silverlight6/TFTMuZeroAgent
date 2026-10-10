@@ -1,6 +1,6 @@
 import pytest
 
-from test_protocol import client
+from support import client
 
 
 @pytest.mark.anyio

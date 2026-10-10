@@ -7,7 +7,7 @@ name = "tft-mcp-server"
 version = "0.1.0"
 description = "Local stdio MCP tools for the installed TFT simulator"
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.30,<2", "tft-simulator==0.1.0"]
+dependencies = ["mcp>=1.30,<2", "anyio>=4.5", "jsonschema>=4.20", "tft-simulator==0.1.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

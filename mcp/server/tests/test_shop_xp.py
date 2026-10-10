@@ -1,13 +1,8 @@
 import pytest
 
 from tft_mcp.session import SessionError
-from test_buy_sell import session_fixture
-from test_progression import gameplay as progression_gameplay
-
-
-def gameplay(session):
-    from copy import deepcopy
-    return progression_gameplay(session), deepcopy(session.game.rng.np.bit_generator.state)
+from support import session_fixture
+from support import gameplay_with_numpy as gameplay
 
 
 def test_refresh_spends_native_cost_and_returns_detached_actual_shop(tmp_path):
@@ -46,7 +41,7 @@ def test_xp_uses_recursive_native_progression_and_preserves_bonus_capacity(tmp_p
 
 @pytest.mark.anyio
 async def test_production_shop_xp_discovery_strict_requests_and_earned_gold(tmp_path):
-    from test_protocol import client
+    from support import client
     from tft_mcp.transport import EMPTY_INPUT, SHOP_PROPERTIES, STATUS_SCHEMA
     async with client(tmp_path) as sdk:
         tools = {tool.name: tool for tool in (await sdk.list_tools()).tools}
@@ -79,23 +74,14 @@ async def test_production_shop_xp_discovery_strict_requests_and_earned_gold(tmp_
 @pytest.mark.parametrize('failure', ['native_action', 'observation', 'baseline', 'corrupt', 'noop', 'postcondition', 'native', 'audit'])
 @pytest.mark.parametrize('action', ['refresh_shop', 'buy_xp'])
 def test_failed_action_discards_aggregate_rng_logs_and_retries(tmp_path, monkeypatch, failure, action):
+    from support import capture_committed_state, assert_committed_state_unchanged, assert_native_aliases
     import os
-    import random
-    import numpy as np
-    from Simulator.battle import champion, origin_class
     from Simulator.simulators.tft_simulator import TFT_Simulator
     import tft_mcp.session as module
     session = session_fixture(tmp_path / 'actual')
     reference = session_fixture(tmp_path / 'reference')
     method = lambda current: getattr(current, action)()
-    original_game = session.game
-    original_policies = session.baselines
-    original_modules = session.module_state
-    original_rng = session.baseline_rng
-    before = gameplay(session)
-    logs = (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    process_rng = random.getstate(), np.random.get_state()
-    bindings = champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers
+    before = capture_committed_state(session)
     with monkeypatch.context() as patch:
         original_step = TFT_Simulator.step
         def fail_step(game, native_action):
@@ -137,29 +123,11 @@ def test_failed_action_discards_aggregate_rng_logs_and_retries(tmp_path, monkeyp
         with pytest.raises(SessionError) as error:
             method(session)
         assert error.value.code == ('log_unavailable' if failure in {'native', 'audit'} else 'internal_error')
-    assert session.game is original_game
-    assert session.baselines is original_policies
-    assert session.module_state is original_modules
-    assert session.baseline_rng is original_rng
-    assert gameplay(session) == before
-    assert logs == (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    assert random.getstate() == process_rng[0]
-    assert np.array_equal(np.random.get_state()[1], process_rng[1][1])
-    assert np.random.get_state()[2:] == process_rng[1][2:]
-    assert all(actual is expected for actual, expected in zip((champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers), bindings))
+    assert_committed_state_unchanged(session, before)
     method(session)
     method(reference)
     assert gameplay(session) == gameplay(reference)
-    game = session.game
-    assert game.rng is game.combat_ctx.rng
-    assert game.pool_obj is game.player_manager.pool_obj
-    assert game.game_round.PLAYERS is game.player_manager.player_states
-    for key, player in game.player_manager.player_states.items():
-        if player:
-            assert game.player_manager.observation_states[key].player is player
-            assert game.player_manager.action_handlers[key].player is player
-            assert player.pool_obj is game.pool_obj
-
+    assert_native_aliases(session.game)
 
 
 @pytest.mark.parametrize('action', ['refresh_shop', 'buy_xp'])
@@ -200,45 +168,31 @@ def test_rejections_preserve_gameplay_and_follow_validation_order(tmp_path, acti
 
 @pytest.mark.anyio
 async def test_sdk_memory_real_session_cap_success_and_atomic_rejection(tmp_path, monkeypatch):
-    from contextlib import asynccontextmanager
-    import anyio
-    from mcp import ClientSession
-    from mcp.shared.memory import create_client_server_memory_streams
-    import tft_mcp.transport as transport
+    from support import memory_client
     session = session_fixture(tmp_path)
     player = session.game.player_manager.player_states['player_0']
     player.level = player.max_level - 1
     player.exp = player.level_costs[player.level] - 1
     player.max_units += 2
-    monkeypatch.setattr(transport, 'GameSession', lambda *args: session)
-    async with create_client_server_memory_streams() as (client_streams, server_streams):
-        @asynccontextmanager
-        async def streams():
-            yield server_streams
-        monkeypatch.setattr(transport, 'stdio_server', streams)
-        async with anyio.create_task_group() as tasks:
-            tasks.start_soon(transport.serve)
-            async with ClientSession(*client_streams) as sdk:
-                await sdk.initialize()
-                result = await sdk.call_tool('buy_xp')
-                assert not result.isError
-                receipt = result.structuredContent
-                assert receipt['level'] == player.max_level and receipt['xp'] == 0
-                assert receipt['unit_capacity'] == 4
-                before = gameplay(session)
-                budget = session.get_game_status()
-                error = await sdk.call_tool('buy_xp')
-                assert error.isError and error.structuredContent['code'] == 'level_cap'
-                assert error.structuredContent['details']['max_level'] == player.max_level
-                assert gameplay(session) == before and session.get_game_status() == budget
-                await sdk.call_tool('close_game')
-            tasks.cancel_scope.cancel()
+    async with memory_client(session, monkeypatch) as sdk:
+        result = await sdk.call_tool('buy_xp')
+        assert not result.isError
+        receipt = result.structuredContent
+        assert receipt['level'] == player.max_level and receipt['xp'] == 0
+        assert receipt['unit_capacity'] == 4
+        before = gameplay(session)
+        budget = session.get_game_status()
+        error = await sdk.call_tool('buy_xp')
+        assert error.isError and error.structuredContent['code'] == 'level_cap'
+        assert error.structuredContent['details']['max_level'] == player.max_level
+        assert gameplay(session) == before and session.get_game_status() == budget
+        await sdk.call_tool('close_game')
 
 
 @pytest.mark.anyio
 async def test_production_refresh_replay_ignores_extra_reads_and_rejections(tmp_path):
     import json
-    from test_protocol import client
+    from support import client
     journeys = []
     for extra in (False, True):
         path = tmp_path / str(extra)
@@ -316,7 +270,7 @@ def test_native_thresholds_determine_progression_without_adapter_constants(tmp_p
 
 @pytest.mark.anyio
 async def test_production_shop_xp_audit_failure_recovers_without_gameplay_change(tmp_path):
-    from test_protocol import client
+    from support import client
     async with client(tmp_path) as sdk:
         await sdk.call_tool('start_game', {'seed': 0})
         for _ in range(3):

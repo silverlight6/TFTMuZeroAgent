@@ -1,15 +1,7 @@
 import pytest
 
-from test_buy_sell import install_units, session_fixture
+from support import install_units, session_fixture, board, bench, normalized_graph
 from tft_mcp.session import SessionError
-
-
-def board(x, y):
-    return {'kind': 'board', 'x': x, 'y': y}
-
-
-def bench(slot):
-    return {'kind': 'bench', 'slot': slot}
 
 
 def test_bench_entry_uses_board_orientation_and_one_action(tmp_path):
@@ -31,7 +23,7 @@ def test_bench_entry_uses_board_orientation_and_one_action(tmp_path):
     (bench(2), board(0, 0), 'capacity_exceeded'),
 ])
 def test_restrictions_are_atomic(tmp_path, source, target, code):
-    from test_shop_xp import gameplay
+    from support import gameplay_with_numpy as gameplay
     session = session_fixture(tmp_path)
     player = install_units(session, bench=[(2, 'garen', 1, [])])
     player.max_units = 0
@@ -98,7 +90,7 @@ def test_identical_visible_board_swap_consumes_action_without_delta(tmp_path):
 
 @pytest.mark.anyio
 async def test_production_sdk_movement_discovery_and_natural_journey(tmp_path):
-    from test_protocol import client
+    from support import client
     from tft_mcp.transport import LOCATION_SCHEMA, UNIT_CHANGE_SCHEMA, STATUS_SCHEMA
     async with client(tmp_path) as sdk:
         tools = {tool.name: tool for tool in (await sdk.list_tools()).tools}
@@ -213,25 +205,17 @@ def test_azir_guard_capacity_accounts_for_displacement_and_outgoing_guard_remova
 
 @pytest.mark.parametrize('failure', ['native_action', 'observation', 'mask', 'baseline', 'noop', 'corrupt', 'receipt', 'postcondition', 'native', 'audit'])
 def test_movement_failure_rolls_back_full_graph_rng_logs_and_fresh_retry(tmp_path, monkeypatch, failure):
+    from support import capture_committed_state, assert_committed_state_unchanged, assert_native_aliases
     import os
-    import pickle
-    import random
-    import numpy as np
-    from Simulator.battle import champion, origin_class
     from Simulator.game.player import Player
     from Simulator.simulators.tft_simulator import TFT_Simulator
     import tft_mcp.session as module
-    from test_shop_xp import gameplay
+    from support import gameplay_with_numpy as gameplay
     sessions = [session_fixture(tmp_path / name) for name in ('actual', 'reference')]
     for session in sessions:
         install_units(session, [(0, 'garen', 1, ['bf_sword'])])
     session, reference = sessions
-    accepted = session.game, session.baselines, session.module_state, session.baseline_rng, session.python_rng
-    graph = pickle.dumps(session.game)
-    before = gameplay(session)
-    logs = session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes()
-    process = random.getstate(), pickle.dumps(np.random.get_state())
-    bindings = champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers
+    before = capture_committed_state(session)
     with monkeypatch.context() as patch:
         native = Player.move_champ_action
         def fail_native(player, *args):
@@ -274,24 +258,12 @@ def test_movement_failure_rolls_back_full_graph_rng_logs_and_fresh_retry(tmp_pat
         with pytest.raises(SessionError) as error:
             session.move_unit(source=bench(0), target=board(6, 3))
         assert error.value.code == ('log_unavailable' if failure in {'native', 'audit'} else 'internal_error')
-    assert all(a is b for a, b in zip((session.game, session.baselines, session.module_state, session.baseline_rng, session.python_rng), accepted))
-    assert pickle.dumps(session.game) == graph  # Includes shared pool, traits, encoders and masks.
-    assert gameplay(session) == before
-    assert logs == (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    assert random.getstate() == process[0] and pickle.dumps(np.random.get_state()) == process[1]
-    assert all(a is b for a, b in zip((champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers), bindings))
+    assert_committed_state_unchanged(session, before)
     session.move_unit(source=bench(0), target=board(6, 3))
     reference.move_unit(source=bench(0), target=board(6, 3))
     assert gameplay(session) == gameplay(reference)
     assert normalized_graph(session.game) == normalized_graph(reference.game)
-    game = session.game
-    assert game.rng is game.combat_ctx.rng and game.pool_obj is game.player_manager.pool_obj
-    assert game.game_round.PLAYERS is game.player_manager.player_states
-    for key, player in game.player_manager.player_states.items():
-        if player:
-            assert game.player_manager.observation_states[key].player is player
-            assert game.player_manager.action_handlers[key].player is player
-            assert player.pool_obj is game.pool_obj
+    assert_native_aliases(session.game)
 
 
 @pytest.mark.parametrize('corruption', ['identity_noop', 'equipment', 'catalog', 'count', 'shop', 'inventory', 'gloves', 'coordinates'])
@@ -328,43 +300,10 @@ def test_corrupt_movement_results_cannot_commit(tmp_path, monkeypatch, corruptio
     assert pickle.dumps(session.game) == before
 
 
-def normalized_graph(game):
-    """Retain the graph, normalizing only native wall-clock fields and Player log clocks."""
-    import pickle
-    from copy import deepcopy
-    from Simulator.battle.champion import champion
-    from Simulator.game.player import Player
-    graph = deepcopy(game)
-    seen = set()
-    def normalize(value):
-        if id(value) in seen:
-            return
-        seen.add(id(value))
-        if isinstance(value, (Player, champion)):
-            value.start_time = 0
-        if isinstance(value, Player):
-            lines = []
-            for line in value.log:
-                assert line[:8] == f"{value.player_num:<8}"
-                float(line[8:28])  # The unchanged Player.print clock field.
-                lines.append(line[:8] + f"{0:<20}" + line[28:])
-            value.log[:] = lines
-        if hasattr(value, "__dict__"):
-            normalize(vars(value))
-        elif isinstance(value, dict):
-            for item in value.values():
-                normalize(item)
-        elif isinstance(value, (list, tuple)):
-            for item in value:
-                normalize(item)
-    normalize(graph)
-    return pickle.dumps(graph)
-
-
 @pytest.mark.anyio
 async def test_production_all_family_movement_tape_replays_with_extra_reads_and_rejection(tmp_path):
     import json
-    from test_protocol import client
+    from support import client
     journeys = []
     tape = [(bench(0), board(6, 3)), (bench(1), board(0, 0)),
             (board(6, 3), board(0, 0)), (board(0, 0), board(6, 3)),
@@ -417,7 +356,7 @@ async def test_production_all_family_movement_tape_replays_with_extra_reads_and_
 
 @pytest.mark.anyio
 async def test_production_strict_movement_inputs_preserve_state(tmp_path):
-    from test_protocol import client
+    from support import client
     invalid_locations = [None, {}, {'kind': 'board', 'x': 0}, {'kind': 'board', 'x': 0, 'y': 0, 'slot': 0},
                          {'kind': 'bench', 'slot': True}, {'kind': 'bench', 'slot': 1.0}, {'kind': 'bench', 'slot': None},
                          {'kind': 'bench', 'slot': -1}, {'kind': 'bench', 'slot': 9}, board(7, 0), board(0, 4),
@@ -470,39 +409,25 @@ def test_corrupt_azir_movement_rolls_back(tmp_path, monkeypatch, corruption):
 
 @pytest.mark.anyio
 async def test_sdk_memory_rare_real_azir_fixture_and_atomic_guard_rejection(tmp_path, monkeypatch):
-    from contextlib import asynccontextmanager
-    import anyio
-    from mcp import ClientSession
-    from mcp.shared.memory import create_client_server_memory_streams
-    import tft_mcp.transport as transport
-    from test_shop_xp import gameplay
+    from support import memory_client
+    from support import gameplay_with_numpy as gameplay
     session = session_fixture(tmp_path)
     install_units(session, [(0, 'azir', 1, [])])
-    monkeypatch.setattr(transport, 'GameSession', lambda *args: session)
-    async with create_client_server_memory_streams() as (client_streams, server_streams):
-        @asynccontextmanager
-        async def streams():
-            yield server_streams
-        monkeypatch.setattr(transport, 'stdio_server', streams)
-        async with anyio.create_task_group() as tasks:
-            tasks.start_soon(transport.serve)
-            async with ClientSession(*client_streams) as sdk:
-                await sdk.initialize()
-                entered = await sdk.call_tool('move_unit', {'source': bench(0), 'target': board(3, 2)})
-                assert not entered.isError
-                guards = [c['location'] for c in entered.structuredContent['unit_changes'] if c['after'] and c['after']['champion'] == 'sandguard']
-                assert len(guards) == 2
-                before = gameplay(session)
-                rejected = await sdk.call_tool('move_unit', {'source': guards[0], 'target': bench(8)})
-                assert rejected.isError and rejected.structuredContent['code'] == 'unsupported_action'
-                assert gameplay(session) == before
-                moved = await sdk.call_tool('move_unit', {'source': guards[0], 'target': board(6, 3)})
-                assert not moved.isError
-                removed = await sdk.call_tool('move_unit', {'source': board(3, 2), 'target': bench(8)})
-                assert not removed.isError
-                assert any(c['before'] and c['before']['champion'] == 'sandguard' and c['after'] is None for c in removed.structuredContent['unit_changes'])
-                await sdk.call_tool('close_game')
-            tasks.cancel_scope.cancel()
+    async with memory_client(session, monkeypatch) as sdk:
+        entered = await sdk.call_tool('move_unit', {'source': bench(0), 'target': board(3, 2)})
+        assert not entered.isError
+        guards = [c['location'] for c in entered.structuredContent['unit_changes'] if c['after'] and c['after']['champion'] == 'sandguard']
+        assert len(guards) == 2
+        before = gameplay(session)
+        rejected = await sdk.call_tool('move_unit', {'source': guards[0], 'target': bench(8)})
+        assert rejected.isError and rejected.structuredContent['code'] == 'unsupported_action'
+        assert gameplay(session) == before
+        moved = await sdk.call_tool('move_unit', {'source': guards[0], 'target': board(6, 3)})
+        assert not moved.isError
+        removed = await sdk.call_tool('move_unit', {'source': board(3, 2), 'target': bench(8)})
+        assert not removed.isError
+        assert any(c['before'] and c['before']['champion'] == 'sandguard' and c['after'] is None for c in removed.structuredContent['unit_changes'])
+        await sdk.call_tool('close_game')
 
 
 def test_movement_lifecycle_budget_and_detached_receipt(tmp_path):
@@ -536,7 +461,7 @@ def test_movement_lifecycle_budget_and_detached_receipt(tmp_path):
 
 @pytest.mark.anyio
 async def test_production_movement_audit_failure_then_fresh_retry(tmp_path):
-    from test_protocol import client
+    from support import client
     async with client(tmp_path) as sdk:
         await sdk.call_tool('start_game', {'seed': 0})
         await sdk.call_tool('end_turn')

@@ -639,7 +639,11 @@ class GameSession:
         if player.gold < price:
             raise SessionError("insufficient_gold", "The offer costs more gold than is available.",
                                {"shop_slot": slot, "required": price, "available": player.gold, "resource": "gold"})
-        expected_items = merge_inventory(player, unit)
+        trace = {"contributors": [], "board_phases": []}
+        expected_items = merge_inventory(player, unit, trace)
+        if any(trace["board_phases"][:-1]):
+            raise SessionError("unsupported_action", "Native cascading purchases cannot safely reposition an early board contributor.",
+                               {"reason": "early_board_merge_cascade", "shop_slot": slot})
         if all(player.bench):
             entry = catalog_entry(player, unit.name, unit.stars)
             if entry is None or entry["num"] != 2:

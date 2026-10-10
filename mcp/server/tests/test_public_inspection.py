@@ -7,7 +7,7 @@ from jsonschema import validate, ValidationError
 import numpy as np
 import pytest
 
-from test_inspection import started
+from support import started_session as started
 from tft_mcp.session import SessionError
 from tft_mcp.transport import TOOLS
 

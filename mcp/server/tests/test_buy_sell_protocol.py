@@ -1,7 +1,7 @@
 import jsonschema
 import pytest
 
-from test_protocol import client, anyio_backend
+from support import client
 
 
 @pytest.mark.anyio

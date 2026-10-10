@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from test_protocol import anyio_backend, client
+from support import client
 
 
 ACTIONS = {'buy_unit', 'sell_unit', 'move_unit', 'equip_item', 'refresh_shop', 'buy_xp', 'end_turn'}
