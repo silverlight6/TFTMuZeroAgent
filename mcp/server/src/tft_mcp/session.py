@@ -660,8 +660,7 @@ class GameSession:
         self.require_action_budget()
         location = arguments["location"]
         player = self.game.player_manager.player_states["player_0"]
-        unit = (player.board[location["x"]][location["y"]] if location["kind"] == "board"
-                else player.bench[location["slot"]])
+        unit = location_unit(player, location)
         if unit is None:
             raise SessionError("empty_slot", "Select an occupied owned location.", {"location": location})
         sold = freeze_unit(unit)
@@ -679,11 +678,9 @@ class GameSession:
         returned = equipment if len(equipment) <= available else []
         dropped = [] if returned == equipment else equipment
         before = action_snapshot(player)
-        flat = location["x"] * 4 + location["y"] if location["kind"] == "board" else 28 + location["slot"]
-        status = self.controlled_action([4, flat, 0])
+        status = self.controlled_action([4, location_flat(location), 0])
         after = action_snapshot(player)
-        remaining = (player.board[location["x"]][location["y"]] if location["kind"] == "board"
-                     else player.bench[location["slot"]])
+        remaining = location_unit(player, location)
         expected_items = list(before["items"])
         for item in returned:
             expected_items[expected_items.index(None)] = item
@@ -786,6 +783,16 @@ def owned_locations(player):
                 ({"kind": "bench", "slot": slot}, unit) for slot, unit in enumerate(player.bench)]
 
 
+def azir_guard_coordinates(player, unit, error_message):
+    coords = unit.sandguard_overlord_coordinates
+    if (not unit.overlord or len(coords) != 2 or len({tuple(c) for c in coords}) != 2
+            or any(type(c) is not list or len(c) != 2 or any(type(v) is not int for v in c)
+                   or not 0 <= c[0] <= 6 or not 0 <= c[1] <= 3
+                   or player.board[c[0]][c[1]] is None or player.board[c[0]][c[1]].name != "sandguard" for c in coords)):
+        raise SessionError("internal_error", error_message)
+    return coords
+
+
 def movement_contract(player, source, target):
     details = {"source": source, "target": target}
     if source == target or source["kind"] == target["kind"] == "bench":
@@ -813,12 +820,7 @@ def movement_contract(player, source, target):
     linked = set()
     for location, owned in locations:
         if owned and owned.name == "azir" and location["kind"] == "board":
-            coords = owned.sandguard_overlord_coordinates
-            if (not owned.overlord or len(coords) != 2 or len({tuple(c) for c in coords}) != 2
-                    or any(type(c) is not list or len(c) != 2 or any(type(v) is not int for v in c)
-                           or not 0 <= c[0] <= 6 or not 0 <= c[1] <= 3
-                           or player.board[c[0]][c[1]] is None or player.board[c[0]][c[1]].name != "sandguard" for c in coords)):
-                raise SessionError("internal_error", "Azir guard linkage is inconsistent.")
+            coords = azir_guard_coordinates(player, owned, "Azir guard linkage is inconsistent.")
             if any(tuple(c) in linked or not player.board[c[0]][c[1]].target_dummy for c in coords):
                 raise SessionError("internal_error", "Azir guard ownership is inconsistent.")
             linked.update(map(tuple, coords))
@@ -1320,12 +1322,8 @@ def check_equipment_catalog(player):
     linked = set()
     for loc, u in units:
         if loc["kind"] == "board" and u.name == "azir":
-            coords = u.sandguard_overlord_coordinates
-            if (not u.overlord or len(coords) != 2 or len({tuple(c) for c in coords}) != 2
-                    or any(type(c) is not list or len(c) != 2 or any(type(v) is not int for v in c)
-                           or not 0 <= c[0] <= 6 or not 0 <= c[1] <= 3
-                           or player.board[c[0]][c[1]] is None or player.board[c[0]][c[1]].name != "sandguard"
-                           or not player.board[c[0]][c[1]].target_dummy for c in coords)):
+            coords = azir_guard_coordinates(player, u, "Duplicator requires consistent Azir guard linkage.")
+            if any(not player.board[c[0]][c[1]].target_dummy for c in coords):
                 raise SessionError("internal_error", "Duplicator requires consistent Azir guard linkage.")
             if linked.intersection(map(tuple, coords)):
                 raise SessionError("internal_error", "Duplicator requires distinct Azir guard ownership.")
