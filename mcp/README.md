@@ -44,10 +44,9 @@ claude mcp get tft
 
 The `/usr/bin/env -u APPIMAGE` command preserves the venv interpreter on affected AppImage hosts. The launcher automatically fixes `PYTHONHASHSEED=0` before imports. Audit logs are mandatory; native logs default beside the audit when omitted. Simulator stdout is redirected to stderr. Keep audit, native and host transcripts protected and separate for each SDK/host run. Process restart starts idle; games do not resume. Close clears the current game while preserving logs.
 
-For the known local server, add this saved Codex parent-table field before any `[mcp_servers.tft.env]` or per-tool child table:
+For the known local server, insert this field into the existing `[mcp_servers.tft]` parent table before any `[mcp_servers.tft.env]` or per-tool child table:
 
 ```toml
-[mcp_servers.tft]
 default_tools_approval_mode = "approve"
 ```
 

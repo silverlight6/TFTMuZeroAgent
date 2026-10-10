@@ -30,7 +30,7 @@ default_tools_approval_mode="approve" in its parent TOML table before child
 tables. This trusts current and future tools from that installed server.
 Existing per-tool overrides retain precedence. Preserve global approval_policy,
 sandbox, other servers, authentication, unrelated settings and all existing
-enabled/disabled tools and per-tool restrictions. Preserve Claude policies. Do not remove and recreate an entry with custom policy.
+enabled/disabled tool restrictions and per-tool policy. Preserve Claude policies. Do not remove and recreate an entry with custom policy.
 Use native registration when tft is absent. Codex uses operator config; Claude
 uses private local scope in one stable external cwd for registration and play.
 Do not create repository client configuration, an approval layer, a custom
