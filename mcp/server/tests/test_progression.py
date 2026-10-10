@@ -1,4 +1,5 @@
 from tft_mcp.session import GameSession
+from support import gameplay
 
 
 def test_end_turn_returns_next_real_decision(tmp_path):
@@ -51,16 +52,6 @@ def test_real_seed_zero_elimination_finishes_lobby_and_freezes_state(tmp_path):
     assert session.terminal_snapshot == frozen
     assert session.close_game()['outcome']['controlled_placement'] == 8
     assert session.start_game(0)['round'] == 1
-
-
-def gameplay(session):
-    from tft_mcp.session import freeze_player
-    return {'status': {key: value for key, value in session.get_game_status().items() if key != 'game_id'},
-            'players': {key: freeze_player(player, session.game.game_round.current_round)
-                        for key, player in session.game.player_manager.player_states.items() if player is not None},
-            'placements': session.placements, 'snapshot': session.terminal_snapshot,
-            'episode_rng': repr(session.game.rng.py.getstate()),
-            'baseline_rng': repr(session.baseline_rng)}
 
 
 def test_failed_candidate_restores_graph_logs_rng_and_retries(tmp_path, monkeypatch):

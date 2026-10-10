@@ -4,6 +4,7 @@ import json
 import os
 
 import anyio
+import jsonschema
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolResult, TextContent, Tool
@@ -430,6 +431,13 @@ async def serve():
                         result = session.get_item(arguments["item_id"])
                     else:
                         result = session.close_game()
+                    schema = next(tool.outputSchema for tool in TOOLS if tool.name == name)
+                    try:
+                        jsonschema.validate(result, schema)
+                    except jsonschema.ValidationError as error:
+                        raise SessionError("internal_error", "Tool output does not match its schema.", {
+                            "tool": name, "path": list(error.absolute_path), "error": error.message,
+                        }) from error
                     session.record("tool_result", tool=name, result=result, is_error=False)
                 return result
             except SessionError as error:

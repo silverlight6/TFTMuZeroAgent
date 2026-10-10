@@ -1,11 +1,9 @@
 # MCP extension work
 
-Before changing the extension, read [SPEC.md](SPEC.md) and the current slice ticket. Use the root [GLOSSARY.md](../GLOSSARY.md) for domain vocabulary. SPEC.md owns behavior, module responsibilities, style, scope, and verification requirements; update its published milestone mirror when accepted contracts change.
+Before changing the extension, read [SPEC.md](SPEC.md) and the relevant issue or requested change. Use the root [GLOSSARY.md](../GLOSSARY.md) for domain vocabulary. SPEC.md owns behavior, module responsibilities, style, scope and verification requirements. Reconcile affected contracts before implementation.
 
-Start from the integrated revision of the ticket's blockers on feat/mcp-server-main. Withdraw readiness from affected tickets when a contract changes, and reconcile dependent work before implementation resumes. A numbered display position is not an additional blocking edge.
+Keep shared documentation and prompts here. Put server code, packaging, dependencies, tests and tooling in server/. Existing native MCP hosts do not require a custom client package. Simulator source, rules, defaults and root dependencies remain unchanged. If a core change appears unavoidable, record its evidence and minimum proposal before requesting a scope decision. The selected verification model uses local checks only.
 
-Keep shared planning and entry documentation here. Put server code, packaging, dependencies, tests, and tooling in server/. Add client/ only for an explicitly accepted custom-client scope; connecting an existing MCP client does not require a custom client package. The owner selected local verification only. If simulator evidence shows an unavoidable outside-scope change, record the evidence and minimum proposal before changing the accepted contract. Preserve unrelated work.
+Verify actual MCP behavior, failure paths, affected simulator checks and every changed path against the reviewed base. Record head/base/working diff and distinguish passed, failed and unexecuted checks in [server/verification.md](server/verification.md). Developer checks must select the checkout source; installed acceptance must use the production launcher outside the checkout without PYTHONPATH.
 
-Before handing back a slice, verify its actual MCP behavior and failure paths, the affected simulator checks, and the complete changed-path scope against its reviewed base. Record head/base/working diff and distinguish passed, failed, and unexecuted checks. Use the exact local commands documented after they are implemented.
-
-Target slice PRs at feat/mcp-server-main. Do not merge PRs or submit upstream without the owner's authorization. Do not add installation or check commands to documentation as runnable before they exist.
+Preserve unrelated work and operator configuration. Target the pull request at the branch requested by the owner. Merging, upstream submission and deployment require their own authorization.

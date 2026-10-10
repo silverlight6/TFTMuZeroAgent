@@ -1,6 +1,6 @@
 import pytest
 
-from test_protocol import client, anyio_backend
+from support import client, INSPECTION_TOOLS
 
 
 @pytest.mark.anyio
@@ -105,9 +105,6 @@ async def test_round_matches_current_session_round(tmp_path):
         status = (await session.call_tool('end_turn', {})).structuredContent
         assert (await session.call_tool('get_round', {})).structuredContent == {
             'game_id': status['game_id'], 'round': 2}
-
-
-INSPECTION_TOOLS = ('get_board', 'get_bench', 'get_shop', 'get_items', 'get_economy', 'get_traits', 'get_round')
 
 
 @pytest.mark.anyio

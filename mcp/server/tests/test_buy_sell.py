@@ -1,13 +1,7 @@
 import pytest
 
-from tft_mcp.session import GameSession, SessionError
-
-
-def session_fixture(tmp_path):
-    session = GameSession(tmp_path / 'audit.jsonl', tmp_path / 'native')
-    session.start_game(0)
-    session.game.player_manager.player_states['player_0'].gold = 100
-    return session
+from tft_mcp.session import SessionError
+from support import install_units, session_fixture
 
 
 def test_buy_then_sell_returns_detached_units_and_one_budget_slot(tmp_path):
@@ -31,43 +25,8 @@ def test_buy_then_sell_returns_detached_units_and_one_budget_slot(tmp_path):
     assert sale['sold']['items'] == []
 
 
-def install_units(session, bench=(), board=(), offer='garen', chosen=False):
-    from Simulator.battle.champion import champion
-    player = session.game.player_manager.player_states['player_0']
-    with session.simulator_scope():
-        player.bench = [None] * 9
-        player.board = [[None] * 4 for _ in range(7)]
-        player.triple_catalog = []
-        player.num_units_in_play = 0
-        player.thieves_gloves_loc = []
-        for kind, units in [('bench', bench), ('board', board)]:
-            for position, name, stars, items in units:
-                unit = champion(name, stars=stars, itemlist=items)
-                entry = next((e for e in player.triple_catalog if e['name'] == name and e['level'] == stars), None)
-                if entry:
-                    entry['num'] += 1
-                else:
-                    player.triple_catalog.append({'name': name, 'level': stars, 'num': 1})
-                if kind == 'bench':
-                    player.bench[position] = unit
-                    unit.bench_loc = position
-                    if items and items[0] == 'thieves_gloves':
-                        player.thieves_gloves_loc.append([position, -1])
-                else:
-                    x, y = position
-                    player.board[x][y] = unit
-                    unit.x, unit.y = x, y
-                    player.num_units_in_play += 1
-                    if items and items[0] == 'thieves_gloves':
-                        player.thieves_gloves_loc.append([x, y])
-        unit = champion(offer, chosen=chosen)
-        player.shop[0] = f'{offer}_{chosen}_c' if chosen else offer
-        player.shop_champions[0] = unit
-    return player
-
-
 def test_merge_capacity_rejects_both_native_corruption_cases_atomically(tmp_path):
-    from test_progression import gameplay
+    from support import gameplay
     for final_contributor in (False, True):
         session = session_fixture(tmp_path / str(final_contributor))
         bench = [(i, name, 1, []) for i, name in enumerate(['fiora', 'nami', 'vayne', 'nidalee', 'diana', 'lissandra', 'wukong', 'twistedfate', 'maokai'])] if final_contributor else []
@@ -82,6 +41,30 @@ def test_merge_capacity_rejects_both_native_corruption_cases_atomically(tmp_path
         assert error.value.code == 'capacity_exceeded'
         assert session.game is committed
         assert gameplay(session) == before
+
+
+def test_purchase_rejects_early_board_cascade_without_stale_traits(tmp_path):
+    import pickle
+    from support import gameplay_with_numpy as gameplay
+
+    session = session_fixture(tmp_path)
+    player = install_units(session,
+                           bench=[(0, 'garen', 2, []), (1, 'garen', 2, [])],
+                           board=[((0, 0), 'garen', 1, []), ((0, 1), 'garen', 1, [])])
+    player.max_units = 2
+    with session.simulator_scope():
+        player.update_team_tiers()
+    committed = session.game
+    graph = pickle.dumps(committed)
+    before = gameplay(session)
+    logs = session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes()
+    with pytest.raises(SessionError) as error:
+        session.buy_unit(shop_slot=0)
+    assert error.value.code == 'unsupported_action'
+    assert error.value.details['reason'] == 'early_board_merge_cascade'
+    assert session.game is committed and pickle.dumps(session.game) == graph
+    assert gameplay(session) == before
+    assert logs == (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
 
 
 @pytest.mark.parametrize('full_bench,cascade,chosen', [(False, False, False), (True, False, False), (False, True, False), (False, False, 'vanguard')])
@@ -164,7 +147,7 @@ def test_sales_follow_native_equipment_return_drop_and_glove_rules(tmp_path, kin
 
 
 def test_board_glove_capacity_and_dummy_sales_reject_without_change(tmp_path):
-    from test_progression import gameplay
+    from support import gameplay
     session = session_fixture(tmp_path)
     player = install_units(session, board=[((0, 0), 'garen', 1, ['thieves_gloves', 'infinity_edge', 'rapid_firecannon'])])
     player.item_bench = ['bf_sword'] * 10
@@ -208,13 +191,11 @@ def test_chosen_purchase_and_sale_use_native_price_and_clear_chosen(tmp_path):
 @pytest.mark.parametrize('failure', ['native_action', 'observation', 'baseline', 'copy', 'receipt', 'native', 'audit'])
 @pytest.mark.parametrize('action', ['buy', 'sell'])
 def test_failed_action_discards_aggregate_rng_logs_and_retries(tmp_path, monkeypatch, failure, action):
+    from support import capture_committed_state, assert_committed_state_unchanged, assert_native_aliases
     import os
-    import random
-    import numpy as np
-    from Simulator.battle import champion, origin_class
     from Simulator.simulators.tft_simulator import TFT_Simulator
     import tft_mcp.session as module
-    from test_progression import gameplay
+    from support import gameplay
     session = session_fixture(tmp_path / 'actual')
     reference = session_fixture(tmp_path / 'reference')
     for current in (session, reference):
@@ -223,14 +204,7 @@ def test_failed_action_discards_aggregate_rng_logs_and_retries(tmp_path, monkeyp
             units.append((1, 'garen', 1, []))
         install_units(current, bench=units)
     method = lambda current: current.buy_unit(shop_slot=0) if action == 'buy' else current.sell_unit(location={'kind': 'bench', 'slot': 0})
-    original_game = session.game
-    original_policies = session.baselines
-    original_modules = session.module_state
-    original_rng = session.baseline_rng
-    before = gameplay(session)
-    logs = (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    process_rng = random.getstate(), np.random.get_state()
-    bindings = champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers
+    before = capture_committed_state(session)
     with monkeypatch.context() as patch:
         original_step = TFT_Simulator.step
         def fail_step(game, native_action):
@@ -271,32 +245,15 @@ def test_failed_action_discards_aggregate_rng_logs_and_retries(tmp_path, monkeyp
         with pytest.raises(SessionError) as error:
             method(session)
         assert error.value.code == ('log_unavailable' if failure in {'native', 'audit'} else 'internal_error')
-    assert session.game is original_game
-    assert session.baselines is original_policies
-    assert session.module_state is original_modules
-    assert session.baseline_rng is original_rng
-    assert gameplay(session) == before
-    assert logs == (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    assert random.getstate() == process_rng[0]
-    assert np.array_equal(np.random.get_state()[1], process_rng[1][1])
-    assert np.random.get_state()[2:] == process_rng[1][2:]
-    assert all(actual is expected for actual, expected in zip((champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers), bindings))
+    assert_committed_state_unchanged(session, before)
     method(session)
     method(reference)
     assert gameplay(session) == gameplay(reference)
-    game = session.game
-    assert game.rng is game.combat_ctx.rng
-    assert game.pool_obj is game.player_manager.pool_obj
-    assert game.game_round.PLAYERS is game.player_manager.player_states
-    for key, player in game.player_manager.player_states.items():
-        if player:
-            assert game.player_manager.observation_states[key].player is player
-            assert game.player_manager.action_handlers[key].player is player
-            assert player.pool_obj is game.pool_obj
+    assert_native_aliases(session.game)
 
 
 def test_action_lifecycle_budget_full_bench_and_catalog_errors_preserve_state(tmp_path):
-    from test_progression import gameplay
+    from support import gameplay
     session = session_fixture(tmp_path)
     player = install_units(session, bench=[(i, name, 1, []) for i, name in enumerate(['fiora', 'nami', 'vayne', 'nidalee', 'diana', 'lissandra', 'wukong', 'twistedfate', 'maokai'])])
     expected = gameplay(session)
@@ -326,7 +283,7 @@ def test_action_lifecycle_budget_full_bench_and_catalog_errors_preserve_state(tm
 
 
 def test_buy_sell_reads_and_rejections_do_not_change_deterministic_journey(tmp_path):
-    from test_progression import gameplay
+    from support import gameplay
     sessions = [session_fixture(tmp_path / str(i)) for i in range(2)]
     for current in sessions:
         install_units(current)
@@ -348,7 +305,7 @@ def test_buy_sell_reads_and_rejections_do_not_change_deterministic_journey(tmp_p
 
 @pytest.mark.parametrize('corruption', ['price', 'sale_count'])
 def test_inconsistent_unit_price_or_catalog_count_rejects_before_native(tmp_path, corruption):
-    from test_progression import gameplay
+    from support import gameplay
     session = session_fixture(tmp_path)
     player = install_units(session, bench=[(0, 'garen', 1, [])])
     if corruption == 'price':
@@ -366,7 +323,7 @@ def test_inconsistent_unit_price_or_catalog_count_rejects_before_native(tmp_path
 
 @pytest.mark.parametrize('reason', ['four_star_sale', 'four_star_merge', 'chosen_cycle', 'sandguard'])
 def test_unsupported_native_actions_reject_atomically(tmp_path, reason):
-    from test_progression import gameplay
+    from support import gameplay
     session = session_fixture(tmp_path)
     stars = 3 if reason in {'four_star_merge', 'chosen_cycle'} else 1
     player = install_units(session, bench=[(0, 'garen', stars, []), (1, 'garen', stars, [])] if stars == 3 else [(0, 'garen', 1, [])])

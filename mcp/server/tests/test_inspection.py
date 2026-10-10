@@ -6,13 +6,9 @@ import numpy as np
 import pytest
 
 from tft_mcp.session import GameSession, SessionError, freeze_player
-from test_inspection_protocol import INSPECTION_TOOLS
+from support import INSPECTION_TOOLS, started_session as started
 
 
-def started(tmp_path):
-    session = GameSession(tmp_path / 'audit.jsonl', tmp_path / 'native')
-    session.start_game(0)
-    return session
 
 
 def test_native_special_units_use_container_locations_and_detached_allowlist(tmp_path):

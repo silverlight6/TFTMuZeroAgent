@@ -1,7 +1,7 @@
 import pytest
 
-from test_buy_sell import install_units, session_fixture
-from test_movement import board, bench
+from support import install_units, session_fixture
+from support import board, bench
 from tft_mcp.session import SessionError
 
 
@@ -193,27 +193,19 @@ def test_special_target_restrictions(tmp_path, name, target, item, code):
 @pytest.mark.parametrize('item', ['thieves_gloves', 'reforger'])
 @pytest.mark.parametrize('failure', ['native_action', 'observation', 'mask', 'baseline', 'noop', 'corrupt', 'receipt', 'postcondition', 'native', 'audit'])
 def test_equipment_failure_rolls_back_full_graph_rng_logs_and_fresh_retry(tmp_path, monkeypatch, failure, item):
+    from support import capture_committed_state, assert_committed_state_unchanged, assert_native_aliases
     import os
-    import pickle
-    import random
-    import numpy as np
-    from Simulator.battle import champion, origin_class
     from Simulator.game.player import Player
     from Simulator.simulators.tft_simulator import TFT_Simulator
     import tft_mcp.session as module
-    from test_shop_xp import gameplay
-    from test_movement import normalized_graph
+    from support import gameplay_with_numpy as gameplay
+    from support import normalized_graph
     sessions = [session_fixture(tmp_path / name) for name in ('actual', 'reference')]
     for session in sessions:
         player = install_units(session, [(0, 'garen', 1, ['bf_sword'] if item == 'reforger' else [])])
         player.item_bench = [item] + [None] * 9
     session, reference = sessions
-    accepted = session.game, session.baselines, session.module_state, session.baseline_rng, session.python_rng
-    graph = pickle.dumps(session.game)
-    before = gameplay(session)
-    logs = session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes()
-    process = random.getstate(), pickle.dumps(np.random.get_state())
-    bindings = champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers
+    before = capture_committed_state(session)
     with monkeypatch.context() as patch:
         native = Player.move_item
         def fail_native(player, *args):
@@ -256,25 +248,12 @@ def test_equipment_failure_rolls_back_full_graph_rng_logs_and_fresh_retry(tmp_pa
         with pytest.raises(SessionError) as error:
             session.equip_item(item_slot=0, target=bench(0))
         assert error.value.code == ('log_unavailable' if failure in {'native', 'audit'} else 'internal_error')
-    assert all(a is b for a, b in zip((session.game, session.baselines, session.module_state, session.baseline_rng, session.python_rng), accepted))
-    assert pickle.dumps(session.game) == graph  # Includes shared pool, traits, encoders and masks.
-    assert gameplay(session) == before
-    assert logs == (session.audit_path.read_bytes(), (session.native_dir / 'log.txt').read_bytes())
-    assert random.getstate() == process[0] and pickle.dumps(np.random.get_state()) == process[1]
-    assert all(a is b for a, b in zip((champion.log, champion.test_multiple, origin_class.game_compositions, origin_class.game_comp_tiers), bindings))
+    assert_committed_state_unchanged(session, before)
     session.equip_item(item_slot=0, target=bench(0))
     reference.equip_item(item_slot=0, target=bench(0))
     assert gameplay(session) == gameplay(reference)
     assert normalized_graph(session.game) == normalized_graph(reference.game)
-    game = session.game
-    assert game.rng is game.combat_ctx.rng and game.pool_obj is game.player_manager.pool_obj
-    assert game.game_round.PLAYERS is game.player_manager.player_states
-    for key, player in game.player_manager.player_states.items():
-        if player:
-            assert game.player_manager.observation_states[key].player is player
-            assert game.player_manager.action_handlers[key].player is player
-            assert player.pool_obj is game.pool_obj
-
+    assert_native_aliases(session.game)
 
 
 def test_four_star_ordinary_equipment_does_not_require_sale_price(tmp_path):
@@ -532,8 +511,8 @@ def test_remover_rejects_mismatched_trait_origin_prefix_or_suffix(tmp_path, orig
 def test_trait_corruption_after_native_equipment_rolls_back_and_retries(tmp_path, monkeypatch, mode):
     import pickle
     from Simulator.game.player import Player
-    from test_shop_xp import gameplay
-    from test_movement import normalized_graph
+    from support import gameplay_with_numpy as gameplay
+    from support import normalized_graph
     sessions = [session_fixture(tmp_path / name) for name in ['actual', 'reference']]
     for session in sessions:
         if mode == 'duplicate':
