@@ -1,6 +1,6 @@
 # Verification
 
-Reviewed on 2026-10-10 for a pull request against `feat/mcp-server-main`. The starting head and PR base are `0baed806ff9dc48903becd3a018364b527102216`. Review covers the complete MCP milestone against upstream `33c2c6eb873da1aaf319dc0c36bcbec1ad20c48d`, plus staged, unstaged and untracked fixes. Simulator source, rules, defaults, root packaging and root dependencies remain unchanged.
+Reviewed on 2026-10-10 for a pull request against `feat/mcp-server-main`. The starting head and PR base are `0baed806ff9dc48903becd3a018364b527102216`. Review covers the complete MCP milestone against upstream `33c2c6eb873da1aaf319dc0c36bcbec1ad20c48d`, plus staged, unstaged and untracked fixes. The functional checkpoint is `5f21ba153b4459c28bcca89d4c5eedd6c3ff49bd`; subsequent edits change only this verification record. Simulator source, rules, defaults, root packaging and root dependencies remain unchanged.
 
 ## Review findings and fixes
 
@@ -23,17 +23,23 @@ Python 3.14.7, MCP 1.30.0, NumPy 2.5.3, PettingZoo 1.27.0 and Gymnasium 1.4.0 we
 | Shared rollback and SDK memory scenarios | 81 passed |
 | Final strengthened schema-failure/retry checks | Four passed |
 | Refreshed shared inspection fixtures | Seven passed |
-| Complete extension suite | Pending final result |
+| Complete extension suite | 327 passed in 561.97 seconds, including all full-game checks |
+| Final source/fixture refresh after the last test edits | 324 passed, three previously passed full-game checks deselected |
 | Relevant unchanged simulator checks | 22 passed; three unrelated Gymnasium scenarios deselected |
-| Fresh noneditable installation and installed SDK checks | Pending final result |
-| Scope, Markdown links/anchors, shell syntax and whitespace | Pending final refresh |
+| Fresh noneditable installation and installed SDK checks | Six passed; pip consistency passed; all seven server modules and 53 simulator files match |
+| Scope, Markdown links/anchors, shell syntax and whitespace | Passed; all 27 PR paths are under mcp/ |
+
+The fresh installation archives checkpoint tree `d572ed05436950384e740594416bb5a935a02204`, the exact tree of `5f21ba1`. It launches the absolute installed entry point from an external host directory without `PYTHONPATH`. Retained local SDK evidence includes `identity.json`, `check-results.json` and the protocol test audits/native logs. No native host configuration was changed.
+
+The reviewed functional source and checks have SHA-256 `6e572e1937d5f6b52312c7cbbc3c93d790ad0bfcc08e6ebcbe4b84648d1e5358`. The digest covers sorted Python paths in `server/src` and `server/tests`, `server/pyproject.toml` and `server/scripts/check_scope.py`, with each repository-relative path and its contents separated by NUL bytes. Final documentation updates do not change those files.
 
 The complete suite exercises all 25 tools, full-lobby completion, an exact action tape replayed across three production server processes, ordered audit/transcript agreement, terminal inspection, close/restart, privacy, strict schemas, budget, RNG isolation and failure recovery. SDK memory fixtures use the real simulator but remain distinct from production stdio journeys.
 
-Run checkout checks from the repository with a venv containing the `dev` extra:
+The complete and final refresh commands used the existing CPU-only venv with the `dev` extra. Substitute that environment path below. The final selector deselects exactly three full-game cases; the other exclusion terms do not match current test names. For routine developer checks, use [the source-check commands](README.md#developer-checks).
 
 ```sh
-env -u APPIMAGE -u TFT_MCP_TEST_COMMAND PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+env -u APPIMAGE PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -q
+env -u APPIMAGE -u TFT_MCP_TEST_COMMAND PYTHONHASHSEED=0 PYTHONPATH=mcp/server/src /absolute/path/venv/bin/python -m pytest -c mcp/server/pyproject.toml mcp/server/tests -k 'not full_game_exact_tape and not real_seed_zero_elimination and not full_lobby and not terminal_inspection_and_close and not actual_terminal' -q
 env -u APPIMAGE /absolute/path/venv/bin/python -m pytest UnitTests/rng_test.py UnitTests/default_agent_test.py UnitTests/game_round_test.py UnitTests/simulator_test.py UnitTests/concurrency_repro_test.py UnitTests/bench_full_repro_test.py UnitTests/shop_buy_mask_test.py UnitTests/api_compliance_test.py -k 'not gymnasium' -q
 env -u APPIMAGE /absolute/path/venv/bin/python mcp/server/scripts/check_scope.py 0baed806ff9dc48903becd3a018364b527102216
 ```
