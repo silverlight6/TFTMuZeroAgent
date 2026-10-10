@@ -1,10 +1,11 @@
 # Play a complete TFT game
 
-Copy this prompt into a fresh Codex or Claude Code session after [setup](SETUP_PROMPT.md). Existing host permissions apply. Setup alone does not authorize gameplay.
+Copy this prompt into a fresh Codex or Claude Code session after [setup](SETUP_PROMPT.md). Use the saved accepted Codex `tft` default approval. Global host permissions, per-tool overrides and Claude policies still apply. Setup alone does not authorize gameplay.
 
 ```text
 Play one complete TFT game through the connected tft MCP server. Use only
-individual native MCP tools for gameplay, never a shell, SDK action loop,
+individual native MCP tools for gameplay with ordinary saved configuration.
+Do not supply a session-only approval override, shell, SDK action loop,
 custom client or scripted action tape. First call get_game_status and confirm
 idle. Start with start_game {"seed":0}. Record the returned game_id.
 

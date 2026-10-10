@@ -30,7 +30,7 @@ The SDK check initializes the installed launcher outside the checkout, discovers
 
 ## Register existing native hosts
 
-Inspect `codex mcp get tft --json` or `claude mcp get tft` first. Compare command, args and TFT environment. Reuse a correct entry. For an existing different entry update only those fields, retaining unrelated environment fields and any per-tool restrictions. A remove/add cycle can discard custom policy. Preserve all unrelated operator configuration, authentication, permissions, approval, sandbox and allowlists. These examples apply only when the named entry is absent.
+Inspect `codex mcp get tft --json` or `claude mcp get tft` first. Compare command, args, TFT environment and the accepted Codex server default. Reuse a correct entry. For an existing different entry update only those fields, retaining unrelated environment fields and any per-tool restrictions. A remove/add cycle can discard custom policy. Persist `default_tools_approval_mode = "approve"` only for the inspected known local Codex `tft` server. Preserve global approval policy, sandbox, other servers, authentication, unrelated permissions and all existing per-tool restrictions. Claude policies and allowlists remain unchanged. These examples apply only when the named entry is absent.
 
 Codex stores native registration in operator `~/.codex/config.toml`. Claude private local registration belongs to `~/.claude.json` under the exact external launch cwd. Use that same stable cwd in fresh Claude sessions; no repository `.mcp.json` is needed. The empty external Git project created above establishes the exact scope even when an ancestor has a `.git` marker. Check the actual stored project path, because Claude resolves local scope by project root.
 
@@ -44,11 +44,20 @@ claude mcp get tft
 
 The `/usr/bin/env -u APPIMAGE` command preserves the venv interpreter on affected AppImage hosts. The launcher automatically fixes `PYTHONHASHSEED=0` before imports. Audit logs are mandatory; native logs default beside the audit when omitted. Simulator stdout is redirected to stderr. Keep audit, native and host transcripts protected and separate for each SDK/host run. Process restart starts idle; games do not resume. Close clears the current game while preserving logs.
 
-Compare parsed configuration in memory immediately before and after registration, excluding only `mcp_servers.tft` for Codex and `projects[exact_cwd].mcpServers.tft` for Claude. Preserve all preexisting keys. If Claude creates default project metadata, report its new key names separately. Do not copy operator configuration or secrets into repository evidence. Repeat native inspection on repeated setup and prove no rewrite when already correct.
+For the known local server, add this saved Codex parent-table field before any `[mcp_servers.tft.env]` or per-tool child table:
+
+```toml
+[mcp_servers.tft]
+default_tools_approval_mode = "approve"
+```
+
+Keep its existing command, args and unrelated parent fields. This persistent choice trusts current and future tools exposed by that installed server. Existing per-tool approval and enabled/disabled overrides retain precedence. It does not alter global `approval_policy` or sandbox settings, and the server adds no approval dialogue. Use saved configuration in the fresh native session, with no session-only approval override.
+
+For an existing entry, parse the protected configuration in memory and patch only its exact approved leaves. Reparse the proposed text before replacing the original, check original bytes have not changed, and retain file ownership and mode. Compare full parsed configuration before/after while masking only named command, args, `TFT_MCP_AUDIT_PATH`, `TFT_MCP_NATIVE_LOG_DIR`, `TFT_MCP_SIMULATOR_REVISION` and Codex `default_tools_approval_mode`. For Claude mask only the corresponding command, args and three TFT environment fields at its exact project entry. Never exclude the whole named entry. Preserve all preexisting unrelated keys and per-tool policy. If Claude creates default project metadata, report its new key names separately. Do not copy operator configuration or secrets into repository evidence. Repeat native inspection on repeated setup and prove no rewrite when already correct.
 
 Open a fresh native session and request an actual `tft.get_game_status` call. Registration and discovery do not prove tool execution. Existing host policy applies. If connection or model access fails, record the exact result and keep that acceptance open. Local help was checked with Codex 0.162.1 and Claude Code 2.1.294 on 2026-10-10. Official references are [Codex MCP](https://developers.openai.com/codex/mcp/) and [Claude MCP](https://code.claude.com/docs/en/mcp).
 
-For the authorized complete-game acceptance, supply the text block from GAME_PROMPT.md to a normal fresh native session. Codex uses `codex exec --model gpt-6.1-sol -c 'model_reasoning_effort="low"' --json`; outside a Git repository add `--skip-git-repo-check`. Claude supports `claude --print --output-format stream-json --verbose`. Keep existing policies and authentication. Native transcripts plus correlated audit requests/results, game/server IDs, terminal placements, inspection and close receipt establish gameplay. SDK replay remains separate evidence.
+For the authorized complete-game acceptance, supply the text block from GAME_PROMPT.md to a normal fresh native session. Codex uses `codex exec --model gpt-6.1-sol -c 'model_reasoning_effort="low"' --json`; outside a Git repository add `--skip-git-repo-check`. Claude supports `claude --print --output-format stream-json --verbose`. Use the saved accepted `tft` default while retaining global policies, Claude permissions and authentication. Native transcripts plus correlated audit requests/results, game/server IDs, terminal placements, inspection and close receipt establish gameplay. SDK replay remains separate evidence.
 
 ## Gameplay and local checks
 

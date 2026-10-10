@@ -23,16 +23,25 @@ Require exact discovery of 25 tools and idle get_game_status.
 Inspect the existing named tft entry with the host's native MCP command before
 registration, including repeated setup. Reuse an already correct entry without
 rewriting. If different, update only its command, arguments and TFT environment
-fields, preserving existing per-tool policy and unrelated environment fields.
-Preserve all other configuration, authentication, permissions, approval modes,
-sandbox and allowlists. Do not remove and recreate an entry with custom policy.
+fields and the explicitly accepted Codex server default, preserving existing
+per-tool policy and unrelated environment fields.
+For the inspected known local Codex tft entry, persist
+default_tools_approval_mode="approve" in its parent TOML table before child
+tables. This trusts current and future tools from that installed server.
+Existing per-tool overrides retain precedence. Preserve global approval_policy,
+sandbox, other servers, authentication, unrelated settings and all existing
+enabled/disabled tools and per-tool restrictions. Preserve Claude policies. Do not remove and recreate an entry with custom policy.
 Use native registration when tft is absent. Codex uses operator config; Claude
 uses private local scope in one stable external cwd for registration and play.
 Do not create repository client configuration, an approval layer, a custom
-client, provider adapter or LLM runner. Add no permission overrides.
+client, provider adapter or LLM runner. Add no global or session-only permission
+override, server approval dialogue or additional allowlist.
 
-Compare parsed configuration before and after, excluding only the named tft
-entry. For Claude retain every preexisting project key and report any CLI-added
+Compare full parsed configuration before and after, masking only approved
+command, args, the three TFT environment fields and Codex default approval
+field. Never exclude the whole tft entry. Patch existing protected config
+surgically, reparse first, check original bytes unchanged and preserve mode
+and ownership. For Claude retain every preexisting project key and report any CLI-added
 default metadata keys. Store no credentials or raw operator config in the repo
 or shared temporary files. Keep SDK, Codex and Claude audit/native logs separate.
 
