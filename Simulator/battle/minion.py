@@ -245,8 +245,8 @@ def minion_round(player, current_round, others=None, other_rewards=None):
         combat_result = minion_combat(player, Nexus(), current_round, others, other_rewards)
         # print(f"Result against 1 nexus minion {combat_result}")
 
-    # Rift Herald - give 6 gold and a full item
-    elif current_round >= 33:
+    # Rift Herald - give 6 gold and a full item (6-7 is round 32, 7-7 is round 38)
+    elif current_round >= 32:
         combat_result = minion_combat(player, Herald(), current_round, others, other_rewards)
         # print(f"Result against rift herald {combat_result}")
 
