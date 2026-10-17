@@ -318,7 +318,7 @@ class ActionToken(ActionBase, ActionVectorBase):
             if champion is None:
                 continue
 
-            champion_cost = self.util.get_champion_cost(champion)
+            champion_cost = player.champion_buy_cost(champion)
 
             if player.gold >= champion_cost:
                 buy_action_mask[i] = 1
