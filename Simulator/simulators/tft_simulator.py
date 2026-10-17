@@ -183,6 +183,10 @@ class TFT_Simulator(AECEnv):
         self.actions_taken = {agent: 0 for agent in self.agents}
 
         self.truncated_agents = []
+        from Simulator.generators.default_agent import Default_Agent
+        self._default_agents = {
+            agent: Default_Agent(False) for agent in self.possible_agents
+        }
 
     # -- Query Functions --
     def is_alive(self, player_id):
@@ -372,5 +376,170 @@ class TFT_Simulator(AECEnv):
 
         if self._agent_selector.is_first():
             self._deads_step_first()
+
+    def step_controlled(self, actions, controlled_ids=("player_0",)):
+        """Apply one action per controlled player. Default_Agent plays the other seats.
+
+        ``actions`` has one ``[type, x1, x2]`` command per id, in the same order,
+        and is at most 8 long. A command that is off in the current mask is
+        refused before ``step``. Dead seats are skipped. The call stops after
+        every supplied player has acted once and a controlled player is next,
+        or, if that action truncated them, once the round has resolved.
+        """
+        controlled_ids = tuple(controlled_ids)
+        commands = [_action_triple(action) for action in actions]
+        if len(commands) != len(controlled_ids) or not 1 <= len(commands) <= 8:
+            raise ValueError("step_controlled expects 1 to 8 actions, one per controlled player.")
+        pending = dict(zip(controlled_ids, commands))
+        self._ensure_defaults()
+        agent = self.agent_selection
+        if agent in pending and self._can_act(agent) and not self._action_allowed(agent, pending[agent]):
+            return self._refused(agent, pending[agent])
+
+        applied = set()
+        truncated_here = set()
+        rewards = {player_id: 0.0 for player_id in controlled_ids}
+        trace = []
+        round_at_start = self.game_round.current_round
+        limit = self.num_players * (self.max_actions_per_round + 2) + 8
+        for _ in range(limit):
+            if self._cycle_complete(controlled_ids, applied, truncated_here):
+                break
+            agent = self.agent_selection
+            if self.terminations.get(agent) or self.truncations.get(agent):
+                self.step(None)
+            elif agent in pending and agent not in applied and self._can_act(agent):
+                command = pending[agent]
+                if not self._action_allowed(agent, command):
+                    return self._refused(agent, command)
+                self._trace_step(trace, agent, command)
+                applied.add(agent)
+                if self.truncations.get(agent):
+                    truncated_here.add(agent)
+            else:
+                self._trace_step(trace, agent, self._default_action(agent))
+            self._add_rewards(rewards, controlled_ids)
+            if truncated_here and self._round_resolved(round_at_start):
+                break
+        else:
+            raise RuntimeError("step_controlled exceeded its step budget.")
+        return self._accepted(rewards, round_at_start, trace)
+
+    def finish_controlled_round(self, controlled_ids=("player_0",)):
+        """Pass the controlled players out and let Default_Agent finish the round.
+
+        One pass does not end planning. Combat runs after every living player
+        reaches ``max_actions_per_round``. Pass stays on the mask, so this
+        repeats that command until the round number advances or the game ends.
+        """
+        controlled_ids = tuple(controlled_ids)
+        if not controlled_ids or len(controlled_ids) > 8:
+            raise ValueError("finish_controlled_round expects 1 to 8 controlled players.")
+        self._ensure_defaults()
+        rewards = {player_id: 0.0 for player_id in controlled_ids}
+        trace = []
+        round_at_start = self.game_round.current_round
+        limit = self.num_players * (self.max_actions_per_round + 3) + 16
+        for _ in range(limit):
+            if self._round_resolved(round_at_start):
+                break
+            agent = self.agent_selection
+            if self.terminations.get(agent) or self.truncations.get(agent):
+                self.step(None)
+            elif agent in controlled_ids and self._can_act(agent):
+                self._trace_step(trace, agent, [0, 0, 0])
+            else:
+                self._trace_step(trace, agent, self._default_action(agent))
+            self._add_rewards(rewards, controlled_ids)
+        else:
+            raise RuntimeError("finish_controlled_round exceeded its step budget.")
+        return self._accepted(rewards, round_at_start, trace)
+
+    def llm_observe(self, player_id):
+        """Text position, legal commands, reward, and whether a planning phase just opened."""
+        from Simulator.encoding.llm_observation import legal_commands, render_llm_text
+
+        info = self.infos.get(player_id, {})
+        player = self.player_manager.player_states.get(player_id)
+        if player is None:
+            commands = []
+        else:
+            commands = legal_commands(self.player_manager.action_handlers[player_id])
+        return {
+            "text": render_llm_text(self, player_id),
+            "mask": commands,
+            "reward": float(self.rewards.get(player_id, 0) or 0),
+            "start_turn": bool(info.get("start_turn", False)) if isinstance(info, dict) else False,
+            "terminal": self._game_finished(),
+        }
+
+    def _ensure_defaults(self):
+        if getattr(self, "_default_agents", None):
+            return
+        from Simulator.generators.default_agent import Default_Agent
+        self._default_agents = {agent: Default_Agent(False) for agent in self.possible_agents}
+
+    def _can_act(self, agent):
+        player = self.player_manager.player_states.get(agent) if getattr(self, "player_manager", None) else None
+        return player is not None and not self.terminations.get(agent, True) and not self.truncations.get(agent, True)
+
+    def _action_allowed(self, agent, action):
+        from Simulator.encoding.llm_observation import mask_allows
+        return mask_allows(self.player_manager.action_handlers[agent], action)
+
+    def _default_action(self, agent):
+        player = self.player_manager.player_states[agent]
+        mask = self.player_manager.action_handlers[agent].fetch_action_mask()
+        encoded = self._default_agents[agent].policy(
+            player, player.shop, self.game_round.current_round, mask)
+        parts = [int(part) for part in str(encoded).split("_")]
+        return (parts + [0, 0])[:3]
+
+    def _cycle_complete(self, controlled_ids, applied, truncated_here):
+        if truncated_here:
+            return False
+        if any(self._can_act(player_id) and player_id not in applied for player_id in controlled_ids):
+            return False
+        return self.agent_selection in controlled_ids
+
+    def _round_resolved(self, round_at_start):
+        return self._game_finished() or self.game_round.current_round > round_at_start
+
+    def _game_finished(self):
+        return bool(self.terminations) and all(self.terminations.values())
+
+    def _add_rewards(self, rewards, controlled_ids):
+        for player_id in controlled_ids:
+            rewards[player_id] += float(self.rewards.get(player_id, 0) or 0)
+
+    def _refused(self, agent, action):
+        from Simulator.encoding.llm_observation import legal_commands
+        return {
+            "accepted": False,
+            "player_id": agent,
+            "action": [int(action[0]), int(action[1]), int(action[2])],
+            "mask": legal_commands(self.player_manager.action_handlers[agent]),
+        }
+
+    def _trace_step(self, trace, agent, action):
+        command = _action_triple(action)
+        trace.append({"player_id": agent, "round": self.game_round.current_round, "action": command})
+        self.step(command)
+
+    def _accepted(self, rewards, round_at_start, trace):
+        return {
+            "accepted": True,
+            "rewards": rewards,
+            "start_turn": self.game_round.current_round > round_at_start and not self._game_finished(),
+            "terminal": self._game_finished(),
+            "trace": trace,
+        }
+
+
+def _action_triple(action):
+    values = [int(part) for part in list(action)[:3]]
+    if len(values) != 3:
+        raise ValueError("An action command has type, x1, and x2.")
+    return values
 
 

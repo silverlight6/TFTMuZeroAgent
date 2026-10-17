@@ -292,36 +292,51 @@ class ActionToken(ActionBase, ActionVectorBase):
 
         refresh_action_mask = 1
 
-        if player.gold < 2:
+        if player.gold < player.refresh_cost:
             refresh_action_mask = 0
 
         return refresh_action_mask
+
+    @staticmethod
+    def _shop_buy_merges(player, champion):
+        """A full bench can still take a shop unit that completes a star upgrade."""
+        for entry in player.triple_catalog:
+            if (entry["name"] == champion.name and entry["level"] == champion.stars
+                    and entry["num"] == 2):
+                return True
+        return False
 
     def create_buy_action_mask(self, player):
         """Create buy action mask
 
         Invalid:
             - Player has no champions in the shop
-            - Player has no room on their bench
+            - Player has no room on their bench and the unit would not upgrade
             - Player doesn't have enough gold to buy the champion
+            - Champion cost is zero, which buy_champion rejects
 
         Buy Action Vector: (5)
         """
 
         buy_action_mask = np.zeros(5, dtype=np.float32)
 
-        if player.bench_full() or player.shop_empty():
+        if player.shop_empty():
             return buy_action_mask
+
+        bench_full = player.bench_full()
 
         for i, champion in enumerate(player.shop_champions):
             # Bought slots are None; the rest of the shop stays buyable
-            if champion is None:
+            if champion is None or champion.cost == 0:
                 continue
 
             champion_cost = player.champion_buy_cost(champion)
 
-            if player.gold >= champion_cost:
-                buy_action_mask[i] = 1
+            if player.gold < champion_cost:
+                continue
+            if bench_full and not self._shop_buy_merges(player, champion):
+                continue
+            buy_action_mask[i] = 1
 
         return buy_action_mask
 
