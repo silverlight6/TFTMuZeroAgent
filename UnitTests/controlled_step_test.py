@@ -77,13 +77,55 @@ def test_truncating_action_resolves_the_round():
 def test_llm_observe_text_and_mask_on_every_call():
     env = _env()
     first = env.llm_observe("player_0")
-    assert "round " in first["text"]
+    assert first["text"].startswith("round ")
     assert "player player_0" in first["text"]
+    assert "max_units " in first["text"]
+    assert "\n    traits\n" in first["text"] or first["text"].rstrip().endswith("traits")
     assert [0, 0, 0] in first["mask"]
+    assert env.llm_observe("player_0")["text"] == first["text"]
     _quiet(env, "step_controlled", [[0, 0, 0]], ("player_0",))
     second = env.llm_observe("player_0")
-    assert "actions 1 of 15" in second["text"]
+    headers = [line for line in second["text"].splitlines() if line and not line.startswith(" ")]
+    assert headers[0] == "action succeeded"
+    assert "gold" not in headers
+    assert "board" not in headers
+    assert "actions 1 of 15" not in second["text"]
     assert second["mask"]
+    assert env.llm_observe("player_0")["text"] == second["text"]
+
+
+def test_llm_observe_move_returns_only_the_board():
+    env = _env()
+    from Simulator.encoding.llm_observation import legal_commands
+    env.llm_observe("player_0")
+    move = next(command for command in legal_commands(env.player_manager.action_handlers["player_0"])
+                if command[0] == 5 and command[1] < 28 and command[2] < 28 and command[1] != command[2])
+    assert _quiet(env, "step_controlled", [move], ("player_0",))["accepted"] is True
+    text = env.llm_observe("player_0")["text"]
+    headers = [line for line in text.splitlines() if line and not line.startswith(" ")]
+    assert headers == ["action succeeded", "board"]
+
+
+def test_llm_observe_failure_does_not_repeat_the_position():
+    env = _env()
+    opening = env.llm_observe("player_0")["text"]
+    refused = _quiet(env, "step_controlled", [[4, 28, 0]], ("player_0",))
+    assert refused["accepted"] is False and refused["text"] == "action failed"
+    assert env.llm_observe("player_0")["text"] == "action failed"
+    assert env.llm_observe("player_0")["text"] == opening
+
+
+def test_llm_observe_new_turn_returns_changed_sections_and_opponents():
+    env = _env()
+    env.llm_observe("player_0")
+    for agent in env.agents:
+        env.actions_taken[agent] = 14
+    result = _quiet(env, "step_controlled", [[0, 0, 0]], ("player_0",))
+    assert result["start_turn"] is True
+    text = env.llm_observe("player_0")["text"]
+    assert text.startswith("action succeeded\n")
+    assert "\nround 2\n" in text
+    assert "\nopponents\n" in text
 
 
 def test_refresh_mask_uses_refresh_cost():

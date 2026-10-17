@@ -1,4 +1,5 @@
 import functools
+from copy import deepcopy
 from dataclasses import dataclass
 
 import numpy as np
@@ -121,6 +122,21 @@ class TFT_Simulator(AECEnv):
     def close(self):
         pass
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_llm_caches", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+    def __deepcopy__(self, memo):
+        clone = self.__class__.__new__(self.__class__)
+        memo[id(self)] = clone
+        for key, value in self.__dict__.items():
+            setattr(clone, key, deepcopy(value, memo))
+        return clone
+
     def reset(self, seed=None, options=None):
         install_episode(self, seed, options)
         with self.combat_ctx.bind():
@@ -130,6 +146,7 @@ class TFT_Simulator(AECEnv):
         # --- PettingZoo AECEnv Variables ---
         self.agents = self.possible_agents[:]
         self._last_observations = {}
+        self._llm_caches = {}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
 
@@ -513,12 +530,15 @@ class TFT_Simulator(AECEnv):
             rewards[player_id] += float(self.rewards.get(player_id, 0) or 0)
 
     def _refused(self, agent, action):
-        from Simulator.encoding.llm_observation import legal_commands
+        from Simulator.encoding.llm_observation import legal_commands, remember_action
+        command = [int(action[0]), int(action[1]), int(action[2])]
+        remember_action(self, agent, command, False, False)
         return {
             "accepted": False,
             "player_id": agent,
-            "action": [int(action[0]), int(action[1]), int(action[2])],
+            "action": command,
             "mask": legal_commands(self.player_manager.action_handlers[agent]),
+            "text": "action failed",
         }
 
     def _trace_step(self, trace, agent, action):
@@ -527,11 +547,20 @@ class TFT_Simulator(AECEnv):
         self.step(command)
 
     def _accepted(self, rewards, round_at_start, trace):
+        from Simulator.encoding.llm_observation import remember_action
+        start_turn = self.game_round.current_round > round_at_start and not self._game_finished()
+        terminal = self._game_finished()
+        last = {}
+        for entry in trace:
+            if entry["player_id"] in rewards:
+                last[entry["player_id"]] = entry["action"]
+        for player_id in rewards:
+            remember_action(self, player_id, last.get(player_id, [0, 0, 0]), True, start_turn or terminal)
         return {
             "accepted": True,
             "rewards": rewards,
-            "start_turn": self.game_round.current_round > round_at_start and not self._game_finished(),
-            "terminal": self._game_finished(),
+            "start_turn": start_turn,
+            "terminal": terminal,
             "trace": trace,
         }
 
