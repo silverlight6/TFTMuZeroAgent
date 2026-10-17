@@ -174,8 +174,13 @@ class champion:
         if name == 'aphelios_turret':
             self.health = 1
             self.max_health = 1
-            self.AD = self.overlord.AD
-            self.AS = self.overlord.AS
+            # Combat recopies board units with overlord=False; fall back to Aphelios stats.
+            if self.overlord and not isinstance(self.overlord, bool):
+                self.AD = self.overlord.AD
+                self.AS = self.overlord.AS
+            else:
+                self.AD = round(AD['aphelios'] * config.STARMULTIPLIER ** (stars - 1), 1)
+                self.AS = AS['aphelios']
 
     def attack(self, bonus_dmg=0, target=None, item_attack=False, trait_attack='', set_AD=None):
         attackable_enemies = list(filter(lambda x: (x.champion and x.health > 0), self.enemy_team()))
@@ -535,6 +540,26 @@ class champion:
             return True
         return False
 
+def _bind_aphelios_turrets(team):
+    """Attach pre-placed turrets to an Aphelios so they share AD/AS and skip a second spawn."""
+    parents = [unit for unit in team if unit.name == 'aphelios']
+    turrets = [unit for unit in team if unit.name == 'aphelios_turret']
+    if not parents or not turrets:
+        return
+    unused = list(parents)
+    for turret in turrets:
+        if unused:
+            parent = min(unused, key=lambda unit: abs(unit.x - turret.x) + abs(unit.y - turret.y))
+            unused.remove(parent)
+        else:
+            parent = parents[0]
+        turret.overlord = parent
+        turret.AD = parent.AD
+        turret.AS = parent.AS
+        if turret not in parent.underlords:
+            parent.underlords.append(turret)
+
+
 def run(champion_q, player_1, player_2, round_damage=0):
     ctx = get_ctx()
     ctx.reset_combat()
@@ -554,6 +579,9 @@ def _run_battle(champion_q, player_1, player_2, round_damage, ctx: CombatContext
                 red.append(champion_q(player_2.board[x][y].name, 'red', 7 - y, 6 - x, player_2.board[x][y].stars,
                                       player_2.board[x][y].items, False, None, player_2.board[x][y].chosen,
                                       player_2.board[x][y].kayn_form, player_2.board[x][y].target_dummy))
+
+    _bind_aphelios_turrets(blue)
+    _bind_aphelios_turrets(red)
 
     printt('Player 1 (Blue) Team')
     for unit in blue:

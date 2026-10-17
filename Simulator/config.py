@@ -20,6 +20,8 @@ ALLOW_SPILL = False
 MINIMUM_POP_AMOUNT = 100
 
 LOG_COMBAT = False
+# When set, log_to_file_combat() writes a fresh fight log here instead of appending CWD log.txt.
+COMBAT_LOG_PATH = None
 PRINTMESSAGES = True
 LOGMESSAGES = True
 MANA_DAMAGE_GAIN = 0.06

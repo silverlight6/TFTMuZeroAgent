@@ -223,6 +223,9 @@ def annie(champion):
 def aphelios(champion):
     default_ability_calls(champion)
 
+    if any(unit.name == 'aphelios_turret' and unit.health > 0 for unit in champion.underlords):
+        return
+
     c = None
     while c is None:
         y = random.randint(0, 7)

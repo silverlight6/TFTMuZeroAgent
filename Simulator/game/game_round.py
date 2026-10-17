@@ -1,3 +1,4 @@
+import os
 import Simulator.config as config
 import time
 from Simulator.battle import champion, minion
@@ -377,7 +378,12 @@ def log_end_turn(game_round):
 # This one is for the champion and logging the battles.
 def log_to_file_combat():
     if config.LOGMESSAGES and config.LOG_COMBAT:
-        with open('log.txt', "a") as out:
+        combat_path = getattr(config, "COMBAT_LOG_PATH", None) or "log.txt"
+        mode = "w" if getattr(config, "COMBAT_LOG_PATH", None) else "a"
+        parent = os.path.dirname(os.path.abspath(combat_path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(combat_path, mode) as out:
             if len(champion.log) > 0:
                 if MILLIS() < 75000:
                     if champion.log[-1] == 'BLUE TEAM WON':

@@ -108,7 +108,8 @@ class TFT_Position_Simulator(gym.Env):
             "action_mask": self.full_mask_to_action_mask(self.PLAYER, initial_observation["action_mask"], 'reset')
         }
         self.action_count = 0
-        self.max_action_count = self.PLAYER.num_units_in_play
+        # Include summoned extras (Azir sandguards, Aphelios turrets) so they can be placed.
+        self.max_action_count = len(self.step_function.position_list)
 
         if is_porosight_render(self.render_mode):
             suffix = f"_env{self.index}" if self.index is not None else ""
@@ -145,7 +146,7 @@ class TFT_Position_Simulator(gym.Env):
                 self.action_count += 1
             else:
                 self.step_function.position_controller(action, self.PLAYER)
-        if not self.step_until_units_placed or self.action_count == self.PLAYER.num_units_in_play:
+        if not self.step_until_units_placed or self.action_count == self.max_action_count:
             # initial_reward = self.PLAYER.reward
             self.PLAYER.reward = 0
             self.game_round.single_combat_phase([self.PLAYER, self.PLAYER.opponent])

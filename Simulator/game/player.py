@@ -645,11 +645,7 @@ class Player:
         if s_champion.chosen:
             self.chosen = False
         if s_champion.x != -1 and s_champion.y != -1:
-            if self.board[s_champion.x][s_champion.y].name == 'azir':
-                coords = self.board[s_champion.x][s_champion.y].sandguard_overlord_coordinates
-                self.board[s_champion.x][s_champion.y].overlord = False
-                for coord in coords:
-                    self.board[coord[0]][coord[1]] = None
+            self._clear_summoned_units(s_champion)
             self.board[s_champion.x][s_champion.y] = None
         if field:
             self.num_units_in_play -= 1
@@ -794,10 +790,17 @@ class Player:
                         self.thieves_gloves_loc_update(
                             bench_x, -1, board_x, board_y)
                 if m_champion.name == 'azir':
-                    # There should never be a situation where the board is to fill to fit the sand guards.
+                    # There should never be a situation where the board is too full to fit the sand guards.
                     sand_coords = self.find_azir_sandguards(board_x, board_y)
                     self.board[board_x][board_y].overlord = True
                     self.board[board_x][board_y].sandguard_overlord_coordinates = sand_coords
+                if m_champion.name == 'aphelios':
+                    turret_coords = self.find_aphelios_turret(board_x, board_y)
+                    parent = self.board[board_x][board_y]
+                    parent.turret_coordinates = turret_coords
+                    turret = self.board[turret_coords[0][0]][turret_coords[0][1]]
+                    turret.overlord = parent
+                    parent.underlords.append(turret)
                 self.num_units_in_play += 1
                 self.print("moved {} from bench {} to board [{}, {}]".format(self.board[board_x][board_y].name,
                                                                              bench_x, board_x, board_y))
@@ -826,11 +829,7 @@ class Player:
                 s_champion = self.bench[x_bench]
                 if self.board[x][y]:
                     self.bench[x_bench] = self.board[x][y]
-                    if self.board[x][y].name == 'azir':
-                        coords = self.board[x][y].sandguard_overlord_coordinates
-                        self.board[x][y].overlord = False
-                        for coord in coords:
-                            self.board[coord[0]][coord[1]] = None
+                    self._clear_summoned_units(self.board[x][y])
                     self.board[x][y] = s_champion
                     self.board[x][y].x = x
                     self.board[x][y].y = y
@@ -851,12 +850,7 @@ class Player:
                 return False
             else:
                 if self.board[x][y] and not self.board[x][y].target_dummy:
-                    # Dealing with edge case of azir
-                    if self.board[x][y].name == 'azir':
-                        coords = self.board[x][y].sandguard_overlord_coordinates
-                        self.board[x][y].overlord = False
-                        for coord in coords:
-                            self.board[coord[0]][coord[1]] = None
+                    self._clear_summoned_units(self.board[x][y])
                     self.bench[x_bench] = self.board[x][y]
                     if self.board[x][y]:
                         self.print("moved {} from board [{}, {}] to bench".format(
@@ -906,18 +900,9 @@ class Player:
                 self.board[x1][y1].y = y1
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
-                if self.board[x1][y1].name == 'sandguard' or self.board[x2][y2].name == 'sandguard':
-                    for x in range(7):
-                        for y in range(4):
-                            if self.board[x][y] and self.board[x][y].name == 'azir':
-                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates and \
-                                        [x2, y2] not in self.board[x][y].sandguard_overlord_coordinates:
-                                    self.board[x][y].sandguard_overlord_coordinates.remove([x1, y1])
-                                    self.board[x][y].sandguard_overlord_coordinates.append([x2, y2])
-                                elif [x2, y2] in self.board[x][y].sandguard_overlord_coordinates and \
-                                        [x1, y1] not in self.board[x][y].sandguard_overlord_coordinates:
-                                    self.board[x][y].sandguard_overlord_coordinates.remove([x2, y2])
-                                    self.board[x][y].sandguard_overlord_coordinates.append([x1, y1])
+                if self.board[x1][y1].name in ('sandguard', 'aphelios_turret') or \
+                        self.board[x2][y2].name in ('sandguard', 'aphelios_turret'):
+                    self._update_summoned_unit_coords(x1, y1, x2, y2)
                 self.print("moved {} and {} from board [{}, {}] to board [{}, {}]"
                            .format(self.board[x1][y1].name, self.board[x2][y2].name, x1, y1, x2, y2))
                 return True
@@ -928,15 +913,8 @@ class Player:
                 self.board[x1][y1] = None
                 self.board[x2][y2].x = x2
                 self.board[x2][y2].y = y2
-                if self.board[x2][y2].name == 'sandguard':
-                    for x in range(7):
-                        for y in range(4):
-                            if self.board[x][y] and self.board[x][y].name == 'azir':
-                                if [x1, y1] in self.board[x][y].sandguard_overlord_coordinates:
-                                    self.board[x][y].sandguard_overlord_coordinates.remove([
-                                                                                           x1, y1])
-                                    self.board[x][y].sandguard_overlord_coordinates.append([
-                                                                                           x2, y2])
+                if self.board[x2][y2].name in ('sandguard', 'aphelios_turret'):
+                    self._update_summoned_unit_coords(x1, y1, x2, y2)
                 self.print("moved {} from board [{}, {}] to board [{}, {}]".format(
                     self.board[x2][y2].name, x1, y1, x2, y2))
                 return True
@@ -1112,17 +1090,45 @@ class Player:
                 self.bench[x].survive_combat = False
 
     # --- Edge Case Functions ---
-    """
-    Description - Finds locations to put azir's sandguards when he first gets put on the field
-    Inputs - Azir's x and y coordinates
-    Outputs - Two sets of coordinates
-    """
+    def _summoned_coord_lists(self, champ):
+        lists = []
+        for attr in ('sandguard_overlord_coordinates', 'turret_coordinates'):
+            coords = getattr(champ, attr, None)
+            if coords:
+                lists.append(coords)
+        return lists
 
-    def find_azir_sandguards(self, azir_x, azir_y):
-        coords_candidates = self.find_free_squares(azir_x, azir_y)
+    def _clear_summoned_units(self, champ):
+        if champ is None:
+            return
+        for coords in self._summoned_coord_lists(champ):
+            for coord in list(coords):
+                x, y = coord[0], coord[1]
+                if 0 <= x < 7 and 0 <= y < 4:
+                    self.board[x][y] = None
+            coords.clear()
+        champ.overlord = False
+        champ.underlords = []
+
+    def _update_summoned_unit_coords(self, x1, y1, x2, y2):
+        for x in range(7):
+            for y in range(4):
+                parent = self.board[x][y]
+                if not parent:
+                    continue
+                for coords in self._summoned_coord_lists(parent):
+                    if [x1, y1] in coords and [x2, y2] not in coords:
+                        coords.remove([x1, y1])
+                        coords.append([x2, y2])
+                    elif [x2, y2] in coords and [x1, y1] not in coords:
+                        coords.remove([x2, y2])
+                        coords.append([x1, y1])
+
+    def _free_hexes_for_summons(self, origin_x, origin_y, count):
+        coords_candidates = self.find_free_squares(origin_x, origin_y)
         x = 6
         y = 3
-        while len(coords_candidates) < 2:
+        while len(coords_candidates) < count:
             hexes = self.find_free_squares(x, y)
             for hex in hexes:
                 if hex not in coords_candidates:
@@ -1131,12 +1137,37 @@ class Player:
             if x == -1:
                 x = 6
                 y -= 1
+        return coords_candidates[:count]
 
+    """
+    Description - Finds locations to put azir's sandguards when he first gets put on the field
+    Inputs - Azir's x and y coordinates
+    Outputs - Two sets of coordinates
+    """
+
+    def find_azir_sandguards(self, azir_x, azir_y):
+        coords_candidates = self._free_hexes_for_summons(azir_x, azir_y, 2)
         for x in range(2):
             self.board[coords_candidates[x][0]][coords_candidates[x][1]] = \
-                champion.champion('sandguard',kayn_form=self.kayn_form, target_dummy=True)
-        coords = [coords_candidates[0], coords_candidates[1]]
-        return coords
+                champion.champion('sandguard', kayn_form=self.kayn_form, target_dummy=True)
+        return [coords_candidates[0], coords_candidates[1]]
+
+    def find_aphelios_turret(self, aphelios_x, aphelios_y):
+        """Place one extra turret next to Aphelios. Does not count toward the unit cap."""
+        coords = self._free_hexes_for_summons(aphelios_x, aphelios_y, 1)
+        parent = self.board[aphelios_x][aphelios_y]
+        tx, ty = coords[0]
+        turret = champion.champion(
+            'aphelios_turret',
+            overlord=parent,
+            kayn_form=self.kayn_form,
+            target_dummy=True,
+            stars=parent.stars,
+        )
+        turret.x = tx
+        turret.y = ty
+        self.board[tx][ty] = turret
+        return [coords[0]]
 
     """
     Description - Finds free squares around a coordinate
