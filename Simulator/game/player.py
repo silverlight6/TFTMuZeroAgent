@@ -338,7 +338,7 @@ class Player:
         Returns:
             bool: True if action was performed successfully, False otherwise.
         """
-        champion_cost = cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
+        champion_cost = self.champion_buy_cost(a_champion)
 
         # I don't know what the second condition is for but I don't intend to find out...
         if champion_cost > self.gold or a_champion.cost == 0:
@@ -374,6 +374,18 @@ class Player:
                 print("Did not buy champion successfully")
 
         return champion_added
+
+    @staticmethod
+    def champion_buy_cost(a_champion):
+        """Gold needed to buy a champion.
+
+        A Chosen unit arrives 2-star and costs three times its 1-star price (patch 10.19).
+        The 2-star column of cost_star_values is the sell value (3 * cost - 1 above 1-cost),
+        so it is not used for Chosen.
+        """
+        if a_champion.chosen:
+            return 3 * a_champion.cost
+        return cost_star_values[a_champion.cost - 1][a_champion.stars - 1]
 
     def add_to_bench(self, a_champion, from_carousel=False):
         """Adds a champion to the bench.
@@ -1032,16 +1044,18 @@ class Player:
         """Queries if the shop is empty.
 
         Returns:
-            bool: True if shop is empty, False otherwise.
+            bool: True if every shop slot is empty, False otherwise.
         """
-        return not all(self.shop)
+        return not any(self.shop)
 
     # --- Game Mechanics Functions --- #
     def gold_income(self, t_round):
         self.exp += 2
         self.level_up()
-        if t_round <= 4:
-            starting_round_gold = [0, 2, 2, 3, 4]
+        # Rounds 0-3 are the planning phases of 1-2, 1-3, 1-4 and 2-1 (round 0 is the 1-1 carousel
+        # plus the 1-2 fight), which pay 2 / 2 / 3 / 4 gold. From 2-2 on it is 5 + interest + streak.
+        if t_round <= 3:
+            starting_round_gold = [2, 2, 3, 4]
             self.gold += floor(self.gold / 10)
             self.gold += starting_round_gold[t_round]
             return

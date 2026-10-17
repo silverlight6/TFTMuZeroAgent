@@ -15,12 +15,14 @@ _np_random = NPRandomProxy()
 class Game_Round:
     def __init__(self, game_players, pool_obj, step_func_obj):
         # Amount of damage taken as a base per round. First number is max round, second is damage
+        # Rounds 0-2 are stage 1, then each stage is 6 rounds (round 3 = 2-1, 9 = 3-1, ...).
+        # Base damage per stage is 0/0/2/3/5/8/15 for stages 1-7 (patch 10.24 values).
         self.ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
+            [8, 0],
+            [14, 2],
+            [20, 3],
+            [26, 5],
+            [32, 8],
             [10000, 15]
         ]
         self.PLAYERS = game_players
@@ -240,18 +242,21 @@ class Game_Round:
                 # if no opponents have a high enough possible opponents value, take whichever one is highest
                 opponent = 0
                 for i, key in enumerate(player_list):
-                    if i < 0:
+                    if i > 0:
                         if player.possible_opponents[key] >= opponent:
                             opponent = player.possible_opponents[key]
                             index = i
             else:
                 # if there are opponents with a high enough value, use weights to determine who to fight
-                r = random.randint(0, weights)
-                while r >= player.possible_opponents[player_list[index]]:
-                    r -= player.possible_opponents[player_list[index]]
-                    index += 1
-                    if index == len(player_list):
-                        index = 1
+                # draw only over the eligible opponents, so r < weights always lands on one of them
+                r = random.randint(0, weights - 1)
+                for i, key in enumerate(player_list):
+                    if i == 0 or player.possible_opponents[key] < config.MATCHMAKING_WEIGHTS:
+                        continue
+                    if r < player.possible_opponents[key]:
+                        index = i
+                        break
+                    r -= player.possible_opponents[key]
             self.matchups.append([player_list[0], player_list[index]])
             opposition = self.PLAYERS[player_list[index]]
             opposition.opponent_options = {"player_" + str(player_id): 0 for player_id in self.PLAYERS.keys()}
@@ -301,8 +306,16 @@ class Game_Round:
         for player in self.PLAYERS.values():
             log_to_file(player)
 
+        # Income of the 1-2 planning phase (there is no separate planning step before this fight)
+        for player in self.PLAYERS.values():
+            if player:
+                player.gold_income(0)
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
+        # Income of the 1-3 planning phase, which starts right after this; start_round() is not called for it
+        for player in self.PLAYERS.values():
+            if player:
+                player.gold_income(1)
         # False stands for no one died
         return False
 

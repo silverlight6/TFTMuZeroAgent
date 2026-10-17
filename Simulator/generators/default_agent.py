@@ -314,14 +314,14 @@ class Default_Agent:
                 if bench_unit:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
-                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
+                            if player.board[x][y] and player.board[x][y].name in BASE_CHAMPION_LIST:
                                 board_copy = deepcopy(player.board)
                                 board_copy[x][y] = bench_unit
                                 bench_score = self.rank_comp(board_copy)
                                 if bench_score > base_score:
                                     # Reset shop checks in case new trait synergies happened due to the change.
                                     self.round_3_10_checks[1] = True
-                                    return "3_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
+                                    return "5_" + str(x_y_to_1d_coord(x, y)) + "_" + str(28 + i)
             self.round_3_10_checks[2] = False
             
         if self.round_3_10_checks[5]:
@@ -481,7 +481,7 @@ class Default_Agent:
                 if bench_unit:
                     for x in range(len(player.board)):
                         for y in range(len(player.board[x])):
-                            if player.board[x][y] and player.board[x][y] in BASE_CHAMPION_LIST:
+                            if player.board[x][y] and player.board[x][y].name in BASE_CHAMPION_LIST:
                                 board_copy = deepcopy(player.board)
                                 board_copy[x][y] = bench_unit
                                 bench_score = self.rank_comp(board_copy)

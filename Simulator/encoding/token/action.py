@@ -314,9 +314,13 @@ class ActionToken(ActionBase, ActionVectorBase):
             return buy_action_mask
 
         for i, champion in enumerate(player.shop_champions):
-            champion_cost = self.util.get_champion_cost(champion)
+            # Bought slots are None; the rest of the shop stays buyable
+            if champion is None:
+                continue
 
-            if champion and player.gold >= champion_cost:
+            champion_cost = player.champion_buy_cost(champion)
+
+            if player.gold >= champion_cost:
                 buy_action_mask[i] = 1
 
         return buy_action_mask

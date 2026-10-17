@@ -12,11 +12,11 @@ class Game_Round:
     def __init__(self, game_player, pool_obj, step_func_obj):
         # Amount of damage taken as a base per round. First number is max round, second is damage
         self.ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
+            [8, 0],
+            [14, 2],
+            [20, 3],
+            [26, 5],
+            [32, 8],
             [10000, 15]
         ]
         self.PLAYER = game_player
@@ -125,7 +125,10 @@ class Game_Round:
         carousel([self.PLAYER], self.current_round, self.pool_obj)
         log_to_file(self.PLAYER)
 
+        # Income of the 1-2 and 1-3 planning phases; start_round() is first called for 1-4
+        self.PLAYER.gold_income(0)
         result = minion.minion_round(self.PLAYER, 0, self.PLAYER)
+        self.PLAYER.gold_income(1)
         self.PLAYER.refresh_shop()
         self.last_opponent = None
         self.last_was_minion = True

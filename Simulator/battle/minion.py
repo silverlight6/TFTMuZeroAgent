@@ -245,8 +245,8 @@ def minion_round(player, current_round, others=None, other_rewards=None):
         combat_result = minion_combat(player, Nexus(), current_round, others, other_rewards)
         # print(f"Result against 1 nexus minion {combat_result}")
 
-    # Rift Herald - give 6 gold and a full item
-    elif current_round >= 33:
+    # Rift Herald - give 6 gold and a full item (6-7 is round 32, 7-7 is round 38)
+    elif current_round >= 32:
         combat_result = minion_combat(player, Herald(), current_round, others, other_rewards)
         # print(f"Result against rift herald {combat_result}")
 
@@ -260,11 +260,11 @@ def minion_round(player, current_round, others=None, other_rewards=None):
 # modeled after combat_phase from game_round.py, except with a minion "player" versus the player
 def minion_combat(player, enemy, round, others=None, other_rewards=True):
     ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
+            [8, 0],
+            [14, 2],
+            [20, 3],
+            [26, 5],
+            [32, 8],
             [10000, 15]
         ]
     from Simulator.battle.combat_context import get_ctx
