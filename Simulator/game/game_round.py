@@ -14,12 +14,14 @@ _np_random = NPRandomProxy()
 class Game_Round:
     def __init__(self, game_players, pool_obj, step_func_obj):
         # Amount of damage taken as a base per round. First number is max round, second is damage
+        # Rounds 0-2 are stage 1, then each stage is 6 rounds (round 3 = 2-1, 9 = 3-1, ...).
+        # Base damage per stage is 0/0/2/3/5/8/15 for stages 1-7 (patch 10.24 values).
         self.ROUND_DAMAGE = [
-            [3, 0],
-            [9, 2],
-            [15, 3],
-            [21, 5],
-            [27, 8],
+            [8, 0],
+            [14, 2],
+            [20, 3],
+            [26, 5],
+            [32, 8],
             [10000, 15]
         ]
         self.PLAYERS = game_players
