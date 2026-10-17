@@ -1062,8 +1062,10 @@ class Player:
     def gold_income(self, t_round):
         self.exp += 2
         self.level_up()
-        if t_round <= 4:
-            starting_round_gold = [0, 2, 2, 3, 4]
+        # Rounds 0-3 are the planning phases of 1-2, 1-3, 1-4 and 2-1 (round 0 is the 1-1 carousel
+        # plus the 1-2 fight), which pay 2 / 2 / 3 / 4 gold. From 2-2 on it is 5 + interest + streak.
+        if t_round <= 3:
+            starting_round_gold = [2, 2, 3, 4]
             self.gold += floor(self.gold / 10)
             self.gold += starting_round_gold[t_round]
             return

@@ -302,8 +302,16 @@ class Game_Round:
         for player in self.PLAYERS.values():
             log_to_file(player)
 
+        # Income of the 1-2 planning phase (there is no separate planning step before this fight)
+        for player in self.PLAYERS.values():
+            if player:
+                player.gold_income(0)
         for player in self.PLAYERS.values():
             minion.minion_round(player, 0, self.PLAYERS.values())
+        # Income of the 1-3 planning phase, which starts right after this; start_round() is not called for it
+        for player in self.PLAYERS.values():
+            if player:
+                player.gold_income(1)
         # False stands for no one died
         return False
 
